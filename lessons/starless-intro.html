@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v355 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v359 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -621,8 +621,9 @@ button.stepper:hover { color: #fff; border-color: #555; }
 #stripWrap { display: flex; justify-content: center; margin-bottom: 8px; }
 .wkey, .bkey { position: absolute; top: 0; border-radius: 0 0 3px 3px; cursor: pointer; }
 /* v355: the finger playing a key, on the key while it sounds */
-.kfing { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 50%; display: none; align-items: center; justify-content: center; font-family: "IBM Plex Sans", sans-serif; font-weight: 700; pointer-events: none; z-index: 5; box-shadow: 0 0 0 1.5px rgba(255,210,122,0.9); }
-.wkey .kfing { background: #1c1c1c; color: #fff; } .bkey .kfing { background: #f0eee6; color: #111; }
+.kfing { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 50%; display: none; align-items: center; justify-content: center; font-family: "IBM Plex Sans", sans-serif; font-weight: 700; pointer-events: none; z-index: 8; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.75), 0 1px 4px rgba(0,0,0,0.5); }
+/* v356: in a piano lesson the struck key shows its solfege beneath the finger, fading up with the tone */
+.ksolb { position: absolute; left: 50%; transform: translateX(-50%); padding: 1px 6px; border-radius: 9px; font-family: var(--font-mono); font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 7; opacity: 0; transition: opacity 45ms linear; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.45); }
 .wkey { background: #e2e0d8; border: 1px solid #141414; }
 .bkey { background: #1a1a1a; border: 1px solid #000; z-index: 2; }
 .klabels {
@@ -711,8 +712,10 @@ body.phone #staffPanel .panel-head .fret-ctl, body.phone #stSave, body.phone #st
 body.phone label[for="stBars"], body.phone #stBars, body.phone label[for="stTsNum"], body.phone #stTsNum, body.phone #stBar .seq-slash, body.phone #stTsDen,
 body.phone label[for="stDiv"], body.phone #stDiv, body.phone #stBar .seq-sp, body.phone #kbTools { display: none !important; }
 body.phone #stBar { gap: 6px 8px; }
+body.phone #stStaffColorBtn { display: none !important; }
 body.phone #staffCv, body.phone #kb { touch-action: pan-y; }
-body.phone #kb.kb-tiny .klabels { display: none; }
+body.phone #kb.kb-tiny .klabels .krow-sol, body.phone #kb.kb-tiny .klabels .krow-hz, body.phone #kb.kb-tiny .bkey .klabels { display: none; }
+body.phone #kb.kb-tiny .wkey .klabels { font-size: 7.5px; bottom: 2px; letter-spacing: -0.03em; }   /* v356: the letters stay on, small, on the white keys */
 </style>
 <!--
 The "TF Staff Glyphs" font embedded above is a subset of Bravura, modified (subset and renamed) under the licence below.
@@ -815,7 +818,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v355</span></h1>
+  <h1>Tonal Field <span>Ring v359</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1364,7 +1367,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <span id="stPosOut" title="bar . beat">1.1</span>
         <select id="stRhythmSel" title="how rhythm is shown: standard notation; standard notation with each tone's sounding length as a bar behind it; or proportional — noteheads at their time and a bar for their length, as in the TAB">
           <option value="std">standard</option><option value="bars">standard + lengths</option><option value="prop">proportional</option></select>
-        <button class="toggle" id="stColorBtn" aria-pressed="true" title="on: noteheads in their tones' function colours. off: plain ink, as on a printed page — a tone lights only as it sounds">tonal color</button>
+        <button class="toggle" id="stColorBtn" aria-pressed="true" title="on: noteheads (and the key signature) in their tones' function colours. off: plain ink, as on a printed page — a tone lights only as it sounds">tonal color</button>
+        <button class="toggle" id="stStaffColorBtn" aria-pressed="false" title="staff color: every line and space of the staff in the colour of the tone it names, as transparent as the house lights say">staff color</button>
         <label for="stLenSel" title="the length the next entered note takes (keys 2–7)">note</label><select id="stLenSel">
           <option value="96">whole</option><option value="48">half</option><option value="24" selected>quarter</option><option value="12">eighth</option><option value="6">16th</option><option value="3">32nd</option></select>
         <button class="toggle" id="stDotBtn" aria-pressed="false" title="dotted: the entered length and a half (key .)">&middot;</button>
@@ -1437,6 +1441,7 @@ function ringSemiOf(k){                 /* pitch class -> the semitone a tap sou
    the outer band has room, and every clearance inside it is preserved by scaling together */
 function ringFit(){ return (showLetters&&ringHz)?0.90:1; }
 var showKeyNames=true, showKeySol=false, showKeyHz=false;   /* the keyboard's labels */
+var kbLesson=false;   /* v356: a piano lesson's keyboard — the struck key's solfege fades up beneath its finger */
 var fbNames=true, fbSol=false, fbHz=false;                  /* the matrix's own, independent */
 var fbLabelScale=1;                                         /* matrix label size, × the fitted size */
 var rOuterF=0.383, rInF=-0.1277;     /* the theory's R: every waterline station is a value of this */
@@ -4558,7 +4563,8 @@ function seqTick(){
       var env=Math.min(1,tOn/a3)*(s3+(1-s3)*Math.exp(-Math.max(0,tOn-a3)/(dd3/3)));
       if(vs3.wave==='string'){ var g3=(vs3.gauge!==undefined?+vs3.gauge:0.5); env*=Math.pow(10,-3*tOn/(9+5*g3)); }
       else if(vs3.wave==='piano'){ var T3=pianoT60(freqOfSemi(vv3.semi)); env*=0.4*Math.pow(10,-3*tOn/T3)+0.6*Math.exp(-tOn/(0.25*T3/6.9)); }   /* v355: the piano's two-stage fall */
-      var na3=vv3.amp0*env*(1-0.92*w3);
+      var na3=vv3.amp0*env*(1-0.92*w3), dp3=1-0.92*w3;
+      if(Math.abs(dp3-(vv3.dip===undefined?1:vv3.dip))>0.01){ vv3.dip=dp3; requestLight(); }   /* v358: the dip alone, for the solfege badge */
       if(Math.abs(na3-vv3.amp)>0.004){ vv3.amp=na3; requestLight(); requestRing(); }
     }
   }
@@ -5650,7 +5656,23 @@ var monoMode=false, MONO='__mono', monoStack=[];
 var glideMode='transit';   /* 'transit' = whole interval in the set time; 'rate' = set time per semitone */
 function freqOfSemi(s){return 261.626*Math.pow(2,s/12);}   /* s = semitones above C4, may be fractional/negative */
 var comp=null, analyser=null;
+/* v359 — THE SILENT SWITCH. An iPhone mutes a page's Web Audio while its ring/silent switch is on silent, though a
+   video on the same page would play. The page says it is playing media, not alert sounds: newer iOS takes that as
+   navigator.audioSession.type = 'playback'; older iOS switches to media playback while an ordinary <audio> element is
+   playing, so a silent one plays in a loop from the first tap. It is paused when the page is hidden. */
+var iosMediaEl=null;
+function iosMediaUnlock(){
+  try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'; }catch(e){}
+  try{
+    if(!iosMediaEl){ iosMediaEl=document.createElement('audio'); iosMediaEl.setAttribute('playsinline',''); iosMediaEl.setAttribute('webkit-playsinline',''); iosMediaEl.loop=true; iosMediaEl.preload='auto';
+      iosMediaEl.src='data:audio/wav;base64,UklGRmQfAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAfAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+      document.addEventListener('visibilitychange',function(){ if(!iosMediaEl)return; if(document.hidden){ try{ iosMediaEl.pause(); }catch(e){} } }); }
+    if(iosMediaEl.paused){ var pr=iosMediaEl.play(); if(pr&&pr.catch)pr.catch(function(){}); }
+  }catch(e){}
+}
+['touchend','pointerup','click','keydown'].forEach(function(t){ document.addEventListener(t,function(){ iosMediaUnlock(); if(typeof AC!=='undefined'&&AC&&AC.state!=='running'){ try{ AC.resume(); }catch(e){} } },true); });
 function ensureAC(){
+  iosMediaUnlock();
   if(AC)return;
   AC=new (window.AudioContext||window.webkitAudioContext)();
   adbg('audio context made, rate '+AC.sampleRate);
@@ -6547,7 +6569,8 @@ function keyChroma(semi){ return ((semi%12)+12)%12; }
 function colorKeyboard(A){
   A=A||activeSemis();
   var _AA=activeSemiAmps();
-  var _FG={}; voices.forEach(function(vv){ if(vv&&vv.finger&&vv.semi!==undefined)_FG[Math.round(vv.semi)]=vv.finger; });   /* v355 */
+  var _FG={}, _DP={}; voices.forEach(function(vv){ if(!vv||vv.semi===undefined)return; var k=Math.round(vv.semi); if(vv.finger)_FG[k]=vv.finger; var d=(vv.dip===undefined?1:vv.dip); _DP[k]=Math.max(_DP[k]===undefined?0:_DP[k],d); });   /* v355; v358 the dip */
+  function _lum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
   keyEls.forEach(function(el,semi){
     var black=isBlack(semi);
     var ch=keyChroma(semi);
@@ -6568,12 +6591,29 @@ function colorKeyboard(A){
         gl.style.background='linear-gradient(to bottom, rgba('+col[0]+','+col[1]+','+col[2]+','+alpha.toFixed(3)+') 0%, rgba('+col[0]+','+col[1]+','+col[2]+',0) 100%)';
       } else gl.style.background='none';
     }
-    var fgN=_FG[semi], fgE=el.querySelector('.kfing');
-    if(fgN){ if(!fgE){ fgE=document.createElement('div'); fgE.className='kfing'; el.appendChild(fgE); }
-      var kw=parseFloat(el.style.width)||20, kh=parseFloat(el.style.height)||80, sz=Math.max(12,Math.min(26,kw*0.82));
-      fgE.style.width=sz+'px'; fgE.style.height=sz+'px'; fgE.style.fontSize=Math.round(sz*0.66)+'px'; fgE.style.top=(black?(kh-sz-5):(kh*0.71-sz/2))+'px';
+    /* v356: the finger badge — twice the size it was, in the key's full chromatic solfege colour; and in a piano
+       lesson, the solfege itself fading up beneath it with the tone's level */
+    /* the badges sit in the keyboard itself, over every key, not inside their own key — a lit key is drawn on a
+       layer of its own, and a badge inside it would be cut off by the next key */
+    var fgN=_FG[semi], fgE=kb.querySelector('.kfing[data-s="'+semi+'"]'), fcol=fn[n].c, kx=(parseFloat(el.style.left)||0)+(parseFloat(el.style.width)||20)/2;
+    var kw=parseFloat(el.style.width)||20, kh=parseFloat(el.style.height)||80, sz=Math.max(24,Math.min(52,kw*1.64));
+    /* stacked up from the key's foot: the letters, then the solfege, then the finger — on a white key in the open part
+       below the black keys where there is room; on a black key the finger at its foot and the solfege just beneath */
+    /* the solfege sits right on the letters (white keys) or on the black key's own face, over its letters, and the
+       finger just above it: while a key sounds, what it is in the field matters more than its letter name */
+    var sfs=Math.max(9,Math.min(15,sz*0.34)), solH=sfs+7;
+    var solTop=Math.max(2,kh-3-solH), ftop=Math.max(2,solTop-3-sz);
+    if(fgN){ if(!fgE){ fgE=document.createElement('div'); fgE.className='kfing'; fgE.dataset.s=semi; kb.appendChild(fgE); }
+      fgE.style.left=kx+'px'; fgE.style.width=sz+'px'; fgE.style.height=sz+'px'; fgE.style.fontSize=Math.round(sz*0.62)+'px'; fgE.style.top=ftop+'px';
+      fgE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; fgE.style.color=_lum(fcol)>140?'#111':'#fff';
       if(fgE.textContent!==String(fgN))fgE.textContent=fgN; fgE.style.display='flex'; }
     else if(fgE)fgE.style.display='none';
+    var sbE=kb.querySelector('.ksolb[data-s="'+semi+'"]');
+    if(kbLesson){ var slit=semiLit(semi,A), dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
+      if(sa>0.01||sbE){ if(!sbE){ sbE=document.createElement('div'); sbE.className='ksolb'; sbE.dataset.s=semi; kb.appendChild(sbE); }
+        sbE.style.left=kx+'px'; sbE.style.fontSize=sfs+'px'; sbE.style.top=solTop+'px';
+        if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
+    else if(sbE)sbE.style.opacity='0';
     var ls=el.querySelector('.klabels');
     if(ls){
       ls.style.color = black ? '#e6e4dc' : '#1c1c1c';
@@ -8308,7 +8348,7 @@ document.getElementById('tgHouseSel').addEventListener('change',function(){ hous
 document.getElementById('houseIn').addEventListener('input',function(){
   houseLights=+this.value;
   document.getElementById('houseVal').textContent=houseLights.toFixed(2);
-  requestLight();
+  requestLight(); if(typeof stRequest==='function')stRequest();
 });
 document.getElementById('spotIn').addEventListener('input',function(){
   spotAlpha=+this.value;
@@ -9286,7 +9326,7 @@ function cfgCapture(){
     view:{ guide:showGuide, lessons:showLessons, plotRing:showRing, string:showStrip, keyboard:showKb,
            spectrogram:showSpec, surface:showFret, tab:showTab, staff:showStaff, print:printMode,
            badges:showBadges, dots:showDots, letters:showLetters, colorLetters:colorLetters,
-           colorKeys:colorKeys, keyNames:showKeyNames, keySol:showKeySol, keyHz:showKeyHz,
+           colorKeys:colorKeys, keyNames:showKeyNames, keySol:showKeySol, keyHz:showKeyHz, kbLesson:kbLesson,
            pcLight:pcLight, houseLights:houseLights, houseSel:houseSel, spotAlpha:spotAlpha,
            ringOct:ringOct, ringHz:ringHz,
            guideCollapsed:guideCollapsed, guideZoom:guideZoom, lessonZoom:lessonZoom,
@@ -9302,7 +9342,7 @@ function cfgCapture(){
     spec:{ height:specH, hist:specHist, fMin:specFMin, fMax:specFMax,
            decades:showDecades, focus:specFocus, modeDelay:specModeDelay, fund:specFund },
     tab:{ lines:tabLines, mpl:tabMPL, first:tabFirstLine, capoRel:tabCapoRel },
-    staff:{ lines:stLines, mpl:stMPL, first:stFirst, rhythm:stRhythm, color:stColor },
+    staff:{ lines:stLines, mpl:stMPL, first:stFirst, rhythm:stRhythm, color:stColor, staffColor:stStaffColor },
     surface:{ badgeIn:fbBadgeIn, badgeOut:fbBadgeOut, strings:fbStrings, frets:fbFrets, stack:fbStack, base:fbBase,
               offs:fbOffs.slice(), fretZero:fbFretZero, warpP:warpP, preset:presetName(), lefty:lefty,
               cellW:fbCellW, cellH:fbCellH, panX:fbPanX, panY:fbPanY,
@@ -9482,6 +9522,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   });
   if(typeof ringSetHz==='function')ringSetHz(!!v.ringHz);
   if(v.ringOct!==undefined&&typeof ringSetOct==='function')ringSetOct(v.ringOct);
+  kbLesson=!!v.kbLesson;   /* v356 */
   pcLight=!!v.pcLight; setChk('tgPcLight',pcLight);
   houseSel=(v.houseSel===true); document.getElementById('tgHouseSel').checked=houseSel; if(typeof requestFret==='function')requestFret();
   if(v.houseLights!==undefined){ houseLights=v.houseLights;
@@ -10959,7 +11000,7 @@ function tabWire(){
    it sounds. Glyphs: a subset of Bravura (SIL Open Font License 1.1, © Steinberg Media Technologies GmbH), renamed
    "TF Staff Glyphs" as the licence requires of a modified copy. */
 var ST_META={"gClef":{"cp":57424,"adv":2.684},"fClef":{"cp":57442,"adv":2.736},"brace":{"cp":57344,"adv":0.336},"noteheadWhole":{"cp":57506,"adv":1.688},"noteheadHalf":{"cp":57507,"adv":1.18},"noteheadBlack":{"cp":57508,"adv":1.18},"restWhole":{"cp":58595,"adv":1.132},"restHalf":{"cp":58596,"adv":1.132},"restQuarter":{"cp":58597,"adv":1.08},"rest8th":{"cp":58598,"adv":1.0},"rest16th":{"cp":58599,"adv":1.28},"rest32nd":{"cp":58600,"adv":1.452},"flag8thUp":{"cp":57920,"adv":1.056},"flag8thDown":{"cp":57921,"adv":1.224},"flag16thUp":{"cp":57922,"adv":1.116},"flag16thDown":{"cp":57923,"adv":1.168},"flag32ndUp":{"cp":57924,"adv":1.048},"flag32ndDown":{"cp":57925,"adv":1.096},"accidentalFlat":{"cp":57952,"adv":0.904},"accidentalNatural":{"cp":57953,"adv":0.672},"accidentalSharp":{"cp":57954,"adv":0.996},"augmentationDot":{"cp":57831,"adv":0.4},"timeSigCommon":{"cp":57482,"adv":1.696},"timeSig0":{"cp":57472,"adv":1.88},"timeSig1":{"cp":57473,"adv":1.336},"timeSig2":{"cp":57474,"adv":1.784},"timeSig3":{"cp":57475,"adv":1.684},"timeSig4":{"cp":57476,"adv":1.88},"timeSig5":{"cp":57477,"adv":1.612},"timeSig6":{"cp":57478,"adv":1.736},"timeSig7":{"cp":57479,"adv":1.764},"timeSig8":{"cp":57480,"adv":1.744},"timeSig9":{"cp":57481,"adv":1.736}};
-var showStaff=false, stLines=1, stMPL=2, stFirst=0, stRhythm='std', stColor=true;
+var showStaff=false, stLines=1, stMPL=2, stFirst=0, stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
 var stSel=[], stCur=null, stLenT=24, stDotted=false, stDrag=null, stRAF=null, stHeads=[], stFontReady=false;
 var ST_S=1.5, ST_TICKS=96;                       /* 96 ticks to a whole note: every grid, binary or triplet, lands on it */
 var ST_TOP_LS=7, ST_GAP_LS=6, ST_BOT_LS=5.5;   /* v355: room below for the left hand's fingering and the pedal */       /* a line: bar numbers and the chord row, the treble, the gap, the bass, room below */
@@ -11130,16 +11171,26 @@ function stRender(){
   lines.forEach(function(line){
     var g=geoms[line], L=line-stFirst, y0=L*lh, xEnd=g.barX[g.b1-g.b0], tT=stStaffTop(L,0), bT=stStaffTop(L,1), bB=bT+4*LS, sysX=1.6*LS;
     c.strokeStyle=inkA+'0.75)';
+    if(stStaffColor){
+      /* v357 · staff color: each line and space, bar by bar, in the colour of the tone it names under the key there —
+         the spaces as bands as transparent as the house lights, the lines drawn in their colour */
+      var hl=Math.max(0,Math.min(1,houseLights));
+      for(var bi=0;bi<g.b1-g.b0;bi++){ var bcol=(g.b0+bi)*cpb, bf=stFifthsAt(bcol), bx0=(bi===0?sysX:g.barX[bi]), bx1=g.barX[bi+1];
+        for(var s1=0;s1<2;s1++){ var lo=s1?-10:2;
+          for(var st=lo;st<=lo+8;st++){ var sc=stStepColor(st,bcol,bf), yy=stY(L,s1,st);
+            c.fillStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+hl.toFixed(3)+')'; c.fillRect(bx0,yy-LS/4,bx1-bx0,LS/2);
+            if(stMod(st-lo,2)===0){ c.strokeStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+Math.min(1,0.45+hl).toFixed(3)+')'; hline(bx0,bx1,yy,Math.max(1,0.16*LS)); } } } }
+    } else
     for(var s=0;s<2;s++)for(var k=0;k<5;k++)hline(sysX,xEnd,stStaffTop(L,s)+k*LS,Math.max(1,0.13*LS));
     c.strokeStyle=ink; vline(sysX,tT,bB,Math.max(1.2,0.16*LS));
     c.fillStyle=ink; var bh=bB-tT; glyph('brace',0.1*LS,bB,bh/0.997);
     glyph('gClef',2.0*LS,stY(L,0,4)); glyph('fClef',2.0*LS,stY(L,1,-4));
-    stKeySig(c,5.2*LS,L,g.f0,GF);
+    stKeySig(c,5.2*LS,L,g.f0,GF,g.b0*cpb);
     if(g.ts){ var tx=(5.2+Math.abs(g.f0)*1.0+0.4)*LS; [[0,8,4],[1,-4,-8]].forEach(function(q){ stTimeDigits(c,String(seq.tsNum),tx,stY(L,q[0],q[1]),GF,LS); stTimeDigits(c,String(seq.tsDen),tx,stY(L,q[0],q[2]),GF,LS); }); }
     for(var i=0;i<=g.b1-g.b0;i++){ var bx=g.barX[i], b=g.b0+i;
       if(i>0){ var last=(b>=bars); c.strokeStyle=ink;
         if(last){ vline(bx-0.9*LS,tT,bB,Math.max(1,0.16*LS)); vline(bx-0.25*LS,tT,bB,0.5*LS); }
-        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); var kc=g.chg[i]; if(kc){ vline(bx-0.35*LS,tT,bB,Math.max(1,0.16*LS)); stKeyChange(c,bx+0.5*LS,L,kc,GF); } } }
+        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); var kc=g.chg[i]; if(kc){ kc.col=b*cpb; vline(bx-0.35*LS,tT,bB,Math.max(1,0.16*LS)); stKeyChange(c,bx+0.5*LS,L,kc,GF); } } }
       if(b<g.b1){ c.fillStyle=dim; c.font='italic '+Math.round(1.25*LS)+'px "IBM Plex Sans", sans-serif'; c.fillText(String(b+1),bx+0.3*LS,y0+1.6*LS); }
     }
     /* the chord row, as the TAB reads it */
@@ -11159,7 +11210,7 @@ function stRender(){
       var sp=stSpell(seqSemi(n.pitch),stFifthsAt(n.start)), col=stHeadColor(n,sounding);
       lines.forEach(function(line){ var g=geoms[line], lc0=line*stMPL*cpb, lc1=Math.min(seq.divs,(line+1)*stMPL*cpb), a=Math.max(n.start,lc0), z=Math.min(e,lc1); if(z<=a)return;
         var L=line-stFirst, y=stY(L,s,sp.step), x0=stColX(g,a)+(a===n.start?0.2*LS+HW/2:0), x1=stColX(g,z);
-        c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(sounding?0.62:(playing?0.28:0.4))+')'; c.fillRect(x0,y-0.3*LS,Math.max(1,x1-x0),0.6*LS); }); });
+        c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(sounding?0.8:(playing?0.4:0.55))+')'; c.fillRect(x0,y-0.3*LS,Math.max(1,x1-x0),0.6*LS); }); });
   }
   /* the notes */
   var ties=[], trips={}, fingers=[];
@@ -11194,8 +11245,8 @@ function stRender(){
       /* heads */
       var pe=(stRhythm==='prop')?Infinity:it.col+it.t/(ST_TICKS/seq.div);
       heads.forEach(function(hd,hi){ var n=hd.n, e=n.start+n.dur, sounding=(playing||pos>1e-9)&&pos>=Math.max(it.col,n.start)&&pos<Math.min(pe,e);
-        var x=hx+(disp[hi]?disp[hi]*hw:0), y=stY(L,s,hd.step), col=stHeadColor(n,sounding), alpha=sounding?1:(playing?0.6:0.95);
-        if(sounding){ c.save(); c.shadowColor=stColor?('rgba('+col[0]+','+col[1]+','+col[2]+',0.95)'):'rgba(255,255,255,0.8)'; c.shadowBlur=1.2*LS; c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+',1)'; glyph(hk,x,y); c.restore(); }
+        var x=hx+(disp[hi]?disp[hi]*hw:0), y=stY(L,s,hd.step), col=stHeadColor(n,sounding), alpha=sounding?1:(playing?0.82:1);
+        if(sounding){ c.save(); c.shadowColor=stColor?('rgba('+col[0]+','+col[1]+','+col[2]+',1)'):'rgba(255,255,255,0.8)'; c.shadowBlur=2.2*LS; c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+',1)'; glyph(hk,x,y); c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+',1)'; glyph(hk,x,y); c.restore(); }
         c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+alpha+')'; glyph(hk,x,y);
         if(selSet[n.id]){ c.strokeStyle=gold; c.lineWidth=Math.max(1,0.14*LS); c.beginPath(); c.ellipse(x+hw/2,y,hw/2+0.3*LS,0.8*LS,0,0,2*Math.PI); c.stroke(); }
         if(!it.tieIn)stHeads.push({id:n.id,x:x,y:y,w:hw,L:L,staff:s,step:hd.step,col:n.start});
@@ -11283,21 +11334,30 @@ function stRender(){
 /* a notehead's colour: its tone's function colour (dark while a blinder hides it, until it sounds), or plain ink */
 function stHeadColor(n,sounding){
   if(!stColor)return sounding?[255,255,255]:[210,210,205];
-  var col=seqNoteEventColor(n);
-  if(col[0]+col[1]+col[2]<60)col=sounding?unblinded(function(){ return seqNoteEventColor(n); }):[70,70,70];
-  return col;
+  /* v356: the note's function colour at full strength (not the valence-faded event colour), brighter still as it
+     sounds; a tone the blinders hide stays dark until it sounds */
+  var semi=seqSemi(n.pitch), ch=((semi%12)+12)%12, ph=seqPhiAtCol(n.start), j=Math.round(fnUAt(ch,ph))%12, c0=fn[(j+12)%12].c;
+  var blind=seqNoteEventColor(n); if(blind[0]+blind[1]+blind[2]<60&&!sounding)return [70,70,70];
+  if(!sounding)return [c0[0],c0[1],c0[2]];
+  return [Math.round(c0[0]+(255-c0[0])*0.35),Math.round(c0[1]+(255-c0[1])*0.35),Math.round(c0[2]+(255-c0[2])*0.35)];
 }
-function stKeySig(c,x,L,f,GF){
+/* v357: the colour of the tone a staff position names in the key in force — its letter, altered as the key says,
+   read against the field at that column */
+function stStepColor(step,col,f){ var ka=stKeyAlter(f), pc=stMod(stSemiOf(step,ka[stMod(step,7)]),12), j=Math.round(fnUAt(pc,seqPhiAtCol(col)))%12; return fn[(j+12)%12].c; }
+function stKeySig(c,x,L,f,GF,col){
   if(!f)return; var LS=stLS(), sharp=f>0, k=sharp?'accidentalSharp':'accidentalFlat';
   c.fillStyle='#d2d2cd'; c.font=GF;
-  for(var s=0;s<2;s++)for(var i=0;i<Math.abs(f);i++){ var step=(sharp?ST_SHARP_STEPS:ST_FLAT_STEPS)[s][i]; c.fillText(stG(k),x+i*1.0*LS,stY(L,s,step)); }
+  /* v357: with tonal colour on, each sharp or flat takes the colour of the tone it makes — one sharp is Ti */
+  for(var s=0;s<2;s++)for(var i=0;i<Math.abs(f);i++){ var step=(sharp?ST_SHARP_STEPS:ST_FLAT_STEPS)[s][i];
+    if(stColor&&col!==undefined){ var kc=stStepColor(step,col,f); c.fillStyle='rgb('+kc[0]+','+kc[1]+','+kc[2]+')'; }
+    c.fillText(stG(k),x+i*1.0*LS,stY(L,s,step)); }
 }
 function stKeyChange(c,x,L,kc,GF){
   var LS=stLS(), a=kc.a, b=kc.b, sharpA=a>0, xs=x;
   c.fillStyle='#d2d2cd'; c.font=GF;
   var from=(b===0||(a>0)!==(b>0))?0:Math.abs(b);
   for(var s=0;s<2;s++){ var xi=x; for(var i=from;i<Math.abs(a);i++){ var step=(sharpA?ST_SHARP_STEPS:ST_FLAT_STEPS)[s][i]; c.fillText(stG('accidentalNatural'),xi,stY(L,s,step)); xi+=1.0*LS; } }
-  xs=x+kc.nat*1.0*LS; stKeySig(c,xs,L,b,GF);
+  xs=x+kc.nat*1.0*LS; stKeySig(c,xs,L,b,GF,kc.col);
 }
 function stTimeDigits(c,txt,x,y,GF,LS){ c.fillStyle='#d2d2cd'; c.font=GF; var w=0, i; for(i=0;i<txt.length;i++)w+=stGW('timeSig'+txt[i])*LS; var x0=x+(1.9*LS-w)/2; for(i=0;i<txt.length;i++){ c.fillText(stG('timeSig'+txt[i]),x0,y); x0+=stGW('timeSig'+txt[i])*LS; } }
 /* ---- the playhead pages the staff, as it does the TAB ---- */
@@ -11385,6 +11445,7 @@ function stBarSync(){
   var pb=document.getElementById('stPlay'); if(pb){ var gl=seq.playing?'&#9632;':'&#9654;'; if(pb.dataset.g!==gl){ pb.innerHTML=gl; pb.dataset.g=gl; } pb.setAttribute('aria-pressed',seq.playing?'true':'false'); }
   var lp=document.getElementById('stLoop'); if(lp)lp.setAttribute('aria-pressed',seq.loop?'true':'false');
   var cb=document.getElementById('stColorBtn'); if(cb)cb.setAttribute('aria-pressed',stColor?'true':'false');
+  var scb=document.getElementById('stStaffColorBtn'); if(scb)scb.setAttribute('aria-pressed',stStaffColor?'true':'false');
   var db=document.getElementById('stDotBtn'); if(db)db.setAttribute('aria-pressed',stDotted?'true':'false');
   var fs=document.getElementById('stFingerSel'); if(fs&&fs!==f){ var sn=stSelNotes(), fv=sn.length?(sn[0].finger||''):''; if(fs.value!==String(fv))fs.value=String(fv); fs.disabled=!sn.length; }
   var tt=document.getElementById('stTitleIn'); if(tt&&tt!==f&&tt.value!==(seq.title||''))tt.value=seq.title||'';
@@ -11403,6 +11464,7 @@ function stBarWire(){
   var tr=document.getElementById('stTrIn'); if(tr){ tr.addEventListener('change',function(){ tabTransposeTo(this.value); this.value=seq.tabTr||0; stRequest(); }); tr.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
   var rs=document.getElementById('stRhythmSel'); if(rs)rs.addEventListener('change',function(){ stRhythm=this.value; stRequest(); });
   var cb=document.getElementById('stColorBtn'); if(cb)cb.addEventListener('click',function(){ stColor=!stColor; stBarSync(); stRequest(); });
+  var scb=document.getElementById('stStaffColorBtn'); if(scb)scb.addEventListener('click',function(){ stStaffColor=!stStaffColor; stBarSync(); stRequest(); });
   var ls=document.getElementById('stLenSel'); if(ls)ls.addEventListener('change',function(){ stSetLen(+this.value); });
   var fsl=document.getElementById('stFingerSel'); if(fsl)fsl.addEventListener('change',function(){ stSetFinger(+this.value||0); });
   var db=document.getElementById('stDotBtn'); if(db)db.addEventListener('click',function(){ stDotted=!stDotted; stBarSync(); if(stSel.length)stSetLen(stLenT); else stRequest(); });
@@ -11491,13 +11553,13 @@ function stWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); stBarSync(); };
   var tg=document.getElementById('tgStaff'); if(tg)tg.addEventListener('change',function(){ showStaff=this.checked; syncCols(); if(showStaff){ stWire(); stSize(); stRequest(); } });
 })();
-function stCaptureCfg(){ return {lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor}; }
+function stCaptureCfg(){ return {lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,staffColor:stStaffColor}; }
 function stApplyCfg(o){ if(!o)return; stLines=seqClamp(Math.round(+o.lines)||1,1,24); stMPL=seqClamp(Math.round(+o.mpl)||2,1,16); stFirst=Math.max(0,Math.round(+o.first)||0);
-  if(o.rhythm==='std'||o.rhythm==='bars'||o.rhythm==='prop')stRhythm=o.rhythm; stColor=(o.color!==false);
+  if(o.rhythm==='std'||o.rhythm==='bars'||o.rhythm==='prop')stRhythm=o.rhythm; stColor=(o.color!==false); stStaffColor=!!o.staffColor;
   var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stLines; if(b)b.value=stMPL; if(c)c.value=stFirst+1;
   if(typeof stBarSync==='function')stBarSync(); stRequest(); }
 
-window.tf={ audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
