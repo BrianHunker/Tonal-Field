@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v359 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v360 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -818,7 +818,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v359</span></h1>
+  <h1>Tonal Field <span>Ring v360</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -6012,12 +6012,16 @@ function mkPianoSource(f,vel){
   vel=Math.max(0.05,Math.min(1,(vel===undefined||vel===null)?0.8:vel));
   var t=AC.currentTime, fc=AC.createConstantSource(); fc.offset.value=f;
   var out=AC.createGain(), lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=0.5;
-  var B=Math.max(0.00005,Math.min(0.004,0.00028*Math.pow(f/261.6,1.1))), T1=pianoT60(f), nmax=Math.max(2,Math.min(12,Math.floor(9000/f)));
-  var fc0=Math.min(16000,f*(3+14*vel)+800);
-  lp.frequency.setValueAtTime(fc0,t); lp.frequency.setTargetAtTime(Math.max(f*2.2,700),t+0.01,0.35+0.9*(1-vel));
+  /* v360: the treble softened — a real piano's upper notes carry few strong overtones (the hammers there are small
+     and the strings short), so above middle C the overtone count, their slope and the brightness close in with
+     pitch, and the level eases off; low and middle notes are as before */
+  var hi=Math.max(0,Math.min(2.2,Math.log(f/261.6)/Math.LN2));   /* octaves above middle C */
+  var B=Math.max(0.00005,Math.min(0.004,0.00028*Math.pow(f/261.6,1.1))), T1=pianoT60(f), nmax=Math.max(2,Math.min(12,Math.floor((9000-2600*hi)/f)));
+  var fc0=Math.min(16000-3800*hi,f*(3+14*vel)/(1+0.9*hi)+800);
+  lp.frequency.setValueAtTime(fc0,t); lp.frequency.setTargetAtTime(Math.max(f*(2.2-0.35*hi),700),t+0.01,(0.35+0.9*(1-vel))/(1+0.8*hi));
   var oscs=[], norm=0, n, s_;
   for(n=1;n<=nmax;n++){
-    var r=n*Math.sqrt(1+B*n*n), a=Math.pow(n,-(1.55-0.75*vel))*(0.3+0.7*Math.abs(Math.sin(Math.PI*n*0.118)));
+    var r=n*Math.sqrt(1+B*n*n), a=Math.pow(n,-(1.55-0.75*vel+0.55*hi))*(0.3+0.7*Math.abs(Math.sin(Math.PI*n*0.118)));
     var tau=(T1/(1+0.45*Math.pow(n-1,1.25)))/6.9, strings=(n<=3)?2:1;
     for(s_=0;s_<strings;s_++){
       var o=AC.createOscillator(); o.type='sine'; o.frequency.value=0;
@@ -6028,11 +6032,11 @@ function mkPianoSource(f,vel){
       o.connect(g); g.connect(lp); oscs.push(o); norm+=amp;
     }
   }
-  lp.connect(out); out.gain.value=2.4/Math.max(0.8,norm);
+  lp.connect(out); out.gain.value=2.4/Math.max(0.8,norm)*Math.pow(0.8,Math.max(0,hi-0.7));
   /* the felt: a short band of noise at the strike */
   if(!pianoNoiseBuf){ var nl=Math.floor(AC.sampleRate*0.06); pianoNoiseBuf=AC.createBuffer(1,nl,AC.sampleRate); var nd=pianoNoiseBuf.getChannelData(0); for(var i=0;i<nl;i++)nd[i]=(Math.random()*2-1); }
   var nz=AC.createBufferSource(); nz.buffer=pianoNoiseBuf; var bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=Math.max(700,Math.min(3800,f*2.5)); bp.Q.value=0.8;
-  var ng=AC.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.linearRampToValueAtTime(0.09*Math.pow(vel,1.5),t+0.001); ng.gain.setTargetAtTime(0.0001,t+0.002,0.012);
+  var ng=AC.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.linearRampToValueAtTime(0.09*Math.pow(vel,1.5)/(1+0.8*hi),t+0.001); ng.gain.setTargetAtTime(0.0001,t+0.002,0.012);
   nz.connect(bp); bp.connect(ng); ng.connect(out);
   var stopped=false;
   var src={ frequency:fc.offset,
