@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v325 -->
+<!-- Tonal Field — Ring — v347 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tonal Field — Ring v325</title>
+<title>Starless Intro — Tonal Field</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
 <style>
 :root {
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -33,6 +33,8 @@ body {
 .header h1 { font-family: var(--font-serif); font-size: 17px; font-weight: 500; font-style: italic; color: #e8e6dc; }
 .header h1 span { font-size: 11px; font-weight: 400; font-style: normal; color: #777; margin-left: 6px; font-family: var(--font-sans); }
 .header .tagline { font-size: 11px; color: var(--dim); }
+.lessons-link { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); text-decoration: none; border: 1px solid #3a3a3a; border-radius: 3px; padding: 3px 8px; }
+.lessons-link:hover { color: var(--gold); border-color: var(--gold); }
 .attribution {
   font-family: var(--font-mono); font-size: 10px; color: #888;
   padding-left: 12px; border-left: 1px solid #333; letter-spacing: 0.02em; margin-left: auto;
@@ -51,17 +53,17 @@ body {
 .global-toolbar {
   width: 100%; padding: 7px 22px;
   border-bottom: 1px solid var(--line);
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;   /* v253: equal sides, equation centred */
+  display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 10px;   /* v253: equal sides, equation centred; v341: the sides may shrink below their content and wrap inside their half, so neither one pushes the equation off centre */
   background: #1e1e1e; position: relative;
 }
 .global-toolbar .spacer { flex: 1; }
-.global-toolbar .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.global-toolbar .tb-left { display: flex; align-items: center; gap: 6px; }
+.global-toolbar .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
+.global-toolbar .tb-left { display: flex; align-items: center; gap: 8px 6px; flex-wrap: wrap; min-width: 0; }
 .global-toolbar .views-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
-.global-toolbar .view-btn { min-width: 28px; padding-left: 8px; padding-right: 8px; }
+.global-toolbar .view-btn { min-width: 0; padding-left: 5px; padding-right: 5px; font-weight: 700; text-transform: none;  white-space: nowrap; }
 .global-toolbar .view-btn.empty { opacity: 0.45; }
-.global-toolbar .tb-snd { display: flex; align-items: center; gap: 6px; margin-left: 14px; }
-.global-toolbar .tb-snd input[type=range] { width: 90px; }
+.global-toolbar .tb-snd { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.global-toolbar .tb-snd input[type=range] { width: 64px; }
 .win-head .head-dial { display: flex; align-items: center; gap: 6px; }
 .win-head .head-dials { display: flex; align-items: center; gap: 12px; justify-self: center; min-width: 0; }
 .win-head .head-dial label { color: var(--dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -103,6 +105,8 @@ input[type=range]::-webkit-slider-thumb {
 }
 input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%; background: #b8b8b4; border: none; cursor: pointer; }
 .snd-group { display: flex; align-items: center; gap: 8px; }
+.snd-group .rev-lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #8a8a86; margin-left: 4px; }
+#revSlider { width: 56px; }
 .kb-tools-body .snd-group { display: flex; align-items: center; gap: 6px; }
 .kb-tools-body .snd-group input[type=range] { width: 96px; }
 
@@ -142,7 +146,12 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
   margin: 2px 0 2px;
 }
 .fold-row input[type=range] { width: 100%; }
-.win.compact #windRow, .win.compact #ringRow2, .win.compact #foldRow, .win.compact .head-dials { display: none !important; }
+.win.compact #windRow, .win.compact #ringRow2, .win.compact #foldRow { display: none !important; }
+/* v342: a small ring window keeps the dial in its header, centred; only mod and cognition step aside */
+.win.compact .head-dials .head-dial:not(#dialGroup) { display: none !important; }
+.win.compact #dialGroup label { display: none; }
+#win-ring .win-head > span:first-child { white-space: nowrap; }   /* v345: one header row: the dial is centred, and only if the title would run under it does it give way to the right */
+.win-head .head-dial select { font-size: 11px; padding: 2px 4px; }
 .fold-navwrap { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #3a3a3a; }
 .fold-nav { display: flex; justify-content: space-between; gap: 10px; margin: 0; }
 .fold-nav a.toc-link { flex: 0 1 auto; }
@@ -653,24 +662,53 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
 #fmapToggles{display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:2px 8px;}
 #fmapToggles button{font-size:10px;padding:1px 7px;}
 #fmapCanvas{display:block;width:100%;}
+
+/* ═══ v346 · PHONE LAYOUT ═══ body.phone is set on narrow screens (and on phones turned sideways). The desk's
+   free-floating windows give way to a fixed stack: TAB, ring, fretboard, full width in portrait; TAB and ring
+   side by side in landscape, the fretboard under both. The header and toolbar keep only what a student needs. */
+body.phone main { padding: 8px 8px 24px; }
+body.phone .header { padding: 8px 12px; gap: 10px; }
+body.phone .header h1 span, body.phone .header .tagline, body.phone .site-link, body.phone .attribution { display: none; }
+body.phone .global-toolbar { display: flex; flex-wrap: wrap; justify-content: center; padding: 8px 10px; gap: 8px; }
+body.phone .global-toolbar .tb-left { order: 1; width: 100%; justify-content: center; }
+body.phone .gx { order: 2; flex: 0 0 100%; width: auto; text-align: center; margin: 2px 0; overflow: hidden; }
+body.phone .global-toolbar .tb-right { order: 3; width: 100%; justify-content: center; gap: 6px; }
+body.phone .views-label, body.phone #midiChip, body.phone #synthBtn, body.phone #labelsBtn, body.phone #dispBtn,
+body.phone #clearAll, body.phone .snd-group .rev-lbl, body.phone #revSlider { display: none !important; }
+body.phone .global-toolbar .tb-snd { margin-left: 4px; }
+body.phone .win-grip, body.phone .win-close { display: none !important; }
+body.phone .win-handle { cursor: default; }
+body.phone #fretPanel .panel-head .fret-ctl { display: none !important; }
+.fret-ctl-phone { display: none; }
+body.phone .fret-ctl-phone { display: inline-flex; gap: 4px; }
+body.phone .fret-ctl-phone .toggle { font-size: 9px; padding: 3px 8px; }
+body.phone #fretPanel .panel-head { align-items: center !important; }
+body.phone #fbTitle { font-size: 9px; }
+/* v347: the TAB heading keeps only 'from', to page by hand when stopped */
+body.phone #tabPanel .panel-head label[for="tabLinesIn"], body.phone #tabLinesIn, body.phone #tabPanel .panel-head label[for="tabMPLIn"],
+body.phone #tabMPLIn, body.phone #tabInfo { display: none !important; }
+body.phone #tabSave, body.phone #tabLoad, body.phone #tabClear, body.phone label[for="tabBars"], body.phone #tabBars,
+body.phone label[for="tabTsNum"], body.phone #tabTsNum, body.phone #tabBar .seq-slash, body.phone #tabTsDen,
+body.phone label[for="tabDiv"], body.phone #tabDiv, body.phone #tabBar .seq-sp { display: none !important; }
+body.phone #tabBar { gap: 6px 8px; }
+body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }   /* a finger can still scroll the page */
 </style>
 </head>
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v325</span></h1>
+  <h1>Tonal Field <span>Ring v347</span></h1>
   <span class="tagline">ici bas, et retour</span>
+  <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
 </div>
 
 <div class="global-toolbar">
   <span class="tb-left">
-    <span class="views-label" title="views: which windows are shown, and where. 1 is the boot view. Shift-click a number to store the current arrangement in it.">views</span>
-    <button class="toggle view-btn" data-view="1" aria-pressed="false">1</button>
-    <button class="toggle view-btn" data-view="2" aria-pressed="false">2</button>
-    <button class="toggle view-btn" data-view="3" aria-pressed="false">3</button>
-    <button class="toggle view-btn" data-view="4" aria-pressed="false">4</button>
+    <span class="views-label" title="views: the lesson's arrangements. Shift-click a view to store the current arrangement in it.">views</span>
+    <button class="toggle view-btn" data-view="1" aria-pressed="false">Starless</button>
+    <button class="toggle view-btn" data-view="2" aria-pressed="false">Re-Mi-La</button>
   </span>
   <div class="gx"><span class="f-g" id="t-g" title="g(x): the tonal field \u2014 valence as a function of chroma x, one turn of x being one octave. Positive is rest, negative is unrest, zero is the hinge.">g(x)</span><span class="f-x"> = </span><span id="t-beat" title="the beat: a slow envelope (one cycle per octave) shaping a fast carrier (six cycles per octave) \u2014 the six-fold carrier is the tritone axis; the envelope decides which half is up"><span class="f-env" title="the envelope: one cycle per octave, the slow wave that says where the field rests">cos(x)</span><span class="f-x">&middot;</span><span class="f-car" title="the carrier: six cycles per octave \u2014 every tritone flips its sign">cos(6x)</span></span><span class="f-x"> + </span><span id="t-res" title="the residue: the same envelope and carrier in quadrature, one sixth as strong \u2014 what tilts the field from perfect symmetry into the 5:2:5 shape"><span class="f-x">(1/6)&middot;</span><span class="f-env" title="the envelope in quadrature">sin(x)</span><span class="f-x">&middot;</span><span class="f-car" title="the carrier in quadrature">sin(6x)</span></span><span class="f-x"> = </span><span id="t-spec" title="the same field as two pure tones in chroma: five and seven cycles per octave, weighted 7:5 \u2014 the fourth and the fifth, the two ways round the circle"><span class="f-s5" title="five cycles per octave, weight 7/12: the chain of fourths">(7/12)&middot;cos(5x)</span><span class="f-x"> + </span><span class="f-s7" title="seven cycles per octave, weight 5/12: the chain of fifths">(5/12)&middot;cos(7x)</span></span></div>
   <div class="tb-right">
@@ -761,6 +799,7 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
     <details class="dm-bank"><summary>lighting</summary>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgPcLight"><label for="tgPcLight">light all octaves (pitch class)</label></div></div>
     <div class="dm-slider"><label>house lights <span id="houseVal">0.25</span></label><input type="range" id="houseIn" min="0.05" max="1" step="0.01" value="0.25"></div>
+    <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgHouseSel"><label for="tgHouseSel" title="on: outside the fretboard selection the surface goes dark. off: the house lights and mode light carry on outside it, so only the badges dim">house lights &middot; selection only</label></div></div>
     <div class="dm-slider"><label>spotlights <span id="spotVal">0.00</span></label><input type="range" id="spotIn" min="0" max="1" step="0.01" value="0"></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgMagnet" checked><label for="tgMagnet">magnet</label></div></div>
     </details>
@@ -1031,22 +1070,6 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
     <button class="toggle" id="ringHzBtn" aria-pressed="false" title="the frequency each tone sounds at, in the octave set here">Hz</button>
   </div>
   <div class="stage">
-    <div class="rot-ctl rot-left">
-      <button class="icon" id="rotCCW" aria-label="Rotate counter-clockwise">&#8634;</button>
-      <div class="rot-row">
-        <button class="rstep" data-for="ccwVal" data-d="-1">&minus;</button>
-        <input type="number" id="ccwVal" min="0.5" max="6" step="0.5" value="0.5" aria-label="Counter-clockwise step in semitones">
-        <button class="rstep" data-for="ccwVal" data-d="1">+</button>
-      </div>
-    </div>
-    <div class="rot-ctl rot-right">
-      <button class="icon" id="rotCW" aria-label="Rotate clockwise">&#8635;</button>
-      <div class="rot-row">
-        <button class="rstep" data-for="cwVal" data-d="-1">&minus;</button>
-        <input type="number" id="cwVal" min="0.5" max="6" step="0.5" value="0.5" aria-label="Clockwise step in semitones">
-        <button class="rstep" data-for="cwVal" data-d="1">+</button>
-      </div>
-    </div>
     <canvas id="cv" aria-label="Rotating tonal field ring. Drag to rotate the key."></canvas>
   </div>
   <div class="fold-row" id="foldRow">
@@ -1104,6 +1127,7 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
             <svg id="spkOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           </button>
           <input type="range" id="volSlider" min="0" max="1" step="0.01" value="0.6" aria-label="Volume">
+          <span class="rev-lbl" title="the room on the strings">rev</span><input type="range" id="revSlider" min="0" max="1" step="0.01" value="0.3" aria-label="Reverb" title="reverb: the room on the plucked strings">
         </div>
       </div>
     </div>
@@ -1125,6 +1149,7 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
     <div class="panel" id="fretPanel">
       <div class="panel-head" style="align-items:flex-start;">
         <span id="fbTitle">fretboard &middot; fourths &times; semitones</span>
+        <span id="fbPhoneLab" class="fret-ctl-phone"><button class="toggle" id="fbPhLet" aria-pressed="true" title="note names on the fretboard">letters</button><button class="toggle" id="fbPhSol" aria-pressed="false" title="solfège on the fretboard">solfège</button></span>
         <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="fret-ctl">
           <select id="fbPreset">
@@ -1140,8 +1165,11 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
           <button class="toggle" id="fbRespBtn" aria-pressed="false" title="which sources each string answers to: every source, incoming MIDI, or one sequencer voice">response</button>
           <label>strings</label><input id="fbStrings" type="number" min="1" max="25" value="6">
           <label>frets</label><input id="fbFrets" type="number" min="1" max="25" value="23">
+          <label title="the capo: a second nut, clamped at this fret (0 = no capo)">capo</label><input id="fbCapo" type="number" min="0" max="12" value="0" title="capo fret, 0 to 12">
           <button class="toggle" id="fbFitAllBtn" title="fit the whole fretboard in the window">fit</button>
           <button class="toggle" id="fbFitSelBtn" title="fit the selected region (rows and/or columns) in the window">fit sel</button>
+          <button class="toggle" id="fbDynRowBtn" aria-pressed="true" title="live strings: a string selects itself while it sounds and for a second after; the manual string band is off">live strings</button>
+          <button class="toggle" id="fbDynColBtn" aria-pressed="true" title="live frets: a sounding fret and the half steps either side select themselves while it sounds; the manual fret band is off">live frets</button>
           <button class="toggle" id="fretCollapseBtn" title="collapse the fretboard to a sidebar">&#8250;</button>
         </span>
         <span class="fret-ctl" id="fbLabelCtl">
@@ -1179,7 +1207,12 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
         <button class="toggle" id="tabPlay" title="play / stop (space)">&#9654;</button>
         <button class="toggle" id="tabStop" title="stop and return the playhead to the start">&#9632;&#9666;</button>
         <button class="toggle" id="tabLoop" aria-pressed="true" title="loop the region">loop</button>
+        <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
+        <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
+        <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
         <span id="tabPosOut" title="bar . beat">1.1</span>
+        <label for="tabTrIn" title="transpose the whole phrase, in semitones from where it was written: every fret number moves by this much, and the mode events and the field go with it">transpose</label><input type="number" id="tabTrIn" min="-12" max="12" step="1" value="0">
+        <label for="tabCapoRel" title="checked: fret numbers are counted from the capo, as capo TAB is written. unchecked: the actual fret on the neck" style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="tabCapoRel" checked style="accent-color:#b8b8b4;margin:0;">rel. capo</label>
         <span class="seq-sp"></span>
         <label for="tabBpm">bpm</label><input type="number" id="tabBpm" min="20" max="400" step="1" value="120">
         <label for="tabBars">bars</label><input type="number" id="tabBars" min="1" max="96" step="1" value="1">
@@ -4616,7 +4649,7 @@ function seqSnapshot(){
     zoomX:seq.zoomX, zoomY:seq.zoomY, catch:seq.catch, modeOn:seq.modeOn, gShade:!!seq.gShade, centerRow:seqCenterRow(),
     vsynth:seq.vsynth.slice(0,seq.nv).map(function(x){ return x?{wave:x.wave,vowel:x.vowel,ffollow:!!x.ffollow,fvowel:x.fvowel!==false,fsize:x.fsize||1,vglide:x.vglide||0.15,lpf:(x.lpf!==undefined?x.lpf:0.4),a:x.a,d:x.d,s:x.s,r:x.r,vol:x.vol,
       mono:!!x.mono,glide:x.glide,glideMode:x.glideMode,gauge:x.gauge}:null; }),
-    title:seq.title||'', loop:seq.loop, loopA:seq.loopA, loopB:seq.loopB, nv:seq.nv,
+    title:seq.title||'', tabTr:seq.tabTr||0, loop:seq.loop, loopA:seq.loopA, loopB:seq.loopB, nv:seq.nv,
     names:seq.names.slice(0,seq.nv), mutes:seq.mutes.slice(0,seq.nv), solos:seq.solos.slice(0,seq.nv),
     tool:seq.tool,
     notes:seq.notes.map(function(n){ var o={start:n.start,dur:n.dur,pitch:n.pitch,vel:n.vel,voice:n.voice}; if(n.bend&&n.bend.length)o.bend=n.bend.map(function(p){ return [p[0],p[1]]; }); if(n.strum)o.strum=n.strum; if(n.sup)o.sup=true; return o; }),
@@ -4674,6 +4707,7 @@ function seqApply(o){
   seq.bpm=seqClamp(+o.bpm||120,20,400);
   seq.loop=o.loop!==false;
   seq.title=(typeof o.title==='string')?o.title.slice(0,80):'';
+  seq.tabTr=seqClamp(Math.round(+o.tabTr)||0,-12,12);   /* v339 */
   var _ti=document.getElementById('seqTitleIn'); if(_ti)_ti.value=seq.title;
   seq.loopA=seqClamp(+o.loopA||0,0,seq.divs-1);
   seq.loopB=seqClamp(+o.loopB||seq.divs,seq.loopA+1,seq.divs);
@@ -4699,7 +4733,7 @@ function seqApply(o){
   }
   /* drawn lines: continuous in both coordinates, rebased like the notes */
   seq.gestures=[]; seq.lpf=[]; seq.lpfSel=null; seq.vowels=[]; seq.vwsel=null; seq.gid=1; seq.gsel=null;
-  seq.chords=[]; if(o.chords)for(var _c=0;_c<o.chords.length;_c++){ var _q=o.chords[_c]; if(!_q)continue; if(_q.off)seq.chords.push({col:seqClamp(Math.round(+_q.col)||0,0,seq.divs-1),text:'',off:true}); else if(_q.text)seq.chords.push({col:seqClamp(Math.round(+_q.col)||0,0,seq.divs-1),text:String(_q.text).slice(0,24)}); }   /* v316: chord names above the beats */
+  seq.chords=[]; if(o.chords)for(var _c=0;_c<o.chords.length;_c++){ var _q=o.chords[_c]; if(!_q)continue; if(_q.off)seq.chords.push({col:seqClamp(Math.round(+_q.col)||0,0,seq.divs-1),text:'',off:true}); else if(_q.text)seq.chords.push({col:seqClamp(Math.round(+_q.col)||0,0,seq.divs-1),text:String(_q.text).slice(0,80)}); }   /* v316: chord names above the beats */
   if(o.gestures)for(var w=0;w<o.gestures.length;w++){
     var gg=o.gestures[w];
     if(!gg||!gg.pts||gg.pts.length<2)continue;
@@ -4813,7 +4847,7 @@ function seqReset(){
   seq.bars=1; seq.tsNum=4; seq.tsDen=4; seq.div=16; seqRecalcDivs();
   seq.viewRows=25; seq.bpm=120; seq.zoomX=1; seq.zoomY=1; seq.catch=true;
   seq.modeOn=true; seq.gShade=false; seq.vsynth=[];
-  seq.loop=true; seq.loopA=0; seq.loopB=16; seq.nv=2; seq.av=0; seq.title='';
+  seq.loop=true; seq.loopA=0; seq.loopB=16; seq.nv=2; seq.av=0; seq.title=''; seq.tabTr=0;
   var _t0=document.getElementById('seqTitleIn'); if(_t0)_t0.value='';
   for(var i=0;i<SEQ_MAXV;i++){ seq.mutes[i]=false; seq.solos[i]=false; seq.names[i]='V'+(i+1); }
   seqScrubClear();
@@ -5227,14 +5261,7 @@ document.querySelectorAll('.rstep').forEach(function(b){
     inp.value=Math.max(0.5,Math.min(6,v));
   });
 });
-document.getElementById('rotCW').addEventListener('click',function(){
-  ensureAC();
-  glideBy(clampStep(document.getElementById('cwVal'))*ST);
-});
-document.getElementById('rotCCW').addEventListener('click',function(){
-  ensureAC();
-  glideBy(-clampStep(document.getElementById('ccwVal'))*ST);
-});
+/* v343: the ring's rotate steppers are retired — drag, the number row, modal selection and the mode channel turn it */
 var magnetOn=true;
 function magnetCheck(){
   if(!magnetOn)return;
@@ -5411,13 +5438,26 @@ function fadeAndStop(vv, tc){
   setTimeout(function(){try{o.stop();}catch(e){}},(tc*6+0.15)*1000);
 }
 var pcLight=false;                 /* OFF: only the registered pitch lights */
-var houseLights=0.25;              /* silent-surface dimmer: potential vs realization */
+var houseLights=0.25, houseSel=false;   /* v330: false — the house lights fall outside the selection too */              /* silent-surface dimmer: potential vs realization */
 var spotAlpha=0;                /* spotlight (glow dot) opacity, 0 = off */
 var fbColSel=null, fbRowSel=null;  /* DAW-style loop selections: which cells respond to lights */
 var FB_BAND=12;                    /* selector band size, CSS px */
+/* v327 · LIVE SELECTION. With the strings live, a string is selected while it sounds and for a second after;
+   with the frets live, a sounding fret and the half steps either side of it are selected while it sounds.
+   Either one replaces its manual band; the sets are rebuilt from the lights on every draw. */
+var fbDynRow=true, fbDynCol=true, fbDynRowT=[], fbDynRowsNow=null, fbDynColsNow=null, fbDynTimer=null;
+function fbDynCompute(rowA){
+  var now=(typeof performance!=='undefined'?performance.now():Date.now())/1000, rows={}, cols={}, tail=false;
+  for(var r=0;r<fbStrings;r++){ var any=false;
+    for(var f=0;f<fbFrets;f++){ var fr=fbFxInv(f), semi=fbRoot(r)+fbFret0()+fr; if(semiLit(semi,rowA[r])){ any=true; cols[fr]=1; cols[fr-1]=1; cols[fr+1]=1; } }
+    if(any)fbDynRowT[r]=now;
+    var dt=now-(fbDynRowT[r]===undefined?-9:fbDynRowT[r]); if(dt<1.0){ rows[r]=1; if(!any)tail=true; } }
+  fbDynRowsNow=rows; fbDynColsNow=cols;
+  if(tail&&!fbDynTimer)fbDynTimer=setTimeout(function(){ fbDynTimer=null; if(typeof requestFret==='function')requestFret(); },60);   /* the second's tail keeps drawing */
+}
 function cellSel(r,f){
-  if(fbRowSel && (r<fbRowSel[0]||r>fbRowSel[1]))return false;
-  if(fbColSel && (f<fbColSel[0]||f>fbColSel[1]))return false;
+  if(fbDynRow){ if(!fbDynRowsNow||!fbDynRowsNow[r])return false; } else if(fbRowSel && (r<fbRowSel[0]||r>fbRowSel[1]))return false;
+  if(fbDynCol){ if(!fbDynColsNow||!fbDynColsNow[f])return false; } else if(fbColSel && (f<fbColSel[0]||f>fbColSel[1]))return false;
   return true;
 }
 function litFactor(semi,A){ return semiLit(semi,A)?1:houseLights; }
@@ -5625,6 +5665,9 @@ function strWorkletLoad(){
    compression), a low shelf of body, a cabinet lowpass, then dry + a slow shallow chorus + a room
    (a convolver on a generated 2.2 s tail) into the master. The strings sound plugged in. */
 var strBusIn=null, seqStartWaiting=false;
+/* v329: the room's level, on the transport beside volume and mute */
+var strRev=0.3, strRevNode=null;
+function setStrRev(x){ strRev=Math.max(0,Math.min(1,+x)); var el=document.getElementById('revSlider'); if(el&&+el.value!==strRev)el.value=strRev; if(strRevNode&&AC)strRevNode.gain.setTargetAtTime(strRev,AC.currentTime,0.04); }
 function strBus(){
   if(strBusIn)return strBusIn;
   var inp=AC.createGain(); inp.gain.value=1;
@@ -5643,7 +5686,7 @@ function strBus(){
   var conv=AC.createConvolver(); var L=Math.floor(AC.sampleRate*2.2), ir=AC.createBuffer(2,L,AC.sampleRate);
   for(var ch=0;ch<2;ch++){ var d=ir.getChannelData(ch), lpv=0, cf=1-Math.exp(-2*Math.PI*3800/AC.sampleRate);
     for(var k=0;k<L;k++){ var t=k/AC.sampleRate; lpv+=cf*((Math.random()*2-1)-lpv); d[k]=lpv*Math.exp(-t/0.62)*(k<400?k/400:1); } }
-  conv.buffer=ir; var rv=AC.createGain(); rv.gain.value=0.42; var rvhp=AC.createBiquadFilter(); rvhp.type='highpass'; rvhp.frequency.value=180;
+  conv.buffer=ir; var rv=AC.createGain(); rv.gain.value=strRev; strRevNode=rv; var rvhp=AC.createBiquadFilter(); rvhp.type='highpass'; rvhp.frequency.value=180;
   cab.connect(rvhp); rvhp.connect(conv); conv.connect(rv); rv.connect(master);
   strBusIn=inp; return inp;
 }
@@ -5828,6 +5871,7 @@ document.getElementById('muteBtn').addEventListener('click',function(){
   document.getElementById('spkOff').style.display=muted?'':'none';
   if(outGain)outGain.gain.setTargetAtTime(muted?0:vol,AC.currentTime,0.04);
 });
+document.getElementById('revSlider').addEventListener('input',function(){ setStrRev(this.value); });
 document.getElementById('volSlider').addEventListener('input',function(){
   vol=+this.value;
   if(AC&&!muted)outGain.gain.setTargetAtTime(vol,AC.currentTime,0.04);
@@ -7035,6 +7079,7 @@ function fretDraw(){
   for(var _r2=0;_r2<fbStrings;_r2++){ var _rs2=fbRespOf(_r2), _aa=[];
     for(var _q2=0;_q2<_L.length;_q2++)if(fbRespMatch(_rs2,_L[_q2].src))_aa.push([_L[_q2].semi,_L[_q2].amp]);
     _rowAA.push(_aa); }
+  fbDynCompute(_rowA);   /* v327 */
   /* node colors under the exact same fade convention as the piano keys */
   var cols=[], dark=[];
   for(var r=0;r<fbStrings;r++){
@@ -7049,11 +7094,12 @@ function fretDraw(){
       var _lit0=(semiLit(semi,_rowA[r])&&cellSel(r,_fr)), _c0l=_c0;
       if(_lit0&&(diatonic||pentatonic)&&_c0[0]+_c0[1]+_c0[2]<30)_c0l=unblinded(function(){ return fadeColor(n,v,ch); });   /* v323 */
       /* v247: with a column region selected, the frets outside it go dark — no house lights */
-      var _outC=!!(fbColSel&&(_fr<fbColSel[0]||_fr>fbColSel[1]))||!!(fbRowSel&&(r<fbRowSel[0]||r>fbRowSel[1]));   /* v255: rows too */
-      var _hl=_outC?0:houseLights;
+      var _outC=!cellSel(r,_fr);   /* v255: rows too; v327: or the live selection */
+      var _outH=_outC&&houseSel;   /* v330 */
+      var _hl=_outH?0:houseLights;
       var _cc=dimC(_lit0?_c0l:_c0, _lit0?Math.max(_hl,Math.min(1,0.25+0.75*Math.sqrt(Math.max(0,semiAmp(semi,_rowAA[r]))))):_hl);
       var _cd=dimC(_c0, _hl);                        /* the same cell, unlit */
-      if(typeof seqLit==='function' && !_outC){ _cc=seqLit(_cc,ch,'matrix'); _cd=seqLit(_cd,ch,'matrix'); }   /* v289: outside the selected range the mode light goes dark too, as the house lights do */
+      if(typeof seqLit==='function' && !_outH){ _cc=seqLit(_cc,ch,'matrix'); _cd=seqLit(_cd,ch,'matrix'); }   /* v289: outside the selected range the mode light goes dark too, as the house lights do */
       cols[r].push(_cc); dark[r].push(_cd);
     }
   }
@@ -7181,7 +7227,18 @@ function fretDraw(){
     /* the nut: a line between the open column and the first fret, past both edges */
     var ext=Math.min(7,rowH*0.35);
     fx.strokeStyle='rgba(235,228,205,0.9)'; fx.lineWidth=Math.max(2,Math.min(3,fw*0.06)); fx.lineCap='butt';
-    fx.beginPath(); fx.moveTo(fw,-ext); fx.lineTo(fw,D.CH+ext); fx.stroke();
+    var nutX=lefty?(fbFrets-1)*fw:fw;          /* v339: left-handed, the nut sits on the open column's left edge */
+    fx.beginPath(); fx.moveTo(nutX,-ext); fx.lineTo(nutX,D.CH+ext); fx.stroke();
+    if(fbCapo>0&&fbCapo<fbFrets){
+      /* v339: the frets behind the capo are out of play */
+      fx.fillStyle='rgba(0,0,0,0.62)';
+      for(var cf=0;cf<fbCapo;cf++)fx.fillRect(fbFx(cf)*fw,0,fw,D.CH);
+      /* the capo bar, on the far edge of its own column — where the nut stands for the open string */
+      var cx0=lefty?fbFx(fbCapo)*fw:(fbFx(fbCapo)+1)*fw, cbw=Math.max(5,Math.min(10,fw*0.2));
+      fx.fillStyle='rgba(216,168,56,0.95)'; fx.strokeStyle='rgba(0,0,0,0.7)'; fx.lineWidth=1;
+      if(fx.roundRect){ fx.beginPath(); fx.roundRect(cx0-cbw/2,-ext-2,cbw,D.CH+2*ext+4,cbw/2); fx.fill(); fx.stroke(); }
+      else { fx.fillRect(cx0-cbw/2,-ext-2,cbw,D.CH+2*ext+4); fx.strokeRect(cx0-cbw/2,-ext-2,cbw,D.CH+2*ext+4); }
+    }
     /* the neck's dots, in the foot — beneath the numbers when they are showing */
     var dr=Math.max(2,Math.min(4,fw*0.12)), dy=D.CH+_numH+FB_FOOT*0.55;
     fx.fillStyle='rgba(225,218,196,0.85)';
@@ -7199,7 +7256,9 @@ function fretDraw(){
   fx.fillRect(0,0,w,B); fx.fillRect(0,0,B,hh);
   fx.fillStyle='rgba(60,60,58,0.9)';
   fx.fillRect(0,0,B,B);
-  if(fbColSel){
+  if(fbDynCol&&fbDynColsNow){ fx.fillStyle='rgba(120,200,220,0.5)'; for(var _dc in fbDynColsNow){ var _fc=fbFx(+_dc); if(_fc<0||_fc>=fbFrets)continue; var _x0=Math.max(B,_fc*fw-fbPanX+B), _x1=Math.min(w,(_fc+1)*fw-fbPanX+B); if(_x1>_x0)fx.fillRect(_x0,0,_x1-_x0,B); } }
+  if(fbDynRow&&fbDynRowsNow){ for(var _dr in fbDynRowsNow){ var _dr2=+_dr, _y0=Math.max(B,_dr2*rowH-fbPanY+B), _y1=Math.min(hh,(_dr2+1)*rowH-fbPanY+B); var _age=((typeof performance!=='undefined'?performance.now():Date.now())/1000)-(fbDynRowT[_dr2]||0); fx.fillStyle='rgba(120,200,220,'+(0.5*Math.max(0.15,1-_age)).toFixed(3)+')'; if(_y1>_y0)fx.fillRect(0,_y0,B,_y1-_y0); } }
+  if(fbColSel&&!fbDynCol){
     var _c0=fbFx(fbColSel[0]), _c1=fbFx(fbColSel[1]);
     if(_c0>_c1){ var _t=_c0; _c0=_c1; _c1=_t; }
     var cs0=Math.max(B,_c0*fw-fbPanX+B), cs1=Math.min(w,(_c1+1)*fw-fbPanX+B);
@@ -7210,7 +7269,7 @@ function fretDraw(){
       fx.fillRect(cs0,0,2,B); fx.fillRect(cs1-2,0,2,B);
     }
   }
-  if(fbRowSel){
+  if(fbRowSel&&!fbDynRow){
     var rs0=Math.max(B,fbRowSel[0]*rowH-fbPanY+B), rs1=Math.min(hh,(fbRowSel[1]+1)*rowH-fbPanY+B);
     if(rs1>rs0){
       fx.fillStyle='rgba(216,168,56,0.32)';
@@ -7238,6 +7297,7 @@ function fretSemi(e){
   var root=fbRoot(i0)+(fbRoot(i1)-fbRoot(i0))*fr;
   var xc=xf*fbFrets-0.5;
   if(lefty)xc=(fbFrets-1)-xc;
+  if(fbHasNeck()&&fbCapo>0&&xc<fbCapo)xc=fbCapo;   /* v339: behind the capo, the string speaks from the capo */
   return root + fbFret0() + xc;
 }
 var fbSelMode=null, fbSelAnchor=0, fbSelLen=0, fbSelOff=0;   /* v257: 'colmove' / 'rowmove' carry a sized region; the ends still size it */
@@ -7257,6 +7317,7 @@ fretCv.addEventListener('pointerdown',function(e){
   var lx=e.clientX-r.left, ly=e.clientY-r.top;
   if(ly<=FB_BAND && lx>FB_BAND){
     fbSelMode='col';
+    if(fbDynCol)return;   /* v327: live frets — the band is not for hands */
     var c=fbColAt(e);
     if(fbColSel){
       var Dc=fbDims(r.width-FB_BAND), _a=fbFx(fbColSel[0]), _b=fbFx(fbColSel[1]); if(_a>_b){ var _t=_a; _a=_b; _b=_t; }
@@ -7273,6 +7334,7 @@ fretCv.addEventListener('pointerdown',function(e){
     fretCv.setPointerCapture(e.pointerId); fretDraw(); return;
   }
   if(lx<=FB_BAND && ly>FB_BAND){
+    if(fbDynRow)return;   /* v327: live strings */
     fbSelMode='row';
     var rw=fbRowAt(e);
     if(fbRowSel){
@@ -7608,6 +7670,7 @@ document.getElementById('accSelect').addEventListener('change',function(){
   if(typeof buildKeyboard==='function')buildKeyboard();   /* keyboard key names */
   if(typeof seqRefresh==='function')seqRefresh();          /* seq row labels + mode channel */
   if(typeof fretDraw==='function')fretDraw();              /* fretboard names */
+  if(typeof tabRequest==='function')tabRequest();          /* v335: the TAB's chord labels */
   draw();                                                  /* ring letters */
 });
 document.getElementById('diaBtn').addEventListener('click',function(){
@@ -7732,7 +7795,8 @@ buildLabelRows();
 
 var showGuide=false, showLessons=true, showRing=true, showKb=false, showFmap=false;   /* v286: lessons is a window of its own; the guide waits in the tools menu */
 var fmapH=170;   /* the map's canvas height; the divider above it trades this against the ring */
-function syncCols(){ winSync(); }
+function syncCols(){
+  if(typeof viewBtnsSync==='function'&&typeof views!=='undefined')try{ viewBtnsSync(); }catch(e){} winSync(); }
 function syncCols_columns_retired(){
   var dc=document.querySelector('.diag-col');
   var cc=document.querySelector('.left-col');
@@ -7880,6 +7944,7 @@ document.getElementById('tgKeyNames').addEventListener('change',function(){showK
 document.getElementById('tgKeySol').addEventListener('change',function(){showKeySol=this.checked;syncKeyLabelVis();colorKeyboard();kbLabelBtnsSync();});
 document.getElementById('tgPcLight').addEventListener('change',function(){pcLight=this.checked;lightRefresh();});
 document.getElementById('tgMagnet').addEventListener('change',function(){magnetOn=this.checked;});
+document.getElementById('tgHouseSel').addEventListener('change',function(){ houseSel=this.checked; if(typeof requestFret==='function')requestFret(); });
 document.getElementById('houseIn').addEventListener('input',function(){
   houseLights=+this.value;
   document.getElementById('houseVal').textContent=houseLights.toFixed(2);
@@ -8035,9 +8100,22 @@ document.getElementById('fbSolBtn').addEventListener('click',function(){ fbSetLa
 document.getElementById('fbHzBtn').addEventListener('click',function(){ fbSetLabels(fbNames,fbSol,!fbHz); });
 fbLabelBtnsSync();
 var fbBox=true;   /* v309: the white frame on a sounding cell */
+/* v339 — THE CAPO. A second nut, clamped at fret fbCapo (0 = none). The frets behind it cannot sound: they are
+   shaded, and a touch there sounds the capo fret, as the string would. Pitch is untouched everywhere else. */
+var fbCapo=0;
+function fbSetCapo(v){ fbCapo=Math.max(0,Math.min(12,Math.min(fbFrets-1,Math.round(+v)||0)));
+  var el=document.getElementById('fbCapo'); if(el&&String(el.value)!==String(fbCapo))el.value=fbCapo;
+  if(typeof requestFret==='function')requestFret(); if(typeof tabRequest==='function')tabRequest(); }
 var fbFootGuard=false;
 function fbSetBox(on){ fbBox=!!on; var b=document.getElementById('fbBoxBtn'); if(b)b.setAttribute('aria-pressed',fbBox?'true':'false'); if(typeof requestFret==='function')requestFret(); }
 document.getElementById('fbBoxBtn').addEventListener('click',function(){ fbSetBox(!fbBox); });
+document.getElementById('fbCapo').addEventListener('change',function(){ fbSetCapo(this.value); });
+document.getElementById('fbCapo').addEventListener('keydown',function(e){ e.stopPropagation(); });
+document.getElementById('fbFrets').addEventListener('change',function(){ fbSetCapo(fbCapo); });
+function fbSetDyn(row,col){ if(row!==undefined&&row!==null)fbDynRow=!!row; if(col!==undefined&&col!==null)fbDynCol=!!col;
+  var a=document.getElementById('fbDynRowBtn'), b=document.getElementById('fbDynColBtn'); if(a)a.setAttribute('aria-pressed',fbDynRow?'true':'false'); if(b)b.setAttribute('aria-pressed',fbDynCol?'true':'false'); if(typeof requestFret==='function')requestFret(); }
+document.getElementById('fbDynRowBtn').addEventListener('click',function(){ fbSetDyn(!fbDynRow,null); });
+document.getElementById('fbDynColBtn').addEventListener('click',function(){ fbSetDyn(null,!fbDynCol); });
 function fbSetFretNums(on){
   fbFretNums=!!on;
   var b=document.getElementById('fbNumBtn'); if(b)b.setAttribute('aria-pressed',fbFretNums?'true':'false');
@@ -8849,7 +8927,7 @@ function cfgCapture(){
            spectrogram:showSpec, surface:showFret, tab:showTab, print:printMode,
            badges:showBadges, dots:showDots, letters:showLetters, colorLetters:colorLetters,
            colorKeys:colorKeys, keyNames:showKeyNames, keySol:showKeySol, keyHz:showKeyHz,
-           pcLight:pcLight, houseLights:houseLights, spotAlpha:spotAlpha,
+           pcLight:pcLight, houseLights:houseLights, houseSel:houseSel, spotAlpha:spotAlpha,
            ringOct:ringOct, ringHz:ringHz,
            guideCollapsed:guideCollapsed, guideZoom:guideZoom, lessonZoom:lessonZoom,
            specCollapsed:specCollapsed, fretCollapsed:fretCollapsed,
@@ -8863,16 +8941,16 @@ function cfgCapture(){
                      fold:r.fold, wind:r.wind, magnet:magnetOn, follow:r.follow, amp:gAmp, cw:r.cw, ccw:r.ccw }; })(),
     spec:{ height:specH, hist:specHist, fMin:specFMin, fMax:specFMax,
            decades:showDecades, focus:specFocus, modeDelay:specModeDelay, fund:specFund },
-    tab:{ lines:tabLines, mpl:tabMPL, first:tabFirstLine },
+    tab:{ lines:tabLines, mpl:tabMPL, first:tabFirstLine, capoRel:tabCapoRel },
     surface:{ badgeIn:fbBadgeIn, badgeOut:fbBadgeOut, strings:fbStrings, frets:fbFrets, stack:fbStack, base:fbBase,
               offs:fbOffs.slice(), fretZero:fbFretZero, warpP:warpP, preset:presetName(), lefty:lefty,
               cellW:fbCellW, cellH:fbCellH, panX:fbPanX, panY:fbPanY,
-              viewH:fretViewH, tuneOpen:fbTuneOpen, respOpen:fbRespOpen, resp:fbResp.slice(), names:fbNames, sol:fbSol, hz:fbHz, fretNums:fbFretNums, box:fbBox, labelScale:fbLabelScale,
+              viewH:fretViewH, tuneOpen:fbTuneOpen, respOpen:fbRespOpen, resp:fbResp.slice(), names:fbNames, sol:fbSol, hz:fbHz, fretNums:fbFretNums, box:fbBox, dynRow:fbDynRow, dynCol:fbDynCol, labelScale:fbLabelScale, capo:fbCapo,
               colSel:fbColSel?fbColSel.slice():null, rowSel:fbRowSel?fbRowSel.slice():null },
     fmap:{ open:!!(fmapEl()&&fmapEl().open), size:fmap.size, on:fmap.on, h:fmapH, show:showFmap },
-    views:(typeof views!=='undefined')?{2:(typeof views[2]==='object')?views[2]:undefined,3:(typeof views[3]==='object')?views[3]:undefined,4:(typeof views[4]==='object')?views[4]:undefined}:undefined,
+    views:(typeof views!=='undefined')?(function(){ var o={}; [1,2,3,4,5,6,7].forEach(function(n){ o[n]=(views[n]&&typeof views[n]==='object')?views[n]:undefined; }); return o; })():undefined,
     synth:{ wave:synth.wave, vowel:synth.vowel, ffollow:synth.ffollow, fvowel:synth.fvowel!==false, fsize:synth.fsize, vglide:synth.vglide, lpf:synth.lpf, a:synth.a, d:synth.d, s:synth.s, r:synth.r,
-            glide:synth.glide, glideMode:glideMode, mono:monoMode, vol:vol, muted:muted, glideMs:Math.round(synth.glide*1000) },
+            glide:synth.glide, glideMode:glideMode, mono:monoMode, vol:vol, muted:muted, rev:strRev, glideMs:Math.round(synth.glide*1000) },
     labels:{ names:fn.map(function(f){return f.n;}), colors:fn.map(function(f){return toHexStr(f.c);}) },
     misc:{ range:+document.getElementById('rangeInput').value, glideMs:glideMs, wlMs:wlMs,
            modeMaster:modeMaster, modeBW:modeBW, degLight:degLight.slice(), modeQ:modeQ, modeGain:modeGain,
@@ -8980,7 +9058,9 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   fbBadgeIn=(su.badgeIn!==undefined)?Math.max(0,Math.min(1,+su.badgeIn)):1; fbBadgeOut=(su.badgeOut!==undefined)?Math.max(0,Math.min(1,+su.badgeOut)):1;
   var _bi=document.getElementById('fbBadgeIn'), _bo=document.getElementById('fbBadgeOut'); if(_bi)_bi.value=fbBadgeIn; if(_bo)_bo.value=fbBadgeOut;
   fbSetFretNums(su.fretNums!==false);             /* v292: on unless a file says otherwise */
+  fbSetCapo(su.capo||0);
   fbSetBox(su.box!==false);
+  fbSetDyn(su.dynRow!==false,su.dynCol!==false);
   fbSetLabels(su.names!==undefined?su.names:(_v.keyNames!==undefined?_v.keyNames:true),
               su.sol!==undefined?su.sol:!!_v.keySol, su.hz!==undefined?su.hz:!!_v.keyHz);
   /* synth */
@@ -8991,7 +9071,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   if(sy.fsize!==undefined){ synth.fsize=+sy.fsize||1; var fzs=document.getElementById('fsizeSlider'); if(fzs){ fzs.value=synth.fsize; var fzv=document.getElementById('fsizeVal'); if(fzv)fzv.textContent=synth.fsize.toFixed(2); } }
   if(sy.vglide!==undefined){ synth.vglide=+sy.vglide||0.15; var vgi=document.getElementById('vglideIn'); if(vgi)vgi.value=Math.round(synth.vglide*1000); }
   if(sy.lpf!==undefined){ synth.lpf=Math.max(0,Math.min(1,+sy.lpf)); var lps2=document.getElementById('lpfSlider'); if(lps2)lps2.value=synth.lpf; }
-  if(c.views&&typeof views!=='undefined'){ [2,3,4].forEach(function(n){ var v=c.views[n]; if(v&&typeof v==='object'){ views[n]=v;
+  if(c.views&&typeof views!=='undefined'){ [1,2,3,4,5,6,7].forEach(function(n){ var v=c.views[n]; if(v&&typeof v==='object'){ views[n]=v;
       if(v.state&&!v.state.ring&&c.field)v.state.ring=ringStateFromField(c.field);   /* v268: a stored view from before the ring state takes its file's ring */
       if(v.state&&!v.state.seq)v.state.seq=seqStateFromCfg(c,v); } });                  /* v269: ... and from before the seq state, its file's sequence */ if(typeof viewBtnsSync==='function')viewBtnsSync(); }
   if(c.fmap){ fmap.size=1;
@@ -9010,6 +9090,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   if(sy.vol!==undefined){ vol=sy.vol; document.getElementById('volSlider').value=vol;
     if(AC&&!muted)outGain.gain.setTargetAtTime(vol,AC.currentTime,0.04); }
   if(!!sy.muted!==muted)document.getElementById('muteBtn').click();
+  setStrRev(sy.rev!==undefined?sy.rev:0.3);
   if(c.misc&&c.misc.range)setRange(c.misc.range);
   if(c.misc&&c.misc.glideMs!==undefined){ glideMs=c.misc.glideMs;
     syncModSpeedUI(); }
@@ -9041,6 +9122,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   if(typeof ringSetHz==='function')ringSetHz(!!v.ringHz);
   if(v.ringOct!==undefined&&typeof ringSetOct==='function')ringSetOct(v.ringOct);
   pcLight=!!v.pcLight; setChk('tgPcLight',pcLight);
+  houseSel=(v.houseSel===true); document.getElementById('tgHouseSel').checked=houseSel; if(typeof requestFret==='function')requestFret();
   if(v.houseLights!==undefined){ houseLights=v.houseLights;
     document.getElementById('houseIn').value=houseLights;
     document.getElementById('houseVal').textContent=houseLights.toFixed(2); }
@@ -9073,7 +9155,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   setChk('tgFmap',!(c.fmap&&c.fmap.show===false));
   setChk('tgSpec',v.spectrogram!==false);
   setChk('tgFret',v.surface!==false);
-  if(c.tab){ tabLines=seqClamp(Math.round(+c.tab.lines)||1,1,24); tabMPL=seqClamp(Math.round(+c.tab.mpl)||2,1,16); tabFirstLine=Math.max(0,Math.round(+c.tab.first)||0);
+  if(c.tab){ tabCapoRel=(c.tab.capoRel!==false); tabLines=seqClamp(Math.round(+c.tab.lines)||1,1,24); tabMPL=seqClamp(Math.round(+c.tab.mpl)||2,1,16); tabFirstLine=Math.max(0,Math.round(+c.tab.first)||0);
     var _tli=document.getElementById('tabLinesIn'), _tmi=document.getElementById('tabMPLIn'), _tfi=document.getElementById('tabLineIn'); if(_tli)_tli.value=tabLines; if(_tmi)_tmi.value=tabMPL; if(_tfi)_tfi.value=tabFirstLine+1; }
   setChk('tgTab',!!v.tab);
   /* v238: the layout is applied once every window's visibility is settled — the toggles above
@@ -9282,7 +9364,7 @@ var WIN_DEFS=[
   {id:'lessons', title:'lessons',         cls:'diag-col', sel:['#lessonPanel'],              vis:function(){ return showLessons; }, chk:'tgLessons'},
   {id:'guide', title:'guide',             cls:'diag-col', sel:['#guidePanel'],               vis:function(){ return showGuide; }, chk:'tgGuide'},
   {id:'seq',   title:'sequencer',         cls:'diag-col', sel:['#seqPanel'],                 vis:function(){ return (typeof seqOn!=='undefined')&&seqOn; }, chk:'tgSeq'},
-  {id:'ring',  title:'ring · waterline',  cls:'left-col', sel:['#windRow','#ringRow2','.stage','#foldRow'], vis:function(){ return showRing; }, head:true, chk:'tgRing'},
+  {id:'ring',  title:'tonal field orientation',  cls:'left-col', sel:['#windRow','#ringRow2','.stage','#foldRow'], vis:function(){ return showRing; }, head:true, chk:'tgRing'},
   {id:'fmap',  title:'formant map',       cls:'left-col', sel:['#fmapPanel'],                vis:function(){ return showFmap; }, head:true, chk:'tgFmap'},
   {id:'keys',  title:'string · keyboard', cls:'left-col', sel:['.kb-section'],               vis:function(){ return showKb; }, head:true, chk:'tgKb'},
   {id:'spec',  title:'spectrogram',       cls:'side-col', sel:['#specPanel'],                vis:function(){ return showSpec; }, chk:'tgSpec'},
@@ -9295,6 +9377,7 @@ function deskH0(){ var d=deskEl(); var top=d?d.getBoundingClientRect().top:120; 
 function winSnap(v){ return Math.round(v/WIN_G)*WIN_G; }
 function winBoot(){
   if(winBooted)return; winBooted=true;
+  phoneCheck();                                   /* v346: a phone starts in the phone stack */
   var row=document.querySelector('.top-row'); if(!row)return;
   var desk=document.createElement('div'); desk.id='desk';
   WIN_DEFS.forEach(function(d){
@@ -9337,7 +9420,7 @@ function winBoot(){
   })();
   winDefaults();
   winArriveWire();
-  window.addEventListener('resize',function(){ winFromFrac(); winSync(); });
+  window.addEventListener('resize',function(){ phoneCheck(); if(!phoneMode())winFromFrac(); winSync(); });
 }
 /* the starting arrangement: the three columns the tool always had */
 function winDefaults(){
@@ -9355,23 +9438,30 @@ function winDefaults(){
 var winFrac=null;
 function winToFrac(){ var DW=deskW(), o={}; WIN_DEFS.forEach(function(d){ var L=winL[d.id]; if(L)o[d.id]={x:+(L.x/DW).toFixed(4),y:+(L.y/DW).toFixed(4),w:+(L.w/DW).toFixed(4),h:+(L.h/DW).toFixed(4)}; }); return o; }
 function winFromFrac(){ if(!winFrac)return; var DW=deskW(); WIN_DEFS.forEach(function(d){ var F=winFrac[d.id]; if(F)winL[d.id]={x:winSnap(F.x*DW),y:winSnap(F.y*DW),w:Math.max(WIN_MINW,winSnap(F.w*DW)),h:Math.max(WIN_MINH,winSnap(F.h*DW))}; }); }
-function winLayoutCapture(){ return winToFrac(); }
+function winLayoutCapture(){ return (phoneMode()&&winFrac)?JSON.parse(JSON.stringify(winFrac)):winToFrac(); }   /* v346: the phone stack is never saved as a layout */
 /* ═══ v255 · VIEWS ═══ a view is which windows are shown and where. 1 is the boot view (guide and
    ring, half and half); 2 is a fixed arrangement; 3 and 4 start empty. Shift-click stores the current
    arrangement into 2, 3 or 4; stored views travel with the settings file. */
 /* v259: the BOOT STATE — a settings capture applied once the workspace is built; view 1 is its
    arrangement, and "restore defaults" returns to it */
-var BOOT_CFG={"version":"ring-189","view":{"guide":false,"lessons":false,"plotRing":true,"string":false,"keyboard":false,"spectrogram":false,"surface":true,"tab":true,"print":false,"badges":true,"dots":true,"letters":true,"colorLetters":true,"colorKeys":true,"keyNames":true,"keySol":true,"keyHz":false,"pcLight":false,"houseLights":0.43,"spotAlpha":0,"ringOct":4,"ringHz":false,"guideCollapsed":false,"guideZoom":1.8,"lessonZoom":1.2,"specCollapsed":false,"fretCollapsed":false,"ringCollapsed":false,"kbCollapsed":false,"fmapCollapsed":false,"seq":true,"seqCollapsed":false,"guideH":1070,"seqH":1070,"kbTools":true,"centerSplit":0.6666666666666666,"centerSplitManual":false,"kbFrozenH":0,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.489,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.2716}}},"field":{"phi":0,"topPc":0,"dial":"chromatic","diatonic":true,"pentatonic":false,"greyscale":false,"flip":false,"fold":-0.1277,"wind":1,"magnet":true,"follow":false,"amp":1,"cw":0.5,"ccw":0.5},"spec":{"height":475,"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342,"decades":true,"focus":1,"modeDelay":110,"fund":true},"tab":{"lines":2,"mpl":4,"first":0},"surface":{"badgeIn":1,"badgeOut":1,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":98.06293981186894,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"labelScale":1.5,"colSel":null,"rowSel":null},"fmap":{"open":false,"size":1,"on":{"M":true,"V0":true,"V1":true,"V2":true,"V3":true,"V4":true,"V5":true,"V6":true,"V7":true},"h":170,"show":false},"views":{"2":{"guide":false,"lessons":false,"seq":true,"plotRing":true,"keyboard":false,"string":false,"spectrogram":false,"surface":true,"tab":true,"fmap":false,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.489,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.2716}},"zoom":{"spec":{"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342},"seq":{"sl":0,"st":1394}},"state":{"surface":{"badgeIn":1,"badgeOut":1,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":98.06293981186894,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"labelScale":1.5,"colSel":null,"rowSel":null},"ring":{"phi":0,"topPc":0,"dial":"chromatic","flip":false,"fold":-0.1277,"wind":1,"follow":false,"cw":0.5,"ccw":0.5},"seq":{"snap":{"kind":"tonal-field-sequence","version":1,"bars":8,"tsNum":4,"tsDen":4,"div":16,"divs":128,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":60,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":35,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Starless (King Crimson) — intro, bars 1–8","loop":false,"loopA":0,"loopB":128,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":0,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":0,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":2,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":4,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":8,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":10,"dur":5,"pitch":26,"vel":84,"voice":3},{"start":14,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":16,"dur":16,"pitch":45,"vel":100,"voice":0},{"start":16,"dur":16,"pitch":36,"vel":100,"voice":2},{"start":16,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":18,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":20,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":24,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":26,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":30,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":32,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":32,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":32,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":34,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":36,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":40,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":42,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":46,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":48,"dur":8,"pitch":45,"vel":100,"voice":0},{"start":48,"dur":8,"pitch":36,"vel":100,"voice":2},{"start":48,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":50,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":52,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":56,"dur":8,"pitch":42,"vel":100,"voice":0},{"start":56,"dur":8,"pitch":33,"vel":100,"voice":2},{"start":56,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":58,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":62,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":64,"dur":8,"pitch":43,"vel":100,"voice":0},{"start":64,"dur":8,"pitch":34,"vel":100,"voice":2},{"start":64,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":66,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":68,"dur":4,"pitch":38,"vel":100,"voice":1},{"start":72,"dur":4,"pitch":31,"vel":84,"voice":2},{"start":76,"dur":4,"pitch":29,"vel":84,"voice":4},{"start":80,"dur":10,"pitch":46,"vel":100,"voice":1,"strum":"s"},{"start":80,"dur":14,"pitch":39,"vel":100,"voice":2,"strum":"s"},{"start":80,"dur":16,"pitch":34,"vel":84,"voice":3,"strum":"s"},{"start":80,"dur":16,"pitch":31,"vel":84,"voice":4,"strum":"s"},{"start":80,"dur":16,"pitch":24,"vel":84,"voice":5,"strum":"s"},{"start":90,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":91,"dur":1,"pitch":46,"vel":100,"voice":1},{"start":92,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":93,"dur":3,"pitch":43,"vel":100,"voice":1},{"start":94,"dur":2,"pitch":39,"vel":100,"voice":2},{"start":125,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":126,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":127,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":109,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":111,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":96,"dur":13,"pitch":26,"vel":96,"voice":4,"strum":"s"},{"start":96,"dur":13,"pitch":33,"vel":96,"voice":3,"strum":"s"},{"start":96,"dur":14,"pitch":38,"vel":96,"voice":2,"strum":"s"},{"start":112,"dur":16,"pitch":19,"vel":96,"voice":5,"strum":"s"},{"start":112,"dur":12,"pitch":26,"vel":96,"voice":3,"strum":"s"},{"start":110,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":12,"pitch":33,"vel":96,"voice":2,"bend":[[2.5,0],[4,1],[4.5,1],[5.5,0]],"strum":"s"}],"chords":[{"col":0,"text":"D,♭6"},{"col":16,"text":"D7"},{"col":32,"text":"D,♭6"},{"col":48,"text":"D7"},{"col":56,"text":"","off":true},{"col":112,"text":"Gm9"}],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":10,"val":"d"}]},"pos":0,"av":0,"scroll":{"sl":0,"st":1394}}},"tab_":{"lines":2,"mpl":4,"first":0}},"3":{"guide":false,"lessons":false,"seq":true,"plotRing":true,"keyboard":false,"string":false,"spectrogram":false,"surface":true,"tab":true,"fmap":false,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.489,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.2716}},"zoom":{"spec":{"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342},"seq":{"sl":0,"st":1514}},"state":{"surface":{"badgeIn":1,"badgeOut":1,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":98.06293981186894,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"labelScale":1.5,"colSel":null,"rowSel":null},"ring":{"phi":0,"topPc":0,"dial":"chromatic","flip":false,"fold":-0.1277,"wind":1,"follow":false,"cw":0.5,"ccw":0.5},"seq":{"snap":{"kind":"tonal-field-sequence","version":1,"bars":20,"tsNum":4,"tsDen":4,"div":8,"divs":160,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":72,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":31,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Exercises — C_Re · D_Mi · G_La","loop":false,"loopA":0,"loopB":160,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":8,"pitch":24,"vel":100,"voice":4},{"start":8,"dur":8,"pitch":26,"vel":100,"voice":4},{"start":16,"dur":8,"pitch":31,"vel":100,"voice":3},{"start":24,"dur":8,"pitch":31,"vel":100,"voice":3},{"start":32,"dur":8,"pitch":24,"vel":96,"voice":4,"strum":"r"},{"start":32,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":32,"dur":8,"pitch":34,"vel":96,"voice":2,"strum":"r"},{"start":32,"dur":8,"pitch":39,"vel":96,"voice":1,"strum":"r"},{"start":40,"dur":8,"pitch":26,"vel":96,"voice":4,"strum":"r"},{"start":40,"dur":8,"pitch":33,"vel":96,"voice":3,"strum":"r"},{"start":40,"dur":8,"pitch":36,"vel":96,"voice":2,"strum":"r"},{"start":40,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":48,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":48,"dur":8,"pitch":38,"vel":96,"voice":2,"strum":"r"},{"start":48,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":48,"dur":8,"pitch":46,"vel":96,"voice":0,"strum":"r"},{"start":56,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":56,"dur":8,"pitch":38,"vel":96,"voice":2,"strum":"r"},{"start":56,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":56,"dur":8,"pitch":46,"vel":96,"voice":0,"strum":"r"},{"start":64,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":65,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":66,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":67,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":68,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":69,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":70,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":71,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":72,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":73,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":74,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":75,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":76,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":77,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":78,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":79,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":80,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":81,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":82,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":83,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":84,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":85,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":86,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":87,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":88,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":89,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":90,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":91,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":92,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":93,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":94,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":95,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":96,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":97,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":98,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":99,"dur":1,"pitch":29,"vel":96,"voice":3},{"start":100,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":101,"dur":1,"pitch":33,"vel":96,"voice":2},{"start":102,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":103,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":104,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":105,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":106,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":107,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":108,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":109,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":110,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":111,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":113,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":114,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":115,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":116,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":117,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":118,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":119,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":120,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":121,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":122,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":123,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":124,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":125,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":126,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":127,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":128,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":129,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":130,"dur":1,"pitch":33,"vel":96,"voice":2},{"start":131,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":132,"dur":1,"pitch":29,"vel":96,"voice":3},{"start":133,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":134,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":135,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":136,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":137,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":138,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":139,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":140,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":141,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":142,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":143,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":144,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":145,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":146,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":147,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":148,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":149,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":150,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":151,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":152,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":153,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":154,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":155,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":156,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":157,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":158,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":159,"dur":1,"pitch":31,"vel":96,"voice":3}],"chords":[],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":0,"val":"r"},{"col":8,"anchor":2,"val":"m"},{"col":16,"anchor":7,"val":"l"},{"col":32,"anchor":0,"val":"r"},{"col":40,"anchor":2,"val":"m"},{"col":48,"anchor":7,"val":"l"},{"col":64,"anchor":0,"val":"r"},{"col":72,"anchor":2,"val":"m"},{"col":80,"anchor":7,"val":"l"},{"col":96,"anchor":0,"val":"r"},{"col":104,"anchor":2,"val":"m"},{"col":112,"anchor":7,"val":"l"},{"col":128,"anchor":0,"val":"r"},{"col":136,"anchor":2,"val":"m"},{"col":144,"anchor":7,"val":"l"}]},"pos":0,"av":0,"scroll":{"sl":2321,"st":1514}}},"tab_":{"lines":5,"mpl":4,"first":0}},"4":null},"synth":{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"glide":0.015,"glideMode":"transit","mono":false,"vol":0.6,"muted":false,"glideMs":15},"labels":{"names":["Re","~La","Mi","Fa","~Do","Sol","~Re","La","~Mi","Ti","Do","~Sol"],"colors":["#ff8800","#4b0082","#2255ff","#ffd700","#005500","#ee0000","#aa5500","#732699","#001188","#ff00ff","#22bb22","#880000"]},"misc":{"range":37,"glideMs":100,"wlMs":800,"modeMaster":0,"modeBW":2,"degLight":[0.72,0.51,0.52,0,0,0,0],"modeQ":0.25,"modeGain":{"ring":1,"keys":1,"string":1,"matrix":1,"spec":1,"strip":1,"haze":1},"morphMode":"morph","modView":"listener","morphMs":600,"trMs":600,"accidentals":"flat"},"sequence":{"kind":"tonal-field-sequence","version":1,"bars":8,"tsNum":4,"tsDen":4,"div":16,"divs":128,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":60,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":35,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Starless (King Crimson) — intro, bars 1–8","loop":false,"loopA":0,"loopB":128,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":0,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":0,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":2,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":4,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":8,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":10,"dur":5,"pitch":26,"vel":84,"voice":3},{"start":14,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":16,"dur":16,"pitch":45,"vel":100,"voice":0},{"start":16,"dur":16,"pitch":36,"vel":100,"voice":2},{"start":16,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":18,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":20,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":24,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":26,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":30,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":32,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":32,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":32,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":34,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":36,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":40,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":42,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":46,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":48,"dur":8,"pitch":45,"vel":100,"voice":0},{"start":48,"dur":8,"pitch":36,"vel":100,"voice":2},{"start":48,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":50,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":52,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":56,"dur":8,"pitch":42,"vel":100,"voice":0},{"start":56,"dur":8,"pitch":33,"vel":100,"voice":2},{"start":56,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":58,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":62,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":64,"dur":8,"pitch":43,"vel":100,"voice":0},{"start":64,"dur":8,"pitch":34,"vel":100,"voice":2},{"start":64,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":66,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":68,"dur":4,"pitch":38,"vel":100,"voice":1},{"start":72,"dur":4,"pitch":31,"vel":84,"voice":2},{"start":76,"dur":4,"pitch":29,"vel":84,"voice":4},{"start":80,"dur":10,"pitch":46,"vel":100,"voice":1,"strum":"s"},{"start":80,"dur":14,"pitch":39,"vel":100,"voice":2,"strum":"s"},{"start":80,"dur":16,"pitch":34,"vel":84,"voice":3,"strum":"s"},{"start":80,"dur":16,"pitch":31,"vel":84,"voice":4,"strum":"s"},{"start":80,"dur":16,"pitch":24,"vel":84,"voice":5,"strum":"s"},{"start":90,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":91,"dur":1,"pitch":46,"vel":100,"voice":1},{"start":92,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":93,"dur":3,"pitch":43,"vel":100,"voice":1},{"start":94,"dur":2,"pitch":39,"vel":100,"voice":2},{"start":125,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":126,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":127,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":109,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":111,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":96,"dur":13,"pitch":26,"vel":96,"voice":4,"strum":"s"},{"start":96,"dur":13,"pitch":33,"vel":96,"voice":3,"strum":"s"},{"start":96,"dur":14,"pitch":38,"vel":96,"voice":2,"strum":"s"},{"start":112,"dur":16,"pitch":19,"vel":96,"voice":5,"strum":"s"},{"start":112,"dur":12,"pitch":26,"vel":96,"voice":3,"strum":"s"},{"start":110,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":12,"pitch":33,"vel":96,"voice":2,"bend":[[2.5,0],[4,1],[4.5,1],[5.5,0]],"strum":"s"}],"chords":[{"col":0,"text":"D,♭6"},{"col":16,"text":"D7"},{"col":32,"text":"D,♭6"},{"col":48,"text":"D7"},{"col":56,"text":"","off":true},{"col":112,"text":"Gm9"}],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":10,"val":"d"}]},"lesson":{"title":"","listen":"","watch":"","echo":""}};
+var BOOT_CFG={"version":"ring-189","view":{"guide":false,"lessons":false,"plotRing":true,"string":false,"keyboard":false,"spectrogram":false,"surface":true,"tab":true,"print":false,"badges":true,"dots":true,"letters":true,"colorLetters":true,"colorKeys":true,"keyNames":true,"keySol":true,"keyHz":false,"pcLight":false,"houseLights":0.14,"houseSel":true,"spotAlpha":0,"ringOct":4,"ringHz":false,"guideCollapsed":false,"guideZoom":1.8,"lessonZoom":1.2,"specCollapsed":false,"fretCollapsed":false,"ringCollapsed":false,"kbCollapsed":false,"fmapCollapsed":false,"seq":true,"seqCollapsed":false,"guideH":1070,"seqH":1070,"kbTools":true,"centerSplit":0.6666666666666666,"centerSplitManual":false,"kbFrozenH":0,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.489,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.2716}}},"field":{"phi":0,"topPc":2,"dial":"chromatic","diatonic":true,"pentatonic":false,"greyscale":false,"flip":false,"fold":-0.1277,"wind":1,"magnet":true,"follow":false,"amp":1,"cw":0.5,"ccw":0.5},"spec":{"height":475,"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342,"decades":true,"focus":1,"modeDelay":110,"fund":true},"tab":{"lines":2,"mpl":4,"first":0,"capoRel":true},"surface":{"badgeIn":1,"badgeOut":0.18,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":97.62138398489999,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"dynRow":true,"dynCol":true,"labelScale":1.5,"capo":0,"colSel":null,"rowSel":null},"fmap":{"open":false,"size":1,"on":{"M":true,"V0":true,"V1":true,"V2":true,"V3":true,"V4":true,"V5":true,"V6":true,"V7":true},"h":170,"show":false},"views":{"1":{"tab_":{"lines":2,"mpl":4,"first":0,"capoRel":true},"guide":false,"lessons":false,"seq":true,"plotRing":true,"keyboard":false,"string":false,"spectrogram":false,"surface":true,"tab":true,"fmap":false,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.65,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.43}},"zoom":{"spec":{"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342},"seq":{"sl":0,"st":594}},"state":{"surface":{"badgeIn":1,"badgeOut":0.18,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":97.62138398489999,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"dynRow":true,"dynCol":true,"labelScale":1.5,"capo":0,"colSel":null,"rowSel":null},"ring":{"phi":0,"topPc":2,"dial":"chromatic","flip":false,"fold":-0.1277,"wind":1,"follow":false,"cw":0.5,"ccw":0.5},"seq":{"snap":{"kind":"tonal-field-sequence","version":1,"bars":8,"tsNum":4,"tsDen":4,"div":16,"divs":128,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":60,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":35,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Starless (King Crimson) — intro, bars 1–8","loop":false,"loopA":0,"loopB":128,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":0,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":0,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":2,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":4,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":8,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":10,"dur":5,"pitch":26,"vel":84,"voice":3},{"start":14,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":16,"dur":16,"pitch":45,"vel":100,"voice":0},{"start":16,"dur":16,"pitch":36,"vel":100,"voice":2},{"start":16,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":18,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":20,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":24,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":26,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":30,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":32,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":32,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":32,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":34,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":36,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":40,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":42,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":46,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":48,"dur":8,"pitch":45,"vel":100,"voice":0},{"start":48,"dur":8,"pitch":36,"vel":100,"voice":2},{"start":48,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":50,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":52,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":56,"dur":8,"pitch":42,"vel":100,"voice":0},{"start":56,"dur":8,"pitch":33,"vel":100,"voice":2},{"start":56,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":58,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":62,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":64,"dur":8,"pitch":43,"vel":100,"voice":0},{"start":64,"dur":8,"pitch":34,"vel":100,"voice":2},{"start":64,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":66,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":68,"dur":4,"pitch":38,"vel":100,"voice":1},{"start":72,"dur":4,"pitch":31,"vel":84,"voice":2},{"start":76,"dur":4,"pitch":29,"vel":84,"voice":4},{"start":80,"dur":10,"pitch":46,"vel":100,"voice":1,"strum":"s"},{"start":80,"dur":14,"pitch":39,"vel":100,"voice":2,"strum":"s"},{"start":80,"dur":16,"pitch":34,"vel":84,"voice":3,"strum":"s"},{"start":80,"dur":16,"pitch":31,"vel":84,"voice":4,"strum":"s"},{"start":80,"dur":16,"pitch":24,"vel":84,"voice":5,"strum":"s"},{"start":90,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":91,"dur":1,"pitch":46,"vel":100,"voice":1},{"start":92,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":93,"dur":3,"pitch":43,"vel":100,"voice":1},{"start":94,"dur":2,"pitch":39,"vel":100,"voice":2},{"start":125,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":126,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":127,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":109,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":111,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":96,"dur":13,"pitch":26,"vel":96,"voice":4,"strum":"s"},{"start":96,"dur":13,"pitch":33,"vel":96,"voice":3,"strum":"s"},{"start":96,"dur":14,"pitch":38,"vel":96,"voice":2,"strum":"s"},{"start":112,"dur":16,"pitch":19,"vel":96,"voice":5,"strum":"s"},{"start":112,"dur":12,"pitch":26,"vel":96,"voice":3,"strum":"s"},{"start":110,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":12,"pitch":33,"vel":96,"voice":2,"bend":[[2.5,0],[4,1],[4.5,1],[5.5,0]],"strum":"s"}],"chords":[{"col":0,"text":"D,♭6"},{"col":16,"text":"D7"},{"col":32,"text":"D,♭6"},{"col":48,"text":"D7"},{"col":56,"text":"","off":true},{"col":112,"text":"Gm9"}],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":10,"val":"d"}],"tabTr":0},"pos":0,"av":0,"scroll":{"sl":0,"st":1394}}}},"2":{"tab_":{"lines":2,"mpl":4,"first":0,"capoRel":true},"guide":false,"lessons":false,"seq":true,"plotRing":true,"keyboard":false,"string":false,"spectrogram":false,"surface":true,"tab":true,"fmap":false,"layout":{"lessons":{"x":0,"y":0,"w":0.4958,"h":0.455},"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.65,"w":0.9983,"h":0.455},"ring":{"x":0,"y":0,"w":0.2309,"h":0.2037},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.5025,"y":0.4618,"w":0.4958,"h":0.1834},"spec":{"x":0.5025,"y":0.652,"w":0.4958,"h":0.1834},"fret":{"x":0.2309,"y":0,"w":0.7674,"h":0.2037},"tab":{"x":0,"y":0.2037,"w":1.0051,"h":0.43}},"zoom":{"spec":{"hist":4.569655926356139,"fMin":58,"fMax":1124.8498319672342},"seq":{"sl":0,"st":594}},"state":{"surface":{"badgeIn":1,"badgeOut":0.18,"strings":6,"frets":23,"stack":5,"base":-20,"offs":[0,0,0,0,-1,-1],"fretZero":"nut","warpP":9,"preset":"guitar","lefty":false,"cellW":97.62138398489999,"cellH":null,"panX":0,"panY":0,"viewH":406,"tuneOpen":false,"respOpen":false,"resp":["seq5+midi","seq4+midi","seq3+midi","seq2+midi","seq1+midi","seq0+midi"],"names":true,"sol":true,"hz":false,"fretNums":true,"box":true,"dynRow":true,"dynCol":true,"labelScale":1.5,"capo":0,"colSel":null,"rowSel":null},"ring":{"phi":0,"topPc":2,"dial":"chromatic","flip":false,"fold":-0.1277,"wind":1,"follow":false,"cw":0.5,"ccw":0.5},"seq":{"snap":{"kind":"tonal-field-sequence","version":1,"bars":20,"tsNum":4,"tsDen":4,"div":8,"divs":160,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":72,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":31,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Exercises — C_Re · D_Mi · G_La","loop":false,"loopA":0,"loopB":160,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":8,"pitch":24,"vel":100,"voice":4},{"start":8,"dur":8,"pitch":26,"vel":100,"voice":4},{"start":16,"dur":8,"pitch":31,"vel":100,"voice":3},{"start":24,"dur":8,"pitch":31,"vel":100,"voice":3},{"start":32,"dur":8,"pitch":24,"vel":96,"voice":4,"strum":"r"},{"start":32,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":32,"dur":8,"pitch":34,"vel":96,"voice":2,"strum":"r"},{"start":32,"dur":8,"pitch":39,"vel":96,"voice":1,"strum":"r"},{"start":40,"dur":8,"pitch":26,"vel":96,"voice":4,"strum":"r"},{"start":40,"dur":8,"pitch":33,"vel":96,"voice":3,"strum":"r"},{"start":40,"dur":8,"pitch":36,"vel":96,"voice":2,"strum":"r"},{"start":40,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":48,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":48,"dur":8,"pitch":38,"vel":96,"voice":2,"strum":"r"},{"start":48,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":48,"dur":8,"pitch":46,"vel":96,"voice":0,"strum":"r"},{"start":56,"dur":8,"pitch":31,"vel":96,"voice":3,"strum":"r"},{"start":56,"dur":8,"pitch":38,"vel":96,"voice":2,"strum":"r"},{"start":56,"dur":8,"pitch":41,"vel":96,"voice":1,"strum":"r"},{"start":56,"dur":8,"pitch":46,"vel":96,"voice":0,"strum":"r"},{"start":64,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":65,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":66,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":67,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":68,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":69,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":70,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":71,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":72,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":73,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":74,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":75,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":76,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":77,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":78,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":79,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":80,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":81,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":82,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":83,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":84,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":85,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":86,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":87,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":88,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":89,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":90,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":91,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":92,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":93,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":94,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":95,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":96,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":97,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":98,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":99,"dur":1,"pitch":29,"vel":96,"voice":3},{"start":100,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":101,"dur":1,"pitch":33,"vel":96,"voice":2},{"start":102,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":103,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":104,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":105,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":106,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":107,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":108,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":109,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":110,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":111,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":113,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":114,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":115,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":116,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":117,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":118,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":119,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":120,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":121,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":122,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":123,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":124,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":125,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":126,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":127,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":128,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":129,"dur":1,"pitch":34,"vel":96,"voice":2},{"start":130,"dur":1,"pitch":33,"vel":96,"voice":2},{"start":131,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":132,"dur":1,"pitch":29,"vel":96,"voice":3},{"start":133,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":134,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":135,"dur":1,"pitch":24,"vel":96,"voice":4},{"start":136,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":137,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":138,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":139,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":140,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":141,"dur":1,"pitch":29,"vel":96,"voice":4},{"start":142,"dur":1,"pitch":27,"vel":96,"voice":4},{"start":143,"dur":1,"pitch":26,"vel":96,"voice":4},{"start":144,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":145,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":146,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":147,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":148,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":149,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":150,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":151,"dur":1,"pitch":31,"vel":96,"voice":3},{"start":152,"dur":1,"pitch":43,"vel":96,"voice":1},{"start":153,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":154,"dur":1,"pitch":39,"vel":96,"voice":2},{"start":155,"dur":1,"pitch":38,"vel":96,"voice":2},{"start":156,"dur":1,"pitch":36,"vel":96,"voice":2},{"start":157,"dur":1,"pitch":34,"vel":96,"voice":3},{"start":158,"dur":1,"pitch":33,"vel":96,"voice":3},{"start":159,"dur":1,"pitch":31,"vel":96,"voice":3}],"chords":[],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":0,"val":"r"},{"col":8,"anchor":2,"val":"m"},{"col":16,"anchor":7,"val":"l"},{"col":32,"anchor":0,"val":"r"},{"col":40,"anchor":2,"val":"m"},{"col":48,"anchor":7,"val":"l"},{"col":64,"anchor":0,"val":"r"},{"col":72,"anchor":2,"val":"m"},{"col":80,"anchor":7,"val":"l"},{"col":96,"anchor":0,"val":"r"},{"col":104,"anchor":2,"val":"m"},{"col":112,"anchor":7,"val":"l"},{"col":128,"anchor":0,"val":"r"},{"col":136,"anchor":2,"val":"m"},{"col":144,"anchor":7,"val":"l"}],"tabTr":0},"pos":0,"av":0,"scroll":{"sl":2321,"st":1514}}}},"3":null,"4":null,"5":null,"6":null,"7":null},"synth":{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"glide":0.015,"glideMode":"transit","mono":false,"vol":0.6,"muted":false,"rev":0.3,"glideMs":15},"labels":{"names":["Re","~La","Mi","Fa","~Do","Sol","~Re","La","~Mi","Ti","Do","~Sol"],"colors":["#ff8800","#4b0082","#2255ff","#ffd700","#005500","#ee0000","#aa5500","#732699","#001188","#ff00ff","#22bb22","#880000"]},"misc":{"range":37,"glideMs":100,"wlMs":800,"modeMaster":0.51,"modeBW":2,"degLight":[0.72,0.51,0.52,0,0,0,0],"modeQ":0.25,"modeGain":{"ring":1,"keys":1,"string":1,"matrix":1,"spec":1,"strip":1,"haze":1},"morphMode":"morph","modView":"listener","morphMs":600,"trMs":600,"accidentals":"flat"},"sequence":{"kind":"tonal-field-sequence","version":1,"bars":8,"tsNum":4,"tsDen":4,"div":16,"divs":128,"viewRows":30,"rowSpan":96,"rowBase":-36,"bpm":60,"zoomX":0.10197900805700938,"zoomY":2.15,"catch":true,"modeOn":true,"gShade":false,"centerRow":35,"vsynth":[{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.19999999999999996},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.4},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.6},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":0.8},{"wave":"string","vowel":"ah","ffollow":true,"fvowel":false,"fsize":1,"vglide":0.15,"lpf":0.8,"a":0.003,"d":0.01,"s":1,"r":0.5,"vol":1,"mono":true,"glide":0.04,"glideMode":"transit","gauge":1}],"title":"Starless (King Crimson) — intro, bars 1–8","loop":false,"loopA":0,"loopB":128,"nv":6,"names":["1·E","2·B","3·G","4·D","5·A","6·E"],"mutes":[false,false,false,false,false,false],"solos":[false,false,false,false,false,false],"tool":"cursor","notes":[{"start":0,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":0,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":0,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":2,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":4,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":8,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":10,"dur":5,"pitch":26,"vel":84,"voice":3},{"start":14,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":16,"dur":16,"pitch":45,"vel":100,"voice":0},{"start":16,"dur":16,"pitch":36,"vel":100,"voice":2},{"start":16,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":18,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":20,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":24,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":26,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":30,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":32,"dur":16,"pitch":46,"vel":100,"voice":0},{"start":32,"dur":4,"pitch":38,"vel":100,"voice":2},{"start":32,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":34,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":36,"dur":10,"pitch":38,"vel":100,"voice":2},{"start":40,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":42,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":46,"dur":2,"pitch":38,"vel":100,"voice":2},{"start":48,"dur":8,"pitch":45,"vel":100,"voice":0},{"start":48,"dur":8,"pitch":36,"vel":100,"voice":2},{"start":48,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":50,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":52,"dur":10,"pitch":38,"vel":100,"voice":1},{"start":56,"dur":8,"pitch":42,"vel":100,"voice":0},{"start":56,"dur":8,"pitch":33,"vel":100,"voice":2},{"start":56,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":58,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":62,"dur":2,"pitch":38,"vel":100,"voice":1},{"start":64,"dur":8,"pitch":43,"vel":100,"voice":0},{"start":64,"dur":8,"pitch":34,"vel":100,"voice":2},{"start":64,"dur":2,"pitch":26,"vel":84,"voice":3},{"start":66,"dur":6,"pitch":26,"vel":84,"voice":3},{"start":68,"dur":4,"pitch":38,"vel":100,"voice":1},{"start":72,"dur":4,"pitch":31,"vel":84,"voice":2},{"start":76,"dur":4,"pitch":29,"vel":84,"voice":4},{"start":80,"dur":10,"pitch":46,"vel":100,"voice":1,"strum":"s"},{"start":80,"dur":14,"pitch":39,"vel":100,"voice":2,"strum":"s"},{"start":80,"dur":16,"pitch":34,"vel":84,"voice":3,"strum":"s"},{"start":80,"dur":16,"pitch":31,"vel":84,"voice":4,"strum":"s"},{"start":80,"dur":16,"pitch":24,"vel":84,"voice":5,"strum":"s"},{"start":90,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":91,"dur":1,"pitch":46,"vel":100,"voice":1},{"start":92,"dur":1,"pitch":45,"vel":100,"voice":1},{"start":93,"dur":3,"pitch":43,"vel":100,"voice":1},{"start":94,"dur":2,"pitch":39,"vel":100,"voice":2},{"start":125,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":126,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":127,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":109,"dur":3,"pitch":34,"vel":96,"voice":3},{"start":111,"dur":1,"pitch":41,"vel":96,"voice":1},{"start":96,"dur":13,"pitch":26,"vel":96,"voice":4,"strum":"s"},{"start":96,"dur":13,"pitch":33,"vel":96,"voice":3,"strum":"s"},{"start":96,"dur":14,"pitch":38,"vel":96,"voice":2,"strum":"s"},{"start":112,"dur":16,"pitch":19,"vel":96,"voice":5,"strum":"s"},{"start":112,"dur":12,"pitch":26,"vel":96,"voice":3,"strum":"s"},{"start":110,"dur":2,"pitch":38,"vel":96,"voice":2},{"start":112,"dur":12,"pitch":33,"vel":96,"voice":2,"bend":[[2.5,0],[4,1],[4.5,1],[5.5,0]],"strum":"s"}],"chords":[{"col":0,"text":"D,♭6"},{"col":16,"text":"D7"},{"col":32,"text":"D,♭6"},{"col":48,"text":"D7"},{"col":56,"text":"","off":true},{"col":112,"text":"Gm9"}],"gestures":[],"vowels":[],"lpf":[],"laneMode":"vel","laneVoice":0,"modes":[{"col":0,"anchor":10,"val":"d"}],"tabTr":0},"lesson":{"title":"","listen":"","watch":"","echo":""},"bootView":1};
 function viewFromCfg(c){ var v=c.view; return {guide:!!v.guide,lessons:v.lessons!==false,seq:!!v.seq,plotRing:v.plotRing!==false,keyboard:v.keyboard!==false,string:v.string!==false,spectrogram:v.spectrogram!==false,surface:v.surface!==false,tab:!!v.tab,fmap:!!(c.fmap&&c.fmap.show),layout:v.layout,
   state:{ surface:c.surface?JSON.parse(JSON.stringify(c.surface)):undefined } }; }
 var VIEW_2={"guide":false,"seq":true,"plotRing":true,"keyboard":true,"string":true,"spectrogram":true,"surface":true,"layout":{"guide":{"x":0,"y":0,"w":0.4958,"h":0.455},"seq":{"x":0,"y":0.4618,"w":0.4958,"h":0.2309},"ring":{"x":0,"y":0,"w":0.2649,"h":0.2241},"fmap":{"x":0,"y":0.6995,"w":0.4958,"h":0.1834},"keys":{"x":0.2716,"y":0,"w":0.4958,"h":0.2241},"spec":{"x":0.7742,"y":0,"w":0.2241,"h":0.2241},"fret":{"x":0,"y":0.2309,"w":1.0323,"h":0.2309}},"fmap":false};
-var views={1:'boot',2:null,3:null,4:null}, viewCur=0, bootState=null;
+var views={1:null,2:null,3:null,4:null,5:null,6:null,7:null}, viewCur=0, bootState=null;   /* v332: seven views, one per mode — Do Re Mi Fa Sol La Ti */
+var VIEW_FN=[null,3,10,5,0,7,2,9];   /* view n → its function's index in fn[]; v333: in fifths — Fa Do Sol Re La Mi Ti */
+var VIEW_BOOT=1;                      /* v336: the one lesson view */
+var VIEW_NAME={"1": "Starless", "2": "Re-Mi-La"};   /* v336: a view may carry a name of its own */
+/* v337: a named view's syllables that are function names are painted in those functions' colours */
+function viewNameHTML(nm){ return nm.split(/(-)/).map(function(w){ if(w==='-')return '<span style="color:#8a8a86">-</span>';
+  for(var j=0;j<fn.length;j++)if(fn[j].n===w)return '<span style="color:rgb('+fn[j].c[0]+','+fn[j].c[1]+','+fn[j].c[2]+')">'+w+'</span>';
+  return '<span>'+w+'</span>'; }).join(''); }
    /* v260/263: view 1 = guide + ring; 2..4 filled from the boot file's views map */
 /* v263 — a view is a whole workspace snapshot: field rotation, the sequence, the fretboard's
    selections and zoom, which windows are shown and where. Switching applies all of it, so two
    views can hold two rotations, two sequences, two fretboard states. */
 function viewCapture(){ var c=cfgCapture(), v=c.view, sc=document.getElementById('seqScroll');
-  return {guide:v.guide,lessons:v.lessons,seq:v.seq,plotRing:v.plotRing,keyboard:v.keyboard,string:v.string,spectrogram:v.spectrogram,surface:v.surface,tab:v.tab,fmap:!!(c.fmap&&c.fmap.show),layout:v.layout,
+  return {tab_:{lines:tabLines,mpl:tabMPL,first:tabFirstLine,capoRel:tabCapoRel}, guide:v.guide,lessons:v.lessons,seq:v.seq,plotRing:v.plotRing,keyboard:v.keyboard,string:v.string,spectrogram:v.spectrogram,surface:v.surface,tab:v.tab,fmap:!!(c.fmap&&c.fmap.show),layout:v.layout,
     zoom:{spec:{hist:specHist,fMin:specFMin,fMax:specFMax},seq:{sl:sc?sc.scrollLeft:0,st:sc?sc.scrollTop:0}},   /* v267: the fretboard's zoom lives in state.surface, the single source */
     state:viewStateCapture()}; }
 /* v264 — per-view STATE: properties that differ between views, each captured and applied on its own,
@@ -9381,7 +9471,7 @@ function fbSurfaceCapture(){
   return { badgeIn:fbBadgeIn, badgeOut:fbBadgeOut, strings:fbStrings, frets:fbFrets, stack:fbStack, base:fbBase,
     offs:fbOffs.slice(), fretZero:fbFretZero, warpP:warpP, preset:presetName(), lefty:lefty,
     cellW:fbCellW, cellH:fbCellH, panX:fbPanX, panY:fbPanY,
-    viewH:fretViewH, tuneOpen:fbTuneOpen, respOpen:fbRespOpen, resp:fbResp.slice(), names:fbNames, sol:fbSol, hz:fbHz, fretNums:fbFretNums, box:fbBox, labelScale:fbLabelScale,
+    viewH:fretViewH, tuneOpen:fbTuneOpen, respOpen:fbRespOpen, resp:fbResp.slice(), names:fbNames, sol:fbSol, hz:fbHz, fretNums:fbFretNums, box:fbBox, dynRow:fbDynRow, dynCol:fbDynCol, labelScale:fbLabelScale, capo:fbCapo,
     colSel:fbColSel?fbColSel.slice():null, rowSel:fbRowSel?fbRowSel.slice():null }; }
 /* apply a whole surface block: every fretboard variable, so views are fully independent (v265) */
 function fbSurfaceApply(su){
@@ -9411,7 +9501,9 @@ function fbSurfaceApply(su){
   var _bi=document.getElementById('fbBadgeIn'), _bo=document.getElementById('fbBadgeOut'); if(_bi)_bi.value=fbBadgeIn; if(_bo)_bo.value=fbBadgeOut;
   if(su.names!==undefined||su.sol!==undefined||su.hz!==undefined)fbSetLabels(su.names!==false, !!su.sol, !!su.hz);
   fbSetFretNums(su.fretNums!==false);
+  fbSetCapo(su.capo||0);
   fbSetBox(su.box!==false);
+  fbSetDyn(su.dynRow!==false,su.dynCol!==false);
   requestFret();
 }
 /* v268 — the RING's per-view state: everything set from the ring window. Rotation (phi) and key
@@ -9521,15 +9613,20 @@ function viewApply(n){
   viewZoomApply(v.zoom);
   if(!v.state)v.state=viewStateCapture();
   else if(!v.state.seq&&typeof seqStateCapture==='function')v.state.seq=seqStateCapture();   /* v295: adopt the sequencer on screen once, then own it, instead of inheriting a new one every visit */
-  if(v.tab_){ tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; var _a=document.getElementById('tabLinesIn'), _b=document.getElementById('tabMPLIn'), _c=document.getElementById('tabLineIn'); if(_a)_a.value=tabLines; if(_b)_b.value=tabMPL; if(_c)_c.value=tabFirstLine+1; }
+  if(v.tab_){ tabCapoRel=(v.tab_.capoRel!==false); tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; var _a=document.getElementById('tabLinesIn'), _b=document.getElementById('tabMPLIn'), _c=document.getElementById('tabLineIn'); if(_a)_a.value=tabLines; if(_b)_b.value=tabMPL; if(_c)_c.value=tabFirstLine+1; }
   viewStateApply(v.state);
   if(showFret)requestAnimationFrame(function(){ winFit('fret'); });   /* v315: the foot guard, against the window as laid out */
   if(v.fitFrets&&showFret){ var _ff=v.fitFrets; requestAnimationFrame(function(){ winFit('fret'); var r=fretCv.getBoundingClientRect(), vw=r.width-FB_BAND, vh=r.height-FB_BAND-fbFootH(), nc=_ff[1]-_ff[0]+1;
       fbCellW=Math.max(4,vw/nc); fbCellH=null; if(fbStrings*fbCellW/FB_PHI>vh)fbCellW=Math.max(4,(vh/fbStrings)*FB_PHI);   /* frets 0–12 across the width; if the strings then overflow, the height decides */
       fbPanX=fbFx(_ff[0])*fbCellW; fbPanY=0; fbClampPan(vw,r.height-FB_BAND); requestFret(); if(showTab){ tabSize(); tabRequest(); } }); }
+  if(phoneMode())phoneSync();                      /* v346: the view's TAB paging and fretboard zoom give way to the phone stack */
   viewCur=n; viewBtnsSync(); return true;
 }
-function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function(b){ var n=+b.dataset.view; b.setAttribute('aria-pressed',n===viewCur?'true':'false'); b.classList.toggle('empty',!views[n]); b.title=(n===1)?'the boot view':(views[n]?'view '+n+' — shift-click to store the current arrangement here':'empty — shift-click to store the current arrangement here'); }); }
+function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function(b){ var n=+b.dataset.view; b.setAttribute('aria-pressed',n===viewCur?'true':'false'); b.classList.toggle('empty',!views[n]);
+  var F=(!VIEW_NAME[n]&&typeof fn!=='undefined'&&VIEW_FN[n]!==undefined&&VIEW_FN[n]!==null)?fn[VIEW_FN[n]]:null;
+  if(VIEW_NAME[n]){ b.innerHTML=viewNameHTML(VIEW_NAME[n]); b.style.color=''; }   /* v332: the button is the mode's name, in its colour */
+  if(F){ b.textContent=F.n; b.style.color='rgb('+F.c[0]+','+F.c[1]+','+F.c[2]+')'; }
+  var nm=VIEW_NAME[n]||(F?(F.n+' mode'):('view '+n)); b.title=(n===VIEW_BOOT?nm+' — the boot view':nm)+(views[n]?' — shift-click to store the current arrangement here':' — empty; shift-click to store the current arrangement here'); }); }
 (function(){
   document.querySelectorAll('.view-btn').forEach(function(b){
     b.addEventListener('click',function(e){
@@ -9541,7 +9638,7 @@ function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function
   viewBtnsSync();
 })();
 function winLayoutApply(f){ if(!f||typeof f!=='object')return; winFrac={}; WIN_DEFS.forEach(function(d){ var F=f[d.id]; if(F&&isFinite(+F.x)&&isFinite(+F.w))winFrac[d.id]={x:+F.x,y:+F.y,w:+F.w,h:+F.h}; else if(winL[d.id])winFrac[d.id]=winToFrac()[d.id]; }); winFromFrac(); }
-function winVisible(id){ var d=WIN_DEFS.filter(function(q){return q.id===id;})[0]; return !!(d&&d.vis()); }
+function winVisible(id){ var d=WIN_DEFS.filter(function(q){return q.id===id;})[0]; return !!(d&&d.vis()&&(!phoneMode()||PHONE_WINS[id])); }
 /* ═══ v298 · WHERE A NEW TOOL LANDS ═══
    A tool checked into existence from the toolbox arrives top-right at half the desk's width and
    half its height, whatever slot it last held. It is resolved before anything else, so it keeps
@@ -9628,6 +9725,7 @@ function winFitAll(){ if(printMode)return; WIN_DEFS.forEach(function(d){ winFit(
 /* show and hide by the flags, place, size */
 function winSync(){
   if(!winBooted)return;
+  if(phoneMode()){ phoneSync(); return; }          /* v346 */
   WIN_DEFS.forEach(function(d){ var w=winEl[d.id]; if(!w)return; w.style.display=d.vis()?'':'none'; });
   /* no two visible windows overlap, ever: a top-to-bottom pass settles whatever is showing */
   var order=WIN_DEFS.filter(function(d){ return d.vis()&&winL[d.id]; }).sort(function(a,b){ return (winL[a.id].y-winL[b.id].y)||(winL[a.id].x-winL[b.id].x); });
@@ -9647,12 +9745,99 @@ function winSync(){
   winFitAll();
   gxAlign(); draw();
 }
+/* ═══ v346 · PHONE LAYOUT ═══════════════════════════════════════════════════════════════════════════════════
+   Narrow screens (and phones held sideways) get a fixed stack instead of the free-floating desk: the TAB, the ring
+   and the fretboard, in that order. The TAB wraps its bars to the width it has and shows every line at once; the
+   fretboard fits frets 0 to 12 (or more, if they fit) across. Nothing here is saved: the views keep their desktop
+   layouts, and a screen that grows back past the phone size returns to them. */
+var PHONE_WINS={tab:1,ring:1,fret:1};
+/* v347: on the phone the fretboard shows letters OR solfège — letters by default, since the colour carries the solfège */
+var phoneFbLab='let';
+function phoneFbLabApply(){ fbSetLabels(phoneFbLab==='let',phoneFbLab==='sol',false);
+  var a=document.getElementById('fbPhLet'), b=document.getElementById('fbPhSol');
+  if(a)a.setAttribute('aria-pressed',phoneFbLab==='let'?'true':'false'); if(b)b.setAttribute('aria-pressed',phoneFbLab==='sol'?'true':'false'); }
+(function(){ var a=document.getElementById('fbPhLet'), b=document.getElementById('fbPhSol');
+  if(a)a.addEventListener('click',function(e){ e.stopPropagation(); phoneFbLab='let'; phoneFbLabApply(); });
+  if(b)b.addEventListener('click',function(e){ e.stopPropagation(); phoneFbLab='sol'; phoneFbLabApply(); }); })();
+var PHONE_MQ=window.matchMedia?window.matchMedia('(max-width: 760px), (max-height: 500px) and (max-width: 1000px)'):null;
+function phoneMode(){ return document.body.classList.contains('phone'); }
+function tabScaleSet(k){ TAB_S=k; TAB_FONT=14*k; TAB_ROW=20*k; TAB_GUT=34*k; TAB_TOP=56*k; TAB_BOT=30*k; TAB_CHORD_Y=27*k; }
+function phoneCheck(){
+  var want=!!(PHONE_MQ&&PHONE_MQ.matches), was=phoneMode();
+  if(want===was)return;
+  document.body.classList.toggle('phone',want);
+  tabScaleSet(want?1.0:1.5);
+  if(!want){
+    /* back to the desk: the view's own TAB paging and fretboard zoom, and the desk layout */
+    var v=(typeof views!=='undefined'&&viewCur)?views[viewCur]:null;
+    if(v&&v.tab_){ tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; }
+    var su=v&&v.state&&v.state.surface;
+    if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true;
+      fbSetLabels(su.names!==false,!!su.sol,!!su.hz); }
+    var gx=document.querySelector('.gx'); if(gx)gx.style.fontSize='';
+    winFromFrac();
+  }
+}
+function phoneGxFit(){
+  var gx=document.querySelector('.gx'); if(!gx)return;
+  gx.style.fontSize='26px';
+  var need=gx.scrollWidth, have=gx.clientWidth;
+  if(need>have&&have>0)gx.style.fontSize=Math.max(9,Math.floor(26*have/need*10)/10)+'px';
+}
+function phoneSync(){
+  var desk=deskEl(); if(!desk)return;
+  WIN_DEFS.forEach(function(d){ var w=winEl[d.id]; if(w)w.style.display=winVisible(d.id)?'':'none'; });
+  document.querySelector('.stage').style.display=''; document.getElementById('fretPanel').style.display='';
+  var _tp=document.getElementById('tabPanel'); if(_tp)_tp.style.display=showTab?'flex':'none';
+  phoneGxFit();
+  var DW=Math.max(260,desk.clientWidth), G=10;
+  var land=(window.innerWidth>window.innerHeight)&&DW>=560;
+  /* v347: fretboard first, then the TAB, then the ring. Portrait: one column. Landscape: the fretboard across the
+     top, the TAB and the ring side by side beneath it. */
+  var y=0;
+  if(winVisible('fret')){
+    phoneFbLabApply();
+    winL.fret={x:0,y:0,w:DW,h:400}; winPlace('fret');
+    var fp=document.getElementById('fretPanel'), avail=fp.clientWidth-22-FB_BAND-(fbTuneOpen?84:0)-(fbRespOpen?96:0);
+    var nf=Math.max(Math.min(13,fbFrets),Math.min(fbFrets,Math.floor(avail/40))), cw=avail/nf;
+    fbCellW=cw; fbPanX=0; fbPanY=0; fbFitPending=false;
+    winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+FB_BAND+fbStrings*cw/FB_PHI+fbFootH()+6); winPlace('fret');
+    y=winL.fret.h+G;
+  }
+  var ringSide=land?Math.min(Math.round(DW*0.42),Math.max(240,window.innerHeight-60)):Math.min(DW,460);
+  var tabW=land&&winVisible('ring')?DW-ringSide-G:DW, tabH=0;
+  /* the TAB: two bars in view, following the playhead */
+  if(winVisible('tab')){
+    var usable=tabW-22-TAB_GUT-8;
+    tabMPL=Math.max(1,Math.min(2,Math.floor(usable/150)));
+    tabLines=Math.max(1,Math.min(tabNLines(),Math.ceil(2/tabMPL)));
+    tabFirstLine=Math.max(0,Math.min(tabNLines()-tabLines,Math.floor(Math.floor(seqPos)/tabCPB()/tabMPL)));
+    var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
+    if(li)li.value=tabLines; if(mi)mi.value=tabMPL; if(fi)fi.value=tabFirstLine+1;
+    winL.tab={x:0,y:y,w:tabW,h:900}; winPlace('tab');
+    var tp=document.getElementById('tabPanel'), ts=tabScrollEl();
+    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabLines*tabLineH()+8); winPlace('tab');
+    tabH=winL.tab.h;
+  } else tabW=0;
+  if(winVisible('ring')){
+    var rx=land&&tabW?tabW+G:0, ry=land?y:y+(tabH?tabH+G:0), rw=land?ringSide:DW;
+    winL.ring={x:rx,y:ry,w:rw,h:ringSide+40}; winPlace('ring');
+    var hd=winEl.ring.querySelector('.win-head'); winL.ring.h=ringSide+(hd?hd.offsetHeight:34)+4; winPlace('ring');
+  }
+  winDeskSize(); winFitAll();
+  if(winVisible('fret')){ fbPanX=0; fbPanY=0; requestFret(); }
+  if(showTab){ tabSize(); tabRequest(); }
+  draw();
+}
+if(PHONE_MQ){ var _pmq=function(){ if(!winBooted)return; phoneCheck(); winSync(); };
+  if(PHONE_MQ.addEventListener)PHONE_MQ.addEventListener('change',_pmq); else if(PHONE_MQ.addListener)PHONE_MQ.addListener(_pmq); }
 /* drag by the handle, size by the grip */
 function winWire(w,id){
   var handle=null;
   function pick(){ return handle||(handle=w.querySelector('.win-handle')); }
   var drag=null;
   w.addEventListener('pointerdown',function(e){
+    if(phoneMode())return;                         /* v346: the phone stack is fixed */
     var h=pick(); var grip=e.target.closest('.win-grip');
     if(grip){ drag={mode:'size',x0:e.clientX,y0:e.clientY,L:{x:winL[id].x,y:winL[id].y,w:winL[id].w,h:winL[id].h},on:true}; w.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if(!h||!h.contains(e.target))return;
@@ -9710,24 +9895,44 @@ var TAB_SHAPES=[ [[0,7],[['5',7]]], [[0,4,7],[]], [[0,3,7],[['m',3]]], [[0,3,6],
                  [[0,4,7,9],[['6',9]]], [[0,3,7,9],[['m',3],['6',9]]],
                  [[0,2,7],[['sus2',2]]], [[0,5,7],[['sus4',5]]], [[0,2,4,7],[['add9',2]]], [[0,2,3,7],[['m',3],['add9',2]]], [[0,4,5,7],[['add11',5]]], [[0,3,5,7],[['m',3],['add11',5]]] ];
 /* v322: all the readings of the stack at a column — each root that carries a known shape — lowest root first */
+/* v337: the seventh chords, each with the interval of its fifth — a tetrachord is named from root, third and
+   seventh; the fifth may be left out, and then it is supplied by the field (the fifth that is diatonic there) */
+var TAB_SEVENTHS=[4,5,6,7];   /* indices into TAB_SHAPES: Maj7, m7, 7, m7♭5 */
 function tabChordReadings(col){
   var n=tabNStr(), ns=[]; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q.start===col&&q.voice<n)ns.push(q); }
   if(ns.length<2)return [];
   var ph=seqPhiAtCol(col), pcs=[], low=Infinity;
   for(var k=0;k<ns.length;k++){ var sm=seqSemi(ns[k].pitch), pcv=((sm%12)+12)%12; if(sm<low)low=sm; if(pcs.indexOf(pcv)<0)pcs.push(pcv); }
-  function fnOf(pcv){ var u=fnUAt(pcv,ph), j=Math.round(u)%12; return (Math.abs(u-Math.round(u))<0.12)?j:-1; }
-  var dia=true; for(var d=0;d<pcs.length;d++){ var jj=fnOf(pcs[d]); if(jj<0||!TAB_DIA[jj]){ dia=false; break; } }
+  function fnOf(pcv){ var u=fnUAt(((pcv%12)+12)%12,ph), j=Math.round(u)%12; return (Math.abs(u-Math.round(u))<0.12)?j:-1; }
+  function isDia(pcv){ var j=fnOf(pcv); return j>=0&&!!TAB_DIA[j]; }
+  var dia=true; for(var d=0;d<pcs.length;d++){ if(!isDia(pcs[d])){ dia=false; break; } }
+  /* v337: modal information. A mode event governing this column names an anchor; when that anchor sounds in the
+     chord it is tried as the root first, ahead of the bass */
+  var md=(seq.modeOn!==false&&typeof seqModeAt==='function')?seqModeAt(col):null;
+  var mRoot=(md&&md.val&&pcs.indexOf(md.anchor)>=0)?md.anchor:null;
   var order=[((low%12)+12)%12]; for(var o=0;o<pcs.length;o++)if(order.indexOf(pcs[o])<0)order.push(pcs[o]);
-  var out=[];
+  /* v338: every piece of a chord label wears its tone's function colour, whatever else is in the chord and
+     whatever the diatonic / pentatonic / grayscale switches say — the label reads the field's own colours */
+  var colOf=function(pcv){ return fn[Math.round(fnUAt(((pcv%12)+12)%12,ph))%12].c; };
+  function make(root,t,implied){
+    var parts=[[pcName(root).split('/')[0],colOf(root)]]; TAB_SHAPES[t][1].forEach(function(p){ parts.push([p[0],colOf((root+p[1])%12)]); });
+    return {parts:parts,text:parts.map(function(p){ return p[0]; }).join(''),dia:dia,root:root,implied:!!implied};
+  }
+  var cand=[];
   for(var r=0;r<order.length;r++){ var root=order[r];
+    /* every tone accounted for by a shape */
     for(var t=0;t<TAB_SHAPES.length;t++){ var iv=TAB_SHAPES[t][0]; if(iv.length!==pcs.length)continue; var ok=true;
       for(var e=0;e<iv.length;e++)if(pcs.indexOf((root+iv[e])%12)<0){ ok=false; break; }
-      if(!ok)continue;
-      var colOf=function(pcv){ if(!dia)return null; var j=fnOf(pcv); return (j>=0)?fn[j].c:null; };
-      var parts=[[pcName(root).split('/')[0],colOf(root)]]; TAB_SHAPES[t][1].forEach(function(p){ parts.push([p[0],colOf((root+p[1])%12)]); });
-      out.push({parts:parts,text:parts.map(function(p){ return p[0]; }).join(''),dia:dia});
-    } }
-  return out;
+      if(ok)cand.push({rd:make(root,t,false),r:r,ex:0}); }
+    /* a seventh chord with its fifth left out: root, third and seventh sound; the fifth the field makes diatonic here completes it */
+    if(pcs.length===3)for(var z=0;z<TAB_SEVENTHS.length;z++){ var t2=TAB_SEVENTHS[z], iv2=TAB_SHAPES[t2][0], f5=(iv2.indexOf(7)>=0)?7:6, ok2=true;
+      for(var e2=0;e2<iv2.length;e2++){ if(iv2[e2]===f5)continue; if(pcs.indexOf((root+iv2[e2])%12)<0){ ok2=false; break; } }
+      if(!ok2)continue;
+      var p5=isDia(root+7), d5=isDia(root+6);
+      if(f5===7?(p5||!d5):(d5&&!p5))cand.push({rd:make(root,t2,true),r:r,ex:1}); }
+  }
+  cand.sort(function(a,b){ var ma=(a.rd.root===mRoot)?0:1, mb=(b.rd.root===mRoot)?0:1; return (ma-mb)||(a.ex-b.ex)||(a.r-b.r); });
+  return cand.map(function(c){ return c.rd; });
 }
 function tabChordAnalyse(col){ var rs=tabChordReadings(col); return rs.length?rs[0]:null; }
 function tabChordAnalyse_v317(col){
@@ -9762,13 +9967,35 @@ function tabChordGlyphs(t){
   return t;
 }
 var TAB_LET={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+/* v335: a sharp or flat letter in a typed label follows the global ♯/♭ choice when its tone is diatonic here;
+   with 'both' chosen, or for a tone outside the mode, the label is left as typed */
+function tabRespell(txt,pcv,ph){
+  if(accidentals!=='sharp'&&accidentals!=='flat')return txt;
+  if(!/[\u266f\u266d]/.test(txt))return txt;
+  var k=((pcv%12)+12)%12, u=fnUAt(k,ph), j=Math.round(u)%12;
+  if(Math.abs(u-Math.round(u))>=0.12||!TAB_DIA[((j%12)+12)%12])return txt;
+  return accidentals==='sharp'?pc[k]:PC_FLAT[k];
+}
 function tabPcColor(pcv,ph){ var u=fnUAt(((pcv%12)+12)%12,ph), j=Math.round(u)%12; return fn[j].c; }
+/* v326: the function names — Do Re Mi Fa Sol La Ti and their antis, as the labels currently spell them — are
+   bold in their own colours wherever they appear; a ' turns the rest of a label into a comment (grey, plain) */
+function tabFnNameRe(){ var names=fn.map(function(f,j){ return [f.n,j]; }).filter(function(p){ return p[0]; }).sort(function(a,b){ return b[0].length-a[0].length; });
+  return {re:new RegExp('^('+names.map(function(p){ return p[0].replace(/[.*+?^${}()|[\\]\\\\~]/g,'\\$&'); }).join('|')+')(?![A-Za-z])'), idx:names}; }
+function tabCommentParts(text){ var out=[], i=0, R=tabFnNameRe();
+  while(i<text.length){ var rest=text.slice(i), m=R.re.exec(rest), okStart=(i===0||!/[A-Za-z~]/.test(text.charAt(i-1)));
+    if(m&&okStart){ var j=-1; for(var k=0;k<R.idx.length;k++)if(R.idx[k][0]===m[1]){ j=R.idx[k][1]; break; } out.push([m[1],j>=0?fn[j].c:null,'b']); i+=m[1].length; continue; }
+    if(out.length&&out[out.length-1][2]==='c')out[out.length-1][0]+=text.charAt(i); else out.push([text.charAt(i),null,'c']); i++; }
+  return out; }
 function tabChordColorText(text,ph){
+  var q=text.indexOf("'");
+  if(q>=0){ var head=text.slice(0,q).trim(), tail=text.slice(q+1); var parts0=head?tabChordColorText(head,ph):[]; if(head&&tail)parts0.push([' ',null,'c']); return parts0.concat(tabCommentParts(tail)); }
   var parts=[], i=0, root=null, maj=false, base=null;
   function push(txt,pcv){ parts.push([txt,(pcv===null||pcv===undefined)?null:tabPcColor(pcv,ph)]); }
   while(i<text.length){
     var rest=text.slice(i), m;
-    if((m=/^([A-G])([\u266f\u266d\u266e]?)/.exec(rest))){ var pcv=TAB_LET[m[1]]+(m[2]==='\u266f'?1:(m[2]==='\u266d'?-1:0)); if(root===null||base==='slash'){ if(base==='slash'){ base=null; } else root=pcv; } push(m[0],pcv); i+=m[0].length; continue; }
+    var Rn=tabFnNameRe(), mn=Rn.re.exec(rest); if(mn&&(i===0||!/[A-Za-z~]/.test(text.charAt(i-1)))){ var jn=-1; for(var kn=0;kn<Rn.idx.length;kn++)if(Rn.idx[kn][0]===mn[1]){ jn=Rn.idx[kn][1]; break; } parts.push([mn[1],jn>=0?fn[jn].c:null,'b']); i+=mn[1].length; continue; }
+    if((m=/^([A-G])([\u266f\u266d\u266e]?)/.exec(rest))){ var pcv=TAB_LET[m[1]]+(m[2]==='\u266f'?1:(m[2]==='\u266d'?-1:0)); if(root===null||base==='slash'){ if(base==='slash'){ base=null; } else root=pcv; }
+      push(tabRespell(m[0],pcv,ph),pcv); i+=m[0].length; continue; }
     if(root===null){ push(rest.charAt(0),null); i++; continue; }
     if((m=/^(Maj|maj|MAJ|\u0394|M)(?![a-z])/.exec(rest))||(m=/^(Maj|maj)/.exec(rest))){ maj=true; push(m[0],root+4); i+=m[0].length; continue; }
     if((m=/^(dim|\u00b0)/.exec(rest))){ push(m[0],root+6); i+=m[0].length; continue; }
@@ -9798,6 +10025,56 @@ function tabNStr(){ return Math.min(fbStrings,SEQ_MAXV); }
 function tabStrOfVoice(v){ return fbStrings-1-v; }
 function tabVoiceOfStr(i){ return fbStrings-1-i; }
 function tabRowOfVoice(v){ return v; }
+/* v334: the TAB's clear all — the notes, the gestures and the chord row go; one measure is left, with the
+   mode that stands at its start. Tempo, meter, grid, voices and title stay. */
+/* v339 — TRANSPOSE. One stored value, -12 to +12 semitones from where the phrase was written. Moving it moves every
+   tone by the difference: each fret number shifts on its own string, the mode events move with the tones (so the
+   modal readings are unchanged), typed chord labels have their letters respelled, and the field turns by the same
+   interval so the colours stay with the music. */
+function tabTransposeLabel(t,d){
+  var qi=t.indexOf("'"), head=qi>=0?t.slice(0,qi):t, tail=qi>=0?t.slice(qi):'';
+  head=head.replace(/([A-G])([♯♭♮]?)/g,function(m,L,a,off,str){
+    var nx=str.charAt(off+1);                              /* Do and Fa are function names, not letters */
+    if((L==='D'&&nx==='o')||(L==='F'&&nx==='a'&&str.substr(off+2,2)!=='dd'))return m;
+    var pcv=TAB_LET[L]+(a==='♯'?1:(a==='♭'?-1:0));
+    return pcName(pcv+d).split('/')[0]; });
+  return head+tail;
+}
+function tabTransposeTo(val){
+  val=seqClamp(Math.round(+val)||0,-12,12);
+  var d=val-(seq.tabTr||0);
+  seq.tabTr=val;
+  if(!d){ tabBarSync(); return; }
+  if(seq.playing)seqStop();
+  var Rc=function(x){ return seqClamp(x+d,0,SEQ_ROWS-1); };
+  seq.notes.forEach(function(n){ n.pitch=Rc(n.pitch); });
+  seq.gestures.forEach(function(g){
+    g.pts.forEach(function(q){ q[1]=Rc(q[1]); });
+    if(g.pen&&g.pen.nodes){ g.pen.nodes.forEach(function(q){ q[1]=Rc(q[1]); }); (g.pen.segs||[]).forEach(function(sg){ if(sg&&sg.cy!=null)sg.cy+=d; }); }
+    if(g.src)g.src.forEach(function(q){ q.pitch=Rc(q.pitch); });
+  });
+  seq.modes.forEach(function(m){ m.anchor=((m.anchor+d)%12+12)%12; });
+  (seq.chords||[]).forEach(function(q){ if(!q.off&&q.text)q.text=tabTransposeLabel(q.text,d); });
+  if(typeof glideBy==='function')glideBy(d*ST);
+  seqModeApplied=null;
+  seqRefresh(); tabBarSync(); tabRequest(); requestFret();
+  if(typeof histQueue==='function')histQueue();
+}
+function tabClearAll(){
+  if(seq.playing)seqStop();
+  seq.notes=[]; seq.sel=null; seq.msel={n:[],g:[]}; seq.gestures=[]; seq.gsel=null; seq.chords=[]; seq.tabTr=0;
+  var st=(seq.modes||[]).filter(function(m){ return m.col<=0; }).sort(function(a,b){ return a.col-b.col; }), m0=st.length?st[st.length-1]:null;
+  seq.modes=m0?[m0]:[]; if(typeof seqModeSel!=='undefined')seqModeSel=null;
+  var br=document.getElementById('seqBarsIn'); if(br){ br.value=1; br.dispatchEvent(new Event('change')); }
+  seq.loopA=0; seq.loopB=seq.divs;
+  if(typeof seqScrubTo==='function')seqScrubTo(0);
+  tabFirstLine=0; var tl=document.getElementById('tabLineIn'); if(tl)tl.value=1;
+  if(typeof seqSyncControls==='function')seqSyncControls(); if(typeof seqRefresh==='function')seqRefresh(); tabRequest(); requestFret();
+  if(typeof histQueue==='function')histQueue();
+}
+/* v339: capo-relative fret numbers — a display and entry convention only; the pitch never moves */
+var tabCapoRel=true;
+function tabCapoOff(){ return (tabCapoRel&&fbHasNeck())?fbCapo:0; }
 function tabFretOf(n){ var i=tabStrOfVoice(n.voice); if(i<0||i>=fbStrings)return null; return seqSemi(n.pitch)-fbRootIdx(i); }
 function tabPitchOf(i,fret){ return fbRootIdx(i)+fret-SEQ_BASE; }
 function tabStrName(i){ var s=fbRootIdx(i); var k=((s%12)+12)%12; return pcName(k).split('/')[0]; }
@@ -9889,9 +10166,9 @@ function tabChordMenu(h,rds){
 function tabChordEdit(h){
   var sc=tabScrollEl(), cv=tabEl(); if(!sc||!cv)return; var old=document.getElementById('tabChordIn'); if(old)old.remove();
   var cur=tabChordUser(h.col), auto=tabChordAnalyse(h.col);
-  var inp=document.createElement('input'); inp.id='tabChordIn'; inp.value=cur?cur.text:(auto?auto.text:''); inp.maxLength=24; inp.placeholder=auto?auto.text:'chord';
-  inp.style.cssText='position:absolute;z-index:5;left:'+(cv.offsetLeft+h.x+1)+'px;top:'+(cv.offsetTop+h.y-13*TAB_S)+'px;width:'+Math.max(80,h.w*2-4)+'px;height:'+(26*TAB_S)+'px;background:#111;color:var(--ink);border:1px solid #ffd27a;border-radius:3px;padding:0 5px;font-family:var(--font-mono);font-weight:600;font-size:'+tabFontPx(18)+'px;';
-  var done=false; function commit(){ if(done)return; done=true; var t=tabChordGlyphs(inp.value.trim()).slice(0,24); if(!seq.chords)seq.chords=[];
+  var inp=document.createElement('input'); inp.id='tabChordIn'; inp.value=cur?cur.text:(auto?auto.text:''); inp.maxLength=80; inp.placeholder=auto?auto.text:'chord';
+  inp.style.cssText='position:absolute;z-index:5;left:'+(cv.offsetLeft+h.x+1)+'px;top:'+(cv.offsetTop+h.y-13*TAB_S)+'px;width:'+Math.max(120,h.w*4-4)+'px;height:'+(26*TAB_S)+'px;background:#111;color:var(--ink);border:1px solid #ffd27a;border-radius:3px;padding:0 5px;font-family:var(--font-mono);font-weight:600;font-size:'+tabFontPx(18)+'px;';
+  var done=false; function commit(){ if(done)return; done=true; var raw=inp.value.trim(), qi=raw.indexOf("'"), t=(qi>=0?tabChordGlyphs(raw.slice(0,qi))+raw.slice(qi):tabChordGlyphs(raw)).slice(0,80);   /* v326: a comment keeps its letters */ if(!seq.chords)seq.chords=[];
     seq.chords=seq.chords.filter(function(q){ return q.col!==h.col; });
     if(t&&!(auto&&t===auto.text))seq.chords.push({col:h.col,text:t}); else if(!t&&auto)seq.chords.push({col:h.col,text:'',off:true});   /* v317: the reading needs no record; a removed reading does */
     seq.chords.sort(function(a,b){ return a.col-b.col; });
@@ -9911,15 +10188,25 @@ function tabBarSync(){
   var pb=document.getElementById('tabPlay'); if(pb){ var g=seq.playing?'&#9632;':'&#9654;'; if(pb.dataset.g!==g){ pb.innerHTML=g; pb.dataset.g=g; } pb.setAttribute('aria-pressed',seq.playing?'true':'false'); }
   var lp=document.getElementById('tabLoop'); if(lp)lp.setAttribute('aria-pressed',seq.loop?'true':'false');
   var tt=document.getElementById('tabTitleIn'); if(tt&&tt!==f&&tt.value!==(seq.title||''))tt.value=seq.title||'';
+  setv('tabTrIn',seq.tabTr||0);
+  var cr=document.getElementById('tabCapoRel'); if(cr&&cr.checked!==tabCapoRel)cr.checked=tabCapoRel;
   var ps=document.getElementById('tabPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)); var t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
 }
 function tabBarWire(){
+  var tr=document.getElementById('tabTrIn');
+  if(tr){ tr.addEventListener('change',function(){ tabTransposeTo(this.value); this.value=seq.tabTr||0; });
+          tr.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
+  var cr=document.getElementById('tabCapoRel');
+  if(cr)cr.addEventListener('change',function(){ tabCapoRel=this.checked; tabRequest(); });
   var d=document.getElementById('tabDiv');
   if(d&&!d.options.length){ for(var i=0;i<SEQ_DIVS.length;i++){ var o=document.createElement('option'); o.value=SEQ_DIVS[i]; o.textContent='/'+SEQ_DIVS[i]+'  '+seqDivLabel(SEQ_DIVS[i]); d.appendChild(o); } }
   function proxy(id,seqId){ var el=document.getElementById(id); if(!el)return; el.addEventListener('change',function(){ var s=document.getElementById(seqId); if(!s)return; s.value=this.value; s.dispatchEvent(new Event('change')); tabBarSync(); tabSize(); tabRequest(); }); }
   proxy('tabBpm','seqBpmIn'); proxy('tabBars','seqBarsIn'); proxy('tabTsNum','seqTsNum'); proxy('tabTsDen','seqTsDen'); proxy('tabDiv','seqDivSel');
   function click(id,seqId){ var el=document.getElementById(id); if(!el)return; el.addEventListener('click',function(){ ensureAC&&ensureAC(); var s=document.getElementById(seqId); if(s)s.click(); tabBarSync(); tabRequest(); }); }
   click('tabPlay','seqPlayBtn'); click('tabStop','seqStopBtn'); click('tabLoop','seqLoopBtn');
+  var _sv=document.getElementById('tabSave'); if(_sv)_sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
+  var _cl=document.getElementById('tabClear'); if(_cl)_cl.addEventListener('click',tabClearAll);
+  var _ld=document.getElementById('tabLoad'); if(_ld)_ld.addEventListener('click',function(){ var b=document.getElementById('seqLoadBtn'); if(b)b.click(); });
   var tt=document.getElementById('tabTitleIn'); if(tt){ tt.addEventListener('input',function(){ seq.title=this.value.slice(0,80); var s=document.getElementById('seqTitleIn'); if(s)s.value=seq.title; }); tt.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
 }
 /* ---- render ---- */
@@ -9976,7 +10263,9 @@ function tabRender(){
     var ccols=tabChordCols();
     for(var ci=0;ci<ccols.length;ci++){ var ccol=ccols[ci], cb=Math.floor(ccol/cpb); if(cb<b0||cb>=b1)continue; var shown=tabChordShown(ccol); if(!shown)continue;
       var cx0=TAB_GUT+((cb-b0)*cpb+(ccol%cpb))*cw+3, cy0=y0-TAB_TOP+TAB_CHORD_Y;
-      for(var pi2=0;pi2<shown.parts.length;pi2++){ var pc_=shown.parts[pi2]; c.fillStyle=pc_[1]?('rgb('+pc_[1][0]+','+pc_[1][1]+','+pc_[1][2]+')'):'#d8d8d4'; c.fillText(pc_[0],cx0,cy0); cx0+=c.measureText(pc_[0]).width; } }
+      for(var pi2=0;pi2<shown.parts.length;pi2++){ var pc_=shown.parts[pi2], st_=pc_[2]||'';
+        c.font=(st_==='c'?'400 ':'600 ')+tabFontPx(st_==='c'?15:18)+'px "IBM Plex Mono", monospace';
+        c.fillStyle=pc_[1]?('rgb('+pc_[1][0]+','+pc_[1][1]+','+pc_[1][2]+')'):(st_==='c'?'#9a9a96':'#d8d8d4'); c.fillText(pc_[0],cx0,cy0); cx0+=c.measureText(pc_[0]).width; } }
     c.font=FONT;
     var pb=Math.floor(pos/cpb);
     if(pb>=b0&&pb<b1){ var px=TAB_GUT+((pb-b0)*cpb+(pos-pb*cpb))*cw; c.strokeStyle=gold; c.globalAlpha=0.8; c.lineWidth=1.5*TAB_S;
@@ -9991,6 +10280,7 @@ function tabRender(){
     var nn=seq.notes[i]; if(nn.voice>=n)continue;
     var e=nn.start+nn.dur; if(e<=lo||nn.start>=hi)continue;
     var fret=tabFretOf(nn); if(fret===null)continue;
+    var fretA=fret; fret=fret-tabCapoOff();          /* v339: shown relative to the capo when asked */
     var row=tabRowOfVoice(nn.voice);
     var sounding=(pos>=nn.start&&pos<e)&&(playing||pos>1e-9);
     var col=seqNoteEventColor(nn);
@@ -10010,10 +10300,12 @@ function tabRender(){
     }
     var R0=tabCellRect(nn.start,row);
     if(nn.start>=lo&&R0.line>=0&&R0.line<tabLines){
-      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S;
-      if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(R0.x+R0.w/2-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
+      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=R0.x+R0.w/2;
+      /* v347: in the phone's narrow cells a strum arrow sits where the number would; the number steps right of it */
+      if(nn.strum&&phoneMode()){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
+      if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
       if(sounding){ c.shadowColor=rgba(col,0.9); c.shadowBlur=10*TAB_S; }
-      c.fillStyle=rgba(col,alpha); c.textAlign='center'; outlined(txt,R0.x+R0.w/2,R0.y);
+      c.fillStyle=rgba(col,alpha); c.textAlign='center'; outlined(txt,nx,R0.y);
       c.shadowBlur=0;
     }
     /* v310: a bend — the pitch contour drawn along the span, with its size at the crest */
@@ -10031,7 +10323,7 @@ function tabRender(){
           outlined(lab,Rb.x+Rb.w/2+topT*Rb.w,y0b-top*sc-9*TAB_S); c.font=FONT; }
       }
     }
-    if(fret<0||fret>=fbFrets){ var Rf=tabCellRect(nn.start,row); if(Rf.line>=0&&Rf.line<tabLines){ c.strokeStyle='#ee0000'; c.globalAlpha=0.7; c.lineWidth=TAB_S; c.strokeRect(Rf.x+2,Rf.y-bh-1,Rf.w-4,2*bh+2); c.globalAlpha=1; c.lineWidth=1; } }
+    if(fretA<(fbHasNeck()?fbCapo:0)||fretA>=fbFrets){ var Rf=tabCellRect(nn.start,row); if(Rf.line>=0&&Rf.line<tabLines){ c.strokeStyle='#ee0000'; c.globalAlpha=0.7; c.lineWidth=TAB_S; c.strokeRect(Rf.x+2,Rf.y-bh-1,Rf.w-4,2*bh+2); c.globalAlpha=1; c.lineWidth=1; } }
   }
   /* v315: strummed chords — a wavy arrow up the column beside the numbers, low string to high */
   var strumCols={}; for(var si=0;si<seq.notes.length;si++){ var sn=seq.notes[si]; if(!sn.strum||sn.voice>=n||sn.start<lo||sn.start>=hi)continue; var kk=sn.start; if(!strumCols[kk])strumCols[kk]={lo:sn.voice,hi:sn.voice,col:seqNoteEventColor(sn),roll:sn.strum==='r',up:!!sn.sup}; else { if(sn.strum==='r')strumCols[kk].roll=true; if(sn.sup)strumCols[kk].up=true; strumCols[kk].lo=Math.max(strumCols[kk].lo,sn.voice); strumCols[kk].hi=Math.min(strumCols[kk].hi,sn.voice); } }
@@ -10055,7 +10347,10 @@ function tabRender(){
 function tabHeadTick(){
   if(!showTab)return;
   var cpb=tabCPB(), line=Math.floor(Math.floor(seqPos)/cpb/tabMPL);
-  if(seq.playing&&(line<tabFirstLine||line>=tabFirstLine+tabLines)){ tabFirstLine=line; var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
+  if((seq.playing||phoneMode())&&(line<tabFirstLine||line>=tabFirstLine+tabLines)){ tabFirstLine=Math.max(0,Math.min(line,tabNLines()-tabLines)); var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
+  /* v326: catch — the window scrolls so the head's line is in view, the way the sequencer follows its head */
+  if(seq.playing&&seq.catch){ var sc=tabScrollEl(); if(sc){ var lh=tabLineH(), L=line-tabFirstLine, y0=L*lh, y1=y0+lh, top=sc.scrollTop, bot=top+sc.clientHeight;
+    if(y0<top||y1>bot)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
   tabRequest();
 }
 /* ---- editing ---- */
@@ -10070,6 +10365,7 @@ function tabCommitBuf(){
   if(!tabCur||!tabBuf){ tabBuf=''; return; }
   var fret=parseInt(tabBuf,10); tabBuf='';
   if(!isFinite(fret))return;
+  fret+=tabCapoOff();                                 /* v339: typed relative to the capo when that is the view */
   var v=tabCur.row, i=tabStrOfVoice(v), col=tabCur.col;
   var pitch=tabPitchOf(i,fret);
   if(pitch<0||pitch>=SEQ_ROWS){ seqNote&&seqNote('fret '+fret+' is off the roll'); return; }
@@ -10192,6 +10488,18 @@ function tabWire(){
       if(ids.length){ seq.notes.forEach(function(q){ if(ids.indexOf(q.id)<0)return; if(k==='p'){ q.strum=undefined; q.sup=undefined; } else if(k==='u'){ q.sup=q.sup?undefined:true; } else q.strum=k; }); seqRefresh(); tabRequest(); if(typeof histQueue==='function')histQueue(); }
       e.preventDefault(); e.stopPropagation(); return; }
     if(k==='Escape'){ if(tabDrag&&tabDrag.mode==='bend'){ tabDrag.n.bend=tabDrag.bend0||undefined; tabDrag.on=false; } tabBuf=''; tabSel=[]; tabRequest(); e.preventDefault(); e.stopPropagation(); return; }
+    /* v340: shift + up/down steps the selected tones (or the one under the cursor) a fret up or down, each on its
+       own string. If any of them would leave the neck — below the nut or the capo, past the last fret — none move,
+       so a chord shape is never bent out of shape at the edge. */
+    if(e.shiftKey&&(k==='ArrowUp'||k==='ArrowDown')){
+      tabCommitBuf();
+      var ids2=tabSel.slice(); if(!ids2.length&&tabCur){ var nc2=tabNoteAt(tabCur.row,tabCur.col); if(nc2)ids2=[nc2.id]; }
+      var st=(k==='ArrowUp')?1:-1, mv=seq.notes.filter(function(q){ return ids2.indexOf(q.id)>=0; });
+      var lo2=fbHasNeck()?fbCapo:0, okAll=mv.length>0;
+      mv.forEach(function(q){ var fr=tabFretOf(q); if(fr===null||fr+st<lo2||fr+st>=fbFrets||q.pitch+st<0||q.pitch+st>=SEQ_ROWS)okAll=false; });
+      if(okAll){ mv.forEach(function(q){ q.pitch+=st; }); tabSel=ids2; seqRefresh(); tabRequest(); requestFret(); if(typeof histQueue==='function')histQueue(); }
+      e.preventDefault(); e.stopPropagation(); return;
+    }
     var dc={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[k];
     if(dc&&tabCur){ tabCommitBuf();
       tabCur.col=seqClamp(tabCur.col+dc[0],0,seq.divs-1); tabCur.row=seqClamp(tabCur.row+dc[1],0,tabNStr()-1);
@@ -10225,7 +10533,7 @@ function tabWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); tabBarSync(); };
 })();
 
-window.tf={ tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
@@ -10323,13 +10631,15 @@ updateFoldVal();
 diagShow('welcome');
 gxAlign();
 cfgApplyAll(BOOT_CFG);                       /* the captured field, selections, sequencer, f — everything but the arrangement */
-if(BOOT_CFG.views)[2,3,4].forEach(function(n){ var v=BOOT_CFG.views[n]; views[n]=(v&&typeof v==='object')?JSON.parse(JSON.stringify(v)):null; });   /* v302: the views ride in the boot file (2 = Starless; 3 and 4 empty) */   /* v263: the boot file's saved views */
+if(BOOT_CFG.views)[1,2,3,4,5,6,7].forEach(function(n){ var v=BOOT_CFG.views[n]; views[n]=(v&&typeof v==='object')?JSON.parse(JSON.stringify(v)):null; });   /* v302: the views ride in the boot file (2 = Starless; 3 and 4 empty) */   /* v263: the boot file's saved views */
 bootState=viewStateCapture();                /* v268: what view 1 returns to */
-[2,3,4].forEach(function(n){ var v=views[n]; if(!v||typeof v!=='object')return;
+[1,2,3,4,5,6,7].forEach(function(n){ var v=views[n]; if(!v||typeof v!=='object')return;
   if(!v.state)v.state=viewStateCapture();                       /* v264.1: old-model boot views take the boot's state */
   else { if(!v.state.ring)v.state.ring=ringStateCapture();       /* v268: boot views stored before the ring state take the boot's ring */
          if(!v.state.seq)v.state.seq=seqStateFromCfg(BOOT_CFG,v)||seqStateCapture(); } });   /* v269: ... and the boot's sequence */   /* v264.1: give the old-model boot views a per-view state from the boot's fretboard */
-if(!viewApply(2))viewApply(1);              /* v306: boot opens on view 2 (the ring, fretboard, TAB and sequencer) */
+if(BOOT_CFG.bootView&&views[BOOT_CFG.bootView])VIEW_BOOT=+BOOT_CFG.bootView;   /* v334: the file names its boot view */
+if(!viewApply(VIEW_BOOT)){ for(var _bv=1;_bv<=7;_bv++)if(viewApply(_bv)){ VIEW_BOOT=_bv; break; } }
+viewBtnsSync();              /* v306: boot opens on view 2 (the ring, fretboard, TAB and sequencer) */
 diagShow('welcome');                        /* v286: the guide's own page is ready for when it is called up from the tools menu */
 if(typeof lessonBlank==='function')lessonBlank();   /* v286: the lessons window opens on a blank lesson, editing */
 CFG_DEFAULT=cfgCapture();
