@@ -623,7 +623,7 @@ button.stepper:hover { color: #fff; border-color: #555; }
 /* v355: the finger playing a key, on the key while it sounds */
 .kfing { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 50%; display: none; align-items: center; justify-content: center; font-family: "IBM Plex Sans", sans-serif; font-weight: 700; pointer-events: none; z-index: 8; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.75), 0 1px 4px rgba(0,0,0,0.5); }
 /* v356: in a piano lesson the struck key shows its solfege beneath the finger, fading up with the tone */
-.ksolb { position: absolute; left: 50%; transform: translateX(-50%); padding: 1px 6px; border-radius: 9px; background: rgba(12,12,12,0.86); font-family: var(--font-mono); font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 7; opacity: 0; transition: opacity 110ms linear; border: 1.5px solid currentColor; }
+.ksolb { position: absolute; left: 50%; transform: translateX(-50%); padding: 1px 6px; border-radius: 9px; font-family: var(--font-mono); font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 7; opacity: 0; transition: opacity 160ms ease-out; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.45); }
 .wkey { background: #e2e0d8; border: 1px solid #141414; }
 .bkey { background: #1a1a1a; border: 1px solid #000; z-index: 2; }
 .klabels {
@@ -6580,18 +6580,20 @@ function colorKeyboard(A){
     var kw=parseFloat(el.style.width)||20, kh=parseFloat(el.style.height)||80, sz=Math.max(24,Math.min(52,kw*1.64));
     /* stacked up from the key's foot: the letters, then the solfege, then the finger — on a white key in the open part
        below the black keys where there is room; on a black key the finger at its foot and the solfege just beneath */
-    var tiny=kb.classList.contains('kb-tiny'), letH=showKeyNames?(tiny?11:15):2, sfs=Math.max(9,Math.min(15,sz*0.34)), solH=sfs+7;
-    var solTop=black?(kh+3):(kh-letH-solH-2), ftop=black?Math.max(2,kh-sz-5):Math.max(2,solTop-3-sz);
+    /* the solfege sits right on the letters (white keys) or on the black key's own face, over its letters, and the
+       finger just above it: while a key sounds, what it is in the field matters more than its letter name */
+    var sfs=Math.max(9,Math.min(15,sz*0.34)), solH=sfs+7;
+    var solTop=Math.max(2,kh-3-solH), ftop=Math.max(2,solTop-3-sz);
     if(fgN){ if(!fgE){ fgE=document.createElement('div'); fgE.className='kfing'; fgE.dataset.s=semi; kb.appendChild(fgE); }
       fgE.style.left=kx+'px'; fgE.style.width=sz+'px'; fgE.style.height=sz+'px'; fgE.style.fontSize=Math.round(sz*0.62)+'px'; fgE.style.top=ftop+'px';
       fgE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; fgE.style.color=_lum(fcol)>140?'#111':'#fff';
       if(fgE.textContent!==String(fgN))fgE.textContent=fgN; fgE.style.display='flex'; }
     else if(fgE)fgE.style.display='none';
     var sbE=kb.querySelector('.ksolb[data-s="'+semi+'"]');
-    if(kbLesson){ var slit=semiLit(semi,A), sa=slit?Math.min(1,Math.sqrt(Math.max(0,semiAmp(semi,_AA)))*1.25):0;
+    if(kbLesson){ var slit=semiLit(semi,A), sa=slit?Math.min(1,0.9+0.1*Math.sqrt(Math.max(0,semiAmp(semi,_AA)))):0;   /* near solid while it sounds; it fades out as the key is released */
       if(sa>0.01||sbE){ if(!sbE){ sbE=document.createElement('div'); sbE.className='ksolb'; sbE.dataset.s=semi; kb.appendChild(sbE); }
         sbE.style.left=kx+'px'; sbE.style.fontSize=sfs+'px'; sbE.style.top=solTop+'px';
-        if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.color='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.opacity=sa.toFixed(3); } }
+        if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
     else if(sbE)sbE.style.opacity='0';
     var ls=el.querySelector('.klabels');
     if(ls){
