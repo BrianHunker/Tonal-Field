@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!-- Tonal Field — lessons -->
+<!-- © Brian Hunker · GablesGuitar.com/tonal-field -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tonal Field — Lessons</title>
+<meta name="description" content="Interactive tonal lessons by Brian Hunker: each one plays and animates a progression through the tonal field.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font-sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Monaco,monospace;
+  --font-serif:'IBM Plex Serif',Georgia,serif;
+  --bg:#232323; --panel:#1f1f1f; --line:#3a3a3a; --ink:#d8d8d4; --dim:#8a8a86; --gold:#d8c878;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.55;min-height:100vh;display:flex;flex-direction:column}
+a{color:inherit}
+header{border-bottom:1px solid var(--line);padding:28px 16px 24px}
+.wrap{max-width:880px;margin:0 auto;width:100%}
+h1{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:34px;color:#e8e6dc;line-height:1.15}
+.tagline{font-size:13px;color:var(--dim);margin-top:4px}
+.eq{font-family:var(--font-serif);font-style:italic;font-size:17px;margin-top:18px;color:#aaa;overflow-wrap:anywhere}
+.eq .g{color:#d8a838}.eq .env{color:#c8c4b8}.eq .car{color:#5acca8}.eq .s5{color:#ffa07a}.eq .s7{color:#7ad9ff}
+main{flex:1;padding:28px 16px 40px}
+.label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.lessons{list-style:none;display:flex;flex-direction:column;gap:14px}
+.card{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px;transition:border-color .15s}
+.card:hover,.card:focus-visible{border-color:var(--gold);outline:none}
+.card h2{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:23px;color:#e8e6dc;line-height:1.2}
+.views{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 8px}
+.view{font-family:var(--font-mono);font-weight:700;font-size:12px;border:1px solid var(--line);border-radius:3px;padding:3px 8px;background:#262626}
+.view .dash{color:#8a8a86}
+.card p{color:#b4b4b0;font-size:14px}
+.card h2 + p{margin-top:8px}
+.open{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.card:hover .open{color:var(--gold)}
+.note{margin-top:26px;font-size:13px;color:var(--dim)}
+footer{border-top:1px solid var(--line);padding:16px;font-family:var(--font-mono);font-size:11px;color:#777}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+footer a{text-decoration:none}footer a:hover{color:var(--gold)}
+@media (max-width:520px){h1{font-size:28px}.card{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Tonal Field</h1>
+    <div class="tagline">ici bas, et retour &middot; lessons by Brian Hunker</div>
+    <div class="eq" aria-label="g of x equals cos x times cos 6x plus one sixth sin x times sin 6x, equals seven twelfths cos 5x plus five twelfths cos 7x"><span class="g">g(x)</span> = <span class="env">cos(x)</span>&middot;<span class="car">cos(6x)</span> + (1/6)&middot;<span class="env">sin(x)</span>&middot;<span class="car">sin(6x)</span> = <span class="s5">(7/12)&middot;cos(5x)</span> + <span class="s7">(5/12)&middot;cos(7x)</span></div>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <div class="label">Lessons</div>
+    <ul class="lessons" id="lessons"></ul>
+    <p class="note">Each lesson opens in the full Tonal Field tool. Press play in the TAB window to hear and watch it. Best on a laptop or desktop, with the sound on.</p>
+  </div>
+</main>
+<footer>
+  <div class="wrap"><span>&copy; Brian Hunker</span><a href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a></div>
+</footer>
+<script>
+/* ── THE LESSON LIST ─────────────────────────────────────────────────────────
+   Newest first. To add a lesson: put its HTML file in the lessons/ folder and add one entry here.
+     title  — the lesson's name
+     file   — the path to its page, from this folder
+     views  — the view buttons inside it (function names are coloured automatically)
+     about  — one or two sentences for students */
+var LESSONS=[
+  { title:'Modal Progressions',
+    file:'lessons/modal-progressions.html',
+    views:['Re-Sol-Do','Ti-Mi-La','Full Circle'],
+    about:'Diatonic seventh-chord cadences on guitar: Re–Sol–Do, Ti–Mi–La, and the full circle through all seven functions, each chord lit by the mode it names.' },
+  { title:'Starless Intro',
+    file:'Tonal Field - Starless Intro - Re, Mi, La Modes.html',
+    views:[],
+    about:'The intro to King Crimson’s “Starless,” bars 1–8, with exercises in C_Re, D_Mi and G_La.' }
+];
+/* the functions' colours, as the tool draws them */
+var FN_COL={Do:'#22BB22',Re:'#FF8800',Mi:'#2255FF',Fa:'#FFD700',Sol:'#EE0000',La:'#9a4fc4',Ti:'#FF00FF'};
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function viewHTML(name){
+  return name.split(/(-)/).map(function(w){
+    if(w==='-')return '<span class="dash">-</span>';
+    return FN_COL[w]?'<span style="color:'+FN_COL[w]+'">'+esc(w)+'</span>':'<span>'+esc(w)+'</span>';
+  }).join('');
+}
+var ul=document.getElementById('lessons');
+LESSONS.forEach(function(L){
+  var li=document.createElement('li');
+  li.innerHTML='<a class="card" href="'+encodeURI(L.file)+'">'
+    +'<h2>'+esc(L.title)+'</h2>'
+    +(L.views&&L.views.length?'<div class="views">'+L.views.map(function(v){ return '<span class="view">'+viewHTML(v)+'</span>'; }).join('')+'</div>':'')
+    +(L.about?'<p>'+esc(L.about)+'</p>':'')
+    +'<span class="open">open lesson &rarr;</span></a>';
+  ul.appendChild(li);
+});
+</script>
+</body>
+</html>
