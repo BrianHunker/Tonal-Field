@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v345 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v346 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -662,12 +662,34 @@ body.print .fold-ticks i.lm::after { background: #55554f; }
 #fmapToggles{display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:2px 8px;}
 #fmapToggles button{font-size:10px;padding:1px 7px;}
 #fmapCanvas{display:block;width:100%;}
+
+/* ═══ v346 · PHONE LAYOUT ═══ body.phone is set on narrow screens (and on phones turned sideways). The desk's
+   free-floating windows give way to a fixed stack: TAB, ring, fretboard, full width in portrait; TAB and ring
+   side by side in landscape, the fretboard under both. The header and toolbar keep only what a student needs. */
+body.phone main { padding: 8px 8px 24px; }
+body.phone .header { padding: 8px 12px; gap: 10px; }
+body.phone .header h1 span, body.phone .header .tagline, body.phone .site-link, body.phone .attribution { display: none; }
+body.phone .global-toolbar { display: flex; flex-wrap: wrap; justify-content: center; padding: 8px 10px; gap: 8px; }
+body.phone .global-toolbar .tb-left { order: 1; width: 100%; justify-content: center; }
+body.phone .gx { order: 2; flex: 0 0 100%; width: auto; text-align: center; margin: 2px 0; overflow: hidden; }
+body.phone .global-toolbar .tb-right { order: 3; width: 100%; justify-content: center; gap: 6px; }
+body.phone .views-label, body.phone #midiChip, body.phone #synthBtn, body.phone #labelsBtn, body.phone #dispBtn,
+body.phone #clearAll, body.phone .snd-group .rev-lbl, body.phone #revSlider { display: none !important; }
+body.phone .global-toolbar .tb-snd { margin-left: 4px; }
+body.phone .win-grip, body.phone .win-close { display: none !important; }
+body.phone .win-handle { cursor: default; }
+body.phone #fretPanel .panel-head .fret-ctl, body.phone #tabPanel .panel-head .fret-ctl { display: none !important; }
+body.phone #tabSave, body.phone #tabLoad, body.phone #tabClear, body.phone label[for="tabBars"], body.phone #tabBars,
+body.phone label[for="tabTsNum"], body.phone #tabTsNum, body.phone #tabBar .seq-slash, body.phone #tabTsDen,
+body.phone label[for="tabDiv"], body.phone #tabDiv, body.phone #tabBar .seq-sp { display: none !important; }
+body.phone #tabBar { gap: 6px 8px; }
+body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }   /* a finger can still scroll the page */
 </style>
 </head>
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v345</span></h1>
+  <h1>Tonal Field <span>Ring v346</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -9347,6 +9369,7 @@ function deskH0(){ var d=deskEl(); var top=d?d.getBoundingClientRect().top:120; 
 function winSnap(v){ return Math.round(v/WIN_G)*WIN_G; }
 function winBoot(){
   if(winBooted)return; winBooted=true;
+  phoneCheck();                                   /* v346: a phone starts in the phone stack */
   var row=document.querySelector('.top-row'); if(!row)return;
   var desk=document.createElement('div'); desk.id='desk';
   WIN_DEFS.forEach(function(d){
@@ -9389,7 +9412,7 @@ function winBoot(){
   })();
   winDefaults();
   winArriveWire();
-  window.addEventListener('resize',function(){ winFromFrac(); winSync(); });
+  window.addEventListener('resize',function(){ phoneCheck(); if(!phoneMode())winFromFrac(); winSync(); });
 }
 /* the starting arrangement: the three columns the tool always had */
 function winDefaults(){
@@ -9407,7 +9430,7 @@ function winDefaults(){
 var winFrac=null;
 function winToFrac(){ var DW=deskW(), o={}; WIN_DEFS.forEach(function(d){ var L=winL[d.id]; if(L)o[d.id]={x:+(L.x/DW).toFixed(4),y:+(L.y/DW).toFixed(4),w:+(L.w/DW).toFixed(4),h:+(L.h/DW).toFixed(4)}; }); return o; }
 function winFromFrac(){ if(!winFrac)return; var DW=deskW(); WIN_DEFS.forEach(function(d){ var F=winFrac[d.id]; if(F)winL[d.id]={x:winSnap(F.x*DW),y:winSnap(F.y*DW),w:Math.max(WIN_MINW,winSnap(F.w*DW)),h:Math.max(WIN_MINH,winSnap(F.h*DW))}; }); }
-function winLayoutCapture(){ return winToFrac(); }
+function winLayoutCapture(){ return (phoneMode()&&winFrac)?JSON.parse(JSON.stringify(winFrac)):winToFrac(); }   /* v346: the phone stack is never saved as a layout */
 /* ═══ v255 · VIEWS ═══ a view is which windows are shown and where. 1 is the boot view (guide and
    ring, half and half); 2 is a fixed arrangement; 3 and 4 start empty. Shift-click stores the current
    arrangement into 2, 3 or 4; stored views travel with the settings file. */
@@ -9588,6 +9611,7 @@ function viewApply(n){
   if(v.fitFrets&&showFret){ var _ff=v.fitFrets; requestAnimationFrame(function(){ winFit('fret'); var r=fretCv.getBoundingClientRect(), vw=r.width-FB_BAND, vh=r.height-FB_BAND-fbFootH(), nc=_ff[1]-_ff[0]+1;
       fbCellW=Math.max(4,vw/nc); fbCellH=null; if(fbStrings*fbCellW/FB_PHI>vh)fbCellW=Math.max(4,(vh/fbStrings)*FB_PHI);   /* frets 0–12 across the width; if the strings then overflow, the height decides */
       fbPanX=fbFx(_ff[0])*fbCellW; fbPanY=0; fbClampPan(vw,r.height-FB_BAND); requestFret(); if(showTab){ tabSize(); tabRequest(); } }); }
+  if(phoneMode())phoneSync();                      /* v346: the view's TAB paging and fretboard zoom give way to the phone stack */
   viewCur=n; viewBtnsSync(); return true;
 }
 function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function(b){ var n=+b.dataset.view; b.setAttribute('aria-pressed',n===viewCur?'true':'false'); b.classList.toggle('empty',!views[n]);
@@ -9606,7 +9630,7 @@ function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function
   viewBtnsSync();
 })();
 function winLayoutApply(f){ if(!f||typeof f!=='object')return; winFrac={}; WIN_DEFS.forEach(function(d){ var F=f[d.id]; if(F&&isFinite(+F.x)&&isFinite(+F.w))winFrac[d.id]={x:+F.x,y:+F.y,w:+F.w,h:+F.h}; else if(winL[d.id])winFrac[d.id]=winToFrac()[d.id]; }); winFromFrac(); }
-function winVisible(id){ var d=WIN_DEFS.filter(function(q){return q.id===id;})[0]; return !!(d&&d.vis()); }
+function winVisible(id){ var d=WIN_DEFS.filter(function(q){return q.id===id;})[0]; return !!(d&&d.vis()&&(!phoneMode()||PHONE_WINS[id])); }
 /* ═══ v298 · WHERE A NEW TOOL LANDS ═══
    A tool checked into existence from the toolbox arrives top-right at half the desk's width and
    half its height, whatever slot it last held. It is resolved before anything else, so it keeps
@@ -9693,6 +9717,7 @@ function winFitAll(){ if(printMode)return; WIN_DEFS.forEach(function(d){ winFit(
 /* show and hide by the flags, place, size */
 function winSync(){
   if(!winBooted)return;
+  if(phoneMode()){ phoneSync(); return; }          /* v346 */
   WIN_DEFS.forEach(function(d){ var w=winEl[d.id]; if(!w)return; w.style.display=d.vis()?'':'none'; });
   /* no two visible windows overlap, ever: a top-to-bottom pass settles whatever is showing */
   var order=WIN_DEFS.filter(function(d){ return d.vis()&&winL[d.id]; }).sort(function(a,b){ return (winL[a.id].y-winL[b.id].y)||(winL[a.id].x-winL[b.id].x); });
@@ -9712,12 +9737,86 @@ function winSync(){
   winFitAll();
   gxAlign(); draw();
 }
+/* ═══ v346 · PHONE LAYOUT ═══════════════════════════════════════════════════════════════════════════════════
+   Narrow screens (and phones held sideways) get a fixed stack instead of the free-floating desk: the TAB, the ring
+   and the fretboard, in that order. The TAB wraps its bars to the width it has and shows every line at once; the
+   fretboard fits frets 0 to 12 (or more, if they fit) across. Nothing here is saved: the views keep their desktop
+   layouts, and a screen that grows back past the phone size returns to them. */
+var PHONE_WINS={tab:1,ring:1,fret:1};
+var PHONE_MQ=window.matchMedia?window.matchMedia('(max-width: 760px), (max-height: 500px) and (max-width: 1000px)'):null;
+function phoneMode(){ return document.body.classList.contains('phone'); }
+function tabScaleSet(k){ TAB_S=k; TAB_FONT=14*k; TAB_ROW=20*k; TAB_GUT=34*k; TAB_TOP=56*k; TAB_BOT=30*k; TAB_CHORD_Y=27*k; }
+function phoneCheck(){
+  var want=!!(PHONE_MQ&&PHONE_MQ.matches), was=phoneMode();
+  if(want===was)return;
+  document.body.classList.toggle('phone',want);
+  tabScaleSet(want?1.0:1.5);
+  if(!want){
+    /* back to the desk: the view's own TAB paging and fretboard zoom, and the desk layout */
+    var v=(typeof views!=='undefined'&&viewCur)?views[viewCur]:null;
+    if(v&&v.tab_){ tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; }
+    var su=v&&v.state&&v.state.surface;
+    if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true; }
+    var gx=document.querySelector('.gx'); if(gx)gx.style.fontSize='';
+    winFromFrac();
+  }
+}
+function phoneGxFit(){
+  var gx=document.querySelector('.gx'); if(!gx)return;
+  gx.style.fontSize='26px';
+  var need=gx.scrollWidth, have=gx.clientWidth;
+  if(need>have&&have>0)gx.style.fontSize=Math.max(9,Math.floor(26*have/need*10)/10)+'px';
+}
+function phoneSync(){
+  var desk=deskEl(); if(!desk)return;
+  WIN_DEFS.forEach(function(d){ var w=winEl[d.id]; if(w)w.style.display=winVisible(d.id)?'':'none'; });
+  document.querySelector('.stage').style.display=''; document.getElementById('fretPanel').style.display='';
+  var _tp=document.getElementById('tabPanel'); if(_tp)_tp.style.display=showTab?'flex':'none';
+  phoneGxFit();
+  var DW=Math.max(260,desk.clientWidth), G=10;
+  var land=(window.innerWidth>window.innerHeight)&&DW>=560;
+  var ringSide=land?Math.min(Math.round(DW*0.42),Math.max(240,window.innerHeight-60)):Math.min(DW,460);
+  var tabW=land?DW-ringSide-G:DW, y=0;
+  /* the TAB: as many bars to a line as fit at ~150 px a bar, and every line shown */
+  if(winVisible('tab')){
+    var usable=tabW-22-TAB_GUT-8;
+    tabMPL=Math.max(1,Math.min(4,Math.floor(usable/150))); tabFirstLine=0; tabLines=Math.max(1,Math.ceil(tabBars()/tabMPL));
+    var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
+    if(li)li.value=tabLines; if(mi)mi.value=tabMPL; if(fi)fi.value=1;
+    winL.tab={x:0,y:0,w:tabW,h:900}; winPlace('tab');
+    var tp=document.getElementById('tabPanel'), ts=tabScrollEl();
+    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabLines*tabLineH()+8); winPlace('tab');
+    if(!land)y=winL.tab.h+G;
+  } else tabW=0;
+  var ringH=0;
+  if(winVisible('ring')){
+    var rx=land&&tabW?tabW+G:0, rw=land?ringSide:DW;
+    winL.ring={x:rx,y:y,w:rw,h:ringSide+40}; winPlace('ring');
+    var hd=winEl.ring.querySelector('.win-head'); winL.ring.h=ringSide+(hd?hd.offsetHeight:34)+4; winPlace('ring');
+    ringH=winL.ring.h;
+    y=land?Math.max(winVisible('tab')?winL.tab.h:0,ringH)+G:y+ringH+G;
+  } else if(land&&winVisible('tab'))y=winL.tab.h+G;
+  if(winVisible('fret')){
+    winL.fret={x:0,y:y,w:DW,h:400}; winPlace('fret');
+    var fp=document.getElementById('fretPanel'), avail=fp.clientWidth-22-FB_BAND-(fbTuneOpen?84:0)-(fbRespOpen?96:0);
+    var nf=Math.max(Math.min(13,fbFrets),Math.min(fbFrets,Math.floor(avail/40))), cw=avail/nf;
+    fbCellW=cw; fbPanX=0; fbPanY=0; fbFitPending=false;
+    winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+FB_BAND+fbStrings*cw/FB_PHI+fbFootH()+6); winPlace('fret');
+  }
+  winDeskSize(); winFitAll();
+  if(winVisible('fret')){ fbPanX=0; fbPanY=0; requestFret(); }
+  if(showTab){ tabSize(); tabRequest(); }
+  draw();
+}
+if(PHONE_MQ){ var _pmq=function(){ if(!winBooted)return; phoneCheck(); winSync(); };
+  if(PHONE_MQ.addEventListener)PHONE_MQ.addEventListener('change',_pmq); else if(PHONE_MQ.addListener)PHONE_MQ.addListener(_pmq); }
 /* drag by the handle, size by the grip */
 function winWire(w,id){
   var handle=null;
   function pick(){ return handle||(handle=w.querySelector('.win-handle')); }
   var drag=null;
   w.addEventListener('pointerdown',function(e){
+    if(phoneMode())return;                         /* v346: the phone stack is fixed */
     var h=pick(); var grip=e.target.closest('.win-grip');
     if(grip){ drag={mode:'size',x0:e.clientX,y0:e.clientY,L:{x:winL[id].x,y:winL[id].y,w:winL[id].w,h:winL[id].h},on:true}; w.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if(!h||!h.contains(e.target))return;
