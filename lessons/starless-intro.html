@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v351 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v352 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -697,7 +697,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v351</span></h1>
+  <h1>Tonal Field <span>Ring v352</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10285,18 +10285,24 @@ function tabBarWire(){
 }
 /* ---- render ---- */
 function tabRequest(){ if(tabRAF||!showTab)return; tabRAF=requestAnimationFrame(function(){ tabRAF=null; tabRender(); }); }
+/* v352: the TAB is text, so it is drawn at the screen's full sharpness (3x on an iPhone) */
+function tabDpr(){ return Math.min(window.devicePixelRatio||1,3); }
+/* v352: a fret number sits on a small dark plate, as a fretboard label sits on its dark cell — the bar behind it is
+   the same colour as the number, and without the plate the two ran together */
+function tabPlate(c,x,y,w,h){ c.save(); c.shadowBlur=0; c.fillStyle='rgba(0,0,0,0.9)';
+  if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,Math.min(4*TAB_S,h/2)); c.fill(); } else c.fillRect(x,y,w,h); c.restore(); }
 function tabSize(){
   var cv=tabEl(), sc=tabScrollEl(); if(!cv||!sc)return;
   var W=Math.max(200,sc.clientWidth-2), H=tabLines*tabLineH();
   cv.style.width=W+'px'; cv.style.height=H+'px';
-  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  cv.width=Math.round(W*tabDpr()); cv.height=Math.round(H*tabDpr());
 }
 function tabRender(){
   var cv=tabEl(); if(!cv||!showTab)return;
   var n=tabNStr(); if(n<1)return;
   if(tabFirstLine>tabNLines()-1)tabFirstLine=Math.max(0,tabNLines()-1);
   tabSize(); tabBarSync();
-  var c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
+  var c=cv.getContext('2d'); c.setTransform(tabDpr(),0,0,tabDpr(),0,0);
   var W=cv.clientWidth, H=cv.clientHeight; c.clearRect(0,0,W,H);
   var cpb=tabCPB(), cw=tabCellW(), lh=tabLineH(), bars=tabBars(), nl=tabNLines();
   var ti=document.getElementById('tabInfo'); if(ti){ var t=bars+' bars · '+nl+' line'+(nl===1?'':'s'); if(ti.textContent!==t)ti.textContent=t; }
@@ -10359,28 +10365,32 @@ function tabRender(){
     var sounding=(pos>=nn.start&&pos<e)&&(playing||pos>1e-9);
     var col=seqNoteEventColor(nn);
     if(col[0]+col[1]+col[2]<60){ col=sounding?unblinded(function(){ return seqNoteEventColor(nn); }):[58,58,58]; }   /* v323: blacked out while silent, its colour when it sounds */
-    var alpha=sounding?1:(playing?0.55:0.9);
+    var alpha=sounding?1:(playing?0.55:0.9), _ties=[];
     for(var cc=Math.max(nn.start,lo);cc<Math.min(e,hi);cc++){
       var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
       var first=(cc===nn.start), barStart=(cc%cpb===0), lineStart=(cc===((tabFirstLine+R.line)*tabMPL*cpb));
       var colc=(nn.bend&&nn.bend.length)?tabColorAt(nn,seqSemi(nn.pitch)+seqBendAt(nn,cc+0.5),nn.start,sounding):col;   /* v316: a bent cell wears the colour of the tone it is bent to */
       c.fillStyle=rgba(lift(colc,0.28),(sounding?0.85:0.55)*(alpha)); c.fillRect(R.x+(first?R.w*0.5:0),R.y-bw,R.w-(first?R.w*0.5:0),2*bw);
-      if(!first&&(barStart||lineStart)){
-        c.fillStyle=rgba(col,0.55*alpha); c.textAlign='left'; c.font='600 '+(TAB_FONT-2*TAB_S)+'px "IBM Plex Mono", monospace';
-        outlined('('+fret+')',R.x+3,R.y);
-        if(lineStart){ c.strokeStyle=rgba(col,0.6); c.lineWidth=TAB_S; c.beginPath(); c.arc(R.x+2,R.y-8*TAB_S,7*TAB_S,Math.PI*0.6,Math.PI*1.45); c.stroke(); c.lineWidth=1; }
-        c.font=FONT;
-      }
+      if(!first&&(barStart||lineStart))_ties.push([R.x,R.y,lineStart]);   /* v352: drawn after the bar, so the bar cannot cover them */
     }
+    _ties.forEach(function(T){
+      c.textAlign='left'; c.font='600 '+(TAB_FONT-2*TAB_S)+'px "IBM Plex Mono", monospace';
+      var _tt='('+fret+')', _tw=c.measureText(_tt).width; tabPlate(c,T[0]+1,T[1]-bh+1,_tw+4,2*bh-2);
+      c.fillStyle=rgba(col,0.7*alpha); outlined(_tt,T[0]+3,T[1]);
+      if(T[2]){ c.strokeStyle=rgba(col,0.6); c.lineWidth=TAB_S; c.beginPath(); c.arc(T[0]+2,T[1]-8*TAB_S,7*TAB_S,Math.PI*0.6,Math.PI*1.45); c.stroke(); c.lineWidth=1; }
+      c.font=FONT;
+    });
     var R0=tabCellRect(nn.start,row);
     if(nn.start>=lo&&R0.line>=0&&R0.line<tabLines){
       var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=R0.x+R0.w/2;
       /* v347: in the phone's narrow cells a strum arrow sits where the number would; the number steps right of it */
       if(nn.strum&&phoneMode()){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
+      tabPlate(c,nx-tw/2,R0.y-bh,tw,2*bh);
       if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
-      if(sounding){ c.shadowColor=rgba(col,0.9); c.shadowBlur=10*TAB_S; }
-      c.fillStyle=rgba(col,alpha); c.textAlign='center'; outlined(txt,nx,R0.y);
-      c.shadowBlur=0;
+      c.fillStyle=rgba(col,alpha); c.textAlign='center';
+      /* v352: a sounding number glows, but the glow is its own layer beneath — the digits and their outline stay crisp */
+      if(sounding){ c.save(); c.shadowColor=rgba(col,0.9); c.shadowBlur=10*TAB_S; c.fillText(txt,nx,R0.y); c.restore(); }
+      outlined(txt,nx,R0.y);
     }
     /* v310: a bend — the pitch contour drawn along the span, with its size at the crest */
     if(nn.bend&&nn.bend.length&&nn.start>=lo){
