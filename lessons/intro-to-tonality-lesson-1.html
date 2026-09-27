@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v352 · lesson: Intro to Tonality — Lesson 1 -->
+<!-- Tonal Field — Ring — v353 · lesson: Intro to Tonality — Lesson 1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -697,7 +697,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v352</span></h1>
+  <h1>Tonal Field <span>Ring v353</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -5483,7 +5483,7 @@ function fbDynCompute(rowA){
   for(var r=0;r<fbStrings;r++){ var any=false;
     for(var f=0;f<fbFrets;f++){ var fr=fbFxInv(f), semi=fbRoot(r)+fbFret0()+fr; if(semiLit(semi,rowA[r])){ any=true; cols[fr]=1; cols[fr-1]=1; cols[fr+1]=1; } }
     if(any)fbDynRowT[r]=now;
-    var dt=now-(fbDynRowT[r]===undefined?-9:fbDynRowT[r]); if(dt<1.0){ rows[r]=1; if(!any)tail=true; } }
+    if(any)rows[r]=1; }   /* v353: a string is live while it sounds, and no longer — as a fret is (the one-second hold is gone) */
   fbDynRowsNow=rows; fbDynColsNow=cols;
   if(tail&&!fbDynTimer)fbDynTimer=setTimeout(function(){ fbDynTimer=null; if(typeof requestFret==='function')requestFret(); },60);   /* the second's tail keeps drawing */
 }
@@ -7332,7 +7332,7 @@ function fretDraw(){
   fx.fillStyle='rgba(60,60,58,0.9)';
   fx.fillRect(0,0,B,B);
   if(fbDynCol&&fbDynColsNow){ fx.fillStyle='rgba(120,200,220,0.5)'; for(var _dc in fbDynColsNow){ var _fc=fbFx(+_dc); if(_fc<0||_fc>=fbFrets)continue; var _x0=Math.max(B,_fc*fw-fbPanX+B), _x1=Math.min(w,(_fc+1)*fw-fbPanX+B); if(_x1>_x0)fx.fillRect(_x0,0,_x1-_x0,B); } }
-  if(fbDynRow&&fbDynRowsNow){ for(var _dr in fbDynRowsNow){ var _dr2=+_dr, _y0=Math.max(B,_dr2*rowH-fbPanY+B), _y1=Math.min(hh,(_dr2+1)*rowH-fbPanY+B); var _age=((typeof performance!=='undefined'?performance.now():Date.now())/1000)-(fbDynRowT[_dr2]||0); fx.fillStyle='rgba(120,200,220,'+(0.5*Math.max(0.15,1-_age)).toFixed(3)+')'; if(_y1>_y0)fx.fillRect(0,_y0,B,_y1-_y0); } }
+  if(fbDynRow&&fbDynRowsNow){ for(var _dr in fbDynRowsNow){ var _dr2=+_dr, _y0=Math.max(B,_dr2*rowH-fbPanY+B), _y1=Math.min(hh,(_dr2+1)*rowH-fbPanY+B); var _age=((typeof performance!=='undefined'?performance.now():Date.now())/1000)-(fbDynRowT[_dr2]||0); fx.fillStyle='rgba(120,200,220,0.5)'; if(_y1>_y0)fx.fillRect(0,_y0,B,_y1-_y0); } }
   if(fbColSel&&!fbDynCol){
     var _c0=fbFx(fbColSel[0]), _c1=fbFx(fbColSel[1]);
     if(_c0>_c1){ var _t=_c0; _c0=_c1; _c1=_t; }
