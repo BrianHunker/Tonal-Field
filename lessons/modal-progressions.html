@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v349 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v350 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -697,7 +697,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v349</span></h1>
+  <h1>Tonal Field <span>Ring v350</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4373,6 +4373,8 @@ function seqStart(){
       if(_pr&&_pr.then)_pr.then(_go,_go); else setTimeout(_go,120); }
     return;
   }
+  /* v350: then a silent string voice is started and play waits until it is running */
+  if(!strWarm&&strWorkletReady){ if(!seqStartWaiting){ seqStartWaiting=true; strWarmUp(function(){ seqStartWaiting=false; seqStart(); }); } return; }
   /* v307: the first play waits the few milliseconds the string model takes to compile, instead of
      sending the phrase through the stand-in */
   if(!strWorkletReady&&strWorkletPromise&&!seqStartWaiting){ seqStartWaiting=true; strWorkletPromise.then(function(){ seqStartWaiting=false; seqStart(); },function(){ seqStartWaiting=false; strWorkletPromise=null; seqStart(); }); return; }
@@ -5651,6 +5653,7 @@ var STR_WORKLET_SRC=[
 " }",
 " process(inputs,outputs,params){",
 "  if(!this.alive)return false;",
+"  if(!this.up){ this.up=true; this.port.postMessage('up'); }   /* v350: running now */",
 "  var out=outputs[0][0], fr=params.frequency, buf=this.buf, N=this.N, sr=this.sr, c=this.c, a=1-c, w=this.w, lp=this.lp, ap=this.ap, apx=this.apx, t60=this.t60;",
 "  for(var i=0;i<out.length;i++){",
 "   var f=fr.length>1?fr[i]:fr[0]; if(f<8)f=8;",
@@ -5683,6 +5686,23 @@ function strWorkletLoad(){
    compression), a low shelf of body, a cabinet lowpass, then dry + a slow shallow chorus + a room
    (a convolver on a generated 2.2 s tail) into the master. The strings sound plugged in. */
 var strBusIn=null, seqStartWaiting=false;
+/* v350 — WARM-UP. On a phone the first string voice can take a moment to start producing sound (the processor is
+   set up on the audio thread the first time one is made), and a short first note was over before it began. Before
+   the first play one silent string voice is started, and play begins only once it is actually running. */
+var strWarm=false;
+function strWarmUp(cb){
+  if(strWarm||!strWorkletReady||!AC){ strWarm=true; cb(); return; }
+  var done=false, node=null, z=null;
+  function fin(){ if(done)return; done=true; strWarm=true;
+    try{ node.port.postMessage('stop'); }catch(e){} try{ node.disconnect(); }catch(e){} try{ z.disconnect(); }catch(e){} cb(); }
+  try{
+    strBus();                                      /* the amplifier's room is set up now, not on the first note */
+    node=new AudioWorkletNode(AC,'tf-string',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{gauge:0.5,vel:0.05,f0:110}});
+    z=AC.createGain(); z.gain.value=0; node.connect(z); z.connect(master);
+    node.port.onmessage=function(e){ if(e.data==='up')setTimeout(fin,80); };
+  }catch(e){ fin(); return; }
+  setTimeout(fin,2000);                            /* never wait longer than this */
+}
 /* v329: the room's level, on the transport beside volume and mute */
 var strRev=0.3, strRevNode=null;
 function setStrRev(x){ strRev=Math.max(0,Math.min(1,+x)); var el=document.getElementById('revSlider'); if(el&&+el.value!==strRev)el.value=strRev; if(strRevNode&&AC)strRevNode.gain.setTargetAtTime(strRev,AC.currentTime,0.04); }
@@ -10555,7 +10575,7 @@ function tabWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); tabBarSync(); };
 })();
 
-window.tf={ ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
