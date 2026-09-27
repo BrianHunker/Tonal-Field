@@ -21,6 +21,11 @@
 body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.55;min-height:100vh;display:flex;flex-direction:column}
 a{color:inherit}
 header{border-bottom:1px solid var(--line);padding:28px 16px 24px}
+.brand{display:flex;align-items:center;gap:20px}
+.brand .logo{flex:0 0 auto;display:block;width:104px;height:104px;border-radius:50%;transition:transform .15s}
+.brand .logo:hover,.brand .logo:focus-visible{transform:scale(1.04);outline:none}
+.brand .logo img{width:100%;height:100%;display:block}
+.brand .words{min-width:0}
 .wrap{max-width:880px;margin:0 auto;width:100%}
 h1{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:34px;color:#e8e6dc;line-height:1.15}
 .tagline{font-size:13px;color:var(--dim);margin-top:4px}
@@ -43,14 +48,19 @@ main{flex:1;padding:28px 16px 40px}
 footer{border-top:1px solid var(--line);padding:16px;font-family:var(--font-mono);font-size:11px;color:#777}
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 footer a{text-decoration:none}footer a:hover{color:var(--gold)}
-@media (max-width:520px){h1{font-size:28px}.card{padding:16px}}
+@media (max-width:520px){h1{font-size:28px}.card{padding:16px}.brand{gap:14px}.brand .logo{width:76px;height:76px}}
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <h1>Tonal Field</h1>
-    <div class="tagline">ici bas, et retour &middot; lessons by Brian Hunker</div>
+    <div class="brand">
+      <a class="logo" href="https://gablesguitar.com" target="_blank" rel="noopener" title="Gables Guitar Studio"><img src="images/gables-guitar-studio.png" alt="Gables Guitar Studio" width="104" height="104"></a>
+      <div class="words">
+        <h1>Tonal Field</h1>
+        <div class="tagline">ici bas, et retour &middot; lessons by Brian Hunker</div>
+      </div>
+    </div>
     <div class="eq" aria-label="g of x equals cos x times cos 6x plus one sixth sin x times sin 6x, equals seven twelfths cos 5x plus five twelfths cos 7x"><span class="g">g(x)</span> = <span class="env">cos(x)</span>&middot;<span class="car">cos(6x)</span> + (1/6)&middot;<span class="env">sin(x)</span>&middot;<span class="car">sin(6x)</span> = <span class="s5">(7/12)&middot;cos(5x)</span> + <span class="s7">(5/12)&middot;cos(7x)</span></div>
   </div>
 </header>
