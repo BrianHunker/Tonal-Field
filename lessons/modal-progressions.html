@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v346 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v347 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -678,7 +678,15 @@ body.phone #clearAll, body.phone .snd-group .rev-lbl, body.phone #revSlider { di
 body.phone .global-toolbar .tb-snd { margin-left: 4px; }
 body.phone .win-grip, body.phone .win-close { display: none !important; }
 body.phone .win-handle { cursor: default; }
-body.phone #fretPanel .panel-head .fret-ctl, body.phone #tabPanel .panel-head .fret-ctl { display: none !important; }
+body.phone #fretPanel .panel-head .fret-ctl { display: none !important; }
+.fret-ctl-phone { display: none; }
+body.phone .fret-ctl-phone { display: inline-flex; gap: 4px; }
+body.phone .fret-ctl-phone .toggle { font-size: 9px; padding: 3px 8px; }
+body.phone #fretPanel .panel-head { align-items: center !important; }
+body.phone #fbTitle { font-size: 9px; }
+/* v347: the TAB heading keeps only 'from', to page by hand when stopped */
+body.phone #tabPanel .panel-head label[for="tabLinesIn"], body.phone #tabLinesIn, body.phone #tabPanel .panel-head label[for="tabMPLIn"],
+body.phone #tabMPLIn, body.phone #tabInfo { display: none !important; }
 body.phone #tabSave, body.phone #tabLoad, body.phone #tabClear, body.phone label[for="tabBars"], body.phone #tabBars,
 body.phone label[for="tabTsNum"], body.phone #tabTsNum, body.phone #tabBar .seq-slash, body.phone #tabTsDen,
 body.phone label[for="tabDiv"], body.phone #tabDiv, body.phone #tabBar .seq-sp { display: none !important; }
@@ -689,7 +697,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v346</span></h1>
+  <h1>Tonal Field <span>Ring v347</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1142,6 +1150,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
     <div class="panel" id="fretPanel">
       <div class="panel-head" style="align-items:flex-start;">
         <span id="fbTitle">fretboard &middot; fourths &times; semitones</span>
+        <span id="fbPhoneLab" class="fret-ctl-phone"><button class="toggle" id="fbPhLet" aria-pressed="true" title="note names on the fretboard">letters</button><button class="toggle" id="fbPhSol" aria-pressed="false" title="solfège on the fretboard">solfège</button></span>
         <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="fret-ctl">
           <select id="fbPreset">
@@ -9743,6 +9752,14 @@ function winSync(){
    fretboard fits frets 0 to 12 (or more, if they fit) across. Nothing here is saved: the views keep their desktop
    layouts, and a screen that grows back past the phone size returns to them. */
 var PHONE_WINS={tab:1,ring:1,fret:1};
+/* v347: on the phone the fretboard shows letters OR solfège — letters by default, since the colour carries the solfège */
+var phoneFbLab='let';
+function phoneFbLabApply(){ fbSetLabels(phoneFbLab==='let',phoneFbLab==='sol',false);
+  var a=document.getElementById('fbPhLet'), b=document.getElementById('fbPhSol');
+  if(a)a.setAttribute('aria-pressed',phoneFbLab==='let'?'true':'false'); if(b)b.setAttribute('aria-pressed',phoneFbLab==='sol'?'true':'false'); }
+(function(){ var a=document.getElementById('fbPhLet'), b=document.getElementById('fbPhSol');
+  if(a)a.addEventListener('click',function(e){ e.stopPropagation(); phoneFbLab='let'; phoneFbLabApply(); });
+  if(b)b.addEventListener('click',function(e){ e.stopPropagation(); phoneFbLab='sol'; phoneFbLabApply(); }); })();
 var PHONE_MQ=window.matchMedia?window.matchMedia('(max-width: 760px), (max-height: 500px) and (max-width: 1000px)'):null;
 function phoneMode(){ return document.body.classList.contains('phone'); }
 function tabScaleSet(k){ TAB_S=k; TAB_FONT=14*k; TAB_ROW=20*k; TAB_GUT=34*k; TAB_TOP=56*k; TAB_BOT=30*k; TAB_CHORD_Y=27*k; }
@@ -9756,7 +9773,8 @@ function phoneCheck(){
     var v=(typeof views!=='undefined'&&viewCur)?views[viewCur]:null;
     if(v&&v.tab_){ tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; }
     var su=v&&v.state&&v.state.surface;
-    if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true; }
+    if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true;
+      fbSetLabels(su.names!==false,!!su.sol,!!su.hz); }
     var gx=document.querySelector('.gx'); if(gx)gx.style.fontSize='';
     winFromFrac();
   }
@@ -9775,33 +9793,37 @@ function phoneSync(){
   phoneGxFit();
   var DW=Math.max(260,desk.clientWidth), G=10;
   var land=(window.innerWidth>window.innerHeight)&&DW>=560;
-  var ringSide=land?Math.min(Math.round(DW*0.42),Math.max(240,window.innerHeight-60)):Math.min(DW,460);
-  var tabW=land?DW-ringSide-G:DW, y=0;
-  /* the TAB: as many bars to a line as fit at ~150 px a bar, and every line shown */
-  if(winVisible('tab')){
-    var usable=tabW-22-TAB_GUT-8;
-    tabMPL=Math.max(1,Math.min(4,Math.floor(usable/150))); tabFirstLine=0; tabLines=Math.max(1,Math.ceil(tabBars()/tabMPL));
-    var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
-    if(li)li.value=tabLines; if(mi)mi.value=tabMPL; if(fi)fi.value=1;
-    winL.tab={x:0,y:0,w:tabW,h:900}; winPlace('tab');
-    var tp=document.getElementById('tabPanel'), ts=tabScrollEl();
-    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabLines*tabLineH()+8); winPlace('tab');
-    if(!land)y=winL.tab.h+G;
-  } else tabW=0;
-  var ringH=0;
-  if(winVisible('ring')){
-    var rx=land&&tabW?tabW+G:0, rw=land?ringSide:DW;
-    winL.ring={x:rx,y:y,w:rw,h:ringSide+40}; winPlace('ring');
-    var hd=winEl.ring.querySelector('.win-head'); winL.ring.h=ringSide+(hd?hd.offsetHeight:34)+4; winPlace('ring');
-    ringH=winL.ring.h;
-    y=land?Math.max(winVisible('tab')?winL.tab.h:0,ringH)+G:y+ringH+G;
-  } else if(land&&winVisible('tab'))y=winL.tab.h+G;
+  /* v347: fretboard first, then the TAB, then the ring. Portrait: one column. Landscape: the fretboard across the
+     top, the TAB and the ring side by side beneath it. */
+  var y=0;
   if(winVisible('fret')){
-    winL.fret={x:0,y:y,w:DW,h:400}; winPlace('fret');
+    phoneFbLabApply();
+    winL.fret={x:0,y:0,w:DW,h:400}; winPlace('fret');
     var fp=document.getElementById('fretPanel'), avail=fp.clientWidth-22-FB_BAND-(fbTuneOpen?84:0)-(fbRespOpen?96:0);
     var nf=Math.max(Math.min(13,fbFrets),Math.min(fbFrets,Math.floor(avail/40))), cw=avail/nf;
     fbCellW=cw; fbPanX=0; fbPanY=0; fbFitPending=false;
     winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+FB_BAND+fbStrings*cw/FB_PHI+fbFootH()+6); winPlace('fret');
+    y=winL.fret.h+G;
+  }
+  var ringSide=land?Math.min(Math.round(DW*0.42),Math.max(240,window.innerHeight-60)):Math.min(DW,460);
+  var tabW=land&&winVisible('ring')?DW-ringSide-G:DW, tabH=0;
+  /* the TAB: two bars in view, following the playhead */
+  if(winVisible('tab')){
+    var usable=tabW-22-TAB_GUT-8;
+    tabMPL=Math.max(1,Math.min(2,Math.floor(usable/150)));
+    tabLines=Math.max(1,Math.min(tabNLines(),Math.ceil(2/tabMPL)));
+    tabFirstLine=Math.max(0,Math.min(tabNLines()-tabLines,Math.floor(Math.floor(seqPos)/tabCPB()/tabMPL)));
+    var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
+    if(li)li.value=tabLines; if(mi)mi.value=tabMPL; if(fi)fi.value=tabFirstLine+1;
+    winL.tab={x:0,y:y,w:tabW,h:900}; winPlace('tab');
+    var tp=document.getElementById('tabPanel'), ts=tabScrollEl();
+    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabLines*tabLineH()+8); winPlace('tab');
+    tabH=winL.tab.h;
+  } else tabW=0;
+  if(winVisible('ring')){
+    var rx=land&&tabW?tabW+G:0, ry=land?y:y+(tabH?tabH+G:0), rw=land?ringSide:DW;
+    winL.ring={x:rx,y:ry,w:rw,h:ringSide+40}; winPlace('ring');
+    var hd=winEl.ring.querySelector('.win-head'); winL.ring.h=ringSide+(hd?hd.offsetHeight:34)+4; winPlace('ring');
   }
   winDeskSize(); winFitAll();
   if(winVisible('fret')){ fbPanX=0; fbPanY=0; requestFret(); }
@@ -10279,10 +10301,12 @@ function tabRender(){
     }
     var R0=tabCellRect(nn.start,row);
     if(nn.start>=lo&&R0.line>=0&&R0.line<tabLines){
-      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S;
-      if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(R0.x+R0.w/2-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
+      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=R0.x+R0.w/2;
+      /* v347: in the phone's narrow cells a strum arrow sits where the number would; the number steps right of it */
+      if(nn.strum&&phoneMode()){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
+      if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
       if(sounding){ c.shadowColor=rgba(col,0.9); c.shadowBlur=10*TAB_S; }
-      c.fillStyle=rgba(col,alpha); c.textAlign='center'; outlined(txt,R0.x+R0.w/2,R0.y);
+      c.fillStyle=rgba(col,alpha); c.textAlign='center'; outlined(txt,nx,R0.y);
       c.shadowBlur=0;
     }
     /* v310: a bend — the pitch contour drawn along the span, with its size at the crest */
@@ -10324,7 +10348,7 @@ function tabRender(){
 function tabHeadTick(){
   if(!showTab)return;
   var cpb=tabCPB(), line=Math.floor(Math.floor(seqPos)/cpb/tabMPL);
-  if(seq.playing&&(line<tabFirstLine||line>=tabFirstLine+tabLines)){ tabFirstLine=line; var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
+  if((seq.playing||phoneMode())&&(line<tabFirstLine||line>=tabFirstLine+tabLines)){ tabFirstLine=Math.max(0,Math.min(line,tabNLines()-tabLines)); var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
   /* v326: catch — the window scrolls so the head's line is in view, the way the sequencer follows its head */
   if(seq.playing&&seq.catch){ var sc=tabScrollEl(); if(sc){ var lh=tabLineH(), L=line-tabFirstLine, y0=L*lh, y1=y0+lh, top=sc.scrollTop, bot=top+sc.clientHeight;
     if(y0<top||y1>bot)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
