@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v350 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v351 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -697,7 +697,7 @@ body.phone #tabCv, body.phone #fretCv, body.phone #cv { touch-action: pan-y; }  
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v350</span></h1>
+  <h1>Tonal Field <span>Ring v351</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4263,7 +4263,12 @@ function seqApplyMode(col){
 }
 function seqTick(){
   var a=seqAudio; if(!a||!a.alive||!AC)return;
+  /* v351: a leap of the audio clock ahead of real time is absorbed, not played through */
+  var _nA=AC.currentTime, _nP=performance.now()/1000;
+  if(a.lastA!==undefined){ var _dA=_nA-a.lastA, _dP=_nP-a.lastP; if(_dA>_dP+0.04){ a.t0+=_dA-_dP; adbg('clock jumped '+Math.round((_dA-_dP)*1000)+' ms ahead: absorbed'); } }
+  a.lastA=_nA; a.lastP=_nP;
   if(AC.currentTime<a.t0-0.002)return;   /* v349: nothing sounds before its time — the count-in is silent */
+  if(!a.firstLogged){ a.firstLogged=true; adbg('first tick of the phrase'); }
   var pos=seqPosNow();
   seqVowelTick(pos);
   seqLpfTick(pos);
@@ -4367,13 +4372,15 @@ function seqStart(){
   /* v349: the first play after a load waits for the audio to be running — a phone wakes its audio output only
      now, and a note sent before that is clipped — and then gives it a short count-in (seqLead) */
   if(AC.state!=='running'){
-    if(!seqStartWaiting){ seqStartWaiting=true; var _go=function(){ seqStartWaiting=false; seqStart(); };
+    if(!seqStartWaiting){ seqStartWaiting=true; adbg('waiting for audio to run'); var _go=function(){ seqStartWaiting=false; adbg('audio running'); seqStart(); };
       var _pr=null; try{ _pr=AC.resume(); }catch(e){}
       if(_pr&&_pr.then)_pr.then(_go,_go); else setTimeout(_go,120); }
     return;
   }
   /* v350: then a silent string voice is started and play waits until it is running */
-  if(!strWarm&&strWorkletReady){ if(!seqStartWaiting){ seqStartWaiting=true; strWarmUp(function(){ seqStartWaiting=false; seqStart(); }); } return; }
+  if(!strWarm&&strWorkletReady){ if(!seqStartWaiting){ seqStartWaiting=true; adbg('warm-up start'); strWarmUp(function(){ seqStartWaiting=false; adbg('warm-up done'); seqStart(); }); } return; }
+  /* v351: and the audio clock must be running steadily */
+  if(!audioClockOk){ if(!seqStartWaiting){ seqStartWaiting=true; audioClockWait(function(){ seqStartWaiting=false; seqStart(); }); } return; }
   /* v307: the first play waits the few milliseconds the string model takes to compile, instead of
      sending the phrase through the stand-in */
   if(!strWorkletReady&&strWorkletPromise&&!seqStartWaiting){ seqStartWaiting=true; strWorkletPromise.then(function(){ seqStartWaiting=false; seqStart(); },function(){ seqStartWaiting=false; strWorkletPromise=null; seqStart(); }); return; }
@@ -4391,7 +4398,7 @@ function seqStart(){
     from=seqClamp(seqPos,A,B);
     if(from>=B-1e-9)from=A;                /* standing at the end: start over */
   }
-  var _lead=seqFirstPlay?0.35:0.06; seqFirstPlay=false;   /* v349: the first play's count-in */
+  var _lead=seqFirstPlay?0.35:0.06; adbg('play: '+(seqFirstPlay?'first':'again')+', count-in '+_lead+' s, latency base '+(AC.baseLatency||0).toFixed(3)+' out '+(AC.outputLatency||0).toFixed(3)); seqFirstPlay=false;   /* v349: the first play's count-in */
   seqAudio={t0:AC.currentTime+_lead-(from-A)*seqSPU(),regA:A,regB:B,on:[],
     gon:new Array(SEQ_MAXV).fill(null),gt0:new Array(SEQ_MAXV).fill(null),alive:true,timer:null,raf:null,
     byV:[],ix:new Array(SEQ_MAXV).fill(0),lastPos:from};
@@ -5424,6 +5431,7 @@ var comp=null, analyser=null;
 function ensureAC(){
   if(AC)return;
   AC=new (window.AudioContext||window.webkitAudioContext)();
+  adbg('audio context made, rate '+AC.sampleRate);
   strWorkletLoad();                          /* v303: the string model compiles alongside the context */
   try{ var _ub=AC.createBuffer(1,1,AC.sampleRate), _us=AC.createBufferSource(); _us.buffer=_ub; _us.connect(AC.destination); _us.start(0); }catch(e){}   /* v349: wakes a phone's audio output */
   master=AC.createGain();
@@ -5689,6 +5697,31 @@ var strBusIn=null, seqStartWaiting=false;
    set up on the audio thread the first time one is made), and a short first note was over before it began. Before
    the first play one silent string voice is started, and play begins only once it is actually running. */
 var strWarm=false;
+/* v351 — AUDIO DIAGNOSTIC. With ?audiodebug in the address, a small readout at the bottom of the page reports what
+   the audio is doing on this device: when the context runs, the warm-up, the clock check, clock jumps, first notes. */
+var ADBG=/[?&]audiodebug\b/.test(location.search), _adbgEl=null, _adbgT0=performance.now();
+function adbg(msg){
+  if(!ADBG)return;
+  if(!_adbgEl){ _adbgEl=document.createElement('pre'); _adbgEl.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;margin:0;padding:6px 8px;background:rgba(0,0,0,0.88);color:#9f9;font:11px/1.35 ui-monospace,monospace;z-index:9999;white-space:pre-wrap;'; document.body.appendChild(_adbgEl); }
+  var ac=(typeof AC!=='undefined'&&AC)?(' [ac '+AC.state+' t='+AC.currentTime.toFixed(3)+']'):'';
+  _adbgEl.textContent+=((performance.now()-_adbgT0)/1000).toFixed(3)+'s '+msg+ac+'\n'; _adbgEl.scrollTop=1e9;
+}
+/* v351 — CLOCK CHECK. On a phone the audio clock can stand still while the output wakes and then leap forward. Before
+   the first play the tool waits until the clock is really running — advancing in step with real time for several
+   checks in a row — and during play a leap of the audio clock ahead of real time is absorbed instead of skipping
+   the playhead through the notes. */
+var audioClockOk=false;
+function audioClockWait(cb){
+  var last=null, good=0, t0=performance.now();
+  (function check(){
+    var a=AC.currentTime, p=performance.now()/1000;
+    if(last){ var dA=a-last[0], dP=p-last[1]; if(dP>0&&dA>0.5*dP&&dA<1.5*dP)good++; else good=0; }
+    last=[a,p];
+    if(good>=3){ audioClockOk=true; adbg('clock steady after '+Math.round(performance.now()-t0)+' ms'); cb(); return; }
+    if(performance.now()-t0>3000){ audioClockOk=true; adbg('clock check gave up after 3 s'); cb(); return; }
+    setTimeout(check,40);
+  })();
+}
 function strWarmUp(cb){
   if(strWarm||!strWorkletReady||!AC){ strWarm=true; cb(); return; }
   var done=false, node=null, z=null;
@@ -10574,7 +10607,7 @@ function tabWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); tabBarSync(); };
 })();
 
-window.tf={ warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
