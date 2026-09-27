@@ -45,6 +45,16 @@ main{flex:1;padding:28px 16px 40px}
 .open{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
 .card:hover .open{color:var(--gold)}
 .note{margin-top:26px;font-size:13px;color:var(--dim)}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.jump a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:3px;padding:5px 10px}
+.jump a:hover,.jump a:focus-visible{color:var(--gold);border-color:var(--gold);outline:none}
+.jump a .n{color:#6f6f6b;margin-left:6px}
+.section{margin-bottom:38px;scroll-margin-top:16px}
+.section-head{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:16px}
+.section-head h3{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:26px;color:#e8e6dc}
+.section-head .count{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.series{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8f8f8a;margin:18px 0 10px}
+.series:first-of-type{margin-top:0}
 footer{border-top:1px solid var(--line);padding:16px;font-family:var(--font-mono);font-size:11px;color:#777}
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 footer a{text-decoration:none}footer a:hover{color:var(--gold)}
@@ -66,9 +76,9 @@ footer a{text-decoration:none}footer a:hover{color:var(--gold)}
 </header>
 <main>
   <div class="wrap">
-    <div class="label">Lessons</div>
-    <ul class="lessons" id="lessons"></ul>
-    <p class="note">Each lesson opens in the full Tonal Field tool. Press play in the TAB window to hear and watch it. Best on a laptop or desktop, with the sound on.</p>
+    <nav class="jump" id="jump" aria-label="instruments"></nav>
+    <div id="sections"></div>
+    <p class="note">Each lesson opens in the full Tonal Field tool. Press play above the TAB or the staff to hear and watch it. Best on a laptop or desktop, with the sound on.</p>
   </div>
 </main>
 <footer>
@@ -76,25 +86,30 @@ footer a{text-decoration:none}footer a:hover{color:var(--gold)}
 </footer>
 <script>
 /* ── THE LESSON LIST ─────────────────────────────────────────────────────────
-   Newest first. To add a lesson: put its HTML file in the lessons/ folder and add one entry here.
-     title  — the lesson's name
-     file   — the path to its page, from this folder
-     views  — the view buttons inside it (function names are coloured automatically)
-     about  — one or two sentences for students */
+   Grouped on the page by instrument (in the order of INSTRUMENTS), and within an instrument by series,
+   in the order the series first appear below. Within a series, lessons appear in the order listed here.
+   To add a lesson: put its HTML file in the lessons/ folder and add one entry here.
+     title       — the lesson's name
+     instrument  — 'piano' or 'guitar' (a new one needs a line in INSTRUMENTS)
+     series      — optional: a group of lessons that go together, shown as a sub-heading
+     file        — the path to its page, from this folder
+     views       — the view buttons inside it (function names are coloured automatically)
+     about       — one or two sentences for students */
+var INSTRUMENTS=[ {id:'piano',name:'Piano'}, {id:'guitar',name:'Guitar'} ];
 var LESSONS=[
-  { title:'Piano Lesson 1 — Do Scale',
+  { title:'Piano Lesson 1 — Do Scale', instrument:'piano', series:'Piano Basics',
     file:'lessons/piano-lesson-1.html',
     views:['Right','Left'],
     about:'The Do scale in eighth notes with fingers 1–4 of each hand: the right hand up from middle C and back, the left hand down from middle C and back. The finger numbers show on the notes, and on the keys as they sound.' },
-  { title:'Intro to Tonality — Lesson 1',
+  { title:'Intro to Tonality — Lesson 1', instrument:'guitar', series:'Intro to Tonality',
     file:'lessons/intro-to-tonality-lesson-1.html',
     views:['Fa','Do','Sol','Re','La','Mi','Ti'],
     about:'All seven modes, each played on every string in turn — from E on the 6th string, then A, D, G and B, to E on the 1st. One view per mode, in fifths from Fa to Ti.' },
-  { title:'Modal Progressions',
+  { title:'Modal Progressions', instrument:'guitar', series:'Chords & Cadences',
     file:'lessons/modal-progressions.html',
     views:['Re-Sol-Do','Ti-Mi-La','Full Circle'],
     about:'Diatonic seventh-chord cadences on guitar: Re–Sol–Do, Ti–Mi–La, and the full circle through all seven functions, each chord lit by the mode it names.' },
-  { title:'Starless Intro',
+  { title:'Starless Intro', instrument:'guitar', series:'Repertoire',
     file:'lessons/starless-intro.html',
     views:['Starless','Re-Mi-La'],
     about:'The intro to King Crimson’s “Starless,” bars 1–8, with exercises in C_Re, D_Mi and G_La.' }
@@ -108,15 +123,29 @@ function viewHTML(name){
     return FN_COL[w]?'<span style="color:'+FN_COL[w]+'">'+esc(w)+'</span>':'<span>'+esc(w)+'</span>';
   }).join('');
 }
-var ul=document.getElementById('lessons');
-LESSONS.forEach(function(L){
+function card(L){
   var li=document.createElement('li');
   li.innerHTML='<a class="card" href="'+encodeURI(L.file)+'">'
     +'<h2>'+esc(L.title)+'</h2>'
     +(L.views&&L.views.length?'<div class="views">'+L.views.map(function(v){ return '<span class="view">'+viewHTML(v)+'</span>'; }).join('')+'</div>':'')
     +(L.about?'<p>'+esc(L.about)+'</p>':'')
     +'<span class="open">open lesson &rarr;</span></a>';
-  ul.appendChild(li);
+  return li;
+}
+var host=document.getElementById('sections'), jump=document.getElementById('jump');
+INSTRUMENTS.forEach(function(I){
+  var mine=LESSONS.filter(function(L){ return (L.instrument||'guitar')===I.id; }); if(!mine.length)return;
+  var sec=document.createElement('section'); sec.className='section'; sec.id=I.id;
+  sec.innerHTML='<div class="section-head"><h3>'+esc(I.name)+'</h3><span class="count">'+mine.length+' lesson'+(mine.length===1?'':'s')+'</span></div>';
+  var order=[]; mine.forEach(function(L){ var s=L.series||''; if(order.indexOf(s)<0)order.push(s); });
+  order.forEach(function(s){
+    if(s){ var h=document.createElement('div'); h.className='series'; h.textContent=s; sec.appendChild(h); }
+    var ul=document.createElement('ul'); ul.className='lessons';
+    mine.filter(function(L){ return (L.series||'')===s; }).forEach(function(L){ ul.appendChild(card(L)); });
+    sec.appendChild(ul);
+  });
+  host.appendChild(sec);
+  var a=document.createElement('a'); a.href='#'+I.id; a.innerHTML=esc(I.name)+'<span class="n">'+mine.length+'</span>'; jump.appendChild(a);
 });
 </script>
 </body>
