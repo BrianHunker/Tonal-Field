@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v369 · lesson: New Earth — Right Hand -->
+<!-- Tonal Field — Ring — v370 · lesson: New Earth — Right Hand -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v369</span></h1>
+  <h1>Tonal Field <span>Ring v370</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10751,7 +10751,7 @@ function tabCPB(){ return Math.max(1,Math.round(seq.tsNum*seq.div/seq.tsDen)); }
 function tabBars(){ return Math.max(1,Math.ceil(seq.divs/tabCPB())); }
 function tabNLines(){ return Math.max(1,Math.ceil(tabBars()/tabMPL)); }
 function tabLineH(){ return TAB_TOP+TAB_ROW*(tabNStr()-1)+TAB_BOT; }
-function tabCellW(){ var cv=tabEl(); var W=cv?cv.clientWidth:600; return Math.max(6,(W-TAB_GUT-8)/(tabMPL*tabCPB())); }
+function tabCellW(){ var cv=tabEl(); var W=cv?cv.clientWidth:600; return Math.max(96/Math.max(1,seq.div),(W-TAB_GUT-8)/(tabMPL*tabCPB())); }   /* v370: the floor is 6 px a sixteenth, whatever the grid — a /48 grid had been held to 6 px a cell, three times too wide on a phone */
 function tabCellRect(col,row){
   var cpb=tabCPB(), bar=Math.floor(col/cpb), line=Math.floor(bar/tabMPL)-tabFirstLine;
   var cw=tabCellW(), x=TAB_GUT+((bar%tabMPL)*cpb+(col%cpb))*cw, y=line*tabLineH()+TAB_TOP+row*TAB_ROW;
