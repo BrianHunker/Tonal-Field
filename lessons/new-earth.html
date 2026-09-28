@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v361 · lesson: New Earth -->
+<!-- Tonal Field — Ring — v365 · lesson: New Earth -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -818,7 +818,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v361</span></h1>
+  <h1>Tonal Field <span>Ring v365</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -5746,10 +5746,11 @@ function litSrcOf(id){
   if(/^m\d+$/.test(id))return 'midi';
   return 'other';                      /* keys, the string, the fretboard's own touch, auditions */
 }
-function litSources(){
+function litSources(keysOnly){   /* v365: keysOnly — what is held down now: no release tails, nothing held on by the pedal */
   var out=[], seen=Object.create(null);
   voices.forEach(function(v,id){
     if(!v||v.semi===undefined)return;
+    if(keysOnly&&v.pedHeld)return;
     seen[id]=1;
     out.push({semi:v.semi, amp:(v.amp!==undefined&&isFinite(v.amp))?Math.max(0,Math.min(1,v.amp)):1, src:litSrcOf(id)});
   });
@@ -5758,7 +5759,7 @@ function litSources(){
     out.push({semi:n.semi, amp:(n.vel!==undefined&&isFinite(n.vel))?Math.max(0,Math.min(1,n.vel)):1, src:litSrcOf(id)});
   });
   tempLit.forEach(function(_,sm){ out.push({semi:sm, amp:1, src:'other'}); });
-  if(relLights.length&&AC){ var now=AC.currentTime; for(var ri=0;ri<relLights.length;ri++){ var rl=relLights[ri], ra=rl.amp0*Math.exp(-(now-rl.t0)/rl.tc); if(ra>=0.03)out.push({semi:rl.semi, amp:ra, src:rl.src}); } }
+  if(!keysOnly&&relLights.length&&AC){ var now=AC.currentTime; for(var ri=0;ri<relLights.length;ri++){ var rl=relLights[ri], ra=rl.amp0*Math.exp(-(now-rl.t0)/rl.tc); if(ra>=0.03)out.push({semi:rl.semi, amp:ra, src:rl.src}); } }
   return out;
 }
 function activeSemis(){
@@ -7550,6 +7551,11 @@ function fretDraw(){
     for(var _q2=0;_q2<_L.length;_q2++)if(fbRespMatch(_rs2,_L[_q2].src))_aa.push([_L[_q2].semi,_L[_q2].amp]);
     _rowAA.push(_aa); }
   fbDynCompute(_rowA);   /* v327 */
+  /* v365: the box follows the note itself, on to off — the colour and the labels still follow the sound as it dies */
+  var _K=litSources(true), _rowK=[], _rowKA=[];
+  for(var _r3=0;_r3<fbStrings;_r3++){ var _rs3=fbRespOf(_r3), _k=[], _ka=[];
+    for(var _q3=0;_q3<_K.length;_q3++)if(_rs3==='all'||fbRespMatch(_rs3,_K[_q3].src)){ _k.push(_K[_q3].semi); _ka.push([_K[_q3].semi,_K[_q3].amp]); }
+    _rowK.push(_k); _rowKA.push(_ka); }
   /* node colors under the exact same fade convention as the piano keys */
   var cols=[], dark=[];
   for(var r=0;r<fbStrings;r++){
@@ -7662,7 +7668,7 @@ function fretDraw(){
       var semi=fbRoot(r)+fbFret0()+_fr2;
       if(semiLit(semi,_rowA[r])&&cellSel(r,_fr2)){
         if(anyLabels){
-          if(fbBox){ var _lv=Math.min(1,0.25+0.75*Math.sqrt(Math.max(0,semiAmp(semi,_rowAA[r]))));   /* v309: the frame dips with the tone */
+          if(fbBox&&semiLit(semi,_rowK[r])){ var _lv=Math.min(1,0.25+0.75*Math.sqrt(Math.max(0,semiAmp(semi,_rowKA[r]))));   /* v309: the frame dips with the tone */
             fx.fillStyle='rgba(255,255,255,'+(0.16*_lv).toFixed(3)+')';
             fx.fillRect(f*fw,r*rowH,fw,rowH);
             fx.strokeStyle='rgba(255,255,255,'+(0.45*_lv).toFixed(3)+')'; fx.lineWidth=1.5;

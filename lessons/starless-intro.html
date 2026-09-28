@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v359 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v365 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -818,7 +818,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v359</span></h1>
+  <h1>Tonal Field <span>Ring v365</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4531,7 +4531,7 @@ function seqTick(){
       var still=false;
       for(var q=0;q<wants.length;q++)if(wants[q].id===held[h].n){ still=true; break; }
       if(still)continue;
-      if(held[h].ped===undefined&&pedI>=0){ held[h].ped=pedI; var vvp=voices.get(seqVId(v,held[h].s)); if(vvp){ vvp.finger=null; requestLight(); } continue; }
+      if(held[h].ped===undefined&&pedI>=0){ held[h].ped=pedI; var vvp=voices.get(seqVId(v,held[h].s)); if(vvp){ vvp.finger=null; vvp.pedHeld=true; requestLight(); } continue; }
       if(held[h].ped!==undefined&&held[h].ped===pedI)continue;
       seqNoteOffV(v,held[h].n);
     }
@@ -5677,6 +5677,7 @@ function ensureAC(){
   AC=new (window.AudioContext||window.webkitAudioContext)();
   adbg('audio context made, rate '+AC.sampleRate);
   strWorkletLoad();                          /* v303: the string model compiles alongside the context */
+  setTimeout(psDecodeAll,0);                 /* v361: recordings fetched before the first tap are decoded now */
   try{ var _ub=AC.createBuffer(1,1,AC.sampleRate), _us=AC.createBufferSource(); _us.buffer=_ub; _us.connect(AC.destination); _us.start(0); }catch(e){}   /* v349: wakes a phone's audio output */
   master=AC.createGain();
   master.gain.value=1;                       /* fixed bus: the spectrogram taps here */
@@ -5744,10 +5745,11 @@ function litSrcOf(id){
   if(/^m\d+$/.test(id))return 'midi';
   return 'other';                      /* keys, the string, the fretboard's own touch, auditions */
 }
-function litSources(){
+function litSources(keysOnly){   /* v365: keysOnly — what is held down now: no release tails, nothing held on by the pedal */
   var out=[], seen=Object.create(null);
   voices.forEach(function(v,id){
     if(!v||v.semi===undefined)return;
+    if(keysOnly&&v.pedHeld)return;
     seen[id]=1;
     out.push({semi:v.semi, amp:(v.amp!==undefined&&isFinite(v.amp))?Math.max(0,Math.min(1,v.amp)):1, src:litSrcOf(id)});
   });
@@ -5756,7 +5758,7 @@ function litSources(){
     out.push({semi:n.semi, amp:(n.vel!==undefined&&isFinite(n.vel))?Math.max(0,Math.min(1,n.vel)):1, src:litSrcOf(id)});
   });
   tempLit.forEach(function(_,sm){ out.push({semi:sm, amp:1, src:'other'}); });
-  if(relLights.length&&AC){ var now=AC.currentTime; for(var ri=0;ri<relLights.length;ri++){ var rl=relLights[ri], ra=rl.amp0*Math.exp(-(now-rl.t0)/rl.tc); if(ra>=0.03)out.push({semi:rl.semi, amp:ra, src:rl.src}); } }
+  if(!keysOnly&&relLights.length&&AC){ var now=AC.currentTime; for(var ri=0;ri<relLights.length;ri++){ var rl=relLights[ri], ra=rl.amp0*Math.exp(-(now-rl.t0)/rl.tc); if(ra>=0.03)out.push({semi:rl.semi, amp:ra, src:rl.src}); } }
   return out;
 }
 function activeSemis(){
@@ -5991,33 +5993,101 @@ function setStrRev(x){ strRev=Math.max(0,Math.min(1,+x)); var el=document.getEle
    piano's does; the brightness closes as it rings; a short felt thump marks the strike. It plays through its own
    soundboard and room, not the guitar amplifier. The damper (the voice's release) stops it when the key comes up,
    unless the sustain pedal is down. */
+var PIANO_MAKEUP=Math.pow(10,15/20);   /* v364: +15 dB */
 var pianoBusIn=null, pianoRevNode=null, pianoNoiseBuf=null;
 function pianoT60(f){ return Math.max(2.2,Math.min(20,11*Math.pow(261.6/Math.max(20,f),0.6))); }
 function pianoBus(){
   if(pianoBusIn)return pianoBusIn;
   var inp=AC.createGain(); inp.gain.value=1;
-  var body=AC.createBiquadFilter(); body.type='peaking'; body.frequency.value=180; body.Q.value=0.9; body.gain.value=2.5;
-  var air=AC.createBiquadFilter(); air.type='highshelf'; air.frequency.value=5000; air.gain.value=-3;
+  var body=AC.createBiquadFilter(); body.type='peaking'; body.frequency.value=180; body.Q.value=0.9; body.gain.value=PS.base?0.5:2.5;   /* v361: the recording needs little body */
+  var air=AC.createBiquadFilter(); air.type='highshelf'; air.frequency.value=5000; air.gain.value=0;   /* v363: flat — the 3 dB cut above 5 kHz removed */
   var comp=AC.createDynamicsCompressor(); comp.threshold.value=-12; comp.knee.value=12; comp.ratio.value=2.5; comp.attack.value=0.004; comp.release.value=0.25;
-  inp.connect(body); body.connect(air); air.connect(comp); comp.connect(master);
+  var mk=AC.createGain(); mk.gain.value=PS.base?PIANO_MAKEUP:1; mk.connect(master);   /* v364: the recorded piano brought up to the guitar's level */
+  inp.connect(body); body.connect(air); air.connect(comp); comp.connect(mk);
   var conv=AC.createConvolver(), L=Math.floor(AC.sampleRate*2.6), ir=AC.createBuffer(2,L,AC.sampleRate);
   for(var ch=0;ch<2;ch++){ var d=ir.getChannelData(ch), lpv=0, cf=1-Math.exp(-2*Math.PI*5200/AC.sampleRate);
     for(var k=0;k<L;k++){ var t=k/AC.sampleRate; lpv+=cf*((Math.random()*2-1)-lpv); d[k]=lpv*Math.exp(-t/0.78)*(k<600?k/600:1); } }
   conv.buffer=ir; var hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=120;
   var rv=AC.createGain(); rv.gain.value=0.55*strRev; pianoRevNode=rv;
-  air.connect(hp); hp.connect(conv); conv.connect(rv); rv.connect(master);
+  air.connect(hp); hp.connect(conv); conv.connect(rv); rv.connect(mk);
   pianoBusIn=inp; return inp;
 }
+/* ═══ v361 · THE RECORDED PIANO ═══════════════════════════════════════════════════════════════════════════════
+   The Salamander Grand Piano V3 (Alexander Holm, CC BY 3.0): a Yamaha C5 sampled every minor third, A0 to C8, here at
+   four of its sixteen loudness layers. A tone plays from the nearest recorded note, retuned to its exact frequency
+   (the recording's own small tuning offsets taken out), crossfading between the two layers either side of its
+   velocity. The recordings live on the site, shared by every lesson and cached by the browser; a lesson fetches the
+   notes it uses first, then the rest of its keyboard. Until a note has arrived — or where there are no recordings,
+   as in a lesson file opened on its own — the synthesized piano plays instead. */
+var PS={base:null, raw:{}, buf:{}, off:{}, want:[], pending:0};
+var PS_NAMES="A0 C1 Ds1 Fs1 A1 C2 Ds2 Fs2 A2 C3 Ds3 Fs3 A3 C4 Ds4 Fs4 A4 C5 Ds5 Fs5 A5 C6 Ds6 Fs6 A6 C7 Ds7 Fs7 A7 C8".split(' ');
+var PS_TUNE=[10,13,11,-3,-9,-9,-11,-7,-4,0,-6,-3,-3,-6,-3,0,-4,-8,-8,-5,-7,-8,-12,-13,-12,-17,-17,-27,-38,-38];   /* cents, from the set's own retuning table */
+var PS_LAYERS=[4,8,11,14], PS_LVEL=[36,66,90,114];
+function psKey(k,L){ return k+':'+L; }
+function psDecode(key){
+  var raw=PS.raw[key]; if(!raw||!AC||PS.buf[key])return; delete PS.raw[key];
+  var done=function(b){ if(!b)return; var d=b.getChannelData(0), pk=0, i; for(i=0;i<Math.min(d.length,44100);i++)pk=Math.max(pk,Math.abs(d[i]));
+      for(i=0;i<d.length&&Math.abs(d[i])<pk*0.05;i++); PS.off[key]=Math.max(0,i/b.sampleRate-0.003); PS.buf[key]=b; };
+  try{ var pr=AC.decodeAudioData(raw,done,function(){}); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){}
+}
+function psDecodeAll(){ for(var k in PS.raw)psDecode(k); }
+function psFetch(k){
+  for(var li=0;li<PS_LAYERS.length;li++)(function(L){ var key=psKey(k,L); if(PS.buf[key]||PS.raw[key]||PS.want.indexOf(key)>=0)return; PS.want.push(key); PS.pending++;
+    fetch(PS.base+PS_NAMES[k]+'v'+L+'.mp3').then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); }).then(function(ab){ PS.raw[key]=ab; PS.pending--; if(AC)psDecode(key); },function(){ PS.pending--; }); })(PS_LAYERS[li]);
+}
+function psIndexOfMidi(m){ return Math.max(0,Math.min(29,Math.round((m-21)/3))); }
+function psLoadRange(lo,hi){ for(var k=psIndexOfMidi(lo);k<=psIndexOfMidi(hi);k++)psFetch(k); }
+function pianoSamplesInit(cfg){
+  var base=cfg&&cfg.misc&&cfg.misc.pianoSamples; if(!base||typeof fetch!=='function'||/^file:/.test(location.protocol))return;
+  PS.base=new URL(base,location.href).href;
+  var lo=200, hi=-1;   /* the lesson's own notes first */
+  for(var vk in (cfg.views||{})){ var V=cfg.views[vk], sn=V&&V.state&&V.state.seq&&V.state.seq.snap; if(!sn||!sn.notes)continue;
+    sn.notes.forEach(function(n){ var m=(+n.pitch)+24; if(m<lo)lo=m; if(m>hi)hi=m; }); }
+  if(hi>=lo)psLoadRange(lo,hi);
+  var half=((cfg.misc.range||37)-1)/2; setTimeout(function(){ psLoadRange(62-half,62+half); },1500);   /* then the rest of the keyboard */
+}
+function mkPianoSampled(f,amp){
+  if(!PS.base)return null;
+  var midi=69+12*Math.log(f/440)/Math.LN2, k=psIndexOfMidi(midi), kc=21+3*k;
+  var v127=Math.max(1,Math.min(127,128*Math.pow(Math.max(0.001,amp),1/1.4))), i0=0;
+  while(i0<PS_LVEL.length-2&&v127>PS_LVEL[i0+1])i0++;
+  var w=Math.max(0,Math.min(1,(v127-PS_LVEL[i0])/(PS_LVEL[i0+1]-PS_LVEL[i0]))), L0=PS_LAYERS[i0], L1=PS_LAYERS[i0+1];
+  var b0=PS.buf[psKey(k,L0)], b1=PS.buf[psKey(k,L1)]; if(!b0||!b1)return null;
+  var t=AC.currentTime, rate=Math.pow(2,(midi-kc)/12-PS_TUNE[k]/1200);
+  var out=AC.createGain(), cs=null, kg=null;
+  /* the pitch is a live frequency, as the other voices' are: frequency → rate through a gain, into playbackRate */
+  try{ cs=AC.createConstantSource(); cs.offset.value=f; kg=AC.createGain(); kg.gain.value=rate/f; cs.connect(kg); }catch(e){ cs=null; }
+  var srcs=[[b0,1-w,L0],[b1,w,L1]].filter(function(q){ return q[1]>0.001; }).map(function(q){
+    var s=AC.createBufferSource(); s.buffer=q[0];
+    if(cs){ s.playbackRate.value=0; kg.connect(s.playbackRate); } else s.playbackRate.value=rate;
+    var g=AC.createGain(); g.gain.value=q[1]; s.connect(g); g.connect(out); return {s:s,key:psKey(k,q[2])}; });
+  /* level: the layers carry the piano's own loudness; below the softest layer it is scaled down; and the voice's
+     own envelope (which scales with velocity for the synthesized voices) is divided back out */
+  var soft=v127<PS_LVEL[0]?Math.pow(v127/PS_LVEL[0],1.2):1;
+  var up=Math.max(0,Math.min(2.5,(midi-60)/12));   /* the recorded treble speaks softly and dies fast: a gentle lift above middle C, 4 dB an octave */
+  out.gain.value=0.95*soft*Math.pow(10,4*up/20)/(0.35+0.65*amp);
+  var stopped=false;
+  return {o:{ frequency:cs?cs.offset:{value:f,setValueAtTime:function(){},setTargetAtTime:function(){},linearRampToValueAtTime:function(){},cancelScheduledValues:function(){}},
+    start:function(){ if(cs)cs.start(t); srcs.forEach(function(q){ q.s.start(t,PS.off[q.key]||0); }); },
+    stop:function(when){ if(stopped)return; stopped=true; var w2=(when!==undefined&&isFinite(when))?when:AC.currentTime; srcs.forEach(function(q){ try{ q.s.stop(w2); }catch(e){} }); if(cs)try{ cs.stop(w2); }catch(e){} },
+    connect:function(){ return out.connect.apply(out,arguments); }, disconnect:function(){ out.disconnect(); } }, out:out, sampled:true};
+}
+window.addEventListener('load',function(){ try{ if(typeof BOOT_CFG!=='undefined')pianoSamplesInit(BOOT_CFG); }catch(e){} });
 function mkPianoSource(f,vel){
+  var smp=mkPianoSampled(f,(vel===undefined||vel===null)?0.8:vel); if(smp)return smp;   /* v361: the recording, when it is here */
   vel=Math.max(0.05,Math.min(1,(vel===undefined||vel===null)?0.8:vel));
   var t=AC.currentTime, fc=AC.createConstantSource(); fc.offset.value=f;
   var out=AC.createGain(), lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=0.5;
-  var B=Math.max(0.00005,Math.min(0.004,0.00028*Math.pow(f/261.6,1.1))), T1=pianoT60(f), nmax=Math.max(2,Math.min(12,Math.floor(9000/f)));
-  var fc0=Math.min(16000,f*(3+14*vel)+800);
-  lp.frequency.setValueAtTime(fc0,t); lp.frequency.setTargetAtTime(Math.max(f*2.2,700),t+0.01,0.35+0.9*(1-vel));
+  /* v360: the treble softened — a real piano's upper notes carry few strong overtones (the hammers there are small
+     and the strings short), so above middle C the overtone count, their slope and the brightness close in with
+     pitch, and the level eases off; low and middle notes are as before */
+  var hi=Math.max(0,Math.min(2.2,Math.log(f/261.6)/Math.LN2));   /* octaves above middle C */
+  var B=Math.max(0.00005,Math.min(0.004,0.00028*Math.pow(f/261.6,1.1))), T1=pianoT60(f), nmax=Math.max(2,Math.min(12,Math.floor((9000-2600*hi)/f)));
+  var fc0=Math.min(16000-3800*hi,f*(3+14*vel)/(1+0.9*hi)+800);
+  lp.frequency.setValueAtTime(fc0,t); lp.frequency.setTargetAtTime(Math.max(f*(2.2-0.35*hi),700),t+0.01,(0.35+0.9*(1-vel))/(1+0.8*hi));
   var oscs=[], norm=0, n, s_;
   for(n=1;n<=nmax;n++){
-    var r=n*Math.sqrt(1+B*n*n), a=Math.pow(n,-(1.55-0.75*vel))*(0.3+0.7*Math.abs(Math.sin(Math.PI*n*0.118)));
+    var r=n*Math.sqrt(1+B*n*n), a=Math.pow(n,-(1.55-0.75*vel+0.55*hi))*(0.3+0.7*Math.abs(Math.sin(Math.PI*n*0.118)));
     var tau=(T1/(1+0.45*Math.pow(n-1,1.25)))/6.9, strings=(n<=3)?2:1;
     for(s_=0;s_<strings;s_++){
       var o=AC.createOscillator(); o.type='sine'; o.frequency.value=0;
@@ -6028,11 +6098,11 @@ function mkPianoSource(f,vel){
       o.connect(g); g.connect(lp); oscs.push(o); norm+=amp;
     }
   }
-  lp.connect(out); out.gain.value=2.4/Math.max(0.8,norm);
+  lp.connect(out); out.gain.value=2.4/Math.max(0.8,norm)*Math.pow(0.8,Math.max(0,hi-0.7));
   /* the felt: a short band of noise at the strike */
   if(!pianoNoiseBuf){ var nl=Math.floor(AC.sampleRate*0.06); pianoNoiseBuf=AC.createBuffer(1,nl,AC.sampleRate); var nd=pianoNoiseBuf.getChannelData(0); for(var i=0;i<nl;i++)nd[i]=(Math.random()*2-1); }
   var nz=AC.createBufferSource(); nz.buffer=pianoNoiseBuf; var bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=Math.max(700,Math.min(3800,f*2.5)); bp.Q.value=0.8;
-  var ng=AC.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.linearRampToValueAtTime(0.09*Math.pow(vel,1.5),t+0.001); ng.gain.setTargetAtTime(0.0001,t+0.002,0.012);
+  var ng=AC.createGain(); ng.gain.setValueAtTime(0.0001,t); ng.gain.linearRampToValueAtTime(0.09*Math.pow(vel,1.5)/(1+0.8*hi),t+0.001); ng.gain.setTargetAtTime(0.0001,t+0.002,0.012);
   nz.connect(bp); bp.connect(ng); ng.connect(out);
   var stopped=false;
   var src={ frequency:fc.offset,
@@ -6569,7 +6639,7 @@ function keyChroma(semi){ return ((semi%12)+12)%12; }
 function colorKeyboard(A){
   A=A||activeSemis();
   var _AA=activeSemiAmps();
-  var _FG={}, _DP={}; voices.forEach(function(vv){ if(!vv||vv.semi===undefined)return; var k=Math.round(vv.semi); if(vv.finger)_FG[k]=vv.finger; var d=(vv.dip===undefined?1:vv.dip); _DP[k]=Math.max(_DP[k]===undefined?0:_DP[k],d); });   /* v355; v358 the dip */
+  var _FG={}, _DP={}, _KD={}; voices.forEach(function(vv){ if(!vv||vv.semi===undefined)return; var k=Math.round(vv.semi); if(!vv.pedHeld)_KD[k]=1; if(vv.finger)_FG[k]=vv.finger; var d=(vv.dip===undefined?1:vv.dip); _DP[k]=Math.max(_DP[k]===undefined?0:_DP[k],d); });   /* v355; v358 the dip */
   function _lum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
   keyEls.forEach(function(el,semi){
     var black=isBlack(semi);
@@ -6609,7 +6679,7 @@ function colorKeyboard(A){
       if(fgE.textContent!==String(fgN))fgE.textContent=fgN; fgE.style.display='flex'; }
     else if(fgE)fgE.style.display='none';
     var sbE=kb.querySelector('.ksolb[data-s="'+semi+'"]');
-    if(kbLesson){ var slit=semiLit(semi,A), dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
+    if(kbLesson){ var slit=!!_KD[semi], dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
       if(sa>0.01||sbE){ if(!sbE){ sbE=document.createElement('div'); sbE.className='ksolb'; sbE.dataset.s=semi; kb.appendChild(sbE); }
         sbE.style.left=kx+'px'; sbE.style.fontSize=sfs+'px'; sbE.style.top=solTop+'px';
         if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
@@ -7480,6 +7550,11 @@ function fretDraw(){
     for(var _q2=0;_q2<_L.length;_q2++)if(fbRespMatch(_rs2,_L[_q2].src))_aa.push([_L[_q2].semi,_L[_q2].amp]);
     _rowAA.push(_aa); }
   fbDynCompute(_rowA);   /* v327 */
+  /* v365: the box follows the note itself, on to off — the colour and the labels still follow the sound as it dies */
+  var _K=litSources(true), _rowK=[], _rowKA=[];
+  for(var _r3=0;_r3<fbStrings;_r3++){ var _rs3=fbRespOf(_r3), _k=[], _ka=[];
+    for(var _q3=0;_q3<_K.length;_q3++)if(_rs3==='all'||fbRespMatch(_rs3,_K[_q3].src)){ _k.push(_K[_q3].semi); _ka.push([_K[_q3].semi,_K[_q3].amp]); }
+    _rowK.push(_k); _rowKA.push(_ka); }
   /* node colors under the exact same fade convention as the piano keys */
   var cols=[], dark=[];
   for(var r=0;r<fbStrings;r++){
@@ -7592,7 +7667,7 @@ function fretDraw(){
       var semi=fbRoot(r)+fbFret0()+_fr2;
       if(semiLit(semi,_rowA[r])&&cellSel(r,_fr2)){
         if(anyLabels){
-          if(fbBox){ var _lv=Math.min(1,0.25+0.75*Math.sqrt(Math.max(0,semiAmp(semi,_rowAA[r]))));   /* v309: the frame dips with the tone */
+          if(fbBox&&semiLit(semi,_rowK[r])){ var _lv=Math.min(1,0.25+0.75*Math.sqrt(Math.max(0,semiAmp(semi,_rowKA[r]))));   /* v309: the frame dips with the tone */
             fx.fillStyle='rgba(255,255,255,'+(0.16*_lv).toFixed(3)+')';
             fx.fillRect(f*fw,r*rowH,fw,rowH);
             fx.strokeStyle='rgba(255,255,255,'+(0.45*_lv).toFixed(3)+')'; fx.lineWidth=1.5;
@@ -11559,7 +11634,7 @@ function stApplyCfg(o){ if(!o)return; stLines=seqClamp(Math.round(+o.lines)||1,1
   var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stLines; if(b)b.value=stMPL; if(c)c.value=stFirst+1;
   if(typeof stBarSync==='function')stBarSync(); stRequest(); }
 
-window.tf={ iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ piano:function(){ return {base:PS.base, loaded:Object.keys(PS.buf).length, raw:Object.keys(PS.raw).length, pending:PS.pending, want:PS.want.length}; }, iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
