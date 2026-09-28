@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v368 · lesson: New Earth -->
+<!-- Tonal Field — Ring — v369 · lesson: New Earth -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v368</span></h1>
+  <h1>Tonal Field <span>Ring v369</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4620,6 +4620,7 @@ function seqTick(){
       if(Math.abs(na3-vv3.amp)>0.004){ vv3.amp=na3; requestLight(); requestRing(); }
     }
   }
+  seqAccompTick(a,pos);   /* v369 */
   a.lastPos=pos; seqPos=pos;
 }
 /* follow the playhead: nudge the view when it nears the edge, rather than
@@ -4695,9 +4696,35 @@ function seqStart(){
   seqAudio.timer=setInterval(seqTick,8);
   seqAudio.raf=requestAnimationFrame(seqFrame);
 }
+/* v369 · THE ACCOMPANIMENT. A track of its own under the lesson: piano chords with no voice, no string, no light
+   and no drawing — only sound. Each event fires when the playhead crosses its start, on the same tick that
+   starts the solo's notes, so the two stay locked; the damper falls at the event's end. */
+function seqAccompTick(a,pos){
+  var ev=seq.accomp; if(a.acLast===undefined)a.acLast=pos;
+  if(!ev||!ev.length){ a.acLast=pos; return; }
+  var L=a.acLast;
+  function fire(x,y){ for(var i=0;i<ev.length;i++){ var e=ev[i]; if(e.start>=x-1e-9&&e.start<y-1e-9)seqAccompPlay(a,e); } }
+  if(pos>=L)fire(L,pos); else { fire(L,a.regB); fire(a.regA,pos); }   /* the loop came round */
+  a.acLast=pos;
+}
+function seqAccompPlay(a,e){
+  if(!AC)return;
+  var f=440*Math.pow(2,(e.m-69)/12), v=Math.pow(e.vel/128,1.4), src=mkPianoSource(f,v); if(!src)return;
+  var t=AC.currentTime, g=AC.createGain(), peak=0.19*(0.35+0.65*v)*(seq.accompVol===undefined?1:seq.accompVol), tEnd=t+Math.max(0.05,e.dur*seqSPU());
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(peak,t+0.003);
+  g.gain.setValueAtTime(peak,tEnd); g.gain.setTargetAtTime(0.0001,tEnd,0.09);   /* the damper */
+  src.out.connect(g); g.connect(pianoBus()); src.o.start(t); try{ src.o.stop(tEnd+1.2); }catch(_e){}
+  if(!a.acOn)a.acOn=[]; var now=t; a.acOn=a.acOn.filter(function(q){ return q.end>now; }); a.acOn.push({g:g,o:src.o,end:tEnd+1.2});
+}
+function seqAccompOff(a){
+  if(!a||!a.acOn||!AC)return; var t=AC.currentTime;
+  a.acOn.forEach(function(q){ try{ q.g.gain.cancelScheduledValues(t); q.g.gain.setValueAtTime(q.g.gain.value,t); q.g.gain.setTargetAtTime(0.0001,t,0.05); q.o.stop(t+0.4); }catch(_e){} });
+  a.acOn=[];
+}
 function seqStop(){
   if(!seqAudio)return;
   var a=seqAudio;
+  seqAccompOff(a);   /* v369 */
   seqAllOff();
   a.alive=false;
   if(a.timer)clearInterval(a.timer);
@@ -4963,6 +4990,7 @@ function seqSnapshot(){
     notes:seq.notes.map(function(n){ var o={start:n.start,dur:n.dur,pitch:n.pitch,vel:n.vel,voice:n.voice}; if(n.bend&&n.bend.length)o.bend=n.bend.map(function(p){ return [p[0],p[1]]; }); if(n.strum)o.strum=n.strum; if(n.sup)o.sup=true; if(n.finger)o.finger=n.finger; return o; }),
     pedal:(seq.pedal||[]).map(function(p){ return [p[0],p[1]]; }),
     swing:!!seq.swing,
+    accomp:(seq.accomp||[]).map(function(e){ return {start:e.start,dur:e.dur,m:e.m,vel:e.vel}; }), accompVol:(seq.accompVol===undefined?1:seq.accompVol),   /* v369 */
     chords:(seq.chords||[]).map(function(q){ return q.off?{col:q.col,text:'',off:true}:{col:q.col,text:q.text}; }),
     gestures:seq.gestures.map(function(g){
       var vary=seqGestVaries(g);
@@ -5036,6 +5064,8 @@ function seqApply(o){
   }
   seq.pedal=Array.isArray(o.pedal)?o.pedal.filter(function(p){ return p&&p.length===2; }).map(function(p){ return [+p[0]||0,+p[1]||0]; }):[]; seqPedalNormalize();   /* v355 */
   seq.swing=!!o.swing;   /* v366 */
+  seq.accomp=Array.isArray(o.accomp)?o.accomp.filter(function(e){ return e&&isFinite(+e.start)&&isFinite(+e.m); }).map(function(e){ return {start:+e.start,dur:Math.max(0.25,+e.dur||1),m:+e.m,vel:Math.max(1,Math.min(127,+e.vel||64))}; }):[];   /* v369 */
+  seq.accompVol=isFinite(+o.accompVol)?Math.max(0,Math.min(2,+o.accompVol)):1;
   seq.modes=[]; seq.mid=1; seqModeSel=null; seqModeApplied=null;
   if(o.modes)for(var q=0;q<o.modes.length;q++){
     var mm=o.modes[q];
@@ -6103,7 +6133,8 @@ function pianoSamplesInit(cfg){
   PS.base=new URL(base,location.href).href;
   var lo=200, hi=-1;   /* the lesson's own notes first */
   for(var vk in (cfg.views||{})){ var V=cfg.views[vk], sn=V&&V.state&&V.state.seq&&V.state.seq.snap; if(!sn||!sn.notes)continue;
-    sn.notes.forEach(function(n){ var m=(+n.pitch)+24; if(m<lo)lo=m; if(m>hi)hi=m; }); }
+    sn.notes.forEach(function(n){ var m=(+n.pitch)+24; if(m<lo)lo=m; if(m>hi)hi=m; });
+    (sn.accomp||[]).forEach(function(e){ var m=+e.m; if(m<lo)lo=m; if(m>hi)hi=m; }); }   /* v369: and the accompaniment's */
   if(hi>=lo)psLoadRange(lo,hi);
   var half=((cfg.misc.range||37)-1)/2; setTimeout(function(){ psLoadRange(62-half,62+half); },1500);   /* then the rest of the keyboard */
 }
