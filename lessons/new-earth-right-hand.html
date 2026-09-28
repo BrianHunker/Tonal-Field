@@ -4532,7 +4532,7 @@ function seqTick(){
       var still=false;
       for(var q=0;q<wants.length;q++)if(wants[q].id===held[h].n){ still=true; break; }
       if(still)continue;
-      if(held[h].ped===undefined&&pedI>=0){ held[h].ped=pedI; var vvp=voices.get(seqVId(v,held[h].s)); if(vvp){ vvp.finger=null; requestLight(); } continue; }
+      if(held[h].ped===undefined&&pedI>=0){ held[h].ped=pedI; var vvp=voices.get(seqVId(v,held[h].s)); if(vvp){ vvp.finger=null; vvp.pedHeld=true; requestLight(); } continue; }
       if(held[h].ped!==undefined&&held[h].ped===pedI)continue;
       seqNoteOffV(v,held[h].n);
     }
@@ -6637,7 +6637,7 @@ function keyChroma(semi){ return ((semi%12)+12)%12; }
 function colorKeyboard(A){
   A=A||activeSemis();
   var _AA=activeSemiAmps();
-  var _FG={}, _DP={}; voices.forEach(function(vv){ if(!vv||vv.semi===undefined)return; var k=Math.round(vv.semi); if(vv.finger)_FG[k]=vv.finger; var d=(vv.dip===undefined?1:vv.dip); _DP[k]=Math.max(_DP[k]===undefined?0:_DP[k],d); });   /* v355; v358 the dip */
+  var _FG={}, _DP={}, _KD={}; voices.forEach(function(vv){ if(!vv||vv.semi===undefined)return; var k=Math.round(vv.semi); if(!vv.pedHeld)_KD[k]=1; if(vv.finger)_FG[k]=vv.finger; var d=(vv.dip===undefined?1:vv.dip); _DP[k]=Math.max(_DP[k]===undefined?0:_DP[k],d); });   /* v355; v358 the dip */
   function _lum(c){ return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
   keyEls.forEach(function(el,semi){
     var black=isBlack(semi);
@@ -6677,7 +6677,7 @@ function colorKeyboard(A){
       if(fgE.textContent!==String(fgN))fgE.textContent=fgN; fgE.style.display='flex'; }
     else if(fgE)fgE.style.display='none';
     var sbE=kb.querySelector('.ksolb[data-s="'+semi+'"]');
-    if(kbLesson){ var slit=semiLit(semi,A), dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
+    if(kbLesson){ var slit=!!_KD[semi], dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
       if(sa>0.01||sbE){ if(!sbE){ sbE=document.createElement('div'); sbE.className='ksolb'; sbE.dataset.s=semi; kb.appendChild(sbE); }
         sbE.style.left=kx+'px'; sbE.style.fontSize=sfs+'px'; sbE.style.top=solTop+'px';
         if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
