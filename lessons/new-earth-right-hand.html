@@ -5999,7 +5999,7 @@ function pianoBus(){
   if(pianoBusIn)return pianoBusIn;
   var inp=AC.createGain(); inp.gain.value=1;
   var body=AC.createBiquadFilter(); body.type='peaking'; body.frequency.value=180; body.Q.value=0.9; body.gain.value=PS.base?0.5:2.5;   /* v361: the recording needs little body */
-  var air=AC.createBiquadFilter(); air.type='highshelf'; air.frequency.value=5000; air.gain.value=-3;
+  var air=AC.createBiquadFilter(); air.type='highshelf'; air.frequency.value=5000; air.gain.value=0;   /* v363: flat — the 3 dB cut above 5 kHz removed */
   var comp=AC.createDynamicsCompressor(); comp.threshold.value=-12; comp.knee.value=12; comp.ratio.value=2.5; comp.attack.value=0.004; comp.release.value=0.25;
   inp.connect(body); body.connect(air); air.connect(comp); comp.connect(master);
   var conv=AC.createConvolver(), L=Math.floor(AC.sampleRate*2.6), ir=AC.createBuffer(2,L,AC.sampleRate);
