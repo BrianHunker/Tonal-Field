@@ -5993,6 +5993,7 @@ function setStrRev(x){ strRev=Math.max(0,Math.min(1,+x)); var el=document.getEle
    piano's does; the brightness closes as it rings; a short felt thump marks the strike. It plays through its own
    soundboard and room, not the guitar amplifier. The damper (the voice's release) stops it when the key comes up,
    unless the sustain pedal is down. */
+var PIANO_MAKEUP=Math.pow(10,15/20);   /* v364: +15 dB */
 var pianoBusIn=null, pianoRevNode=null, pianoNoiseBuf=null;
 function pianoT60(f){ return Math.max(2.2,Math.min(20,11*Math.pow(261.6/Math.max(20,f),0.6))); }
 function pianoBus(){
@@ -6001,13 +6002,14 @@ function pianoBus(){
   var body=AC.createBiquadFilter(); body.type='peaking'; body.frequency.value=180; body.Q.value=0.9; body.gain.value=PS.base?0.5:2.5;   /* v361: the recording needs little body */
   var air=AC.createBiquadFilter(); air.type='highshelf'; air.frequency.value=5000; air.gain.value=0;   /* v363: flat — the 3 dB cut above 5 kHz removed */
   var comp=AC.createDynamicsCompressor(); comp.threshold.value=-12; comp.knee.value=12; comp.ratio.value=2.5; comp.attack.value=0.004; comp.release.value=0.25;
-  inp.connect(body); body.connect(air); air.connect(comp); comp.connect(master);
+  var mk=AC.createGain(); mk.gain.value=PS.base?PIANO_MAKEUP:1; mk.connect(master);   /* v364: the recorded piano brought up to the guitar's level */
+  inp.connect(body); body.connect(air); air.connect(comp); comp.connect(mk);
   var conv=AC.createConvolver(), L=Math.floor(AC.sampleRate*2.6), ir=AC.createBuffer(2,L,AC.sampleRate);
   for(var ch=0;ch<2;ch++){ var d=ir.getChannelData(ch), lpv=0, cf=1-Math.exp(-2*Math.PI*5200/AC.sampleRate);
     for(var k=0;k<L;k++){ var t=k/AC.sampleRate; lpv+=cf*((Math.random()*2-1)-lpv); d[k]=lpv*Math.exp(-t/0.78)*(k<600?k/600:1); } }
   conv.buffer=ir; var hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=120;
   var rv=AC.createGain(); rv.gain.value=0.55*strRev; pianoRevNode=rv;
-  air.connect(hp); hp.connect(conv); conv.connect(rv); rv.connect(master);
+  air.connect(hp); hp.connect(conv); conv.connect(rv); rv.connect(mk);
   pianoBusIn=inp; return inp;
 }
 /* ═══ v361 · THE RECORDED PIANO ═══════════════════════════════════════════════════════════════════════════════
