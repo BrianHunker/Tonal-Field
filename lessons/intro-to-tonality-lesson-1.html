@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v370 · lesson: Intro to Tonality — Lesson 1 -->
+<!-- Tonal Field — Ring — v371 · lesson: Intro to Tonality — Lesson 1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v370</span></h1>
+  <h1>Tonal Field <span>Ring v371</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4704,7 +4704,7 @@ function seqStart(){
    and no drawing — only sound. Each event fires when the playhead crosses its start, on the same tick that
    starts the solo's notes, so the two stay locked; the damper falls at the event's end. */
 function seqAccompTick(a,pos){
-  var ev=seq.accomp; if(a.acLast===undefined)a.acLast=pos;
+  var ev=seq.accomp; if(a.acLast===undefined)a.acLast=a.lastPos;   /* v371: from where play began, so an event on its very first beat sounds */
   if(!ev||!ev.length){ a.acLast=pos; return; }
   var L=a.acLast;
   function fire(x,y){ for(var i=0;i<ev.length;i++){ var e=ev[i]; if(e.start>=x-1e-9&&e.start<y-1e-9)seqAccompPlay(a,e); } }
