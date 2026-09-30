@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v382 · lesson: New Earth -->
+<!-- Tonal Field — Ring — v383 · lesson: New Earth -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v382</span></h1>
+  <h1>Tonal Field <span>Ring v383</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11299,9 +11299,20 @@ function stSpellNoteOld(n){
 function stSemiOf(step,alter){ return ST_LET_PC[stMod(step,7)]+alter+12*Math.floor(step/7); }
 function stPitchOfStep(step,col){ var ka=stKeyAlter(stFifthsAt(col)); return stSemiOf(step,ka[stMod(step,7)])-SEQ_BASE; }
 /* which staff a tone is written on: by hand with two voices, else split at middle C */
-function stStaffOf(n){ var sm=seqSemi(n.pitch);
-  if((seq.nv||1)===2){ if(n.voice===1)return sm>=12?0:1; return sm<=-12?1:0; }   /* v380: a hand far into the other staff's range is written there */
-  return sm>=0?0:1; }
+function stStaffOf(n){ if((seq.nv||1)===2)return n.voice===1?1:0; return seqSemi(n.pitch)>=0?0:1; }
+/* v383: the clef of each staff, bar by bar. With two hands, a hand whose tones in a bar all lie on the other clef's
+   side of middle C, reaching at least an octave into it, takes that clef for the bar; a bar where the hand rests keeps
+   the clef it had. A staff in the other clef draws its tones twelve steps from where its own clef would. */
+var ST_CLEF=[[],[]];
+function stClefBuild(){ var cpb=tabCPB(), bars=tabBars(), two=((seq.nv||1)===2); ST_CLEF=[[],[]];
+  for(var s=0;s<2;s++){ var cur=s;
+    for(var b=0;b<bars;b++){
+      if(two){ var mn=Infinity, mx=-Infinity, any=false;
+        for(var i=0;i<seq.notes.length;i++){ var n=seq.notes[i]; if(n.dur<=0||stStaffOf(n)!==s||n.start<b*cpb||n.start>=(b+1)*cpb)continue; var sm=seqSemi(n.pitch); any=true; if(sm<mn)mn=sm; if(sm>mx)mx=sm; }
+        if(any)cur=(s===1)?((mn>=0&&mx>=12)?0:1):((mx<=0&&mn<=-12)?1:0); }
+      ST_CLEF[s][b]=cur; } } }
+function stClefAt(s,col){ var t=ST_CLEF[s]; if(!t||!t.length)return s; var b=Math.max(0,Math.min(t.length-1,Math.floor(col/tabCPB()))); return (t[b]===undefined)?s:t[b]; }
+function stDispOff(s,col){ var c=stClefAt(s,col); return c===s?0:(s===1?-12:12); }
 function stVoiceOfStaff(s){ return s===1?1:0; }
 /* ---- the rhythm model ---- */
 /* a span of ticks cut into writable values: each value starts where it may (a half on a half, a dotted quarter on a
@@ -11335,6 +11346,7 @@ function stModelGet(){
 function stBuild(){
   var cpb=tabCPB(), bars=tabBars(), ct=ST_TICKS/seq.div, barT=cpb*ct, out={staves:[[],[]],barRest:[{},{}]};
   stNextBuild();   /* v378: each tone's next tone in its voice, for spelling by where the line goes */
+  stClefBuild();   /* v383 */
   for(var s=0;s<2;s++){
     var ns=seq.notes.filter(function(n){ return n.dur>0&&n.start<seq.divs&&stStaffOf(n)===s; }).sort(function(a,b){ return a.start-b.start||a.pitch-b.pitch; });
     var groups=[];
@@ -11361,7 +11373,7 @@ function stBuild(){
               var inForce=(sp.step in accState)?accState[sp.step]:ka[stMod(sp.step,7)];
               if(!it.tieIn&&sp.alter!==inForce)acc=sp.alter;
               accState[sp.step]=sp.alter;
-              it.heads.push({n:n,step:sp.step,alter:sp.alter,acc:acc}); });
+              it.heads.push({n:n,step:sp.step+stDispOff(s,it.col),alter:sp.alter,acc:acc}); });   /* v383: drawn in the bar's clef */
             it.heads.sort(function(x,y){ return x.step-y.step; });
           }
           out.staves[s].push(it);
@@ -11401,13 +11413,14 @@ function stGeom(line){
   var LS=stLS(), cv=stEl(), W=cv?cv.clientWidth:600, cpb=tabCPB(), bars=tabBars(), b0=line*stMPL;
   var f0=stFifthsAt(Math.min(b0,bars-1)*cpb), ts=(line===0), fp=(b0>0&&b0<bars)?stFifthsAt(b0*cpb-1):f0, n0=(fp!==f0)?stNatCount(fp,f0):0;   /* v382: a line that opens on a key change prints the change in full */
   var gut=(5.2+(n0+Math.abs(f0))*1.0+(ts?2.8:0)+0.6)*LS, leads=[], ks=[], sum=0, i, KC=stKeyChanges();
-  for(i=0;i<stMPL;i++){ var b=b0+i, lead=1.1*LS, list=[];
+  var cc=[]; for(i=0;i<stMPL;i++){ var b=b0+i, lead=1.1*LS, list=[];
+    cc[i]=(i>0&&b<bars&&(stClefAt(0,b*cpb)!==stClefAt(0,b*cpb-1)||stClefAt(1,b*cpb)!==stClefAt(1,b*cpb-1))); if(cc[i])lead+=2.6*LS;   /* v383: room for a clef change */
     KC.forEach(function(kc){ if(kc.col>=b*cpb&&kc.col<(b+1)*cpb&&!(i===0&&kc.col===b0*cpb)){   /* at a line's start the opening signature says it */
       var k2={col:kc.col,a:kc.a,b:kc.b,nat:kc.nat,w:(kc.nat+Math.abs(kc.b))*1.0*LS+1.4*LS}; list.push(k2); sum+=k2.w; } });
     leads.push(lead); ks.push(list); sum+=lead; }
   var cw=Math.max(2,(W-gut-0.9*LS-sum)/(stMPL*cpb)), barX=[], x=gut;
   for(i=0;i<stMPL;i++){ barX.push(x); x+=leads[i]+cpb*cw; ks[i].forEach(function(k){ x+=k.w; }); } barX.push(x);
-  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,fp:fp,n0:n0,ts:ts,ks:ks,LS:LS};
+  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,fp:fp,n0:n0,ts:ts,ks:ks,cc:cc,LS:LS};
 }
 /* a column's x: the bar's start, its lead, the time, and the room of every key change at or before that column */
 function stColX(g,colF){ var cpb=tabCPB(), i=Math.floor(colF/cpb)-g.b0; if(i<0)i=0; if(i>=stMPL)i=stMPL-1;
@@ -11460,20 +11473,22 @@ function stRender(){
         g.ks[bi].forEach(function(k){ segs_.push([k.col,stKeyX(g,k)]); });
         for(var si=0;si<segs_.length;si++){ var bcol=segs_[si][0], bf=stFifthsAt(bcol), bx0=segs_[si][1], bx1=(si+1<segs_.length)?segs_[si+1][1]:g.barX[bi+1];
         for(var s1=0;s1<2;s1++){ var lo=s1?-10:2;
-          for(var st=lo;st<=lo+8;st++){ var sc=stStepColor(st,bcol,bf), yy=stY(L,s1,st);
+          for(var st=lo;st<=lo+8;st++){ var sc=stStepColor(st-stDispOff(s1,bcol),bcol,bf), yy=stY(L,s1,st);
             c.fillStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+hl.toFixed(3)+')'; c.fillRect(bx0,yy-LS/4,bx1-bx0,LS/2);
             if(stMod(st-lo,2)===0){ c.strokeStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+Math.min(1,0.45+hl).toFixed(3)+')'; hline(bx0,bx1,yy,Math.max(1,0.16*LS)); } } } } }
     } else
     for(var s=0;s<2;s++)for(var k=0;k<5;k++)hline(sysX,xEnd,stStaffTop(L,s)+k*LS,Math.max(1,0.13*LS));
     c.strokeStyle=ink; vline(sysX,tT,bB,Math.max(1.2,0.16*LS));
     c.fillStyle=ink; var bh=bB-tT; glyph('brace',0.1*LS,bB,bh/0.997);
-    glyph('gClef',2.0*LS,stY(L,0,4)); glyph('fClef',2.0*LS,stY(L,1,-4));
+    [0,1].forEach(function(s_){ var c0=g.b0*cpb, cl=stClefAt(s_,c0); glyph(cl?'fClef':'gClef',2.0*LS,stY(L,s_,(cl?-4:4)+stDispOff(s_,c0))); });   /* v383: each staff opens in its clef for that bar */
     if(g.n0)stKeyChange(c,5.2*LS,L,{a:g.fp,b:g.f0,nat:g.n0,col:g.b0*cpb},GF); else stKeySig(c,5.2*LS,L,g.f0,GF,g.b0*cpb);   /* v382 */
     if(g.ts){ var tx=(5.2+Math.abs(g.f0)*1.0+0.4)*LS; [[0,8,4],[1,-4,-8]].forEach(function(q){ stTimeDigits(c,String(seq.tsNum),tx,stY(L,q[0],q[1]),GF,LS); stTimeDigits(c,String(seq.tsDen),tx,stY(L,q[0],q[2]),GF,LS); }); }
     for(var i=0;i<=g.b1-g.b0;i++){ var bx=g.barX[i], b=g.b0+i;
       if(i>0){ var last=(b>=bars); c.strokeStyle=ink;
         if(last){ vline(bx-0.9*LS,tT,bB,Math.max(1,0.16*LS)); vline(bx-0.25*LS,tT,bB,0.5*LS); }
-        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); if(stDbl.indexOf(b+1)>=0)vline(bx-0.45*LS,tT,bB,Math.max(1,0.16*LS)); } }
+        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); if(stDbl.indexOf(b+1)>=0)vline(bx-0.45*LS,tT,bB,Math.max(1,0.16*LS));
+          if(g.cc&&g.cc[i]){ c.fillStyle=ink; [0,1].forEach(function(s_){ var c1=b*cpb, cl=stClefAt(s_,c1); if(cl===stClefAt(s_,c1-1))return;   /* v383: a clef change, just after the barline */
+            glyph(cl?'fClef':'gClef',bx+0.35*LS,stY(L,s_,(cl?-4:4)+stDispOff(s_,c1)),Math.round(3.1*LS)); }); c.strokeStyle=ink; } } }
       if(b<g.b1){ c.fillStyle=dim; c.font='italic '+Math.round(1.25*LS)+'px "IBM Plex Sans", sans-serif'; c.fillText(String(b+1),bx+0.3*LS,y0+1.6*LS); }
     }
     /* v375: the loop strip — the whole line dim, the region gold (bright while the loop is on), handles at its ends */
@@ -11503,7 +11518,7 @@ function stRender(){
     seq.notes.forEach(function(n){ if(n.dur<=0)return; var s=stStaffOf(n), e=n.start+n.dur, sounding=(pos>=n.start&&pos<e)&&(playing||pos>1e-9);
       var sp=stSpellNote(n), col=stHeadColor(n,sounding);
       lines.forEach(function(line){ var g=geoms[line], lc0=line*stMPL*cpb, lc1=Math.min(seq.divs,(line+1)*stMPL*cpb), a=Math.max(n.start,lc0), z=Math.min(e,lc1); if(z<=a)return;
-        var L=line-stFirst, y=stY(L,s,sp.step), x0=stColX(g,a)+(a===n.start?0.2*LS+HW/2:0), x1=stColX(g,z);
+        var L=line-stFirst, y=stY(L,s,sp.step+stDispOff(s,a)), x0=stColX(g,a)+(a===n.start?0.2*LS+HW/2:0), x1=stColX(g,z);
         c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(sounding?0.8:(playing?0.4:0.55))+')'; c.fillRect(x0,y-0.3*LS,Math.max(1,x1-x0),0.6*LS); }); });
   }
   /* the notes */
@@ -11642,15 +11657,15 @@ function stKeySig(c,x,L,f,GF,col){
   if(!f)return; var LS=stLS(), sharp=f>0, k=sharp?'accidentalSharp':'accidentalFlat';
   c.fillStyle='#d2d2cd'; c.font=GF;
   /* v357: with tonal colour on, each sharp or flat takes the colour of the tone it makes — one sharp is Ti */
-  for(var s=0;s<2;s++)for(var i=0;i<Math.abs(f);i++){ var step=(sharp?ST_SHARP_STEPS:ST_FLAT_STEPS)[s][i];
+  for(var s=0;s<2;s++)for(var i=0;i<Math.abs(f);i++){ var c_=(col!==undefined)?col:0, cl=stClefAt(s,c_), step=(sharp?ST_SHARP_STEPS:ST_FLAT_STEPS)[cl][i];   /* v383: in the staff's clef there */
     if(stColor&&col!==undefined){ var kc=stStepColor(step,col,f); c.fillStyle='rgb('+kc[0]+','+kc[1]+','+kc[2]+')'; }
-    c.fillText(stG(k),x+i*1.0*LS,stY(L,s,step)); }
+    c.fillText(stG(k),x+i*1.0*LS,stY(L,s,step+stDispOff(s,c_))); }
 }
 function stKeyChange(c,x,L,kc,GF){
   var LS=stLS(), a=kc.a, b=kc.b, sharpA=a>0, xs=x;
   c.fillStyle='#d2d2cd'; c.font=GF;
   var from=(b===0||(a>0)!==(b>0))?0:Math.abs(b);
-  for(var s=0;s<2;s++){ var xi=x; for(var i=from;i<Math.abs(a);i++){ var step=(sharpA?ST_SHARP_STEPS:ST_FLAT_STEPS)[s][i]; c.fillText(stG('accidentalNatural'),xi,stY(L,s,step)); xi+=1.0*LS; } }
+  for(var s=0;s<2;s++){ var xi=x, c_=kc.col||0, cl=stClefAt(s,c_); for(var i=from;i<Math.abs(a);i++){ var step=(sharpA?ST_SHARP_STEPS:ST_FLAT_STEPS)[cl][i]; c.fillText(stG('accidentalNatural'),xi,stY(L,s,step+stDispOff(s,c_))); xi+=1.0*LS; } }
   xs=x+kc.nat*1.0*LS; stKeySig(c,xs,L,b,GF,kc.col);
 }
 function stTimeDigits(c,txt,x,y,GF,LS){ c.fillStyle='#d2d2cd'; c.font=GF; var w=0, i; for(i=0;i<txt.length;i++)w+=stGW('timeSig'+txt[i])*LS; var x0=x+(1.9*LS-w)/2; for(i=0;i<txt.length;i++){ c.fillText(stG('timeSig'+txt[i]),x0,y); x0+=stGW('timeSig'+txt[i])*LS; } }
@@ -11695,7 +11710,7 @@ function stLenCols(){ var ct=ST_TICKS/seq.div; return Math.max(1,Math.round(stLe
 function stInsert(col,staff,step,chord){
   if(col<0||col>=seq.divs)return null;
   stEnsureHands();
-  var v=stVoiceOfStaff(staff), pitch=stPitchOfStep(step,col); if(pitch<0||pitch>=SEQ_ROWS)return null;
+  var v=stVoiceOfStaff(staff), pitch=stPitchOfStep(step-stDispOff(staff,col),col); if(pitch<0||pitch>=SEQ_ROWS)return null;   /* v383: read in the bar's clef */
   var dur=Math.min(stLenCols(),seq.divs-col), i;
   if(chord){ var same=seq.notes.filter(function(n){ return n.voice===v&&n.start===col; }); if(same.length)dur=same[0].dur; if(same.some(function(n){ return n.pitch===pitch; }))return null; }
   else { for(i=seq.notes.length-1;i>=0;i--){ var q=seq.notes[i]; if(q.voice===v&&q.start===col)seq.notes.splice(i,1); } tabTruncate(v,col,col+dur,-1); }
