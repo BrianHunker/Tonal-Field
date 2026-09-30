@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v384 · lesson: Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v385 · lesson: Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v384</span></h1>
+  <h1>Tonal Field <span>Ring v385</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -843,6 +843,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <button class="toggle view-btn" data-view="5" aria-pressed="false">Shadows</button>
     <button class="toggle view-btn" data-view="6" aria-pressed="false">Return</button>
     <button class="toggle view-btn" data-view="7" aria-pressed="false">Six Choruses</button>
+    <button class="toggle" id="accompBtn" aria-pressed="true" style="display:none;margin-left:14px;" title="the accompaniment: this lesson's background track — on by default; off leaves only the lesson's own voices">accomp</button>
   </span>
   <div class="gx"><span class="f-g" id="t-g" title="g(x): the tonal field \u2014 valence as a function of chroma x, one turn of x being one octave. Positive is rest, negative is unrest, zero is the hinge.">g(x)</span><span class="f-x"> = </span><span id="t-beat" title="the beat: a slow envelope (one cycle per octave) shaping a fast carrier (six cycles per octave) \u2014 the six-fold carrier is the tritone axis; the envelope decides which half is up"><span class="f-env" title="the envelope: one cycle per octave, the slow wave that says where the field rests">cos(x)</span><span class="f-x">&middot;</span><span class="f-car" title="the carrier: six cycles per octave \u2014 every tritone flips its sign">cos(6x)</span></span><span class="f-x"> + </span><span id="t-res" title="the residue: the same envelope and carrier in quadrature, one sixth as strong \u2014 what tilts the field from perfect symmetry into the 5:2:5 shape"><span class="f-x">(1/6)&middot;</span><span class="f-env" title="the envelope in quadrature">sin(x)</span><span class="f-x">&middot;</span><span class="f-car" title="the carrier in quadrature">sin(6x)</span></span><span class="f-x"> = </span><span id="t-spec" title="the same field as two pure tones in chroma: five and seven cycles per octave, weighted 7:5 \u2014 the fourth and the fifth, the two ways round the circle"><span class="f-s5" title="five cycles per octave, weight 7/12: the chain of fourths">(7/12)&middot;cos(5x)</span><span class="f-x"> + </span><span class="f-s7" title="seven cycles per octave, weight 5/12: the chain of fifths">(5/12)&middot;cos(7x)</span></span></div>
   <div class="tb-right">
@@ -4706,8 +4707,11 @@ function seqStart(){
 /* v369 · THE ACCOMPANIMENT. A track of its own under the lesson: piano chords with no voice, no string, no light
    and no drawing — only sound. Each event fires when the playhead crosses its start, on the same tick that
    starts the solo's notes, so the two stay locked; the damper falls at the event's end. */
+var accompOn=true;   /* v385: the switch */
+function accompSync(){ var b=document.getElementById('accompBtn'); if(!b)return; var has=!!(seq.accomp&&seq.accomp.length);
+  b.style.display=has?'':'none'; b.setAttribute('aria-pressed',accompOn?'true':'false'); }
 function seqAccompTick(a,pos){
-  var ev=seq.accomp; if(a.acLast===undefined)a.acLast=a.lastPos;   /* v371: from where play began, so an event on its very first beat sounds */
+  var ev=accompOn?seq.accomp:null; if(a.acLast===undefined)a.acLast=a.lastPos;   /* v371: from where play began, so an event on its very first beat sounds */
   if(!ev||!ev.length){ a.acLast=pos; return; }
   var L=a.acLast;
   function fire(x,y){ for(var i=0;i<ev.length;i++){ var e=ev[i]; if(e.start>=x-1e-9&&e.start<y-1e-9)seqAccompPlay(a,e); } }
@@ -5073,6 +5077,7 @@ function seqApply(o){
   seq.swing=!!o.swing;   /* v366 */
   seq.accomp=Array.isArray(o.accomp)?o.accomp.filter(function(e){ return e&&isFinite(+e.start)&&isFinite(+e.m); }).map(function(e){ return {start:+e.start,dur:Math.max(0.25,+e.dur||1),m:+e.m,vel:Math.max(1,Math.min(127,+e.vel||64))}; }):[];   /* v369 */
   seq.accompVol=isFinite(+o.accompVol)?Math.max(0,Math.min(2,+o.accompVol)):1;
+  if(typeof accompSync==='function')accompSync();   /* v385 */
   seq.modes=[]; seq.mid=1; seqModeSel=null; seqModeApplied=null;
   if(o.modes)for(var q=0;q<o.modes.length;q++){
     var mm=o.modes[q];
@@ -6416,6 +6421,9 @@ document.getElementById('muteBtn').addEventListener('click',function(){
   if(outGain)outGain.gain.setTargetAtTime(muted?0:vol,AC.currentTime,0.04);
 });
 document.getElementById('revSlider').addEventListener('input',function(){ setStrRev(this.value); });
+(function(){ var b=document.getElementById('accompBtn'); if(!b)return;   /* v385 */
+  b.addEventListener('click',function(){ accompOn=!accompOn; if(!accompOn&&typeof seqAudio!=='undefined'&&seqAudio)seqAccompOff(seqAudio); accompSync(); });
+  accompSync(); })();
 document.getElementById('volSlider').addEventListener('input',function(){
   vol=+this.value;
   if(AC&&!muted)outGain.gain.setTargetAtTime(vol,AC.currentTime,0.04);
