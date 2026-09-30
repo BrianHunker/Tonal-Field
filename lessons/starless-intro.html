@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v379 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v380 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v379</span></h1>
+  <h1>Tonal Field <span>Ring v380</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10559,7 +10559,7 @@ function tabChordReadings(col){
      whatever the diatonic / pentatonic / grayscale switches say — the label reads the field's own colours */
   var colOf=function(pcv){ return fn[Math.round(fnUAt(((pcv%12)+12)%12,ph))%12].c; };
   function make(root,t,implied){
-    var parts=[[pcName(root).split('/')[0],colOf(root)]]; TAB_SHAPES[t][1].forEach(function(p){ parts.push([p[0],colOf((root+p[1])%12)]); });
+    var parts=[[stPcNameAt(root,col),colOf(root)]]; TAB_SHAPES[t][1].forEach(function(p){ parts.push([p[0],colOf((root+p[1])%12)]); });
     return {parts:parts,text:parts.map(function(p){ return p[0]; }).join(''),dia:dia,root:root,implied:!!implied};
   }
   var cand=[];
@@ -11217,7 +11217,7 @@ var showStaff=false, stLines=1, stMPL=2, stFirst=0, stView=1, stTopLine=0, stScr
     stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
 var stSel=[], stCur=null, stLenT=24, stDotted=false, stDrag=null, stRAF=null, stHeads=[], stFontReady=false;
 var ST_S=1.5, ST_TICKS=96;                       /* 96 ticks to a whole note: every grid, binary or triplet, lands on it */
-var ST_TOP_LS=7, ST_GAP_LS=6, ST_BOT_LS=5.5;   /* v355: room below for the left hand's fingering and the pedal */       /* a line: bar numbers and the chord row, the treble, the gap, the bass, room below */
+var ST_TOP_LS=9.5, ST_GAP_LS=6, ST_BOT_LS=5.5;   /* v355: room below for the left hand's fingering and the pedal */       /* a line: bar numbers and the chord row, the treble, the gap, the bass, room below */
 var ST_LET_PC=[0,2,4,5,7,9,11];
 var ST_SHARP_ORDER=[3,0,4,1,5,2,6], ST_FLAT_ORDER=[6,2,5,1,4,0,3];
 var ST_SHARP_STEPS=[[10,7,11,8,5,9,6],[-4,-7,-3,-6,-9,-5,-8]], ST_FLAT_STEPS=[[6,9,5,8,4,7,3],[-8,-5,-9,-6,-10,-7,-11]];
@@ -11278,6 +11278,15 @@ function stSpellNote(n){
   if(Math.abs(al)>1){ oct+= (al>0?1:-1); al=semi-(ST_LET_PC[letter]+12*oct); }
   if(Math.abs(al)>1)return sp;
   return {step:letter+7*oct,alter:al}; }
+/* v380: a pitch class named as the staff names it at a column — the key's own letter, or its degree from the root of
+   the mode in force (so a chord symbol reads E♭ where the staff writes E♭) */
+function stPcNameAt(pcv,col){
+  try{ var f=stFifthsAt(col), sp=stSpell(pcv,f), ka=stKeyAlter(f);
+    if(sp.alter!==ka[stMod(sp.step,7)]){ var m=(typeof seqModeAt==='function')?seqModeAt(col):null;
+      if(m&&m.val){ var rs=stSpell(m.anchor,f), d=stMod(pcv-m.anchor,12), L=stMod(stMod(rs.step,7)+ST_DEG_STEPS[d],7), al=stMod(pcv-ST_LET_PC[L]+6,12)-6;
+        if(Math.abs(al)<=1)sp={step:L,alter:al}; } }
+    return 'CDEFGAB'.charAt(stMod(sp.step,7))+(sp.alter>0?'♯':sp.alter<0?'♭':''); }
+  catch(e){ return pcName(pcv).split('/')[0]; } }
 function stSpellNoteOld(n){
   var f=stFifthsAt(n.start), semi=seqSemi(n.pitch), sp=stSpell(semi,f), ka=stKeyAlter(f);
   if(sp.alter===ka[stMod(sp.step,7)])return sp;                       /* in the key: as the key spells it */
@@ -11289,7 +11298,9 @@ function stSpellNoteOld(n){
 function stSemiOf(step,alter){ return ST_LET_PC[stMod(step,7)]+alter+12*Math.floor(step/7); }
 function stPitchOfStep(step,col){ var ka=stKeyAlter(stFifthsAt(col)); return stSemiOf(step,ka[stMod(step,7)])-SEQ_BASE; }
 /* which staff a tone is written on: by hand with two voices, else split at middle C */
-function stStaffOf(n){ if((seq.nv||1)===2)return n.voice===1?1:0; return seqSemi(n.pitch)>=0?0:1; }
+function stStaffOf(n){ var sm=seqSemi(n.pitch);
+  if((seq.nv||1)===2){ if(n.voice===1)return sm>=12?0:1; return sm<=-12?1:0; }   /* v380: a hand far into the other staff's range is written there */
+  return sm>=0?0:1; }
 function stVoiceOfStaff(s){ return s===1?1:0; }
 /* ---- the rhythm model ---- */
 /* a span of ticks cut into writable values: each value starts where it may (a half on a half, a dotted quarter on a
