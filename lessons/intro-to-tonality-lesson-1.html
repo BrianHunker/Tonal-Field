@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v380 · lesson: Intro to Tonality — Lesson 1 -->
+<!-- Tonal Field — Ring — v381 · lesson: Intro to Tonality — Lesson 1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v380</span></h1>
+  <h1>Tonal Field <span>Ring v381</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10548,7 +10548,7 @@ var TAB_SHAPES=[ [[0,7],[['5',7]]], [[0,4,7],[]], [[0,3,7],[['m',3]]], [[0,3,6],
    seventh; the fifth may be left out, and then it is supplied by the field (the fifth that is diatonic there) */
 var TAB_SEVENTHS=[4,5,6,7];   /* indices into TAB_SHAPES: Maj7, m7, 7, m7♭5 */
 function tabChordReadings(col){
-  var n=tabNStr(), ns=[]; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q.start===col&&q.voice<n)ns.push(q); }
+  var n=tabNStr(), ns=[], roll=Math.max(1,Math.round(seq.div/16)); for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q.start>=col&&q.start<col+roll&&q.voice<n)ns.push(q); }   /* v381: a rolled chord is one chord */
   if(ns.length<2)return [];
   var ph=seqPhiAtCol(col), pcs=[], low=Infinity;
   for(var k=0;k<ns.length;k++){ var sm=seqSemi(ns[k].pitch), pcv=((sm%12)+12)%12; if(sm<low)low=sm; if(pcs.indexOf(pcv)<0)pcs.push(pcv); }
