@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v383 · lesson: New Earth — Right Hand -->
+<!-- Tonal Field — Ring — v384 · lesson: New Earth — Right Hand -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v383</span></h1>
+  <h1>Tonal Field <span>Ring v384</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11550,7 +11550,8 @@ function stRender(){
       var accCols=[]; for(var a=heads.length-1;a>=0;a--){ var hd=heads[a]; if(hd.acc===null||hd.acc===undefined)continue; var cI=0;
         while(accCols.some(function(q){ return q.c===cI&&Math.abs(q.step-hd.step)<6; }))cI++; accCols.push({c:cI,step:hd.step});
         var ak=hd.acc>0?'accidentalSharp':(hd.acc<0?'accidentalFlat':'accidentalNatural'), aw=stGW(ak)*LS;
-        c.fillStyle=inkA+'0.95)'; glyph(ak,hx-(anyL?hw:0)-0.25*LS-aw-cI*1.15*LS,stY(L,s,hd.step)); }
+        var acC=stColor?stHeadColor(hd.n,false):null; c.fillStyle=acC?('rgb('+acC[0]+','+acC[1]+','+acC[2]+')'):(inkA+'0.95)');   /* v384: an accidental wears the colour of the tone it makes */
+        glyph(ak,hx-(anyL?hw:0)-0.25*LS-aw-cI*1.15*LS,stY(L,s,hd.step)); }
       /* heads */
       var pe=(stRhythm==='prop')?Infinity:it.col+it.t/(ST_TICKS/seq.div);
       heads.forEach(function(hd,hi){ var n=hd.n, e=n.start+n.dur, sounding=(playing||pos>1e-9)&&pos>=Math.max(it.col,n.start)&&pos<Math.min(pe,e);
@@ -11665,7 +11666,9 @@ function stKeyChange(c,x,L,kc,GF){
   var LS=stLS(), a=kc.a, b=kc.b, sharpA=a>0, xs=x;
   c.fillStyle='#d2d2cd'; c.font=GF;
   var from=(b===0||(a>0)!==(b>0))?0:Math.abs(b);
-  for(var s=0;s<2;s++){ var xi=x, c_=kc.col||0, cl=stClefAt(s,c_); for(var i=from;i<Math.abs(a);i++){ var step=(sharpA?ST_SHARP_STEPS:ST_FLAT_STEPS)[cl][i]; c.fillText(stG('accidentalNatural'),xi,stY(L,s,step+stDispOff(s,c_))); xi+=1.0*LS; } }
+  for(var s=0;s<2;s++){ var xi=x, c_=kc.col||0, cl=stClefAt(s,c_); for(var i=from;i<Math.abs(a);i++){ var step=(sharpA?ST_SHARP_STEPS:ST_FLAT_STEPS)[cl][i];
+    if(stColor){ var nc=stStepColor(step,c_,0); c.fillStyle='rgb('+nc[0]+','+nc[1]+','+nc[2]+')'; } else c.fillStyle='#d2d2cd';   /* v384: a cancelling natural in the colour of the natural tone it restores, under the new orientation */
+    c.fillText(stG('accidentalNatural'),xi,stY(L,s,step+stDispOff(s,c_))); xi+=1.0*LS; } }
   xs=x+kc.nat*1.0*LS; stKeySig(c,xs,L,b,GF,kc.col);
 }
 function stTimeDigits(c,txt,x,y,GF,LS){ c.fillStyle='#d2d2cd'; c.font=GF; var w=0, i; for(i=0;i<txt.length;i++)w+=stGW('timeSig'+txt[i])*LS; var x0=x+(1.9*LS-w)/2; for(i=0;i<txt.length;i++){ c.fillText(stG('timeSig'+txt[i]),x0,y); x0+=stGW('timeSig'+txt[i])*LS; } }
