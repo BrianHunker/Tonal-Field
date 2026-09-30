@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v374 · lesson: The Field in Motion -->
+<!-- Tonal Field — Ring — v375 · lesson: The Field in Motion -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v374</span></h1>
+  <h1>Tonal Field <span>Ring v375</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1381,6 +1381,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <button class="toggle" id="stPlay" title="play / stop (space)">&#9654;</button>
         <button class="toggle" id="stStop" title="stop and return the playhead to the start">&#9632;&#9666;</button>
         <button class="toggle" id="stLoop" aria-pressed="true" title="loop the region">loop</button>
+        <input id="stLoopA" type="text" spellcheck="false" title="where the loop begins — bar.beat, or bar.beat.sub (in compound time a beat is a dotted quarter and sub counts its eighths; otherwise sub counts sixteenths)" style="width:46px;font-family:var(--font-mono);font-size:11px;">
+        <span class="seq-slash" title="the loop region">–</span>
+        <input id="stLoopB" type="text" spellcheck="false" title="where the loop turns back — the first beat past the region (the whole piece runs 1.1 to one bar past the last)" style="width:46px;font-family:var(--font-mono);font-size:11px;">
         <button class="toggle" id="stSave" title="save the phrase as JSON">save</button>
         <button class="toggle" id="stLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="stClear" title="clear all: every note and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -11214,7 +11217,7 @@ function tabWire(){
    it sounds. Glyphs: a subset of Bravura (SIL Open Font License 1.1, © Steinberg Media Technologies GmbH), renamed
    "TF Staff Glyphs" as the licence requires of a modified copy. */
 var ST_META={"gClef":{"cp":57424,"adv":2.684},"fClef":{"cp":57442,"adv":2.736},"brace":{"cp":57344,"adv":0.336},"noteheadWhole":{"cp":57506,"adv":1.688},"noteheadHalf":{"cp":57507,"adv":1.18},"noteheadBlack":{"cp":57508,"adv":1.18},"restWhole":{"cp":58595,"adv":1.132},"restHalf":{"cp":58596,"adv":1.132},"restQuarter":{"cp":58597,"adv":1.08},"rest8th":{"cp":58598,"adv":1.0},"rest16th":{"cp":58599,"adv":1.28},"rest32nd":{"cp":58600,"adv":1.452},"flag8thUp":{"cp":57920,"adv":1.056},"flag8thDown":{"cp":57921,"adv":1.224},"flag16thUp":{"cp":57922,"adv":1.116},"flag16thDown":{"cp":57923,"adv":1.168},"flag32ndUp":{"cp":57924,"adv":1.048},"flag32ndDown":{"cp":57925,"adv":1.096},"accidentalFlat":{"cp":57952,"adv":0.904},"accidentalNatural":{"cp":57953,"adv":0.672},"accidentalSharp":{"cp":57954,"adv":0.996},"augmentationDot":{"cp":57831,"adv":0.4},"timeSigCommon":{"cp":57482,"adv":1.696},"timeSig0":{"cp":57472,"adv":1.88},"timeSig1":{"cp":57473,"adv":1.336},"timeSig2":{"cp":57474,"adv":1.784},"timeSig3":{"cp":57475,"adv":1.684},"timeSig4":{"cp":57476,"adv":1.88},"timeSig5":{"cp":57477,"adv":1.612},"timeSig6":{"cp":57478,"adv":1.736},"timeSig7":{"cp":57479,"adv":1.764},"timeSig8":{"cp":57480,"adv":1.744},"timeSig9":{"cp":57481,"adv":1.736}};
-var stDbl=[];   /* v374: bars (1-based) whose opening barline is a double bar — a section begins there */
+var stDbl=[], stLoopTap=0;   /* v374: bars (1-based) whose opening barline is a double bar — a section begins there */
 var showStaff=false, stLines=1, stMPL=2, stFirst=0, stView=1, stTopLine=0, stScrollPend=true,   /* v373: stLines/stFirst are the drawn lines (all, from 0); stView = lines the window shows, stTopLine = the line at its top */
     stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
 var stSel=[], stCur=null, stLenT=24, stDotted=false, stDrag=null, stRAF=null, stHeads=[], stFontReady=false;
@@ -11430,6 +11433,15 @@ function stRender(){
         else { vline(bx,tT,bB,Math.max(1,0.16*LS)); if(stDbl.indexOf(b+1)>=0)vline(bx-0.45*LS,tT,bB,Math.max(1,0.16*LS)); } }
       if(b<g.b1){ c.fillStyle=dim; c.font='italic '+Math.round(1.25*LS)+'px "IBM Plex Sans", sans-serif'; c.fillText(String(b+1),bx+0.3*LS,y0+1.6*LS); }
     }
+    /* v375: the loop strip — the whole line dim, the region gold (bright while the loop is on), handles at its ends */
+    (function(){ var sy0=y0+0.12*LS, sh=0.6*LS, xa=g.gut, xb=xEnd, lc0=g.b0*cpb, lc1=g.b1*cpb;
+      c.fillStyle='rgba(255,210,122,0.07)'; c.fillRect(xa,sy0,xb-xa,sh);
+      var a=Math.max(seq.loopA,lc0), z=Math.min(seq.loopB,lc1); if(z>a){
+        var x0=stColX(g,a), x1=(z>=lc1)?xb:stColX(g,z);
+        c.fillStyle=seq.loop?'rgba(255,210,122,0.55)':'rgba(255,210,122,0.2)'; c.fillRect(x0,sy0,x1-x0,sh);
+        c.fillStyle=seq.loop?'#ffd27a':'rgba(255,210,122,0.5)';
+        if(seq.loopA>=lc0&&seq.loopA<lc1)c.fillRect(x0-1,sy0-0.1*LS,2.5,sh+0.2*LS);
+        if(seq.loopB>lc0&&seq.loopB<=lc1)c.fillRect(x1-1.5,sy0-0.1*LS,2.5,sh+0.2*LS); } })();
     /* v372: the key changes, each at the column its phrase begins */
     g.ks.forEach(function(list){ list.forEach(function(k){ stKeyChange(c,stKeyX(g,k)+0.5*LS,L,k,GF); }); });
     /* the chord row, as the TAB reads it */
@@ -11622,8 +11634,10 @@ function stColAt(L,px,exact){ var g=stGeom(stFirst+L), cpb=tabCPB(), i;
 function stHeadAt(px,py){ var LS=stLS(), best=null, bd=1e9;
   stHeads.forEach(function(h){ var dx=px-(h.x+h.w/2), dy=py-h.y; if(Math.abs(dx)<=h.w*0.75&&Math.abs(dy)<=0.62*LS){ var d=dx*dx+dy*dy; if(d<bd){ bd=d; best=h; } } });
   return best; }
+function stLoopHit(px,py){ var L=stLineAt(py); if(L===null)return null; var LS=stLS(), yy=py-L*stLineH(), g=stGeom(stFirst+L);
+  return (yy<0.95*LS&&px>=g.gut-0.5*LS)?{L:L}:null; }   /* v375 */
 function stTopHit(px,py){ var L=stLineAt(py); if(L===null)return null; var LS=stLS(), yy=py-L*stLineH(), g=stGeom(stFirst+L);
-  if(yy<2.6*LS&&px>=g.gut)return {L:L};
+  if(yy<2.6*LS&&yy>=0.95*LS&&px>=g.gut)return {L:L};
   var pl=Math.floor(Math.floor(seqPos)/tabCPB()/stMPL); if(pl===stFirst+L){ var x=stColX(g,seqPos); if(Math.abs(px-x)<=6)return {L:L}; }
   return null; }
 function stChordHit(px,py){ var L=stLineAt(py); if(L===null)return null; var LS=stLS(), yy=py-L*stLineH(); if(yy<2.4*LS||yy>4.6*LS)return null;
@@ -11677,6 +11691,18 @@ function stSetLen(t){
 }
 function stSetFinger(f){ var mv=stSelNotes(); if(!mv.length)return; mv.forEach(function(q){ q.finger=(f>=1&&f<=5)?f:undefined; }); stBarSync(); seqRefresh(); stRequest(); if(typeof requestLight==='function')requestLight(); if(typeof histQueue==='function')histQueue(); }
 function stDeleteSel(){ var mv=stSelNotes(); if(!mv.length)return; var S={}; mv.forEach(function(q){ S[q.id]=1; }); seq.notes=seq.notes.filter(function(q){ return !S[q.id]; }); stSel=[]; seqRefresh(); stRequest(); if(typeof histQueue==='function')histQueue(); }
+/* v375: the loop in bars and beats. A beat is the meter's own (a dotted quarter in compound time); a sub is an eighth
+   in compound time and a sixteenth otherwise. */
+function stCompound(){ return seq.tsDen===8&&seq.tsNum%3===0&&seq.tsNum>3; }
+function stBeatCells(){ return Math.max(1,stCompound()?seq.div*3/8:seq.div/seq.tsDen); }
+function stSubCells(){ return Math.max(1,stCompound()?seq.div/8:seq.div/16); }
+function stFmtPos(col){ var cpb=tabCPB(), b=Math.floor(col/cpb), r=col-b*cpb, bc=stBeatCells(), sc=stSubCells(), bt=Math.floor(r/bc), s=Math.floor((r-bt*bc)/sc);
+  return (b+1)+'.'+(bt+1)+(s>0?'.'+(s+1):''); }
+function stParsePos(t){ var m=String(t).trim().match(/^(\d+)(?:[.:,\s]+(\d+))?(?:[.:,\s]+(\d+))?$/); if(!m)return null;
+  var b=+m[1], bt=m[2]?+m[2]:1, s=m[3]?+m[3]:1; if(b<1||bt<1||s<1)return null;
+  return Math.round((b-1)*tabCPB()+(bt-1)*stBeatCells()+(s-1)*stSubCells()); }
+function stSetLoop(a,b){ a=seqClamp(Math.round(a),0,seq.divs-1); b=seqClamp(Math.round(b),a+1,seq.divs); seq.loopA=a; seq.loopB=b; seq.loop=true;
+  if(typeof seqRefresh==='function')seqRefresh(); stBarSync(); stRequest(); if(typeof tabRequest==='function')tabRequest(); }
 /* ---- the toolbar ---- */
 function stBarSync(){
   var f=document.activeElement;
@@ -11690,7 +11716,8 @@ function stBarSync(){
   var db=document.getElementById('stDotBtn'); if(db)db.setAttribute('aria-pressed',stDotted?'true':'false');
   var fs=document.getElementById('stFingerSel'); if(fs&&fs!==f){ var sn=stSelNotes(), fv=sn.length?(sn[0].finger||''):''; if(fs.value!==String(fv))fs.value=String(fv); fs.disabled=!sn.length; }
   var tt=document.getElementById('stTitleIn'); if(tt&&tt!==f&&tt.value!==(seq.title||''))tt.value=seq.title||'';
-  var ps=document.getElementById('stPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)), t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
+  var ps=document.getElementById('stPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/stBeatCells()), t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
+  setv('stLoopA',stFmtPos(seq.loopA)); setv('stLoopB',stFmtPos(seq.loopB));   /* v375 */
 }
 function stBarWire(){
   var d=document.getElementById('stDiv');
@@ -11699,6 +11726,11 @@ function stBarWire(){
   proxy('stBpm','seqBpmIn'); proxy('stBars','seqBarsIn'); proxy('stTsNum','seqTsNum'); proxy('stTsDen','seqTsDen'); proxy('stDiv','seqDivSel');
   function click(id,seqId){ var el=document.getElementById(id); if(!el)return; el.addEventListener('click',function(){ if(typeof ensureAC==='function')ensureAC(); var s=document.getElementById(seqId); if(s)s.click(); stBarSync(); stRequest(); }); }
   click('stPlay','seqPlayBtn'); click('stStop','seqStopBtn'); click('stLoop','seqLoopBtn');
+  /* v375: the loop boxes */
+  ['stLoopA','stLoopB'].forEach(function(id){ var el=document.getElementById(id); if(!el)return;
+    el.addEventListener('change',function(){ var v=stParsePos(this.value); if(v===null){ stBarSync(); return; }
+      if(id==='stLoopA')stSetLoop(v,Math.max(v+1,seq.loopB)); else stSetLoop(Math.min(seq.loopA,v-1),v); });
+    el.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); });
   var sv=document.getElementById('stSave'); if(sv)sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var ld=document.getElementById('stLoad'); if(ld)ld.addEventListener('click',function(){ var b=document.getElementById('seqLoadBtn'); if(b)b.click(); });
   var cl=document.getElementById('stClear'); if(cl)cl.addEventListener('click',function(){ tabClearAll(); stSel=[]; stCur=null; stTopLine=0; stScrollPend=true; stRequest(); });
@@ -11726,6 +11758,15 @@ function stWire(){
   cv.addEventListener('pointerdown',function(e){
     if(e.button!==0)return; var p=pt(e); sc.focus({preventScroll:true});   /* read the point before focusing: focus may scroll the page */
     var ch=stChordHit(p.x,p.y); if(ch&&!phoneMode()){ var rds=tabChordReadings(ch.col); if(rds.length>1)tabChordMenu(ch,rds,stChordHost()); else tabChordEdit(ch,stChordHost()); e.preventDefault(); return; }
+    var lh_=stLoopHit(p.x,p.y); if(lh_){   /* v375: the loop strip */
+      var cf0=stColAt(lh_.L,Math.max(p.x,stGeom(stFirst+lh_.L).gut),true); if(cf0===null)return; var sub=stSubCells(), snap=function(v){ return Math.round(v/sub)*sub; };
+      var now=Date.now(); if(now-(stLoopTap||0)<450){ stLoopTap=0; stSetLoop(0,seq.divs); e.preventDefault(); return; } stLoopTap=now;
+      var g0=stGeom(stFirst+lh_.L), xa=stColX(g0,seq.loopA), xb=stColX(g0,seq.loopB), edge=7;
+      if(seq.loop&&Math.abs(p.x-xa)<=edge)stDrag={mode:'loop',anchor:seq.loopB,L:lh_.L};
+      else if(seq.loop&&Math.abs(p.x-xb)<=edge)stDrag={mode:'loop',anchor:seq.loopA,L:lh_.L};
+      else if(seq.loop&&cf0>seq.loopA&&cf0<seq.loopB)stDrag={mode:'loopmove',len:seq.loopB-seq.loopA,off:cf0-seq.loopA,L:lh_.L};
+      else { var a0=snap(cf0); stDrag={mode:'loop',anchor:a0,L:lh_.L}; stSetLoop(a0,a0+sub); }
+      cv.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     var th=stTopHit(p.x,p.y); if(th){ stDrag={mode:'head',L:th.L}; var cf=stColAt(th.L,p.x,true); if(cf!==null&&typeof seqScrubTo==='function')seqScrubTo(cf); cv.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if(phoneMode())return;
     var L=stLineAt(p.y); if(L===null){ stCur=null; stSel=[]; stRequest(); return; }
@@ -11745,7 +11786,12 @@ function stWire(){
   });
   cv.addEventListener('pointermove',function(e){
     var p=pt(e), D=stDrag;
-    if(!D){ if(phoneMode())return; cv.style.cursor=stTopHit(p.x,p.y)?'col-resize':(stChordHit(p.x,p.y)?'text':(stHeadAt(p.x,p.y)?'grab':'crosshair')); return; }
+    if(!D){ if(phoneMode())return; cv.style.cursor=stLoopHit(p.x,p.y)?'ew-resize':stTopHit(p.x,p.y)?'col-resize':(stChordHit(p.x,p.y)?'text':(stHeadAt(p.x,p.y)?'grab':'crosshair')); return; }
+    if(D.mode==='loop'||D.mode==='loopmove'){   /* v375 */
+      var L2=stLineAt(p.y); if(L2===null)L2=D.L; var g2=stGeom(stFirst+L2), cf2=stColAt(L2,Math.max(p.x,g2.gut),true); if(cf2===null)cf2=seq.divs; var sub2=stSubCells();
+      if(D.mode==='loop'){ var s2=Math.round(cf2/sub2)*sub2, a2=Math.min(D.anchor,s2), b2=Math.max(D.anchor,s2); if(b2<=a2)b2=a2+sub2; stSetLoop(a2,b2); }
+      else { var lo2=Math.round((cf2-D.off)/sub2)*sub2; lo2=seqClamp(lo2,0,seq.divs-D.len); stSetLoop(lo2,lo2+D.len); }
+      return; }
     if(D.mode==='head'){ var cf=stColAt(D.L,p.x,true); if(cf!==null&&typeof seqScrubTo==='function')seqScrubTo(cf); stRequest(); return; }
     if(D.mode==='band'){ D.x1=p.x; D.y1=p.y; if(Math.abs(p.x-D.x0)>3||Math.abs(p.y-D.y0)>3)D.on=true;
       if(D.on){ var x0=Math.min(D.x0,D.x1), x1=Math.max(D.x0,D.x1), y0=Math.min(D.y0,D.y1), y1=Math.max(D.y0,D.y1), ids=D.add?D.base.slice():[];
