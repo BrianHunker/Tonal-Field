@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v371 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v372 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v371</span></h1>
+  <h1>Tonal Field <span>Ring v372</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11287,13 +11287,14 @@ function stBuild(){
         segs.push({rest:false,a:a,e:e,g:g,tieIn:g.start<bs,tieOut:g.endN>be}); anyNote=true; cur=e; }
       if(cur<be)segs.push({rest:true,a:cur,e:be});
       if(!anyNote){ out.barRest[s][b]=1; continue; }
-      var ka=stKeyAlter(stFifthsAt(bs)), accState={};
+      var curF=stFifthsAt(bs), ka=stKeyAlter(curF), accState={};
       segs.forEach(function(sg){
         var pcs=stSplit((sg.a-bs)*ct,(sg.e-sg.a)*ct,sg.rest,barT);
         pcs.forEach(function(pc,pi){
           var it={staff:s,bar:b,p:pc.p,t:pc.t,u:pc.u,dots:pc.dots,trip:pc.trip,rest:sg.rest,col:bs+pc.p/ct,heads:[],g:sg.g||null,
                   tieIn:(pi>0)||(!sg.rest&&sg.tieIn&&pi===0), tieOut:(pi<pcs.length-1)||(!sg.rest&&sg.tieOut)};
           if(!sg.rest){
+            var fHere=stFifthsAt(it.col); if(fHere!==curF){ curF=fHere; ka=stKeyAlter(curF); accState={}; }   /* v372: a key change mid-bar */
             sg.g.notes.forEach(function(n){ var sp=stSpell(seqSemi(n.pitch),stFifthsAt(n.start)), acc=null;
               var inForce=(sp.step in accState)?accState[sp.step]:ka[stMod(sp.step,7)];
               if(!it.tieIn&&sp.alter!==inForce)acc=sp.alter;
@@ -11326,18 +11327,32 @@ function stStems(items,s){
 }
 /* ---- geometry ---- */
 function stNatCount(a,b){ if(a===b)return 0; if(b===0||(a>0)!==(b>0))return Math.abs(a); return Math.max(0,Math.abs(a)-Math.abs(b)); }
+/* v372: the key changes — every column where a mode event turns the field so that Do moves. A key signature belongs
+   immediately before the phrase heard in the new orientation, wherever in the bar that phrase begins: no double bar
+   (a section has not ended), and no waiting for a barline the phrase has already crossed. */
+function stKeyChanges(){ var out=[]; if(!seq.modeOn||!seq.modes)return out;
+  var cols={}; seq.modes.forEach(function(m){ if(m.col>0&&m.col<seq.divs)cols[m.col]=1; });
+  Object.keys(cols).map(Number).sort(function(a,b){ return a-b; }).forEach(function(c){ var fa=stFifthsAt(c-1), fb=stFifthsAt(c);
+    if(fa!==fb)out.push({col:c,a:fa,b:fb,nat:stNatCount(fa,fb)}); });
+  return out; }
 function stGeom(line){
   var LS=stLS(), cv=stEl(), W=cv?cv.clientWidth:600, cpb=tabCPB(), bars=tabBars(), b0=line*stMPL;
   var f0=stFifthsAt(Math.min(b0,bars-1)*cpb), ts=(line===0);
-  var gut=(5.2+Math.abs(f0)*1.0+(ts?2.8:0)+0.6)*LS, leads=[], chg=[], sum=0, i;
-  for(i=0;i<stMPL;i++){ var b=b0+i, lead=1.1*LS, kc=null;
-    if(i>0&&b<bars){ var fa=stFifthsAt((b-1)*cpb), fb=stFifthsAt(b*cpb); if(fa!==fb){ kc={a:fa,b:fb,nat:stNatCount(fa,fb)}; lead+=(kc.nat+Math.abs(fb))*1.0*LS+1.0*LS; } }
-    leads.push(lead); chg.push(kc); sum+=lead; }
+  var gut=(5.2+Math.abs(f0)*1.0+(ts?2.8:0)+0.6)*LS, leads=[], ks=[], sum=0, i, KC=stKeyChanges();
+  for(i=0;i<stMPL;i++){ var b=b0+i, lead=1.1*LS, list=[];
+    KC.forEach(function(kc){ if(kc.col>=b*cpb&&kc.col<(b+1)*cpb&&!(i===0&&kc.col===b0*cpb)){   /* at a line's start the opening signature says it */
+      var k2={col:kc.col,a:kc.a,b:kc.b,nat:kc.nat,w:(kc.nat+Math.abs(kc.b))*1.0*LS+1.4*LS}; list.push(k2); sum+=k2.w; } });
+    leads.push(lead); ks.push(list); sum+=lead; }
   var cw=Math.max(2,(W-gut-0.9*LS-sum)/(stMPL*cpb)), barX=[], x=gut;
-  for(i=0;i<stMPL;i++){ barX.push(x); x+=leads[i]+cpb*cw; } barX.push(x);
-  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,ts:ts,chg:chg,LS:LS};
+  for(i=0;i<stMPL;i++){ barX.push(x); x+=leads[i]+cpb*cw; ks[i].forEach(function(k){ x+=k.w; }); } barX.push(x);
+  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,ts:ts,ks:ks,LS:LS};
 }
-function stColX(g,colF){ var cpb=tabCPB(), i=Math.floor(colF/cpb)-g.b0; if(i<0)i=0; if(i>=stMPL)i=stMPL-1; return g.barX[i]+g.leads[i]+(colF-(g.b0+i)*cpb)*g.cw; }
+/* a column's x: the bar's start, its lead, the time, and the room of every key change at or before that column */
+function stColX(g,colF){ var cpb=tabCPB(), i=Math.floor(colF/cpb)-g.b0; if(i<0)i=0; if(i>=stMPL)i=stMPL-1;
+  var x=g.barX[i]+g.leads[i]+(colF-(g.b0+i)*cpb)*g.cw; (g.ks[i]||[]).forEach(function(k){ if(k.col<=colF)x+=k.w; }); return x; }
+/* where a key change's signature is drawn: the start of the room it opens */
+function stKeyX(g,k){ var cpb=tabCPB(), i=Math.floor(k.col/cpb)-g.b0, x=g.barX[i]+g.leads[i]+(k.col-(g.b0+i)*cpb)*g.cw;
+  (g.ks[i]||[]).forEach(function(k2){ if(k2.col<k.col)x+=k2.w; }); return x; }
 function stStaffTop(L,s){ var LS=stLS(); return L*stLineH()+ST_TOP_LS*LS+(s?(4+ST_GAP_LS)*LS:0); }
 function stY(L,s,step){ return stStaffTop(L,s)+((s?-2:10)-step)*stLS()/2; }
 function stSize(){
@@ -11375,11 +11390,13 @@ function stRender(){
       /* v357 · staff color: each line and space, bar by bar, in the colour of the tone it names under the key there —
          the spaces as bands as transparent as the house lights, the lines drawn in their colour */
       var hl=Math.max(0,Math.min(1,houseLights));
-      for(var bi=0;bi<g.b1-g.b0;bi++){ var bcol=(g.b0+bi)*cpb, bf=stFifthsAt(bcol), bx0=(bi===0?sysX:g.barX[bi]), bx1=g.barX[bi+1];
+      for(var bi=0;bi<g.b1-g.b0;bi++){ var segs_=[[(g.b0+bi)*cpb,(bi===0?sysX:g.barX[bi])]];
+        g.ks[bi].forEach(function(k){ segs_.push([k.col,stKeyX(g,k)]); });
+        for(var si=0;si<segs_.length;si++){ var bcol=segs_[si][0], bf=stFifthsAt(bcol), bx0=segs_[si][1], bx1=(si+1<segs_.length)?segs_[si+1][1]:g.barX[bi+1];
         for(var s1=0;s1<2;s1++){ var lo=s1?-10:2;
           for(var st=lo;st<=lo+8;st++){ var sc=stStepColor(st,bcol,bf), yy=stY(L,s1,st);
             c.fillStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+hl.toFixed(3)+')'; c.fillRect(bx0,yy-LS/4,bx1-bx0,LS/2);
-            if(stMod(st-lo,2)===0){ c.strokeStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+Math.min(1,0.45+hl).toFixed(3)+')'; hline(bx0,bx1,yy,Math.max(1,0.16*LS)); } } } }
+            if(stMod(st-lo,2)===0){ c.strokeStyle='rgba('+sc[0]+','+sc[1]+','+sc[2]+','+Math.min(1,0.45+hl).toFixed(3)+')'; hline(bx0,bx1,yy,Math.max(1,0.16*LS)); } } } } }
     } else
     for(var s=0;s<2;s++)for(var k=0;k<5;k++)hline(sysX,xEnd,stStaffTop(L,s)+k*LS,Math.max(1,0.13*LS));
     c.strokeStyle=ink; vline(sysX,tT,bB,Math.max(1.2,0.16*LS));
@@ -11390,9 +11407,11 @@ function stRender(){
     for(var i=0;i<=g.b1-g.b0;i++){ var bx=g.barX[i], b=g.b0+i;
       if(i>0){ var last=(b>=bars); c.strokeStyle=ink;
         if(last){ vline(bx-0.9*LS,tT,bB,Math.max(1,0.16*LS)); vline(bx-0.25*LS,tT,bB,0.5*LS); }
-        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); var kc=g.chg[i]; if(kc){ kc.col=b*cpb; vline(bx-0.35*LS,tT,bB,Math.max(1,0.16*LS)); stKeyChange(c,bx+0.5*LS,L,kc,GF); } } }
+        else vline(bx,tT,bB,Math.max(1,0.16*LS)); }
       if(b<g.b1){ c.fillStyle=dim; c.font='italic '+Math.round(1.25*LS)+'px "IBM Plex Sans", sans-serif'; c.fillText(String(b+1),bx+0.3*LS,y0+1.6*LS); }
     }
+    /* v372: the key changes, each at the column its phrase begins */
+    g.ks.forEach(function(list){ list.forEach(function(k){ stKeyChange(c,stKeyX(g,k)+0.5*LS,L,k,GF); }); });
     /* the chord row, as the TAB reads it */
     var ccols=tabChordCols(); c.textBaseline='middle';
     ccols.forEach(function(ccol){ var cb=Math.floor(ccol/cpb); if(cb<g.b0||cb>=g.b1)return; var shown=tabChordShown(ccol); if(!shown)return;
@@ -11401,7 +11420,7 @@ function stRender(){
         c.fillStyle=(pc_[1]&&stColor)?('rgb('+pc_[1][0]+','+pc_[1][1]+','+pc_[1][2]+')'):(cm?'#9a9a96':'#d8d8d4');   /* v354: with tonal colour off, the chord row is plain too */ c.fillText(pc_[0],cx0,cy0); cx0+=c.measureText(pc_[0]).width; }); });
     c.textBaseline='alphabetic';
     /* whole-bar rests */
-    for(var s2=0;s2<2;s2++)for(var b2=g.b0;b2<g.b1;b2++){ if(!M.barRest[s2][b2]||stRhythm==='prop')continue; var i2=b2-g.b0, xm=g.barX[i2]+g.leads[i2]+cpb*g.cw/2-0.56*LS;
+    for(var s2=0;s2<2;s2++)for(var b2=g.b0;b2<g.b1;b2++){ if(!M.barRest[s2][b2]||stRhythm==='prop')continue; var i2=b2-g.b0, xm=(g.barX[i2]+g.leads[i2]+g.barX[i2+1])/2-0.56*LS;
       c.fillStyle=inkA+'0.9)'; glyph('restWhole',xm,stY(L,s2,s2?-4:8)); }
   });
   /* duration bars: each tone's sounding length, behind the notes */
@@ -11576,7 +11595,9 @@ function stStaffStep(L,py){ var LS=stLS(), mid=(stStaffTop(L,0)+4*LS+stStaffTop(
 function stColAt(L,px,exact){ var g=stGeom(stFirst+L), cpb=tabCPB(), i;
   for(i=0;i<stMPL;i++)if(px<g.barX[i+1])break; if(i>=stMPL)i=stMPL-1;
   var b=g.b0+i; if(b>=tabBars())return null;
-  var cf=Math.max(0,Math.min(cpb-(exact?0:1e-6),(px-g.barX[i]-g.leads[i])/g.cw));
+  var rx=px-g.barX[i]-g.leads[i], cf;   /* v372: take out the room of the key changes before the click */
+  (g.ks[i]||[]).forEach(function(k){ var kx=(k.col-(g.b0+i)*cpb)*g.cw; if(rx>kx+k.w)rx-=k.w; else if(rx>kx)rx=kx; });
+  cf=Math.max(0,Math.min(cpb-(exact?0:1e-6),rx/g.cw));
   return exact?b*cpb+cf:b*cpb+Math.floor(cf); }
 function stHeadAt(px,py){ var LS=stLS(), best=null, bd=1e9;
   stHeads.forEach(function(h){ var dx=px-(h.x+h.w/2), dy=py-h.y; if(Math.abs(dx)<=h.w*0.75&&Math.abs(dy)<=0.62*LS){ var d=dx*dx+dy*dy; if(d<bd){ bd=d; best=h; } } });
