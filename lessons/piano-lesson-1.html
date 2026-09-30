@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v377 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v378 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v377</span></h1>
+  <h1>Tonal Field <span>Ring v378</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11251,6 +11251,25 @@ function stSpell(semi,f){
   L=ST_LET_PC.indexOf(stMod(pc-al,12));
   return at(L,al);
 }
+/* v378: a tone outside the key that steps by a half step to the next tone in its voice is spelled on the letter next
+   to that tone's — so a line reads the way it moves (D♯ E, not E♭ E; B♭ A, not A♯ A). Anything else keeps stSpell. */
+var ST_NEXT={}, ST_PREV={};
+function stNextBuild(){ ST_NEXT={}; ST_PREV={}; var byV={}; seq.notes.forEach(function(n){ (byV[n.voice]=byV[n.voice]||[]).push(n); });
+  Object.keys(byV).forEach(function(v){ var a=byV[v].slice().sort(function(x,y){ return x.start-y.start; });
+    for(var i=0;i<a.length;i++){ var n=a[i], j=i+1; while(j<a.length&&a[j].start<=n.start)j++; if(j>=a.length)continue;
+      var t0=a[j].start, best=null; for(var k=j;k<a.length&&a[k].start===t0;k++){ if(!best||Math.abs(a[k].pitch-n.pitch)<Math.abs(best.pitch-n.pitch))best=a[k]; }
+      if(best)ST_NEXT[n.id!==undefined?n.id:(n.start+':'+n.pitch+':'+n.voice)]=best; }
+    for(var i2=0;i2<a.length;i2++){ var n2=a[i2], j2=i2-1; while(j2>=0&&a[j2].start>=n2.start)j2--; if(j2<0)continue;   /* and the tone before it */
+      var t2=a[j2].start, bp=null; for(var k2=j2;k2>=0&&a[k2].start===t2;k2--){ if(!bp||Math.abs(a[k2].pitch-n2.pitch)<Math.abs(bp.pitch-n2.pitch))bp=a[k2]; }
+      if(bp)ST_PREV[n2.id!==undefined?n2.id:(n2.start+':'+n2.pitch+':'+n2.voice)]=bp; } }); }
+function stSpellNote(n){
+  var f=stFifthsAt(n.start), semi=seqSemi(n.pitch), sp=stSpell(semi,f), ka=stKeyAlter(f);
+  if(sp.alter===ka[stMod(sp.step,7)])return sp;                       /* in the key: as the key spells it */
+  var key=(n.id!==undefined?n.id:(n.start+':'+n.pitch+':'+n.voice)), nx=ST_NEXT[key], d=nx?nx.pitch-n.pitch:0;
+  if(Math.abs(d)!==1){ nx=ST_PREV[key]; d=nx?nx.pitch-n.pitch:0; }   /* no step onward: spelled from where it came */
+  if(!nx||Math.abs(d)!==1)return sp;
+  var t=stSpell(seqSemi(nx.pitch),stFifthsAt(nx.start)), step=t.step-d, al=semi-stSemiOf(step,0);
+  return Math.abs(al)<=1?{step:step,alter:al}:sp; }
 function stSemiOf(step,alter){ return ST_LET_PC[stMod(step,7)]+alter+12*Math.floor(step/7); }
 function stPitchOfStep(step,col){ var ka=stKeyAlter(stFifthsAt(col)); return stSemiOf(step,ka[stMod(step,7)])-SEQ_BASE; }
 /* which staff a tone is written on: by hand with two voices, else split at middle C */
@@ -11287,6 +11306,7 @@ function stModelGet(){
 }
 function stBuild(){
   var cpb=tabCPB(), bars=tabBars(), ct=ST_TICKS/seq.div, barT=cpb*ct, out={staves:[[],[]],barRest:[{},{}]};
+  stNextBuild();   /* v378: each tone's next tone in its voice, for spelling by where the line goes */
   for(var s=0;s<2;s++){
     var ns=seq.notes.filter(function(n){ return n.dur>0&&n.start<seq.divs&&stStaffOf(n)===s; }).sort(function(a,b){ return a.start-b.start||a.pitch-b.pitch; });
     var groups=[];
@@ -11309,7 +11329,7 @@ function stBuild(){
                   tieIn:(pi>0)||(!sg.rest&&sg.tieIn&&pi===0), tieOut:(pi<pcs.length-1)||(!sg.rest&&sg.tieOut)};
           if(!sg.rest){
             var fHere=stFifthsAt(it.col); if(fHere!==curF){ curF=fHere; ka=stKeyAlter(curF); accState={}; }   /* v372: a key change mid-bar */
-            sg.g.notes.forEach(function(n){ var sp=stSpell(seqSemi(n.pitch),stFifthsAt(n.start)), acc=null;
+            sg.g.notes.forEach(function(n){ var sp=stSpellNote(n), acc=null;
               var inForce=(sp.step in accState)?accState[sp.step]:ka[stMod(sp.step,7)];
               if(!it.tieIn&&sp.alter!==inForce)acc=sp.alter;
               accState[sp.step]=sp.alter;
@@ -11453,7 +11473,7 @@ function stRender(){
   /* duration bars: each tone's sounding length, behind the notes */
   if(stRhythm!=='std'){
     seq.notes.forEach(function(n){ if(n.dur<=0)return; var s=stStaffOf(n), e=n.start+n.dur, sounding=(pos>=n.start&&pos<e)&&(playing||pos>1e-9);
-      var sp=stSpell(seqSemi(n.pitch),stFifthsAt(n.start)), col=stHeadColor(n,sounding);
+      var sp=stSpellNote(n), col=stHeadColor(n,sounding);
       lines.forEach(function(line){ var g=geoms[line], lc0=line*stMPL*cpb, lc1=Math.min(seq.divs,(line+1)*stMPL*cpb), a=Math.max(n.start,lc0), z=Math.min(e,lc1); if(z<=a)return;
         var L=line-stFirst, y=stY(L,s,sp.step), x0=stColX(g,a)+(a===n.start?0.2*LS+HW/2:0), x1=stColX(g,z);
         c.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(sounding?0.8:(playing?0.4:0.55))+')'; c.fillRect(x0,y-0.3*LS,Math.max(1,x1-x0),0.6*LS); }); });
