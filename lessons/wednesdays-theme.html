@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v373 · lesson: Wednesday’s Theme -->
+<!-- Tonal Field — Ring — v374 · lesson: Wednesday’s Theme -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v373</span></h1>
+  <h1>Tonal Field <span>Ring v374</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -9525,7 +9525,7 @@ function cfgCapture(){
     spec:{ height:specH, hist:specHist, fMin:specFMin, fMax:specFMax,
            decades:showDecades, focus:specFocus, modeDelay:specModeDelay, fund:specFund },
     tab:{ lines:tabView, mpl:tabMPL, first:tabTopLine, capoRel:tabCapoRel },
-    staff:{ lines:stView, mpl:stMPL, first:stTopLine, rhythm:stRhythm, color:stColor, staffColor:stStaffColor },
+    staff:{ dbl:stDbl.slice(), lines:stView, mpl:stMPL, first:stTopLine, rhythm:stRhythm, color:stColor, staffColor:stStaffColor },
     surface:{ badgeIn:fbBadgeIn, badgeOut:fbBadgeOut, strings:fbStrings, frets:fbFrets, stack:fbStack, base:fbBase,
               offs:fbOffs.slice(), fretZero:fbFretZero, warpP:warpP, preset:presetName(), lefty:lefty,
               cellW:fbCellW, cellH:fbCellH, panX:fbPanX, panY:fbPanY,
@@ -10381,7 +10381,7 @@ function phoneCheck(){
     /* back to the desk: the view's own TAB paging and fretboard zoom, and the desk layout */
     var v=(typeof views!=='undefined'&&viewCur)?views[viewCur]:null;
     if(v&&v.tab_){ tabView=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabTopLine=v.tab_.first||0; tabScrollPend=true; }
-    if(v&&v.staff_){ stView=v.staff_.lines||1; stMPL=v.staff_.mpl||2; stTopLine=v.staff_.first||0; stScrollPend=true; }
+    if(v&&v.staff_){ stView=v.staff_.lines||1; stMPL=v.staff_.mpl||2; stTopLine=v.staff_.first||0; stScrollPend=true; stDbl=Array.isArray(v.staff_.dbl)?v.staff_.dbl.slice():[]; }
     var su=v&&v.state&&v.state.surface;
     if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true;
       fbSetLabels(su.names!==false,!!su.sol,!!su.hz); }
@@ -10943,7 +10943,7 @@ function tabRender(){
     var row=tabRowOfVoice(nn.voice);
     var sounding=(pos>=nn.start&&pos<e)&&(playing||pos>1e-9);
     var col=seqNoteEventColor(nn);
-    if(col[0]+col[1]+col[2]<60){ col=sounding?unblinded(function(){ return seqNoteEventColor(nn); }):[58,58,58]; }   /* v323: blacked out while silent, its colour when it sounds */
+    if(col[0]+col[1]+col[2]<60){ col=unblinded(function(){ return seqNoteEventColor(nn); }); }   /* v374: an anti keeps its own darkened colour, silent or sounding */
     var alpha=sounding?1:(playing?0.55:0.9), _ties=[];
     for(var cc=Math.max(nn.start,lo);cc<Math.min(e,hi);cc++){
       var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
@@ -11210,6 +11210,7 @@ function tabWire(){
    it sounds. Glyphs: a subset of Bravura (SIL Open Font License 1.1, © Steinberg Media Technologies GmbH), renamed
    "TF Staff Glyphs" as the licence requires of a modified copy. */
 var ST_META={"gClef":{"cp":57424,"adv":2.684},"fClef":{"cp":57442,"adv":2.736},"brace":{"cp":57344,"adv":0.336},"noteheadWhole":{"cp":57506,"adv":1.688},"noteheadHalf":{"cp":57507,"adv":1.18},"noteheadBlack":{"cp":57508,"adv":1.18},"restWhole":{"cp":58595,"adv":1.132},"restHalf":{"cp":58596,"adv":1.132},"restQuarter":{"cp":58597,"adv":1.08},"rest8th":{"cp":58598,"adv":1.0},"rest16th":{"cp":58599,"adv":1.28},"rest32nd":{"cp":58600,"adv":1.452},"flag8thUp":{"cp":57920,"adv":1.056},"flag8thDown":{"cp":57921,"adv":1.224},"flag16thUp":{"cp":57922,"adv":1.116},"flag16thDown":{"cp":57923,"adv":1.168},"flag32ndUp":{"cp":57924,"adv":1.048},"flag32ndDown":{"cp":57925,"adv":1.096},"accidentalFlat":{"cp":57952,"adv":0.904},"accidentalNatural":{"cp":57953,"adv":0.672},"accidentalSharp":{"cp":57954,"adv":0.996},"augmentationDot":{"cp":57831,"adv":0.4},"timeSigCommon":{"cp":57482,"adv":1.696},"timeSig0":{"cp":57472,"adv":1.88},"timeSig1":{"cp":57473,"adv":1.336},"timeSig2":{"cp":57474,"adv":1.784},"timeSig3":{"cp":57475,"adv":1.684},"timeSig4":{"cp":57476,"adv":1.88},"timeSig5":{"cp":57477,"adv":1.612},"timeSig6":{"cp":57478,"adv":1.736},"timeSig7":{"cp":57479,"adv":1.764},"timeSig8":{"cp":57480,"adv":1.744},"timeSig9":{"cp":57481,"adv":1.736}};
+var stDbl=[];   /* v374: bars (1-based) whose opening barline is a double bar — a section begins there */
 var showStaff=false, stLines=1, stMPL=2, stFirst=0, stView=1, stTopLine=0, stScrollPend=true,   /* v373: stLines/stFirst are the drawn lines (all, from 0); stView = lines the window shows, stTopLine = the line at its top */
     stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
 var stSel=[], stCur=null, stLenT=24, stDotted=false, stDrag=null, stRAF=null, stHeads=[], stFontReady=false;
@@ -11422,7 +11423,7 @@ function stRender(){
     for(var i=0;i<=g.b1-g.b0;i++){ var bx=g.barX[i], b=g.b0+i;
       if(i>0){ var last=(b>=bars); c.strokeStyle=ink;
         if(last){ vline(bx-0.9*LS,tT,bB,Math.max(1,0.16*LS)); vline(bx-0.25*LS,tT,bB,0.5*LS); }
-        else vline(bx,tT,bB,Math.max(1,0.16*LS)); }
+        else { vline(bx,tT,bB,Math.max(1,0.16*LS)); if(stDbl.indexOf(b+1)>=0)vline(bx-0.45*LS,tT,bB,Math.max(1,0.16*LS)); } }
       if(b<g.b1){ c.fillStyle=dim; c.font='italic '+Math.round(1.25*LS)+'px "IBM Plex Sans", sans-serif'; c.fillText(String(b+1),bx+0.3*LS,y0+1.6*LS); }
     }
     /* v372: the key changes, each at the column its phrase begins */
@@ -11571,7 +11572,7 @@ function stHeadColor(n,sounding){
   /* v356: the note's function colour at full strength (not the valence-faded event colour), brighter still as it
      sounds; a tone the blinders hide stays dark until it sounds */
   var semi=seqSemi(n.pitch), ch=((semi%12)+12)%12, ph=seqPhiAtCol(n.start), j=Math.round(fnUAt(ch,ph))%12, c0=fn[(j+12)%12].c;
-  var blind=seqNoteEventColor(n); if(blind[0]+blind[1]+blind[2]<60&&!sounding)return [70,70,70];
+  /* v374: an anti wears its own darkened colour whether or not the blinders are on, and lights as it sounds */
   if(!sounding)return [c0[0],c0[1],c0[2]];
   return [Math.round(c0[0]+(255-c0[0])*0.35),Math.round(c0[1]+(255-c0[1])*0.35),Math.round(c0[2]+(255-c0[2])*0.35)];
 }
@@ -11791,8 +11792,8 @@ function stWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); stBarSync(); };
   var tg=document.getElementById('tgStaff'); if(tg)tg.addEventListener('change',function(){ showStaff=this.checked; syncCols(); if(showStaff){ stWire(); stSize(); stRequest(); } });
 })();
-function stCaptureCfg(){ return {lines:stView,mpl:stMPL,first:stTopLine,rhythm:stRhythm,color:stColor,staffColor:stStaffColor}; }
-function stApplyCfg(o){ if(!o)return; stView=seqClamp(Math.round(+o.lines)||1,1,24); stMPL=seqClamp(Math.round(+o.mpl)||2,1,16); stTopLine=Math.max(0,Math.round(+o.first)||0); stScrollPend=true;
+function stCaptureCfg(){ return {dbl:stDbl.slice(),lines:stView,mpl:stMPL,first:stTopLine,rhythm:stRhythm,color:stColor,staffColor:stStaffColor}; }
+function stApplyCfg(o){ if(!o)return; stView=seqClamp(Math.round(+o.lines)||1,1,24); stMPL=seqClamp(Math.round(+o.mpl)||2,1,16); stTopLine=Math.max(0,Math.round(+o.first)||0); stScrollPend=true; stDbl=Array.isArray(o.dbl)?o.dbl.map(Number).filter(isFinite):[];
   if(o.rhythm==='std'||o.rhythm==='bars'||o.rhythm==='prop')stRhythm=o.rhythm; stColor=(o.color!==false); stStaffColor=!!o.staffColor;
   var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stView; if(b)b.value=stMPL; if(c)c.value=stTopLine+1;
   if(typeof stBarSync==='function')stBarSync(); stRequest(); }
