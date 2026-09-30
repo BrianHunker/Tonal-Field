@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v375 · lesson: Modal Scales -->
+<!-- Tonal Field — Ring — v376 · lesson: Modal Scales -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v375</span></h1>
+  <h1>Tonal Field <span>Ring v376</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4764,7 +4764,7 @@ function seqLightAt(chroma,which){
     for(var i=0;i<degs.length;i++){
       var g=degs[i];
       var d=((((chroma-g.chroma)%12)+12)%12); if(d>6)d=12-d;
-      var f=Math.max(0,1-d/reach); if(f<=0)continue;
+      var f=(which==='keys')?(d===0?1:0):Math.max(0,1-d/reach); if(f<=0)continue;   /* v376: on the keyboard, only the degree's own keys light */
       var w=0.84*gain*g.L*f*f*scale;
       wr+=g.col[0]*w; wg+=g.col[1]*w; wb+=g.col[2]*w; wsum+=w;
     }
@@ -6784,7 +6784,7 @@ function colorKeyboard(A){
         if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
     else if(sbE)sbE.style.opacity='0';
     var ls=el.querySelector('.klabels');
-    if(ls){
+    if(ls){ var _kn=ls.querySelector('.krow-name'); if(_kn){ _kn.style.fontSize=sfs+'px'; _kn.style.fontWeight='700'; }   /* v376: the letters bold, at the badge's size */
       ls.style.color = black ? '#e6e4dc' : '#1c1c1c';
       if(colorKeys && ((diatonic && v<-1e-9) || hingeOut(n))) ls.style.color=black?'#3a3a3a':'#8a8a86';   /* blinders; v284: and the pentatonic hinges */
       var sp=ls.querySelector('.krow-sol');
