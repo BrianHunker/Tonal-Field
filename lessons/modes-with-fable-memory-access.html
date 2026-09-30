@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v389 · lesson: Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v390 · lesson: Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v389</span></h1>
+  <h1>Tonal Field <span>Ring v390</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -7651,6 +7651,7 @@ var fbLow=null;
 var fretViewH=398;                     /* surface viewport height, set by layout/divider */
 var fbCellW=null, fbCellH=null;        /* zoom: px per cell; null = fit the full matrix to the view */
 var fbPanX=0, fbPanY=0;
+function fbPanHome(){ return lefty?1e9:0; }   /* v390: the nut end, either hand */
 var fbFitH=0;   /* view height for the null-zoom fit; sizeFret keeps it current */
 var FB_PHI=1.6180339887;               /* v262: a cell's width:height, width the longer */
 var fbFitW=0;                          /* the fitted (unzoomed) cell width: whole board, golden-ratio cells */
@@ -7669,7 +7670,7 @@ function fbMinCellH(vh){ return Math.max(4,(vh-fbFootH())/fbStrings); }
 /* ── 11 · fit: the whole board, or the selected region ── */
 function fbFitAll(){
   var r=fretCv.getBoundingClientRect(), vw=r.width-FB_BAND, vh=r.height-FB_BAND-fbFootH();
-  fbCellW=Math.min(vw/fbFrets,(vh/fbStrings)*FB_PHI); fbCellH=null; fbPanX=0; fbPanY=0;
+  fbCellW=Math.min(vw/fbFrets,(vh/fbStrings)*FB_PHI); fbCellH=null; fbPanX=fbPanHome(); fbPanY=0;
   fbClampPan(vw,r.height-FB_BAND); requestFret();
 }
 function fbFitSel(){
@@ -8067,7 +8068,7 @@ fretCv.addEventListener('dblclick',function(e){
   var lx=e.clientX-r.left, ly=e.clientY-r.top;
   if(ly<=FB_BAND){ fbColSel=null; fretDraw(); return; }
   if(lx<=FB_BAND){ fbRowSel=null; fretDraw(); return; }
-  fbCellW=null; fbCellH=null; fbPanX=0; fbPanY=0; fretDraw();   /* double-click empty: back to the fitted default */
+  fbCellW=null; fbCellH=null; fbPanX=fbPanHome(); fbPanY=0; fretDraw();   /* double-click empty: back to the fitted default */
 });
 fretCv.addEventListener('pointerup',fretEnd);
 fretCv.addEventListener('pointercancel',fretEnd);
@@ -9829,6 +9830,7 @@ document.getElementById('cfgLoad').addEventListener('click',function(e){
 });
 document.getElementById('tgLefty').addEventListener('change',function(){
   lefty=this.checked;
+  fbPanX=fbPanHome();   /* v390: the view goes to the nut */
   fretDraw();
 });
 document.getElementById('cfgFile').addEventListener('change',function(){
@@ -10475,7 +10477,7 @@ function phoneSync(){
     winL.fret={x:0,y:y,w:DW,h:400}; winPlace('fret');
     var fp=document.getElementById('fretPanel'), avail=fp.clientWidth-22-FB_BAND-(fbTuneOpen?84:0)-(fbRespOpen?96:0);
     var nf=Math.max(Math.min(13,fbFrets),Math.min(fbFrets,Math.floor(avail/40))), cw=avail/nf;
-    fbCellW=cw; fbPanX=0; fbPanY=0; fbFitPending=false;
+    fbCellW=cw; fbPanX=fbPanHome(); fbPanY=0; fbFitPending=false;
     winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+FB_BAND+fbStrings*cw/FB_PHI+fbFootH()+6); winPlace('fret');
     y+=winL.fret.h+G;
   }
@@ -10528,7 +10530,7 @@ function phoneSync(){
     winL.notepad={x:0,y:nb,w:DW,h:Math.min(620,Math.max(320,Math.round(window.innerHeight*0.62)))}; winPlace('notepad');
   }
   winKeysTitle(); winDeskSize(); winFitAll();
-  if(winVisible('fret')){ fbPanX=0; fbPanY=0; requestFret(); }
+  if(winVisible('fret')){ fbPanX=fbPanHome(); fbPanY=0; requestFret(); }
   if(showTab){ tabSize(); tabRequest(); }
   if(showStaff){ stSize(); stRequest(); }
   draw();
