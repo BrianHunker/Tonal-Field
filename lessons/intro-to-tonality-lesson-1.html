@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v372 · lesson: Intro to Tonality — Lesson 1 -->
+<!-- Tonal Field — Ring — v373 · lesson: Intro to Tonality — Lesson 1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v372</span></h1>
+  <h1>Tonal Field <span>Ring v373</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -9528,8 +9528,8 @@ function cfgCapture(){
                      fold:r.fold, wind:r.wind, magnet:magnetOn, follow:r.follow, amp:gAmp, cw:r.cw, ccw:r.ccw }; })(),
     spec:{ height:specH, hist:specHist, fMin:specFMin, fMax:specFMax,
            decades:showDecades, focus:specFocus, modeDelay:specModeDelay, fund:specFund },
-    tab:{ lines:tabLines, mpl:tabMPL, first:tabFirstLine, capoRel:tabCapoRel },
-    staff:{ lines:stLines, mpl:stMPL, first:stFirst, rhythm:stRhythm, color:stColor, staffColor:stStaffColor },
+    tab:{ lines:tabView, mpl:tabMPL, first:tabTopLine, capoRel:tabCapoRel },
+    staff:{ lines:stView, mpl:stMPL, first:stTopLine, rhythm:stRhythm, color:stColor, staffColor:stStaffColor },
     surface:{ badgeIn:fbBadgeIn, badgeOut:fbBadgeOut, strings:fbStrings, frets:fbFrets, stack:fbStack, base:fbBase,
               offs:fbOffs.slice(), fretZero:fbFretZero, warpP:warpP, preset:presetName(), lefty:lefty,
               cellW:fbCellW, cellH:fbCellH, panX:fbPanX, panY:fbPanY,
@@ -9744,8 +9744,8 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   setChk('tgFmap',!(c.fmap&&c.fmap.show===false));
   setChk('tgSpec',v.spectrogram!==false);
   setChk('tgFret',v.surface!==false);
-  if(c.tab){ tabCapoRel=(c.tab.capoRel!==false); tabLines=seqClamp(Math.round(+c.tab.lines)||1,1,24); tabMPL=seqClamp(Math.round(+c.tab.mpl)||2,1,16); tabFirstLine=Math.max(0,Math.round(+c.tab.first)||0);
-    var _tli=document.getElementById('tabLinesIn'), _tmi=document.getElementById('tabMPLIn'), _tfi=document.getElementById('tabLineIn'); if(_tli)_tli.value=tabLines; if(_tmi)_tmi.value=tabMPL; if(_tfi)_tfi.value=tabFirstLine+1; }
+  if(c.tab){ tabCapoRel=(c.tab.capoRel!==false); tabView=seqClamp(Math.round(+c.tab.lines)||1,1,24); tabMPL=seqClamp(Math.round(+c.tab.mpl)||2,1,16); tabTopLine=Math.max(0,Math.round(+c.tab.first)||0); tabScrollPend=true;
+    var _tli=document.getElementById('tabLinesIn'), _tmi=document.getElementById('tabMPLIn'), _tfi=document.getElementById('tabLineIn'); if(_tli)_tli.value=tabView; if(_tmi)_tmi.value=tabMPL; if(_tfi)_tfi.value=tabTopLine+1; }
   setChk('tgTab',!!v.tab);
   if(c.staff)stApplyCfg(c.staff);
   setChk('tgStaff',!!v.staff); if(v.staff&&typeof stWire==='function')stWire();
@@ -10062,7 +10062,7 @@ function viewNameHTML(nm){ return nm.split(/(-|\s+)/).map(function(w){ if(w==='-
    selections and zoom, which windows are shown and where. Switching applies all of it, so two
    views can hold two rotations, two sequences, two fretboard states. */
 function viewCapture(){ var c=cfgCapture(), v=c.view, sc=document.getElementById('seqScroll');
-  return {tab_:{lines:tabLines,mpl:tabMPL,first:tabFirstLine,capoRel:tabCapoRel}, staff_:stCaptureCfg(), staff:v.staff, guide:v.guide,lessons:v.lessons,seq:v.seq,plotRing:v.plotRing,keyboard:v.keyboard,string:v.string,spectrogram:v.spectrogram,surface:v.surface,tab:v.tab,fmap:!!(c.fmap&&c.fmap.show),layout:v.layout,
+  return {tab_:{lines:tabView,mpl:tabMPL,first:tabTopLine,capoRel:tabCapoRel}, staff_:stCaptureCfg(), staff:v.staff, guide:v.guide,lessons:v.lessons,seq:v.seq,plotRing:v.plotRing,keyboard:v.keyboard,string:v.string,spectrogram:v.spectrogram,surface:v.surface,tab:v.tab,fmap:!!(c.fmap&&c.fmap.show),layout:v.layout,
     zoom:{spec:{hist:specHist,fMin:specFMin,fMax:specFMax},seq:{sl:sc?sc.scrollLeft:0,st:sc?sc.scrollTop:0}},   /* v267: the fretboard's zoom lives in state.surface, the single source */
     state:viewStateCapture()}; }
 /* v264 — per-view STATE: properties that differ between views, each captured and applied on its own,
@@ -10216,7 +10216,7 @@ function viewApply(n){
   if(!v.state)v.state=viewStateCapture();
   else if(!v.state.seq&&typeof seqStateCapture==='function')v.state.seq=seqStateCapture();   /* v295: adopt the sequencer on screen once, then own it, instead of inheriting a new one every visit */
   if(v.staff_)stApplyCfg(v.staff_);
-  if(v.tab_){ tabCapoRel=(v.tab_.capoRel!==false); tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; var _a=document.getElementById('tabLinesIn'), _b=document.getElementById('tabMPLIn'), _c=document.getElementById('tabLineIn'); if(_a)_a.value=tabLines; if(_b)_b.value=tabMPL; if(_c)_c.value=tabFirstLine+1; }
+  if(v.tab_){ tabCapoRel=(v.tab_.capoRel!==false); tabView=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabTopLine=v.tab_.first||0; tabScrollPend=true; var _a=document.getElementById('tabLinesIn'), _b=document.getElementById('tabMPLIn'), _c=document.getElementById('tabLineIn'); if(_a)_a.value=tabView; if(_b)_b.value=tabMPL; if(_c)_c.value=tabTopLine+1; }
   viewStateApply(v.state);
   if(showFret)requestAnimationFrame(function(){ winFit('fret'); });   /* v315: the foot guard, against the window as laid out */
   if(v.fitFrets&&showFret){ var _ff=v.fitFrets; requestAnimationFrame(function(){ winFit('fret'); var r=fretCv.getBoundingClientRect(), vw=r.width-FB_BAND, vh=r.height-FB_BAND-fbFootH(), nc=_ff[1]-_ff[0]+1;
@@ -10384,8 +10384,8 @@ function phoneCheck(){
   if(!want){
     /* back to the desk: the view's own TAB paging and fretboard zoom, and the desk layout */
     var v=(typeof views!=='undefined'&&viewCur)?views[viewCur]:null;
-    if(v&&v.tab_){ tabLines=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabFirstLine=v.tab_.first||0; }
-    if(v&&v.staff_){ stLines=v.staff_.lines||1; stMPL=v.staff_.mpl||2; stFirst=v.staff_.first||0; }
+    if(v&&v.tab_){ tabView=v.tab_.lines||1; tabMPL=v.tab_.mpl||2; tabTopLine=v.tab_.first||0; tabScrollPend=true; }
+    if(v&&v.staff_){ stView=v.staff_.lines||1; stMPL=v.staff_.mpl||2; stTopLine=v.staff_.first||0; stScrollPend=true; }
     var su=v&&v.state&&v.state.surface;
     if(su){ fbCellW=(su.cellW===undefined?null:su.cellW); fbPanX=su.panX||0; fbPanY=su.panY||0; if(fbCellW===null)fbFitPending=true; else fbFootGuard=true;
       fbSetLabels(su.names!==false,!!su.sol,!!su.hz); }
@@ -10436,26 +10436,26 @@ function phoneSync(){
   if(winVisible('tab')){
     var usable=scoreW-22-TAB_GUT-8;
     tabMPL=Math.max(1,Math.min(2,Math.floor(usable/150)));
-    tabLines=Math.max(1,Math.min(tabNLines(),Math.ceil(2/tabMPL)));
-    tabFirstLine=Math.max(0,Math.min(tabNLines()-tabLines,Math.floor(Math.floor(seqPos)/tabCPB()/tabMPL)));
+    tabView=Math.max(1,Math.min(tabNLines(),Math.ceil(2/tabMPL)));
+    tabTopLine=Math.max(0,Math.min(tabNLines()-tabView,Math.floor(Math.floor(seqPos)/tabCPB()/tabMPL))); tabScrollPend=true;
     var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
-    if(li)li.value=tabLines; if(mi)mi.value=tabMPL; if(fi)fi.value=tabFirstLine+1;
+    if(li)li.value=tabView; if(mi)mi.value=tabMPL; if(fi)fi.value=tabTopLine+1;
     winL.tab={x:0,y:sy,w:scoreW,h:900}; winPlace('tab');
     var tp=document.getElementById('tabPanel'), ts=tabScrollEl();
-    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabLines*tabLineH()+8); winPlace('tab');
+    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabView*tabLineH()+8); winPlace('tab');
     sy+=winL.tab.h+G; anyScore=true;
   }
   if(winVisible('staff')){
     stWire();
     var usable2=scoreW-22-12*stLS();
     stMPL=Math.max(1,Math.min(2,Math.floor(usable2/110)));
-    stLines=Math.max(1,Math.min(stNLines(),Math.ceil(2/stMPL)));
-    stFirst=Math.max(0,Math.min(stNLines()-stLines,Math.floor(Math.floor(seqPos)/tabCPB()/stMPL)));
+    stView=Math.max(1,Math.min(stNLines(),Math.ceil(2/stMPL)));
+    stTopLine=Math.max(0,Math.min(stNLines()-stView,Math.floor(Math.floor(seqPos)/tabCPB()/stMPL))); stScrollPend=true;
     var sli=document.getElementById('stLinesIn'), smi=document.getElementById('stMPLIn'), sfi=document.getElementById('stLineIn');
-    if(sli)sli.value=stLines; if(smi)smi.value=stMPL; if(sfi)sfi.value=stFirst+1;
+    if(sli)sli.value=stView; if(smi)smi.value=stMPL; if(sfi)sfi.value=stTopLine+1;
     winL.staff={x:0,y:sy,w:scoreW,h:900}; winPlace('staff');
     var stp2=document.getElementById('staffPanel'), sts=stScrollEl();
-    winL.staff.h=Math.ceil(winChromeAround(sts,stp2)+stLines*stLineH()+8); winPlace('staff');
+    winL.staff.h=Math.ceil(winChromeAround(sts,stp2)+stView*stLineH()+8); winPlace('staff');
     sy+=winL.staff.h+G; anyScore=true;
   }
   if(!anyScore)scoreW=0;
@@ -10523,7 +10523,7 @@ function fitHeights(){ winFitAll(); }
    selection, option drags a copy, an empty drag draws a rectangle. The playhead drags. The bar at
    the top carries the transport and the meter — the sequencer's own controls, mirrored.
    Everything writes the sequencer, so the global undo covers it. */
-var showTab=false, tabLines=1, tabMPL=2, tabFirstLine=0;
+var showTab=false, tabLines=1, tabMPL=2, tabFirstLine=0, tabView=1, tabTopLine=0, tabScrollPend=true;   /* v373: tabLines/tabFirstLine are now the drawn lines (all of them, from 0); tabView = lines the window shows, tabTopLine = the line at its top */
 var TAB_S=1.5;                                             /* v301: everything 50% larger */
 var TAB_FONT=14*TAB_S, TAB_ROW=20*TAB_S, TAB_GUT=34*TAB_S, TAB_TOP=56*TAB_S, TAB_BOT=30*TAB_S;   /* v316: the top band holds the bar numbers, a chord row, and room for bend labels */
 var TAB_CHORD_Y=27*TAB_S;                                    /* the chord row's centre, from the line's top */
@@ -10714,7 +10714,7 @@ function tabClearAll(){
   var br=document.getElementById('seqBarsIn'); if(br){ br.value=1; br.dispatchEvent(new Event('change')); }
   seq.loopA=0; seq.loopB=seq.divs;
   if(typeof seqScrubTo==='function')seqScrubTo(0);
-  tabFirstLine=0; var tl=document.getElementById('tabLineIn'); if(tl)tl.value=1;
+  tabTopLine=0; tabScrollPend=true; var tl=document.getElementById('tabLineIn'); if(tl)tl.value=1;
   if(typeof seqSyncControls==='function')seqSyncControls(); if(typeof seqRefresh==='function')seqRefresh(); tabRequest(); requestFret();
   if(typeof histQueue==='function')histQueue();
 }
@@ -10869,16 +10869,23 @@ function tabPlate(c,x,y,w,h){ c.save(); c.shadowBlur=0; c.fillStyle='rgba(0,0,0,
   if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,Math.min(4*TAB_S,h/2)); c.fill(); } else c.fillRect(x,y,w,h); c.restore(); }
 function tabSize(){
   var cv=tabEl(), sc=tabScrollEl(); if(!cv||!sc)return;
-  var W=Math.max(200,sc.clientWidth-2), H=tabLines*tabLineH();
-  cv.style.width=W+'px'; cv.style.height=H+'px';
-  cv.width=Math.round(W*tabDpr()); cv.height=Math.round(H*tabDpr());
+  tabLines=Math.max(1,tabNLines()); tabFirstLine=0;   /* v373: every line drawn; the window scrolls */
+  var W=Math.max(200,sc.clientWidth-(sc.scrollHeight>sc.clientHeight?0:2)), H=tabLines*tabLineH(), d=tabBigDpr(W,H);
+  if(cv.style.width!==W+'px')cv.style.width=W+'px'; if(cv.style.height!==H+'px')cv.style.height=H+'px';
+  var pw=Math.round(W*d), ph=Math.round(H*d); if(cv.width!==pw)cv.width=pw; if(cv.height!==ph)cv.height=ph; cv._dpr=d;
+  if(tabScrollPend&&sc.clientHeight>0){ tabScrollPend=false; sc.scrollTop=Math.max(0,tabTopLine*tabLineH()); }
 }
+/* v373: a tall canvas keeps the screen's resolution unless it would pass what a browser will paint */
+function tabBigDpr(W,H){ var d=tabDpr(); return Math.max(0.5,Math.min(d,30000/Math.max(1,H),Math.sqrt(2.4e8/Math.max(1,W*H)))); }
+/* v373: keep a line in view, the way the sequencer keeps its head */
+function tabScrollToLine(line,always){ var sc=tabScrollEl(); if(!sc)return; var lh=tabLineH(), y0=line*lh, y1=y0+lh;
+  if(always||y0<sc.scrollTop||y1>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); }
 function tabRender(){
   var cv=tabEl(); if(!cv||!showTab)return;
   var n=tabNStr(); if(n<1)return;
   if(tabFirstLine>tabNLines()-1)tabFirstLine=Math.max(0,tabNLines()-1);
   tabSize(); tabBarSync();
-  var c=cv.getContext('2d'); c.setTransform(tabDpr(),0,0,tabDpr(),0,0);
+  var c=cv.getContext('2d'), _d=cv._dpr||tabDpr(); c.setTransform(_d,0,0,_d,0,0);
   var W=cv.clientWidth, H=cv.clientHeight; c.clearRect(0,0,W,H);
   var cpb=tabCPB(), cw=tabCellW(), lh=tabLineH(), bars=tabBars(), nl=tabNLines();
   var ti=document.getElementById('tabInfo'); if(ti){ var t=bars+' bars · '+nl+' line'+(nl===1?'':'s'); if(ti.textContent!==t)ti.textContent=t; }
@@ -11007,9 +11014,8 @@ function tabRender(){
 function tabHeadTick(){
   if(!showTab)return;
   var cpb=tabCPB(), line=Math.floor(Math.floor(seqPos)/cpb/tabMPL);
-  if((seq.playing||phoneMode())&&(line<tabFirstLine||line>=tabFirstLine+tabLines)){ tabFirstLine=Math.max(0,Math.min(line,tabNLines()-tabLines)); var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
-  /* v326: catch — the window scrolls so the head's line is in view, the way the sequencer follows its head */
-  if(seq.playing&&seq.catch){ var sc=tabScrollEl(); if(sc){ var lh=tabLineH(), L=line-tabFirstLine, y0=L*lh, y1=y0+lh, top=sc.scrollTop, bot=top+sc.clientHeight;
+  /* v373: no pages — while playing, the window scrolls so the head's line is in view */
+  if(seq.playing||phoneMode()){ var sc=tabScrollEl(); if(sc){ var lh=tabLineH(), L=line-tabFirstLine, y0=L*lh, y1=y0+lh, top=sc.scrollTop, bot=top+sc.clientHeight;
     if(y0<top||y1>bot)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
   tabRequest();
 }
@@ -11163,16 +11169,20 @@ function tabWire(){
     var dc={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[k];
     if(dc&&tabCur){ tabCommitBuf();
       tabCur.col=seqClamp(tabCur.col+dc[0],0,seq.divs-1); tabCur.row=seqClamp(tabCur.row+dc[1],0,tabNStr()-1);
-      var line=Math.floor(Math.floor(tabCur.col/tabCPB())/tabMPL); if(line<tabFirstLine||line>=tabFirstLine+tabLines){ tabFirstLine=Math.max(0,Math.min(line,tabNLines()-1)); var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; }
+      var line=Math.floor(Math.floor(tabCur.col/tabCPB())/tabMPL); tabScrollToLine(line);
       if(!e.shiftKey)tabSel=[]; var nn=tabNoteAt(tabCur.row,tabCur.col); if(nn&&!e.shiftKey)tabSel=[nn.id];
       tabRequest(); e.preventDefault(); e.stopPropagation(); return; }
   });
   sc.addEventListener('blur',function(){ tabCommitBuf(); });
-  cv.addEventListener('wheel',function(e){ if(tabNLines()<=tabLines)return; e.preventDefault(); var d=e.deltaY>0?1:-1; tabFirstLine=seqClamp(tabFirstLine+d,0,Math.max(0,tabNLines()-tabLines)); var tl=document.getElementById('tabLineIn'); if(tl)tl.value=tabFirstLine+1; tabRequest(); },{passive:false});
+  /* v373: the wheel scrolls the window natively; the line at its top is shown in 'from' */
+  (function(){ var sc=tabScrollEl(); if(sc)sc.addEventListener('scroll',function(){ var t=Math.floor((sc.scrollTop+2)/tabLineH()); if(t!==tabTopLine){ tabTopLine=t; var tl=document.getElementById('tabLineIn'); if(tl&&document.activeElement!==tl)tl.value=t+1; } },{passive:true}); })();
   var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
-  if(li)li.addEventListener('change',function(){ tabLines=seqClamp(Math.round(+this.value)||1,1,24); this.value=tabLines; tabSize(); tabRequest(); if(typeof winFit==='function')winFit('tab'); });
-  if(mi)mi.addEventListener('change',function(){ tabMPL=seqClamp(Math.round(+this.value)||1,1,16); this.value=tabMPL; tabFirstLine=0; if(fi)fi.value=1; tabSize(); tabRequest(); });
-  if(fi)fi.addEventListener('change',function(){ tabFirstLine=seqClamp(Math.round(+this.value)-1||0,0,Math.max(0,tabNLines()-1)); this.value=tabFirstLine+1; tabRequest(); });
+  if(li)li.addEventListener('change',function(){ tabView=seqClamp(Math.round(+this.value)||1,1,24); this.value=tabView; tabFitWindow(); tabSize(); tabRequest(); });
+  if(mi)mi.addEventListener('change',function(){ tabMPL=seqClamp(Math.round(+this.value)||1,1,16); this.value=tabMPL; tabTopLine=0; tabScrollPend=true; if(fi)fi.value=1; tabSize(); tabRequest(); });
+  if(fi)fi.addEventListener('change',function(){ tabTopLine=seqClamp(Math.round(+this.value)-1||0,0,Math.max(0,tabNLines()-1)); this.value=tabTopLine+1; tabScrollToLine(tabTopLine,true); tabRequest(); });
+  /* v373: 'lines' sizes the window to show that many lines */
+  function tabFitWindow(){ if(typeof winL==='undefined'||!winL.tab||typeof winChromeAround!=='function')return; var tp=document.getElementById('tabPanel'), ts=tabScrollEl(); if(!tp||!ts)return;
+    winL.tab.h=Math.ceil(winChromeAround(ts,tp)+tabView*tabLineH()+8); winPlace('tab'); if(typeof winSync==='function')winSync(); }
 }
 (function(){
   var _uh=seqUpdateHead; seqUpdateHead=function(){ _uh(); tabHeadTick(); };
@@ -11204,7 +11214,8 @@ function tabWire(){
    it sounds. Glyphs: a subset of Bravura (SIL Open Font License 1.1, © Steinberg Media Technologies GmbH), renamed
    "TF Staff Glyphs" as the licence requires of a modified copy. */
 var ST_META={"gClef":{"cp":57424,"adv":2.684},"fClef":{"cp":57442,"adv":2.736},"brace":{"cp":57344,"adv":0.336},"noteheadWhole":{"cp":57506,"adv":1.688},"noteheadHalf":{"cp":57507,"adv":1.18},"noteheadBlack":{"cp":57508,"adv":1.18},"restWhole":{"cp":58595,"adv":1.132},"restHalf":{"cp":58596,"adv":1.132},"restQuarter":{"cp":58597,"adv":1.08},"rest8th":{"cp":58598,"adv":1.0},"rest16th":{"cp":58599,"adv":1.28},"rest32nd":{"cp":58600,"adv":1.452},"flag8thUp":{"cp":57920,"adv":1.056},"flag8thDown":{"cp":57921,"adv":1.224},"flag16thUp":{"cp":57922,"adv":1.116},"flag16thDown":{"cp":57923,"adv":1.168},"flag32ndUp":{"cp":57924,"adv":1.048},"flag32ndDown":{"cp":57925,"adv":1.096},"accidentalFlat":{"cp":57952,"adv":0.904},"accidentalNatural":{"cp":57953,"adv":0.672},"accidentalSharp":{"cp":57954,"adv":0.996},"augmentationDot":{"cp":57831,"adv":0.4},"timeSigCommon":{"cp":57482,"adv":1.696},"timeSig0":{"cp":57472,"adv":1.88},"timeSig1":{"cp":57473,"adv":1.336},"timeSig2":{"cp":57474,"adv":1.784},"timeSig3":{"cp":57475,"adv":1.684},"timeSig4":{"cp":57476,"adv":1.88},"timeSig5":{"cp":57477,"adv":1.612},"timeSig6":{"cp":57478,"adv":1.736},"timeSig7":{"cp":57479,"adv":1.764},"timeSig8":{"cp":57480,"adv":1.744},"timeSig9":{"cp":57481,"adv":1.736}};
-var showStaff=false, stLines=1, stMPL=2, stFirst=0, stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
+var showStaff=false, stLines=1, stMPL=2, stFirst=0, stView=1, stTopLine=0, stScrollPend=true,   /* v373: stLines/stFirst are the drawn lines (all, from 0); stView = lines the window shows, stTopLine = the line at its top */
+    stRhythm='std', stColor=true, stStaffColor=false;   /* v357: staff color — the lines and spaces in their solfege colours */
 var stSel=[], stCur=null, stLenT=24, stDotted=false, stDrag=null, stRAF=null, stHeads=[], stFontReady=false;
 var ST_S=1.5, ST_TICKS=96;                       /* 96 ticks to a whole note: every grid, binary or triplet, lands on it */
 var ST_TOP_LS=7, ST_GAP_LS=6, ST_BOT_LS=5.5;   /* v355: room below for the left hand's fingering and the pedal */       /* a line: bar numbers and the chord row, the treble, the gap, the bass, room below */
@@ -11361,17 +11372,21 @@ function stStaffTop(L,s){ var LS=stLS(); return L*stLineH()+ST_TOP_LS*LS+(s?(4+S
 function stY(L,s,step){ return stStaffTop(L,s)+((s?-2:10)-step)*stLS()/2; }
 function stSize(){
   var cv=stEl(), sc=stScrollEl(); if(!cv||!sc)return;
-  var W=Math.max(200,sc.clientWidth-2), H=stLines*stLineH();
-  cv.style.width=W+'px'; cv.style.height=H+'px';
-  cv.width=Math.round(W*tabDpr()); cv.height=Math.round(H*tabDpr());
+  stLines=Math.max(1,stNLines()); stFirst=0;   /* v373: every line drawn; the window scrolls */
+  var W=Math.max(200,sc.clientWidth-(sc.scrollHeight>sc.clientHeight?0:2)), H=stLines*stLineH(), d=tabBigDpr(W,H);
+  if(cv.style.width!==W+'px')cv.style.width=W+'px'; if(cv.style.height!==H+'px')cv.style.height=H+'px';
+  var pw=Math.round(W*d), ph=Math.round(H*d); if(cv.width!==pw)cv.width=pw; if(cv.height!==ph)cv.height=ph; cv._dpr=d;
+  if(stScrollPend&&sc.clientHeight>0){ stScrollPend=false; sc.scrollTop=Math.max(0,stTopLine*stLineH()); }
 }
+function stScrollToLine(line,always){ var sc=stScrollEl(); if(!sc)return; var lh=stLineH(), y0=line*lh, y1=y0+lh;
+  if(always||y0<sc.scrollTop||y1>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); }
 /* ---- render ---- */
 function stRequest(){ if(stRAF||!showStaff)return; stRAF=requestAnimationFrame(function(){ stRAF=null; stRender(); }); }
 function stRender(){
   var cv=stEl(); if(!cv||!showStaff)return;
   if(stFirst>stNLines()-1)stFirst=Math.max(0,stNLines()-1);
   stSize(); stBarSync();
-  var c=cv.getContext('2d'), dpr=tabDpr(); c.setTransform(dpr,0,0,dpr,0,0);
+  var c=cv.getContext('2d'), dpr=cv._dpr||tabDpr(); c.setTransform(dpr,0,0,dpr,0,0);
   var W=cv.clientWidth, H=cv.clientHeight; c.clearRect(0,0,W,H);
   var LS=stLS(), cpb=tabCPB(), bars=tabBars(), nl=stNLines(), M=stModelGet(), lh=stLineH();
   var ink='#d2d2cd', inkA='rgba(210,210,205,', dim='#6a6a68', gold='#ffd27a';
@@ -11587,8 +11602,8 @@ function stTimeDigits(c,txt,x,y,GF,LS){ c.fillStyle='#d2d2cd'; c.font=GF; var w=
 function stHeadTick(){
   if(!showStaff)return;
   var cpb=tabCPB(), line=Math.floor(Math.floor(seqPos)/cpb/stMPL);
-  if((seq.playing||phoneMode())&&(line<stFirst||line>=stFirst+stLines)){ stFirst=Math.max(0,Math.min(line,stNLines()-stLines)); var fl=document.getElementById('stLineIn'); if(fl)fl.value=stFirst+1; }
-  if(seq.playing&&seq.catch){ var sc=stScrollEl(); if(sc){ var lh=stLineH(), y0=(line-stFirst)*lh, y1=y0+lh; if(y0<sc.scrollTop||y1>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
+  /* v373: no pages — while playing, the window scrolls so the head's line is in view */
+  if(seq.playing||phoneMode()){ var sc=stScrollEl(); if(sc){ var lh=stLineH(), y0=(line-stFirst)*lh, y1=y0+lh; if(y0<sc.scrollTop||y1>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
   stRequest();
 }
 /* ---- hits ---- */
@@ -11631,7 +11646,7 @@ function stInsert(col,staff,step,chord){
   return n;
 }
 function stAutoExtend(){ if(!stCur||stCur.col<seq.divs)return; var br=document.getElementById('seqBarsIn'); if(br){ br.value=seq.bars+1; br.dispatchEvent(new Event('change')); } if(stCur.col>=seq.divs)stCur.col=seq.divs-1; }
-function stFollow(col){ var line=Math.floor(Math.floor(col/tabCPB())/stMPL); if(line<stFirst||line>=stFirst+stLines){ stFirst=Math.max(0,Math.min(line,stNLines()-1)); var fl=document.getElementById('stLineIn'); if(fl)fl.value=stFirst+1; } }
+function stFollow(col){ stScrollToLine(Math.floor(Math.floor(col/tabCPB())/stMPL)); }
 function stLetter(li,chord){
   if(!stCur)return; var staff=stCur.staff, ref=stCur.step, n=null, k;
   if(chord){ var col=(stCur.chordCol!==undefined&&stCur.chordCol!==null)?stCur.chordCol:stCur.col, v=stVoiceOfStaff(staff), top=null;
@@ -11685,7 +11700,7 @@ function stBarWire(){
   click('stPlay','seqPlayBtn'); click('stStop','seqStopBtn'); click('stLoop','seqLoopBtn');
   var sv=document.getElementById('stSave'); if(sv)sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var ld=document.getElementById('stLoad'); if(ld)ld.addEventListener('click',function(){ var b=document.getElementById('seqLoadBtn'); if(b)b.click(); });
-  var cl=document.getElementById('stClear'); if(cl)cl.addEventListener('click',function(){ tabClearAll(); stSel=[]; stCur=null; stFirst=0; stRequest(); });
+  var cl=document.getElementById('stClear'); if(cl)cl.addEventListener('click',function(){ tabClearAll(); stSel=[]; stCur=null; stTopLine=0; stScrollPend=true; stRequest(); });
   var tr=document.getElementById('stTrIn'); if(tr){ tr.addEventListener('change',function(){ tabTransposeTo(this.value); this.value=seq.tabTr||0; stRequest(); }); tr.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
   var rs=document.getElementById('stRhythmSel'); if(rs)rs.addEventListener('change',function(){ stRhythm=this.value; stRequest(); });
   var cb=document.getElementById('stColorBtn'); if(cb)cb.addEventListener('click',function(){ stColor=!stColor; stBarSync(); stRequest(); });
@@ -11696,9 +11711,11 @@ function stBarWire(){
   var tt=document.getElementById('stTitleIn'); if(tt){ tt.addEventListener('input',function(){ seq.title=this.value.slice(0,80); var s=document.getElementById('seqTitleIn'); if(s)s.value=seq.title; var t2=document.getElementById('tabTitleIn'); if(t2)t2.value=seq.title; }); tt.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
   var li=document.getElementById('stLinesIn'), mi=document.getElementById('stMPLIn'), fi=document.getElementById('stLineIn');
   [li,mi,fi].forEach(function(el){ if(el)el.addEventListener('keydown',function(e){ e.stopPropagation(); }); });
-  if(li)li.addEventListener('change',function(){ stLines=seqClamp(Math.round(+this.value)||1,1,24); this.value=stLines; stSize(); stRequest(); if(typeof winFit==='function')winFit('staff'); });
-  if(mi)mi.addEventListener('change',function(){ stMPL=seqClamp(Math.round(+this.value)||1,1,16); this.value=stMPL; stFirst=0; if(fi)fi.value=1; stSize(); stRequest(); });
-  if(fi)fi.addEventListener('change',function(){ stFirst=seqClamp(Math.round(+this.value)-1||0,0,Math.max(0,stNLines()-1)); this.value=stFirst+1; stRequest(); });
+  if(li)li.addEventListener('change',function(){ stView=seqClamp(Math.round(+this.value)||1,1,24); this.value=stView; stFitWindow(); stSize(); stRequest(); });
+  if(mi)mi.addEventListener('change',function(){ stMPL=seqClamp(Math.round(+this.value)||1,1,16); this.value=stMPL; stTopLine=0; stScrollPend=true; if(fi)fi.value=1; stSize(); stRequest(); });
+  if(fi)fi.addEventListener('change',function(){ stTopLine=seqClamp(Math.round(+this.value)-1||0,0,Math.max(0,stNLines()-1)); this.value=stTopLine+1; stScrollToLine(stTopLine,true); stRequest(); });
+  function stFitWindow(){ if(typeof winL==='undefined'||!winL.staff||typeof winChromeAround!=='function')return; var sp=document.getElementById('staffPanel'), ss=stScrollEl(); if(!sp||!ss)return;
+    winL.staff.h=Math.ceil(winChromeAround(ss,sp)+stView*stLineH()+8); winPlace('staff'); if(typeof winSync==='function')winSync(); }
 }
 function stWire(){
   var cv=stEl(), sc=stScrollEl(); if(!cv||cv.dataset.wired)return; cv.dataset.wired='1';
@@ -11769,7 +11786,7 @@ function stWire(){
       if(!e.shiftKey){ var v=stVoiceOfStaff(stCur.staff), at2=seq.notes.filter(function(q){ return q.voice===v&&q.start===stCur.col; }); stSel=at2.map(function(q){ return q.id; }); if(at2.length){ stCur.chordCol=stCur.col; stCur.step=stSpell(seqSemi(at2[0].pitch),stFifthsAt(at2[0].start)).step; } }
       stRequest(); done(); return; }
   });
-  cv.addEventListener('wheel',function(e){ if(stNLines()<=stLines)return; e.preventDefault(); stFirst=seqClamp(stFirst+(e.deltaY>0?1:-1),0,Math.max(0,stNLines()-stLines)); var fl=document.getElementById('stLineIn'); if(fl)fl.value=stFirst+1; stRequest(); },{passive:false});
+  (function(){ var sc=stScrollEl(); if(sc)sc.addEventListener('scroll',function(){ var t=Math.floor((sc.scrollTop+2)/stLineH()); if(t!==stTopLine){ stTopLine=t; var fl=document.getElementById('stLineIn'); if(fl&&document.activeElement!==fl)fl.value=t+1; } },{passive:true}); })();   /* v373: native scrolling */
 }
 (function(){
   var _uh=seqUpdateHead; seqUpdateHead=function(){ _uh(); stHeadTick(); };
@@ -11778,10 +11795,10 @@ function stWire(){
   var _ss=seqSyncControls; seqSyncControls=function(){ _ss.apply(this,arguments); stBarSync(); };
   var tg=document.getElementById('tgStaff'); if(tg)tg.addEventListener('change',function(){ showStaff=this.checked; syncCols(); if(showStaff){ stWire(); stSize(); stRequest(); } });
 })();
-function stCaptureCfg(){ return {lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,staffColor:stStaffColor}; }
-function stApplyCfg(o){ if(!o)return; stLines=seqClamp(Math.round(+o.lines)||1,1,24); stMPL=seqClamp(Math.round(+o.mpl)||2,1,16); stFirst=Math.max(0,Math.round(+o.first)||0);
+function stCaptureCfg(){ return {lines:stView,mpl:stMPL,first:stTopLine,rhythm:stRhythm,color:stColor,staffColor:stStaffColor}; }
+function stApplyCfg(o){ if(!o)return; stView=seqClamp(Math.round(+o.lines)||1,1,24); stMPL=seqClamp(Math.round(+o.mpl)||2,1,16); stTopLine=Math.max(0,Math.round(+o.first)||0); stScrollPend=true;
   if(o.rhythm==='std'||o.rhythm==='bars'||o.rhythm==='prop')stRhythm=o.rhythm; stColor=(o.color!==false); stStaffColor=!!o.staffColor;
-  var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stLines; if(b)b.value=stMPL; if(c)c.value=stFirst+1;
+  var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stView; if(b)b.value=stMPL; if(c)c.value=stTopLine+1;
   if(typeof stBarSync==='function')stBarSync(); stRequest(); }
 
 window.tf={ probe:function(c){ if(c!==undefined){ seqPos=c; if(typeof seqScrubTo==='function')seqScrubTo(c); } var n=seqModeNext(seqPos); return {pos:seqPos,swing:!!seq.swing,warp2:seqSwingWarp(2),inv3:seqSwingInv(3),next:n?{col:n.m.col,anchor:n.m.anchor,val:n.m.val,w:+n.w.toFixed(3)}:null}; }, piano:function(){ return {base:PS.base, loaded:Object.keys(PS.buf).length, raw:Object.keys(PS.raw).length, pending:PS.pending, want:PS.want.length}; }, iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
