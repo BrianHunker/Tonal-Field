@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v378 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v379 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v378</span></h1>
+  <h1>Tonal Field <span>Ring v379</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11262,7 +11262,23 @@ function stNextBuild(){ ST_NEXT={}; ST_PREV={}; var byV={}; seq.notes.forEach(fu
     for(var i2=0;i2<a.length;i2++){ var n2=a[i2], j2=i2-1; while(j2>=0&&a[j2].start>=n2.start)j2--; if(j2<0)continue;   /* and the tone before it */
       var t2=a[j2].start, bp=null; for(var k2=j2;k2>=0&&a[k2].start===t2;k2--){ if(!bp||Math.abs(a[k2].pitch-n2.pitch)<Math.abs(bp.pitch-n2.pitch))bp=a[k2]; }
       if(bp)ST_PREV[n2.id!==undefined?n2.id:(n2.start+':'+n2.pitch+':'+n2.voice)]=bp; } }); }
+/* v379: a tone outside the key is named by its degree from the root of the mode in force, on the root's own letter
+   count, with the degrees a musician says: 1 ♭2 2 ♭3 3 4 ♭5 5 ♭6 6 ♭7 7. Over E_La the tritone is B♭ — the fifth
+   squeezed, resolving up to B — never A♯, which would name a tone it has nothing to do with; the raised sixth and
+   seventh are C♯ and D♯. A tone that steps onward is heard against the mode it steps into. Tones in the key keep the key's spelling. */
+var ST_DEG_STEPS=[0,1,1,2,2,3,4,4,5,5,6,6];   /* semitones above the root → letters above the root's letter */
 function stSpellNote(n){
+  var f=stFifthsAt(n.start), semi=seqSemi(n.pitch), sp=stSpell(semi,f), ka=stKeyAlter(f);
+  if(sp.alter===ka[stMod(sp.step,7)])return sp;                       /* in the key: as the key spells it */
+  /* the root it is heard against: the mode of the tone it steps into, when it steps (a passing tone belongs to where it goes) */
+  var key=(n.id!==undefined?n.id:(n.start+':'+n.pitch+':'+n.voice)), nx=ST_NEXT[key], at=(nx&&Math.abs(nx.pitch-n.pitch)<=2)?nx.start:n.start;
+  var m=(typeof seqModeAt==='function')?seqModeAt(at):null; if(!m||!m.val)return sp;
+  var root=m.anchor, rs=stSpell(root,f), d=stMod(semi-root,12);
+  var letter=stMod(stMod(rs.step,7)+ST_DEG_STEPS[d],7), oct=Math.round((semi-ST_LET_PC[letter])/12), al=semi-(ST_LET_PC[letter]+12*oct);
+  if(Math.abs(al)>1){ oct+= (al>0?1:-1); al=semi-(ST_LET_PC[letter]+12*oct); }
+  if(Math.abs(al)>1)return sp;
+  return {step:letter+7*oct,alter:al}; }
+function stSpellNoteOld(n){
   var f=stFifthsAt(n.start), semi=seqSemi(n.pitch), sp=stSpell(semi,f), ka=stKeyAlter(f);
   if(sp.alter===ka[stMod(sp.step,7)])return sp;                       /* in the key: as the key spells it */
   var key=(n.id!==undefined?n.id:(n.start+':'+n.pitch+':'+n.voice)), nx=ST_NEXT[key], d=nx?nx.pitch-n.pitch:0;
