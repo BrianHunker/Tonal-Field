@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v381 · lesson: New Earth — Right Hand -->
+<!-- Tonal Field — Ring — v382 · lesson: New Earth — Right Hand -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v381</span></h1>
+  <h1>Tonal Field <span>Ring v382</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11399,15 +11399,15 @@ function stKeyChanges(){ var out=[]; if(!seq.modeOn||!seq.modes)return out;
   return out; }
 function stGeom(line){
   var LS=stLS(), cv=stEl(), W=cv?cv.clientWidth:600, cpb=tabCPB(), bars=tabBars(), b0=line*stMPL;
-  var f0=stFifthsAt(Math.min(b0,bars-1)*cpb), ts=(line===0);
-  var gut=(5.2+Math.abs(f0)*1.0+(ts?2.8:0)+0.6)*LS, leads=[], ks=[], sum=0, i, KC=stKeyChanges();
+  var f0=stFifthsAt(Math.min(b0,bars-1)*cpb), ts=(line===0), fp=(b0>0&&b0<bars)?stFifthsAt(b0*cpb-1):f0, n0=(fp!==f0)?stNatCount(fp,f0):0;   /* v382: a line that opens on a key change prints the change in full */
+  var gut=(5.2+(n0+Math.abs(f0))*1.0+(ts?2.8:0)+0.6)*LS, leads=[], ks=[], sum=0, i, KC=stKeyChanges();
   for(i=0;i<stMPL;i++){ var b=b0+i, lead=1.1*LS, list=[];
     KC.forEach(function(kc){ if(kc.col>=b*cpb&&kc.col<(b+1)*cpb&&!(i===0&&kc.col===b0*cpb)){   /* at a line's start the opening signature says it */
       var k2={col:kc.col,a:kc.a,b:kc.b,nat:kc.nat,w:(kc.nat+Math.abs(kc.b))*1.0*LS+1.4*LS}; list.push(k2); sum+=k2.w; } });
     leads.push(lead); ks.push(list); sum+=lead; }
   var cw=Math.max(2,(W-gut-0.9*LS-sum)/(stMPL*cpb)), barX=[], x=gut;
   for(i=0;i<stMPL;i++){ barX.push(x); x+=leads[i]+cpb*cw; ks[i].forEach(function(k){ x+=k.w; }); } barX.push(x);
-  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,ts:ts,ks:ks,LS:LS};
+  return {line:line,b0:b0,b1:Math.min(bars,b0+stMPL),gut:gut,cw:cw,leads:leads,barX:barX,f0:f0,fp:fp,n0:n0,ts:ts,ks:ks,LS:LS};
 }
 /* a column's x: the bar's start, its lead, the time, and the room of every key change at or before that column */
 function stColX(g,colF){ var cpb=tabCPB(), i=Math.floor(colF/cpb)-g.b0; if(i<0)i=0; if(i>=stMPL)i=stMPL-1;
@@ -11468,7 +11468,7 @@ function stRender(){
     c.strokeStyle=ink; vline(sysX,tT,bB,Math.max(1.2,0.16*LS));
     c.fillStyle=ink; var bh=bB-tT; glyph('brace',0.1*LS,bB,bh/0.997);
     glyph('gClef',2.0*LS,stY(L,0,4)); glyph('fClef',2.0*LS,stY(L,1,-4));
-    stKeySig(c,5.2*LS,L,g.f0,GF,g.b0*cpb);
+    if(g.n0)stKeyChange(c,5.2*LS,L,{a:g.fp,b:g.f0,nat:g.n0,col:g.b0*cpb},GF); else stKeySig(c,5.2*LS,L,g.f0,GF,g.b0*cpb);   /* v382 */
     if(g.ts){ var tx=(5.2+Math.abs(g.f0)*1.0+0.4)*LS; [[0,8,4],[1,-4,-8]].forEach(function(q){ stTimeDigits(c,String(seq.tsNum),tx,stY(L,q[0],q[1]),GF,LS); stTimeDigits(c,String(seq.tsDen),tx,stY(L,q[0],q[2]),GF,LS); }); }
     for(var i=0;i<=g.b1-g.b0;i++){ var bx=g.barX[i], b=g.b0+i;
       if(i>0){ var last=(b>=bars); c.strokeStyle=ink;
