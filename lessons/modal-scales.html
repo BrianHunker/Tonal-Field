@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v386 · lesson: Modal Scales -->
+<!-- Tonal Field — Ring — v387 · lesson: Modal Scales -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v386</span></h1>
+  <h1>Tonal Field <span>Ring v387</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -2279,6 +2279,7 @@ function seqGlideTo(v,n){
     gl=gl*Math.abs(12*Math.log(f/f0)/Math.LN2);
   }
   vv.semi=semi;
+  if(vv.ringOff){ vv.ringOff=false; vv.pedHeld=false; }   /* v387: struck again — the finger is down */
   if(vv.o&&vv.o.node){                       /* v303: a string is struck again — a new fret, a new pick, no slur */
     var amp_=Math.pow(n.vel/128,1.4)*((vs&&vs.vol!==undefined)?vs.vol:1), peak_=0.19*(0.35+0.65*amp_);
     var _rk=seqStrumRank(n), _node=vv.o.node, _semi=semi;
@@ -4614,6 +4615,8 @@ function seqTick(){
       var vv3=voices.get(seqVId(v,held[h3].s)); if(!vv3)continue;
       var n3=null; for(var q3=0;q3<lst2.length;q3++)if(lst2[q3].id===held[h3].n){ n3=lst2[q3]; break; }
       if(!n3)continue;
+      /* v387: let ring — past the written note-off the finger is lifted (the box goes out, as under the pedal); the sound rings on */
+      if(n3._wEnd!==undefined&&pos>=n3._wEnd-1e-9&&!vv3.pedHeld){ vv3.pedHeld=true; vv3.ringOff=true; requestLight(); }
       if(vv3.amp0===undefined)vv3.amp0=vv3.amp;
       var end3=n3.start+n3.dur, nx3=null;
       for(q3=0;q3<lst2.length;q3++){ var m3=lst2[q3]; if(m3.start>end3+1e-6)break; if(Math.abs(m3.start-end3)<1e-6){ nx3=m3; break; } }   /* v309: any note that follows at once, whatever its pitch */
@@ -4708,7 +4711,7 @@ function seqStart(){
       for(var _r=0;_r<seq.ring.length;_r++)if(_q.start>=seq.ring[_r][0]&&_q.start<seq.ring[_r][1]){ _e=seq.ring[_r][1]; break; }
       if(_e===null)continue;
       var _nx=Infinity; for(var _k=_j+1;_k<_L.length;_k++)if(_L[_k].start>_q.start){ _nx=_L[_k].start; break; }
-      var _end=Math.min(_nx,_e); if(_end>_q.start+_q.dur){ var _s=Object.create(_q); _s.dur=_end-_q.start; _L[_j]=_s; } } }
+      var _end=Math.min(_nx,_e); if(_end>_q.start+_q.dur){ var _s=Object.create(_q); _s.dur=_end-_q.start; _s._wEnd=_q.start+_q.dur; _L[_j]=_s; } } }   /* v387: _wEnd, the written note-off */
   seqScrubClear();
   seq.playing=true; seqPos=from; seqModeApplied=null;
   var pb=document.getElementById('seqPlayBtn');
@@ -5891,7 +5894,7 @@ function litSources(keysOnly){   /* v365: keysOnly — what is held down now: no
   var out=[], seen=Object.create(null);
   voices.forEach(function(v,id){
     if(!v||v.semi===undefined)return;
-    if(keysOnly&&v.pedHeld)return;
+    if(keysOnly&&v.pedHeld){ seen[id]=1; return; }   /* v387: and not let back in as a drawn-only note below */
     seen[id]=1;
     out.push({semi:v.semi, amp:(v.amp!==undefined&&isFinite(v.amp))?Math.max(0,Math.min(1,v.amp)):1, src:litSrcOf(id)});
   });
@@ -6257,9 +6260,11 @@ function mkPianoSource(f,vel){
 function strBus(){
   if(strBusIn)return strBusIn;
   var inp=AC.createGain(); inp.gain.value=1;
-  var pre=AC.createGain(); pre.gain.value=3.0;
-  var ws=AC.createWaveShaper(); var cv=new Float32Array(2049); for(var i=0;i<cv.length;i++){ var x=(i/2048)*2-1; cv[i]=Math.tanh(1.6*x)/Math.tanh(1.6); } ws.curve=cv; ws.oversample='2x';
-  var post=AC.createGain(); post.gain.value=0.5;
+  /* v387: headroom. The curve spans ±4 of the old drive, so a chord never runs off its ends (a waveshaper holds flat
+     past its curve: hard clipping); the drive is 2 (was 3) and the output 0.7 (was 0.5), the same level for one string */
+  var WSK=4, pre=AC.createGain(); pre.gain.value=2.0/WSK;
+  var ws=AC.createWaveShaper(); var cv=new Float32Array(4097); for(var i=0;i<cv.length;i++){ var x=(i/4096)*2-1; cv[i]=Math.tanh(1.6*WSK*x)/Math.tanh(1.6); } ws.curve=cv; ws.oversample='2x';
+  var post=AC.createGain(); post.gain.value=0.7;
   var warm=AC.createBiquadFilter(); warm.type='lowshelf'; warm.frequency.value=220; warm.gain.value=3;
   var cab=AC.createBiquadFilter(); cab.type='lowpass'; cab.frequency.value=3400; cab.Q.value=1.0;
   var cab2=AC.createBiquadFilter(); cab2.type='peaking'; cab2.frequency.value=1200; cab2.Q.value=0.8; cab2.gain.value=1.5;
@@ -12032,7 +12037,7 @@ function stApplyCfg(o){ if(!o)return; stView=seqClamp(Math.round(+o.lines)||1,1,
   var a=document.getElementById('stLinesIn'), b=document.getElementById('stMPLIn'), c=document.getElementById('stLineIn'); if(a)a.value=stView; if(b)b.value=stMPL; if(c)c.value=stTopLine+1;
   if(typeof stBarSync==='function')stBarSync(); stRequest(); }
 
-window.tf={ probe:function(c){ if(c!==undefined){ seqPos=c; if(typeof seqScrubTo==='function')seqScrubTo(c); } var n=seqModeNext(seqPos); return {pos:seqPos,swing:!!seq.swing,warp2:seqSwingWarp(2),inv3:seqSwingInv(3),next:n?{col:n.m.col,anchor:n.m.anchor,val:n.m.val,w:+n.w.toFixed(3)}:null}; }, piano:function(){ return {base:PS.base, loaded:Object.keys(PS.buf).length, raw:Object.keys(PS.raw).length, pending:PS.pending, want:PS.want.length}; }, iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
+window.tf={ lit:function(k){ return litSources(!!k).map(function(q){ return [Math.round(q.semi),q.src]; }); }, probe:function(c){ if(c!==undefined){ seqPos=c; if(typeof seqScrubTo==='function')seqScrubTo(c); } var n=seqModeNext(seqPos); return {pos:seqPos,swing:!!seq.swing,warp2:seqSwingWarp(2),inv3:seqSwingInv(3),next:n?{col:n.m.col,anchor:n.m.anchor,val:n.m.val,w:+n.w.toFixed(3)}:null}; }, piano:function(){ return {base:PS.base, loaded:Object.keys(PS.buf).length, raw:Object.keys(PS.raw).length, pending:PS.pending, want:PS.want.length}; }, iosMedia:function(){ return iosMediaEl?{paused:iosMediaEl.paused,loop:iosMediaEl.loop,session:(navigator.audioSession?navigator.audioSession.type:null)}:null; }, staffColor:function(v){ if(v!==undefined){ stStaffColor=!!v; stRequest(); } return stStaffColor; }, audio:function(){ return {ensureAC:ensureAC, ac:function(){ return AC; }, master:function(){ return master; }, polyOn:polyOn, noteOff:noteOff, synth:synth}; }, staff:function(){ return {state:function(){ return {show:showStaff,lines:stLines,mpl:stMPL,first:stFirst,rhythm:stRhythm,color:stColor,sel:stSel.slice(),cur:stCur,len:stLenT,dot:stDotted,font:stFontReady}; }, model:stModelGet, geom:stGeom, spell:stSpell, fifths:stFifthsAt, heads:function(){ return stHeads; }, render:stRender, cfg:stApplyCfg, wire:stWire}; }, clockOk:function(){ return audioClockOk; }, warm:function(){ return strWarm; }, ringLv:function(){ return _ringLvLast; }, firstPlay:function(){ return seqFirstPlay; }, rev:function(){ return [strRev, strRevNode?strRevNode.gain.value:null]; }, tabdbg:function(){ return {chordHit:tabChordHit, lineH:tabLineH(), top:TAB_TOP, sel:function(){return tabSel;}, chord:tabChordAnalyse, readings:tabChordReadings, cols:tabChordCols, glyphs:tabChordGlyphs, fn:function(){ return fn; }, color:function(t,col){ return tabChordColorText(t,seqPhiAtCol(col)); }}; }, str:function(){ return {src:STR_WORKLET_SRC, ready:function(){ return strWorkletReady; }, ac:function(){ return AC; }}; }, tab:function(){ return {state:function(){ return {show:showTab,lines:tabLines,mpl:tabMPL,first:tabFirstLine,sel:tabSel.slice(),cur:tabCur}; }, scrub:function(p){ seqPos=p; seqUpdateHead(); }, bank:function(){ stringsBank(true); }}; }, cfgCapture:function(){ return cfgCapture(); }, seqApply:function(o){ return seqApply(o); }, lessonLoad:function(o){ return lessonLoad(o); }, fitX:function(){ seqFitX(); }, fitY:function(){ seqFitY(); }, seq:function(){ return seq; }, cfgApply:function(c){ return cfgApplyAll(c); }, syncCols:function(){ syncCols(); },
   win:function(){ return {L:winL,defs:WIN_DEFS,visible:winVisible,resolve:winResolve,frac:winToFrac,apply:winLayoutApply,overlap:winRectsOverlap,sync:winSync,defaults:winDefaults}; },
   views:function(){ return views; }, applyView:function(n){ return viewApply(n); },
   poly:function(){ return {max:SEQ_POLY, sounding:function(v){ var c=0; activeNotes.forEach(function(n,id){ if(new RegExp('^seq'+v+'_\\d+$').test(String(id)))c++; }); return c; }, play:function(col){ seqPos=col; seqStart(); }, stop:function(){ seqStop(); }}; },
