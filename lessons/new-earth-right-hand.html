@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v387 · lesson: New Earth — Right Hand -->
+<!-- Tonal Field — Ring — v388 · lesson: New Earth — Right Hand -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v387</span></h1>
+  <h1>Tonal Field <span>Ring v388</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10853,7 +10853,7 @@ function tabChordHit(px,py){
       if(px>=x0-4&&px<=x0+w+4&&(!best||x0>best.x0))best={col:cc,x0:x0}; });
     cx_.restore(); }
   if(best){ var Rb=tabCellRect(best.col,0); return {col:best.col,x:Rb.x,y:line*lh+TAB_CHORD_Y,w:cw*perBeat}; }
-  var col=bar*cpb+Math.floor((c%cpb)/perBeat)*perBeat; if(col>=seq.divs)return null;
+  var s16=Math.max(1,Math.round(seq.div/16)), col=bar*cpb+Math.floor((c%cpb)/s16)*s16; if(col>=seq.divs)return null;   /* v388: any sixteenth */
   var R=tabCellRect(col,0); return {col:col,x:R.x,y:line*lh+TAB_CHORD_Y,w:cw*perBeat};
 }
 /* v322: the readings of a stack, to pick from; edit… opens the field, × removes the label */
@@ -10881,13 +10881,14 @@ function tabChordEdit(h,host){
   host=host||tabChordHost(); var sc=host.sc, cv=host.cv; if(!sc||!cv)return; var old=document.getElementById('tabChordIn'); if(old)old.remove();
   var cur=tabChordUser(h.col), auto=tabChordAnalyse(h.col);
   var inp=document.createElement('input'); inp.id='tabChordIn'; inp.value=cur?cur.text:(auto?auto.text:''); inp.maxLength=80; inp.placeholder=auto?auto.text:'chord';
-  inp.style.cssText='position:absolute;z-index:5;left:'+(cv.offsetLeft+h.x+1)+'px;top:'+(cv.offsetTop+h.y-host.off)+'px;width:'+Math.max(120,h.w*4-4)+'px;height:'+(26*TAB_S)+'px;background:#111;color:var(--ink);border:1px solid #ffd27a;border-radius:3px;padding:0 5px;font-family:var(--font-mono);font-weight:600;font-size:'+host.fpx+'px;';
+  inp.style.cssText='position:absolute;z-index:5;left:'+(cv.offsetLeft+h.x+1)+'px;top:'+(cv.offsetTop+h.y-host.off)+'px;width:'+(Math.max(3,inp.value.length)+1)+'ch;min-width:0;box-sizing:content-box;height:'+(26*TAB_S)+'px;background:#111;color:var(--ink);border:1px solid #ffd27a;border-radius:3px;padding:0 5px;font-family:var(--font-mono);font-weight:600;font-size:'+host.fpx+'px;';
   var done=false; function commit(){ if(done)return; done=true; var raw=inp.value.trim(), qi=raw.indexOf("'"), t=(qi>=0?tabChordGlyphs(raw.slice(0,qi))+raw.slice(qi):tabChordGlyphs(raw)).slice(0,80);   /* v326: a comment keeps its letters */ if(!seq.chords)seq.chords=[];
     seq.chords=seq.chords.filter(function(q){ return q.col!==h.col; });
     if(t&&!(auto&&t===auto.text))seq.chords.push({col:h.col,text:t}); else if(!t&&auto)seq.chords.push({col:h.col,text:'',off:true});   /* v317: the reading needs no record; a removed reading does */
     seq.chords.sort(function(a,b){ return a.col-b.col; });
     inp.remove(); sc.focus(); host.req(); if(typeof histQueue==='function')histQueue(); }
   inp.addEventListener('keydown',function(e){ e.stopPropagation(); if(e.key==='Enter'||e.key==='Tab'){ e.preventDefault(); var nx=(e.key==='Tab'&&!e.shiftKey); commit(); if(nx){ var perBeat=Math.max(1,Math.round(seq.div/seq.tsDen)), h2=host.next(h.col+perBeat); if(h2)tabChordEdit(h2,host); } } if(e.key==='Escape'){ done=true; inp.remove(); sc.focus(); } });
+  inp.addEventListener('input',function(){ inp.style.width=(Math.max(3,inp.value.length)+1)+'ch'; });   /* v388: three characters, growing as typed */
   inp.addEventListener('blur',commit); sc.appendChild(inp); inp.focus(); inp.select();
 }
 /* v316: an event's colour at a fractional pitch — the same fade the numbers use, read at the bent tone */
@@ -11827,7 +11828,7 @@ function stChordHit(px,py){ var L=stLineAt(py); if(L===null)return null; var LS=
       var x0=stColX(g,cc)+0.1*LS, w=cx_.measureText(sh.parts.map(function(q){ return q[0]; }).join('')).width;
       if(px>=x0-4&&px<=x0+w+4&&(!best||x0>best.x0))best={col:cc,x0:x0}; });
     cx_.restore(); }
-  if(best)col=best.col; else col=Math.floor(col/perBeat)*perBeat;
+  var s16=Math.max(1,Math.round(seq.div/16)); if(best)col=best.col; else col=Math.floor(col/s16)*s16;   /* v388: any sixteenth */
   return {col:col,x:stColX(g,col),y:L*stLineH()+3.4*LS,w:g.cw*perBeat}; }
 function stChordHost(){ return {sc:stScrollEl(),cv:stEl(),req:stRequest,fpx:Math.round(1.9*stLS()),off:1.2*stLS(),
   next:function(col){ var L=null, g, line=Math.floor(Math.floor(col/tabCPB())/stMPL); if(line<stFirst||line>=stFirst+stLines||col>=seq.divs)return null; L=line-stFirst; g=stGeom(line); return {col:col,x:stColX(g,col),y:L*stLineH()+3.4*stLS(),w:g.cw*Math.max(1,Math.round(seq.div/seq.tsDen))}; }}; }
