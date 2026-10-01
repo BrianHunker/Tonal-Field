@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v398 · lesson: Starless Intro -->
+<!-- Tonal Field — Ring — v399 · lesson: Starless Intro -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v398</span></h1>
+  <h1>Tonal Field <span>Ring v399</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -4113,10 +4113,12 @@ function seqWire(){
       var target=null;
       for(var i=0;i<cands.length;i++)if(cands[i].id===seq.sel)target=cands[i];
       if(!target)target=cands[0];
-      seq.sel=target.id;
+      var grp=(seq.msel&&seq.msel.n.length>1&&seq.msel.n.indexOf(target.id)>=0)?seq.msel.n.slice():null;   /* v399: a selected group moves together */
+      if(!grp)seq.sel=target.id;
       try{ lane.setPointerCapture(e.pointerId); }catch(err){}
-      seqDrag={mode:'vel',id:target.id};
-      target.vel=laneVel(e);
+      var base={}; if(grp)seq.notes.forEach(function(q){ if(grp.indexOf(q.id)>=0)base[q.id]=q.vel; });
+      seqDrag={mode:'vel',id:target.id,grp:grp,base:base,v0:target.vel};
+      seqVelSet(seqDrag,laneVel(e));
       seqRefresh();
     });
     lane.addEventListener('pointermove',function(e){
@@ -4168,7 +4170,7 @@ function seqWire(){
         return;
       }
       if(!seqDrag||seqDrag.mode!=='vel')return;
-      for(var i=0;i<seq.notes.length;i++)if(seq.notes[i].id===seqDrag.id){seq.notes[i].vel=laneVel(e);break;}
+      seqVelSet(seqDrag,laneVel(e));   /* v399 */
       seqRefresh();
     });
     lane.addEventListener('pointerup',function(){ seqDrag=null; });
@@ -4379,6 +4381,9 @@ function seqPreview(n){
 var SEQ_STRUM_MS=22, SEQ_ROLL_MS=70;
 /* v315/316: this string's place in the roll — counted from the low string up, or from the high string down when the strum is up */
 function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q!==n&&q.strum&&q.start===n.start&&(n.sup?q.voice<n.voice:q.voice>n.voice))r++; } return r; }
+/* v399: a velocity drag — the one note, or the whole selection moved by the same amount, each held to 1..127 */
+function seqVelSet(D,v){ if(D.grp){ var d=v-D.v0; seq.notes.forEach(function(q){ if(D.base[q.id]!==undefined)q.vel=Math.max(1,Math.min(127,Math.round(D.base[q.id]+d))); }); }
+  else { for(var i=0;i<seq.notes.length;i++)if(seq.notes[i].id===D.id){ seq.notes[i].vel=v; break; } } }
 function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:SEQ_STRUM_MS; }
 /* v391: a tone struck inside a palm-mute region is struck with the palm on it */
 /* v393: the slider's shape — fine in the middle, quick at the ends */
