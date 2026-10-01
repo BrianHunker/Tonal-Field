@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v404 · lesson: “Crazy For You” Solo [01:54] -->
+<!-- Tonal Field — Ring — v405 · lesson: “Crazy For You” Solo [01:54] -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -518,6 +518,8 @@ a.toc-link:hover .t { color: var(--gold); }
 .gx .f-s5  { color: #ffa07a; }
 .gx .f-s7  { color: #7ad9ff; }
 .gx #t-beat, .gx #t-res { transition: opacity 0.08s linear; }
+.gx span, .gx #t-beat, .gx #t-res { transition: color 0.9s ease, opacity 0.08s linear; }   /* v405 */
+.gx.val-off span { color: #4a4a47 !important; }
 .gx #t-g, .gx #t-beat, .gx #t-res, .gx #t-spec { cursor: pointer; }
 .gx #t-g:hover, .gx #t-beat:hover, .gx #t-res:hover, .gx #t-spec:hover { filter: brightness(1.35); }
 .panel-head span:first-child { cursor: pointer; }
@@ -827,7 +829,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v404</span></h1>
+  <h1>Tonal Field <span>Ring v405</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1496,7 +1498,7 @@ var fn=FN.map(function(n){return {n:n, c:hx(HEX[n]), a:n.charAt(0)==='~'};});
 /* v404 — VALENCE. One switch: off, the field's colour leaves every surface. Each function's hue is read through
    .c, which then answers one flat light grey (.raw keeps the real colour for saving and editing); the value-
    shading primitives (blackouts, fades, grayscale-by-value) answer the same grey; the mode light goes dark. */
-var valenceOn=true, VAL_FLAT=[200,200,196];
+var valenceOn=true, VAL_FLAT=[200,200,196], valRing=1;   /* v405: valRing — the ring's field height, eased to 0 (a plain circle) with valence off */
 function valWrap(f){ var c=f.c; Object.defineProperty(f,'c',{get:function(){ return valenceOn?c:VAL_FLAT.slice(); },set:function(v){ c=v; },enumerable:true,configurable:true});
   Object.defineProperty(f,'raw',{get:function(){ return c; },configurable:true}); return f; }
 fn.forEach(valWrap);
@@ -1680,6 +1682,7 @@ function geom(){
   /* two arms meeting at the figure-8: beyond it, A mirrors back down so the
      reverse cardioid sits at finite reach and the family completes the trade */
   A = (rInF>=-rOuterF) ? W*PS*(rOuterF-rInF)/2 : W*PS*(3*rOuterF+rInF)/2;
+  A*=valRing;                                /* v405 */
   RL=W*0.456*RFIT; RING_UP=Math.round(W*0.025);   /* v251: the name ring a little wider, the lift a little less */
   RHZ=RL+W*0.034;                            /* the Hz band, just outside the letters */
 }
@@ -1831,7 +1834,7 @@ var _ringBase=document.createElement('canvas');
 var _ringTop=document.createElement('canvas');
 var _ringKey='';
 function _ringDepsKey(){
-  return [phi,dial,topPc,windK,flipV?1:0,printMode?1:0,greyscale?1:0,valenceOn?1:0,diatonic?1:0,pentatonic?1:0,   /* v254: the ring redraws between the two modes */
+  return [phi,dial,topPc,windK,flipV?1:0,printMode?1:0,greyscale?1:0,valenceOn?1:0,valRing.toFixed(4),diatonic?1:0,pentatonic?1:0,   /* v254: the ring redraws between the two modes */
           gAmp,showDots?1:0,showLetters?1:0,showBadges?1:0,colorLetters?1:0,accidentals,ringHz?1:0,ringOct,
           W,dpr,cv.height,rOuterF,rInF,anchorOff,
           fn.map(function(f){return f.n+f.c[0]+'.'+f.c[1]+'.'+f.c[2];}).join(';')].join('|');
@@ -2171,7 +2174,7 @@ function drawRingTop(hh){
     }
   }
 
-  if(showBadges){
+  if(showBadges&&valenceOn){
     ctx.font='600 '+Math.round(W*0.0235*RFIT)+'px "IBM Plex Mono", monospace';
     for(var j=0;j<12;j++){
       var v=vcan(j);
@@ -3047,7 +3050,7 @@ function seqRenderMode(){
     if(selm)seqEl('rect',{x:x+0.5,y:0.5,width:Math.max(3,cw-1),height:SEQ_MODEH-1,fill:'none',
       stroke:'#e8e6df','stroke-width':1.5},svg);
     var lbl=seqModeName(m);
-    if(cw>=34){
+    if(cw>=34&&valenceOn){
       var t=seqEl('text',{x:x+5,y:SEQ_MODEH-5,'font-size':8,fill:'rgba(255,255,255,0.86)',
         'pointer-events':'none','paint-order':'stroke',stroke:'rgba(0,0,0,0.6)','stroke-width':2},svg);
       t.textContent=lbl;
@@ -6889,7 +6892,7 @@ function colorKeyboard(A){
       if(fgE.textContent!==String(fgN))fgE.textContent=fgN; fgE.style.display='flex'; }
     else if(fgE)fgE.style.display='none';
     var sbE=kb.querySelector('.ksolb[data-s="'+semi+'"]');
-    if(kbLesson){ var slit=!!_KD[semi], dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
+    if(kbLesson&&valenceOn){ var slit=!!_KD[semi], dp=(_DP[semi]===undefined?1:_DP[semi]), sa=slit?Math.min(1,0.95*(0.12+0.88*dp)):0;   /* near solid while it sounds, dipping as a held tone is struck again; it fades out as the key is released */
       if(sa>0.01||sbE){ if(!sbE){ sbE=document.createElement('div'); sbE.className='ksolb'; sbE.dataset.s=semi; kb.appendChild(sbE); }
         sbE.style.left=kx+'px'; sbE.style.fontSize=sfs+'px'; sbE.style.top=solTop+'px';
         if(sbE.textContent!==fn[n].n)sbE.textContent=fn[n].n; sbE.style.background='rgb('+fcol[0]+','+fcol[1]+','+fcol[2]+')'; sbE.style.color=_lum(fcol)>140?'#111':'#fff';   /* filled in its colour, as the finger badge is: the dark antis read on a black key too */ sbE.style.opacity=sa.toFixed(3); } }
@@ -6902,7 +6905,7 @@ function colorKeyboard(A){
       if(sp){
         if(showKeySol)sp.textContent=fn[n].n;
         /* the address fades with the orientation: solfege is only as present as the alignment */
-        sp.style.opacity=Math.pow(fadeTB(ch,v),1.25).toFixed(3);
+        sp.style.opacity=valenceOn?Math.pow(fadeTB(ch,v),1.25).toFixed(3):'0';
         /* v258: solfege in the function's valence colour (greyscale, diatonic and pentatonic apply); a blacked-out station reads in the blinders' grey */
         var _sc=colorFor(n,v); if(_sc[0]+_sc[1]+_sc[2]<30)_sc=black?[58,58,58]:[138,138,134];
         if(!valenceOn)_sc=black?[200,200,196]:[60,60,58];   /* v404: plain ink on the key */
@@ -7183,7 +7186,7 @@ function drawStrip(){
       if(!vv||vv.semi===undefined||seen.has(vv))return; seen.add(vv);
       var lx=stripX(vv.semi); if(lx==null)return;
       var lch=((vv.semi%12)+12)%12;
-      var ni=fnIndexOf(lch), nm=fn[ni].n;          /* v223: always the nearer of the twelve — under the blinders the ~ name shows, in black */
+      var ni=fnIndexOf(lch), nm=valenceOn?fn[ni].n:pcName(lch).split('/')[0];   /* v405: no valence, the letter */          /* v223: always the nearer of the twelve — under the blinders the ~ name shows, in black */
       var lc=fadeColor(fnIndexOf(lch),valueAtChroma(lch),lch,true);
       var lum=0.2126*lc[0]+0.7152*lc[1]+0.0722*lc[2];
       sctx.lineWidth=4; sctx.strokeStyle='rgba(0,0,0,0.8)'; sctx.strokeText(nm,lx,LB/2+1);   /* v279: one dark outline for every label — no white halo on Sol/La */
@@ -7872,7 +7875,7 @@ function fretDraw(){
       return base;
     }
     var lines=[];
-    if(fbSol)lines.push([fn[n].n, lc(lift(fn[n].c,60))]);
+    if(fbSol&&valenceOn)lines.push([fn[n].n, lc(lift(fn[n].c,60))]);
     if(fbNames)lines.push([pcName(ch)+(Math.floor(semi/12)+4), lc(colorLetters?letterHue(ch,v,[220,218,210]):[220,218,210])]);   /* v289: coloured letters */
     if(fbHz)lines.push([(261.626*Math.pow(2,semi/12)).toFixed(0), lc(colorLetters?letterHue(ch,v,[188,186,178]):[188,186,178])]);
     return lines;
@@ -8388,8 +8391,15 @@ document.getElementById('pentBtn').addEventListener('click',function(){
   modeBtnsSync(); modeRefresh();
   if(typeof diagShow==='function')diagShow('dia');
 });
-function valenceSet(on){
+var valRingAnim=null;
+function valenceSet(on,instant){
   valenceOn=!!on; var b=document.getElementById('valBtn'); if(b)b.setAttribute('aria-pressed',valenceOn?'true':'false');
+  var gx=document.querySelector('.gx'); if(gx)gx.classList.toggle('val-off',!valenceOn);
+  if(valRingAnim){ cancelAnimationFrame(valRingAnim); valRingAnim=null; }
+  var r0=valRing, r1=valenceOn?1:0, t0=performance.now(), DUR=900;
+  if(instant){ valRing=r1; geom(); }
+  else (function step(now){ var u=Math.min(1,((now||t0)-t0)/DUR), e=0.5-0.5*Math.cos(Math.PI*u);   /* ease in-out: the field settles into a circle */
+    valRing=r0+(r1-r0)*e; geom(); draw(); valRingAnim=(u<1)?requestAnimationFrame(step):null; })(t0);
   _sgCache=Object.create(null); _sgKeys=[];
   if(typeof seqModeVeilPaint==='function')seqModeVeilPaint();
   if(typeof seqRefresh==='function')seqRefresh();
@@ -9729,7 +9739,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   ringStateApply(ringStateFromField(f));   /* v268: rotation, key, dial, flip, waterline, line–ring, follow, steps — the same apply a view uses */
   pentatonic=!!f.pentatonic; diatonic=!!f.diatonic||pentatonic; modeBtnsSync();
   setPressed('greyBtn',!!f.greyscale,greyscale);
-  if(f.valence!==undefined&&!!f.valence!==valenceOn)valenceSet(!!f.valence);
+  if(f.valence!==undefined&&!!f.valence!==valenceOn)valenceSet(!!f.valence,true);
   magnetOn=f.magnet!==false; setChk('tgMagnet',magnetOn);
   if(f.amp!==undefined){ gAmp=f.amp;
     var af=document.getElementById('gAmpFader'); if(af)af.value=gAmp; }
