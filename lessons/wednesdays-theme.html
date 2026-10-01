@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v412 · lesson: Wednesday’s Theme -->
+<!-- Tonal Field — Ring — v413 · lesson: Wednesday’s Theme -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v412</span></h1>
+  <h1>Tonal Field <span>Ring v413</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10829,9 +10829,22 @@ function tabCommentParts(text){ var out=[], i=0, R=tabFnNameRe();
     if(m&&okStart){ var j=-1; for(var k=0;k<R.idx.length;k++)if(R.idx[k][0]===m[1]){ j=R.idx[k][1]; break; } out.push([m[1],j>=0?fn[j].c:null,'b']); i+=m[1].length; continue; }
     if(out.length&&out[out.length-1][2]==='c')out[out.length-1][0]+=text.charAt(i); else out.push([text.charAt(i),null,'c']); i++; }
   return out; }
+var TAB_DEG={Root:0,Octave:0,'2nd':2,'3rd':4,'4th':5,'5th':7,'6th':9,'7th':11,'9th':2,'11th':5,'13th':9};
+function tabDegreeParts(s,r0,ph){ var out=[], i=0, R=tabFnNameRe(), lastFn=false;
+  var RJ=new RegExp(R.re.source.replace('(?![A-Za-z])','(?![a-z])'));   /* solfege may run together: DoSolDo */
+  while(i<s.length){ var rest=s.slice(i), okStart=(i===0||lastFn||!/[A-Za-z~]/.test(s.charAt(i-1))), m;
+    if(okStart&&(m=RJ.exec(rest))){ var j=-1; for(var k=0;k<R.idx.length;k++)if(R.idx[k][0]===m[1]){ j=R.idx[k][1]; break; } out.push([m[1],j>=0?fn[j].c:null,'b']); i+=m[1].length; lastFn=true; continue; }
+    lastFn=false;
+    if(okStart&&(m=/^([\u266d\u266f]?)(Root|Octave|2nd|3rd|4th|5th|6th|7th|9th|11th|13th)(?![A-Za-z])/.exec(rest))){ var iv=TAB_DEG[m[2]]+(m[1]==='\u266f'?1:(m[1]==='\u266d'?-1:0)); out.push([m[0],tabPcColor(r0+iv,ph),'b']); i+=m[0].length; continue; }
+    out.push([rest.charAt(0),null]); i++; }
+  return out; }
 function tabChordColorText(text,ph){
   var q=text.indexOf("'");
   if(q>=0){ var head=text.slice(0,q).trim(), tail=text.slice(q+1); var parts0=head?tabChordColorText(head,ph):[]; if(head&&tail)parts0.push([' ',null,'c']); return parts0.concat(tabCommentParts(tail)); }
+  /* v413: "chord = Root + ♭3rd + 5th = …" — after the first ' = ' the degree words take the colour of the chord tone they
+     name, counted from the label's own root (♭/♯ inflect them); solfege names keep their own colours */
+  var eq=text.indexOf(' = '), mR=eq>0?/^([A-G])([\u266f\u266d]?)/.exec(text):null;
+  if(mR){ var r0=TAB_LET[mR[1]]+(mR[2]==='\u266f'?1:(mR[2]==='\u266d'?-1:0)); return tabChordColorText(text.slice(0,eq),ph).concat(tabDegreeParts(text.slice(eq),r0,ph)); }
   var parts=[], i=0, root=null, maj=false, base=null;
   function push(txt,pcv){ parts.push([txt,(pcv===null||pcv===undefined)?null:tabPcColor(pcv,ph)]); }
   while(i<text.length){
