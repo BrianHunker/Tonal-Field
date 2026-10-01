@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v402 · lesson: Wednesday’s Theme -->
+<!-- Tonal Field — Ring — v403 · lesson: Wednesday’s Theme -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v402</span></h1>
+  <h1>Tonal Field <span>Ring v403</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1318,7 +1318,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <button class="toggle" id="fbNumBtn" aria-pressed="true" title="fret numbers under each column">fret #</button>
           <button class="toggle" id="fbBoxBtn" aria-pressed="true" title="the white frame on a sounding cell">box</button>
           <input type="range" id="fbLabelScaleIn" min="0.5" max="2.5" step="0.05" value="1" style="width:64px;padding:0;" title="label size">
-          <label title="badge opacity inside the selected region (or everywhere, with nothing selected)">in</label><input type="range" id="fbBadgeIn" min="0" max="1" step="0.02" value="1" style="width:52px;padding:0;" title="badge opacity inside the selection">
+          <label title="badge opacity inside the selected region (or everywhere, with nothing selected)">in</label><input type="range" id="fbBadgeIn" min="0" max="1" step="0.02" value="0.4" style="width:52px;padding:0;" title="badge opacity inside the selection">
           <label title="badge opacity outside the selected region">out</label><input type="range" id="fbBadgeOut" min="0" max="1" step="0.02" value="1" style="width:52px;padding:0;" title="badge opacity outside the selection">
         </span>
         </span>
@@ -7620,7 +7620,7 @@ function specFrame(){
 /* ================= fretboard/* ================= fretboard: fifths x semitones ================= */
 var fretCv=document.getElementById('fretCv'), fx=fretCv.getContext('2d');
 var showFret=false, fbStrings=6, fbFrets=23, fretH=330;
-var fbBadgeIn=1, fbBadgeOut=1;        /* v258: badge opacity inside / outside the selected region */
+var fbBadgeIn=0.4, fbBadgeOut=1;   /* v403: note-in 0.4 is the stage default */        /* v258: badge opacity inside / outside the selected region */
 /* v243: a fretted surface (nut at column 1) has a foot below the strings for the neck's dots, and a
    nut line between the open column and the first fret that reaches a little past the strings */
 var FB_FOOT=18, FB_DOTS={4:1,6:1,8:1,10:1,13:2,16:1,18:1,20:1,22:1};   /* 1-based columns, column 1 = open */
@@ -9749,7 +9749,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   /* matrix labels: files before v202 had one set shared with the keyboard; inherit it there */
   var _v=c.view||{};
   setFbLabelScale(su.labelScale!==undefined?su.labelScale:1);
-  fbBadgeIn=(su.badgeIn!==undefined)?Math.max(0,Math.min(1,+su.badgeIn)):1; fbBadgeOut=(su.badgeOut!==undefined)?Math.max(0,Math.min(1,+su.badgeOut)):1;
+  fbBadgeIn=(su.badgeIn!==undefined)?Math.max(0,Math.min(1,+su.badgeIn)):0.4; fbBadgeOut=(su.badgeOut!==undefined)?Math.max(0,Math.min(1,+su.badgeOut)):1;
   var _bi=document.getElementById('fbBadgeIn'), _bo=document.getElementById('fbBadgeOut'); if(_bi)_bi.value=fbBadgeIn; if(_bo)_bo.value=fbBadgeOut;
   fbSetFretNums(su.fretNums!==false);             /* v292: on unless a file says otherwise */
   fbSetCapo(su.capo||0);
@@ -10205,7 +10205,7 @@ function fbSurfaceApply(su){
   if(su.tuneOpen!==undefined && !!su.tuneOpen!==fbTuneOpen){ var tb=document.getElementById('fbTuneBtn'); if(tb)tb.click(); }
   fbEnsureOffs(); fbSetTitle(); fbRebuildTuneRow();
   setFbLabelScale(su.labelScale!==undefined?su.labelScale:1);
-  fbBadgeIn=(su.badgeIn!==undefined)?Math.max(0,Math.min(1,+su.badgeIn)):1; fbBadgeOut=(su.badgeOut!==undefined)?Math.max(0,Math.min(1,+su.badgeOut)):1;
+  fbBadgeIn=(su.badgeIn!==undefined)?Math.max(0,Math.min(1,+su.badgeIn)):0.4; fbBadgeOut=(su.badgeOut!==undefined)?Math.max(0,Math.min(1,+su.badgeOut)):1;
   var _bi=document.getElementById('fbBadgeIn'), _bo=document.getElementById('fbBadgeOut'); if(_bi)_bi.value=fbBadgeIn; if(_bo)_bo.value=fbBadgeOut;
   if(su.names!==undefined||su.sol!==undefined||su.hz!==undefined)fbSetLabels(su.names!==false, !!su.sol, !!su.hz);
   fbSetFretNums(su.fretNums!==false);
