@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v408 · lesson: Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v409 · lesson: Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -829,7 +829,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v408</span></h1>
+  <h1>Tonal Field <span>Ring v409</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1358,6 +1358,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <button class="toggle" id="tabRing" aria-pressed="false" title="let ring: the selected tones (or, with nothing selected, the loop region; with the loop on the whole piece, the whole piece) ring on until their string is struck again. Pressed again over a region already ringing, it takes the let ring away.">let ring</button>
         <span style="position:relative;display:inline-flex;flex:0 0 auto;"><button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button><input type="range" id="tabPMAmt" min="0" max="1" step="0.001" value="0.5" title="palm mute depth: how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
         <span style="position:relative;display:inline-flex;flex:0 0 auto;"><button class="toggle" id="tabOD" aria-pressed="false" title="overdrive: the selected tones (or, with nothing selected, the loop region) play through a driven amplifier. Pressed again over a driven region, it returns to clean. Overdrive may overlap P.M. and let ring.">O.D.</button><input type="range" id="tabODAmt" min="0" max="1" step="0.001" value="0.5" title="overdrive: how hard the amplifier is driven. Left: a light edge. Right: full saturation." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
+        <span style="position:relative;display:inline-flex;flex:0 0 auto;"><span id="tabStrumLbl" title="strum: the time between strings in a strum" style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a9a96;border:1px solid #3a3a3a;border-radius:3px;padding:5px 8px;white-space:nowrap;">strum 22ms</span><input type="range" id="tabStrumMs" min="0" max="60" step="1" value="22" title="strum: milliseconds between strings. Left: all strings at once. Right: a slow sweep." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
         <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
         <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -4408,7 +4409,8 @@ function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes
 /* v399: a velocity drag — the one note, or the whole selection moved by the same amount, each held to 1..127 */
 function seqVelSet(D,v){ if(D.grp){ var d=v-D.v0; seq.notes.forEach(function(q){ if(D.base[q.id]!==undefined)q.vel=Math.max(1,Math.min(127,Math.round(D.base[q.id]+d))); }); }
   else { for(var i=0;i<seq.notes.length;i++)if(seq.notes[i].id===D.id){ seq.notes[i].vel=v; break; } } }
-function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:SEQ_STRUM_MS; }
+function seqStrumGap(){ return (seq.strumMs===undefined||!isFinite(+seq.strumMs))?SEQ_STRUM_MS:Math.max(0,Math.min(60,+seq.strumMs)); }   /* v409: the strum's time between strings, per phrase */
+function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:seqStrumGap(); }
 /* v407: a strum cascades its velocity — the first string at the note's own value, each string after it 10% under the one before,
    so a downstroke leans on the low strings and an upstroke on the high ones */
 var SEQ_STRUM_CASCADE=0.9;
@@ -5065,7 +5067,7 @@ function seqSnapshot(){
     swing:!!seq.swing,
     accomp:(seq.accomp||[]).map(function(e){ return {start:e.start,dur:e.dur,m:e.m,vel:e.vel}; }), accompVol:(seq.accompVol===undefined?1:seq.accompVol),   /* v369 */
     ring:(seq.ring||[]).map(function(r){ return [r[0],r[1]]; }),   /* v386: let ring */
-    pm:(seq.pm||[]).map(function(r){ return [r[0],r[1]]; }), pmAmt:seqPMAmt(), od:(seq.od||[]).map(function(r){ return [r[0],r[1]]; }), odAmt:seqODAmt(),   /* v391: palm mute; v392: its depth; v398: overdrive */
+    pm:(seq.pm||[]).map(function(r){ return [r[0],r[1]]; }), pmAmt:seqPMAmt(), strumMs:seqStrumGap(), od:(seq.od||[]).map(function(r){ return [r[0],r[1]]; }), odAmt:seqODAmt(),   /* v391: palm mute; v392: its depth; v398: overdrive */
     chords:(seq.chords||[]).map(function(q){ return q.off?{col:q.col,text:'',off:true}:{col:q.col,text:q.text}; }),
     gestures:seq.gestures.map(function(g){
       var vary=seqGestVaries(g);
@@ -5140,6 +5142,7 @@ function seqApply(o){
   seq.pedal=Array.isArray(o.pedal)?o.pedal.filter(function(p){ return p&&p.length===2; }).map(function(p){ return [+p[0]||0,+p[1]||0]; }):[]; seqPedalNormalize();   /* v355 */
   seq.swing=!!o.swing;   /* v366 */
   seq.pmAmt=(o.pmAmt!==undefined&&isFinite(+o.pmAmt))?Math.max(0,Math.min(1,+o.pmAmt)):0.5;   /* v392 */
+  seq.strumMs=(o.strumMs!==undefined&&isFinite(+o.strumMs))?Math.max(0,Math.min(60,+o.strumMs)):SEQ_STRUM_MS;   /* v409 */
   seq.odAmt=(o.odAmt!==undefined&&isFinite(+o.odAmt))?Math.max(0,Math.min(1,+o.odAmt)):0.5;   /* v398 */
   seq.od=Array.isArray(o.od)?o.od.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];
   seq.pm=Array.isArray(o.pm)?o.pm.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];   /* v391 */
@@ -11028,6 +11031,8 @@ function tabBarSync(){
   var oda=document.getElementById('tabODAmt'); if(oda&&oda!==f){ if(Math.abs(+oda.value-seqODAmt())>1e-3)oda.value=seqODAmt(); oda.title='overdrive '+seqODAmt().toFixed(2)+' — how hard the amplifier is driven. Left: a light edge. Right: full saturation.'; }   /* v398 */
   var odb=document.getElementById('tabOD'); if(odb){ var sp3=tabRingSpan(); odb.setAttribute('aria-pressed',tabRegCovered('od',sp3[0],sp3[1])?'true':'false'); }
   var pma=document.getElementById('tabPMAmt'); if(pma&&pma!==f){ var _sl=pmDepthToSlide(seqPMAmt()); if(Math.abs(+pma.value-_sl)>1e-3)pma.value=_sl; pma.title='palm mute depth '+seqPMAmt().toFixed(2)+' — how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick. The middle of the slider is the fine range.'; }   /* v392 */
+  var sma=document.getElementById('tabStrumMs'); if(sma&&sma!==f){ if(Math.abs(+sma.value-seqStrumGap())>0.5)sma.value=seqStrumGap(); }   /* v409 */
+  var sml=document.getElementById('tabStrumLbl'); if(sml)sml.textContent='strum '+Math.round(seqStrumGap())+'ms';
   var pmb=document.getElementById('tabPM'); if(pmb){ var sp2=tabRingSpan(); pmb.setAttribute('aria-pressed',tabRegCovered('pm',sp2[0],sp2[1])?'true':'false'); }   /* v391 */
   var cr=document.getElementById('tabCapoRel'); if(cr&&cr.checked!==tabCapoRel)cr.checked=tabCapoRel;
   var ps=document.getElementById('tabPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)); var t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
@@ -11053,6 +11058,7 @@ function tabBarWire(){
   var odaw=document.getElementById('tabODAmt'); if(odaw){ odaw.addEventListener('input',function(){ seq.odAmt=Math.max(0,Math.min(1,+this.value)); this.title='overdrive '+seq.odAmt.toFixed(2); }); odaw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); odaw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v398 */
   var odw=document.getElementById('tabOD'); if(odw)odw.addEventListener('click',function(){ if(!seq.od)seq.od=[]; tabRegToggle('od'); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });
   var pmaw=document.getElementById('tabPMAmt'); if(pmaw){ pmaw.addEventListener('input',function(){ seq.pmAmt=pmSlideToDepth(+this.value); this.title='palm mute depth '+seq.pmAmt.toFixed(2); }); pmaw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); pmaw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v392 */
+  var smw=document.getElementById('tabStrumMs'); if(smw){ smw.addEventListener('input',function(){ seq.strumMs=+this.value; var l=document.getElementById('tabStrumLbl'); if(l)l.textContent='strum '+Math.round(seq.strumMs)+'ms'; }); smw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); smw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v409 */
   var pmw=document.getElementById('tabPM'); if(pmw)pmw.addEventListener('click',function(){ if(!seq.pm)seq.pm=[]; tabRegToggle('pm'); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });   /* v391 */
   var _sv=document.getElementById('tabSave'); if(_sv)_sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var _cl=document.getElementById('tabClear'); if(_cl)_cl.addEventListener('click',tabClearAll);
