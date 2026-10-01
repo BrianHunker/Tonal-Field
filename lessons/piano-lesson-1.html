@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v391 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v392 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v391</span></h1>
+  <h1>Tonal Field <span>Ring v392</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1347,7 +1347,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <span class="seq-slash" title="the loop region">–</span>
         <input id="tabLoopB" type="text" spellcheck="false" title="where the loop turns back — the first beat past the region" style="width:46px;font-family:var(--font-mono);font-size:11px;">
         <button class="toggle" id="tabRing" aria-pressed="false" title="let ring: the selected tones (or, with nothing selected, the loop region; with the loop on the whole piece, the whole piece) ring on until their string is struck again. Pressed again over a region already ringing, it takes the let ring away.">let ring</button>
-        <button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button>
+        <span style="display:inline-flex;flex-direction:column;align-items:stretch;gap:3px;vertical-align:middle;flex:0 0 auto;width:64px;"><button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button><input type="range" id="tabPMAmt" min="0" max="1" step="0.01" value="0.5" title="palm mute depth: how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick." style="width:100%;min-width:44px;height:10px;margin:0;"></span>
         <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
         <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -2280,7 +2280,7 @@ function seqGlideTo(v,n){
     var amp_=Math.pow(n.vel/128,1.4)*((vs&&vs.vol!==undefined)?vs.vol:1), peak_=0.19*(0.35+0.65*amp_);
     var _rk=seqStrumRank(n), _node=vv.o.node, _semi=semi;
     function strike(){ var t2=AC.currentTime; try{ vv.o.frequency.cancelScheduledValues(t2); vv.o.frequency.setValueAtTime(f,t2); }catch(e){}
-      try{ _node.port.postMessage({pluck:amp_,f0:f,pm:seqPMAt(n.start)}); }catch(e){} vv.pmT=seqPMAt(n.start)?seqPMT60(v):0;   /* v391 */
+      try{ _node.port.postMessage({pluck:amp_,f0:f,pm:seqPMAt(n.start)}); }catch(e){} vv.pmT=seqPMAt(n.start)?seqPMT60(v,seqPMAt(n.start)):0;   /* v391/v392 */
       try{ vv.g.gain.cancelScheduledValues(t2); vv.g.gain.setTargetAtTime(Math.max(0.0001,peak_*((vs&&vs.s!==undefined)?vs.s:1)),t2,0.004); }catch(e){}
       vv.semi=_semi; vv.amp0=Math.max(0,Math.min(1,Math.pow(amp_,1/1.4))); vv.amp=vv.amp0; vv.onT=t2; vv.bendSemi=undefined; requestLight(); requestRing(); }   /* v319: the light is the strike */
     if(_rk>0)setTimeout(strike,_rk*seqStrumMs(n)); else strike();
@@ -4379,8 +4379,9 @@ var SEQ_STRUM_MS=22, SEQ_ROLL_MS=70;
 function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q!==n&&q.strum&&q.start===n.start&&(n.sup?q.voice<n.voice:q.voice>n.voice))r++; } return r; }
 function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:SEQ_STRUM_MS; }
 /* v391: a tone struck inside a palm-mute region is struck with the palm on it */
-function seqPMAt(col){ var R=seq.pm||[]; for(var i=0;i<R.length;i++)if(col>=R[i][0]&&col<R[i][1])return 1; return 0; }
-function seqPMT60(v){ var vs=seq.vsynth[v], g=(vs&&vs.gauge!==undefined)?+vs.gauge:0.5; return 0.22+0.18*g; }
+function seqPMAmt(){ return (seq.pmAmt===undefined||!isFinite(+seq.pmAmt))?0.5:Math.max(0,Math.min(1,+seq.pmAmt)); }   /* v392: the palm's depth */
+function seqPMAt(col){ var R=seq.pm||[]; for(var i=0;i<R.length;i++)if(col>=R[i][0]&&col<R[i][1])return seqPMAmt(); return 0; }
+function seqPMT60(v,pm){ var vs=seq.vsynth[v], g=(vs&&vs.gauge!==undefined)?+vs.gauge:0.5, o=9+5*g; return o*Math.pow(0.03/o,pm); }
 /* v355: the pedal range in force at a position, or -1 */
 function seqPedalIdx(pos){ var P=seq.pedal||[]; for(var i=0;i<P.length;i++)if(pos>=P[i][0]-1e-9&&pos<P[i][1]-1e-9)return i; return -1; }
 function seqPedalNormalize(){ var P=(seq.pedal||[]).map(function(p){ return [seqClamp(Math.round(p[0]),0,seq.divs-1),seqClamp(Math.round(p[1]),1,seq.divs)]; }).filter(function(p){ return p[1]>p[0]; }).sort(function(a,b){ return a[0]-b[0]; });
@@ -4398,7 +4399,7 @@ function seqNoteOnV(v,n){
   var vs=seq.vsynth[v];
   var amp=Math.pow(n.vel/128,1.4)*(vs?vs.vol:1);
   var rank=seqStrumRank(n);
-  function fire(){ var _pm=seqPMAt(n.start); strPM=_pm; seqWithVoice(v,function(){ noteOn(id,semi,amp); }); strPM=0; var _vf=voices.get(id); if(_vf)_vf.pmT=_pm?seqPMT60(v):0; if(_vf)_vf.finger=n.finger||null;   /* v355: the finger, for the key */ activeNotes.set(id,{chroma:((semi%12)+12)%12,semi:semi,latched:false,vel:n.vel/128}); requestDraw(); requestLight(); }
+  function fire(){ var _pm=seqPMAt(n.start); strPM=_pm; seqWithVoice(v,function(){ noteOn(id,semi,amp); }); strPM=0; var _vf=voices.get(id); if(_vf)_vf.pmT=_pm?seqPMT60(v,_pm):0; if(_vf)_vf.finger=n.finger||null;   /* v355: the finger, for the key */ activeNotes.set(id,{chroma:((semi%12)+12)%12,semi:semi,latched:false,vel:n.vel/128}); requestDraw(); requestLight(); }
   if(rank>0){ var _a=seqAudio; setTimeout(function(){ if(seqAudio!==_a||!seq.playing)return; var still=false; for(var k=0;k<held.length;k++)if(held[k].n===n.id&&held[k].s===slot)still=true; if(!still)return; fire(); },rank*seqStrumMs(n)); }
   else fire();
   held.push({n:n.id,s:slot});
@@ -5020,7 +5021,7 @@ function seqSnapshot(){
     swing:!!seq.swing,
     accomp:(seq.accomp||[]).map(function(e){ return {start:e.start,dur:e.dur,m:e.m,vel:e.vel}; }), accompVol:(seq.accompVol===undefined?1:seq.accompVol),   /* v369 */
     ring:(seq.ring||[]).map(function(r){ return [r[0],r[1]]; }),   /* v386: let ring */
-    pm:(seq.pm||[]).map(function(r){ return [r[0],r[1]]; }),   /* v391: palm mute */
+    pm:(seq.pm||[]).map(function(r){ return [r[0],r[1]]; }), pmAmt:seqPMAmt(),   /* v391: palm mute; v392: its depth */
     chords:(seq.chords||[]).map(function(q){ return q.off?{col:q.col,text:'',off:true}:{col:q.col,text:q.text}; }),
     gestures:seq.gestures.map(function(g){
       var vary=seqGestVaries(g);
@@ -5094,6 +5095,7 @@ function seqApply(o){
   }
   seq.pedal=Array.isArray(o.pedal)?o.pedal.filter(function(p){ return p&&p.length===2; }).map(function(p){ return [+p[0]||0,+p[1]||0]; }):[]; seqPedalNormalize();   /* v355 */
   seq.swing=!!o.swing;   /* v366 */
+  seq.pmAmt=(o.pmAmt!==undefined&&isFinite(+o.pmAmt))?Math.max(0,Math.min(1,+o.pmAmt)):0.5;   /* v392 */
   seq.pm=Array.isArray(o.pm)?o.pm.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];   /* v391 */
   seq.ring=Array.isArray(o.ring)?o.ring.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];   /* v386 */
   seq.accomp=Array.isArray(o.accomp)?o.accomp.filter(function(e){ return e&&isFinite(+e.start)&&isFinite(+e.m); }).map(function(e){ return {start:+e.start,dur:Math.max(0.25,+e.dur||1),m:+e.m,vel:Math.max(1,Math.min(127,+e.vel||64))}; }):[];   /* v369 */
@@ -6041,15 +6043,15 @@ var STR_WORKLET_SRC=[
 " }",
 " excite(f0,v){",
 "  var g=this.g, pm=this.pm; v=Math.max(0.05,Math.min(1,v));",
-"  var fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.75*pm))/this.sr);   /* the loop damping: the highs go first, the body of the tone stays */",
-"  this.t60=(9+5*g)*(1-pm)+(0.22+0.18*g)*pm;   /* a string on an amplifier rings until a hand stops it; the palm at the bridge stops it at once */",
+"  var fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);   /* the loop damping: the highs go first, the body of the tone stays */",
+"  this.t60=(9+5*g)*Math.pow(0.03/(9+5*g),pm);   /* a string on an amplifier rings until a hand stops it; the palm shortens it geometrically, to a click at full depth */",
 "  var per=Math.max(2,Math.round(this.sr/f0)); this.exN=per; this.exI=0; this.ex=new Float32Array(per);",
 "  var pick=0.14+0.14*g, pd=Math.max(1,Math.min(per-1,Math.round(per*pick)));",
 "  /* the pluck: the string's initial shape — a triangle with its apex under the pick — plus a little",
 "     lowpassed pick noise; the shape carries the fundamental, the noise the touch of the attack */",
-"  var efc=(1500+2500*v)*(0.6+0.4*(1-g))*(1-0.5*pm), ec=1-Math.exp(-2*Math.PI*efc/this.sr);",
+"  var efc=(1500+2500*v)*(0.6+0.4*(1-g))*(1-0.6*pm), ec=1-Math.exp(-2*Math.PI*efc/this.sr);",
 "  var n=new Float32Array(per+pd), y=0; for(var i=0;i<n.length;i++){ y+=ec*((Math.random()*2-1)-y); n[i]=y; }",
-"  var aT=0.7*(0.45+0.55*v)*(1-0.15*pm), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));",
+"  var aT=0.7*(0.45+0.55*v)*(1-0.25*pm), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));",
 "  for(var k=0;k<per;k++){ var tri=(k<pd)?(k/pd):((per-k)/(per-pd)); var env=k<fade?0.5-0.5*Math.cos(Math.PI*k/fade):1;",
 "    this.ex[k]=(tri-0.5)*aT+(n[k+pd]-n[k])*aN*env; }",
 " }",
@@ -10916,6 +10918,7 @@ function tabBarSync(){
   setv('tabTrIn',seq.tabTr||0);
   setv('tabLoopA',stFmtPos(seq.loopA)); setv('tabLoopB',stFmtPos(seq.loopB));   /* v386 */
   var rg=document.getElementById('tabRing'); if(rg){ var sp=tabRingSpan(); rg.setAttribute('aria-pressed',tabRingCovered(sp[0],sp[1])?'true':'false'); }
+  var pma=document.getElementById('tabPMAmt'); if(pma&&pma!==f&&Math.abs(+pma.value-seqPMAmt())>1e-6)pma.value=seqPMAmt();   /* v392 */
   var pmb=document.getElementById('tabPM'); if(pmb){ var sp2=tabRingSpan(); pmb.setAttribute('aria-pressed',tabRegCovered('pm',sp2[0],sp2[1])?'true':'false'); }   /* v391 */
   var cr=document.getElementById('tabCapoRel'); if(cr&&cr.checked!==tabCapoRel)cr.checked=tabCapoRel;
   var ps=document.getElementById('tabPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)); var t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
@@ -10938,6 +10941,7 @@ function tabBarWire(){
       if(id==='tabLoopA')stSetLoop(v,Math.max(v+1,seq.loopB)); else stSetLoop(Math.min(seq.loopA,v-1),v); tabBarSync(); });
     el.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); });
   var rgb=document.getElementById('tabRing'); if(rgb)rgb.addEventListener('click',function(){ tabRingToggle(); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });
+  var pmaw=document.getElementById('tabPMAmt'); if(pmaw){ pmaw.addEventListener('input',function(){ seq.pmAmt=Math.max(0,Math.min(1,+this.value)); }); pmaw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); pmaw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v392 */
   var pmw=document.getElementById('tabPM'); if(pmw)pmw.addEventListener('click',function(){ if(!seq.pm)seq.pm=[]; tabRegToggle('pm'); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });   /* v391 */
   var _sv=document.getElementById('tabSave'); if(_sv)_sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var _cl=document.getElementById('tabClear'); if(_cl)_cl.addEventListener('click',tabClearAll);
