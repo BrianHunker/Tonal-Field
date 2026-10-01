@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v405 · lesson: Moore Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v406 · lesson: Moore Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -829,7 +829,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v405</span></h1>
+  <h1>Tonal Field <span>Ring v406</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -875,6 +875,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <label for="topSelect">chromatic &#9875;</label>
     <select id="topSelect"></select>
   </div>
+  <button class="toggle" id="valBtn" aria-pressed="true" style="text-transform:none" title="g(x): off, tonal valence leaves every surface — the listener who memorises names and positions without hearing the pattern">g(x)</button>
   <select id="accSelect" class="acc-select" title="note spelling: sharps, flats, or both">
     <option value="both" selected>&#9839; / &#9837;</option>
     <option value="sharp">&#9839;</option>
@@ -883,7 +884,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   <button class="toggle" id="diaBtn" aria-pressed="false">diatonic</button>
   <button class="toggle" id="pentBtn" aria-pressed="false" title="pentatonic: the blinders of diatonic mode, and Fa and Ti drop to black as well, on every surface">pentatonic</button>
   <button class="toggle" id="greyBtn" aria-pressed="false">grayscale</button>
-  <button class="toggle" id="valBtn" aria-pressed="true" title="valence: off, the field's colour leaves every surface — plain light grey on dark">valence</button>
   <span id="midiChip" title="Web MIDI inputs" style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;border:1px solid #3a3a3a;border-radius:3px;padding:5px 8px;color:#777;">midi</span>
   <button class="toggle" id="synthBtn" aria-pressed="false">synth</button>
   <button class="toggle" id="labelsBtn" aria-pressed="false">labels</button>
@@ -7854,6 +7854,7 @@ function fretDraw(){
     fx.font='600 '+fs+'px "IBM Plex Mono", monospace';
     var tw=0;
     lines.forEach(function(L){ tw=Math.max(tw,fx.measureText(L[0]).width); });
+    if(tw>fw*0.94){ fs*=fw*0.94/tw; fx.font='600 '+fs+'px "IBM Plex Mono", monospace'; tw=fw*0.94; }   /* v406: a label never runs into the next fret */
     tw+=8;
     var th=lines.length*fs*1.22+fs*0.4;
     /* a badge is centered on its cell; scaled up it can outgrow the row, and on the
@@ -8397,10 +8398,14 @@ document.getElementById('pentBtn').addEventListener('click',function(){
   modeBtnsSync(); modeRefresh();
   if(typeof diagShow==='function')diagShow('dia');
 });
-var valRingAnim=null;
+var valRingAnim=null, valAccSaved=null;   /* v406: the spelling in force before g(x) went off */
 function valenceSet(on,instant){
   valenceOn=!!on; var b=document.getElementById('valBtn'); if(b)b.setAttribute('aria-pressed',valenceOn?'true':'false');
   var gx=document.querySelector('.gx'); if(gx)gx.classList.toggle('val-off',!valenceOn);
+  if(!valenceOn){ if(valAccSaved===null)valAccSaved=accidentals; accidentals='both'; }   /* v406: off, both spellings; on, the one it had */
+  else if(valAccSaved!==null){ accidentals=valAccSaved; valAccSaved=null; }
+  var _as=document.getElementById('accSelect'); if(_as)_as.value=accidentals;
+  if(typeof buildKeyboard==='function')buildKeyboard();
   if(valRingAnim){ cancelAnimationFrame(valRingAnim); valRingAnim=null; }
   var r0=valRing, r1=valenceOn?1:0, t0=performance.now(), DUR=900;
   if(instant){ valRing=r1; geom(); }
@@ -9691,7 +9696,7 @@ function cfgCapture(){
     labels:{ names:fn.map(function(f){return f.n;}), colors:fn.map(function(f){return toHexStr(f.raw);}) },
     misc:{ range:+document.getElementById('rangeInput').value, glideMs:glideMs, wlMs:wlMs,
            modeMaster:modeMaster, modeBW:modeBW, degLight:degLight.slice(), modeQ:modeQ, modeGain:modeGain,
-           morphMode:morphMode, modView:modView, morphMs:morphMs, trMs:trMs, accidentals:accidentals },
+           morphMode:morphMode, modView:modView, morphMs:morphMs, trMs:trMs, accidentals:(valAccSaved!==null?valAccSaved:accidentals) },
     sequence:(typeof seqSnapshot==='function')?seqSnapshot():undefined,
     lesson:(typeof lesson!=='undefined'&&lesson.active&&lesson.card)?lesson.card:undefined
   };
@@ -9836,7 +9841,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   if(c.misc&&c.misc.modeMaster!==undefined)modeMaster=Math.max(0,Math.min(1,+c.misc.modeMaster));
   else if(c.misc&&c.misc.modeLight!==undefined)modeMaster=Math.max(0,Math.min(1,+c.misc.modeLight));   /* pre-v271 files: the old single fader is the general one */
   if(c.misc&&Array.isArray(c.misc.degLight))for(var _de=0;_de<7;_de++)degLight[_de]=Math.max(0,Math.min(1,+c.misc.degLight[_de]||0));
-  if(c.misc&&(c.misc.accidentals==='sharp'||c.misc.accidentals==='flat'||c.misc.accidentals==='both')){ accidentals=c.misc.accidentals; var _as=document.getElementById('accSelect'); if(_as)_as.value=accidentals; }
+  if(c.misc&&(c.misc.accidentals==='sharp'||c.misc.accidentals==='flat'||c.misc.accidentals==='both')){ accidentals=c.misc.accidentals; var _as=document.getElementById('accSelect'); if(_as)_as.value=accidentals; if(typeof buildKeyboard==='function')buildKeyboard(); }   /* v406: the keys spell as the file says from the start */
   if(c.misc&&c.misc.morphMode!==undefined){ morphMode=(c.misc.morphMode==='morph')?'morph':'rotate'; }
   if(c.misc&&c.misc.modView!==undefined){ modView=(c.misc.modView==='performer')?'performer':'listener'; }
   if(c.misc&&c.misc.morphMs!==undefined)morphMs=Math.max(0,Math.min(6000,+c.misc.morphMs||0));
