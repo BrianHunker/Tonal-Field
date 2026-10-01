@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v396 · lesson: A Whole New World — Right Hand -->
+<!-- Tonal Field — Ring — v397 · lesson: A Whole New World — Right Hand -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v396</span></h1>
+  <h1>Tonal Field <span>Ring v397</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11313,7 +11313,7 @@ function tabWire(){
       tabCommitBuf(); var idsX=tabSel.slice(); if(!idsX.length&&tabCur){ var ncX=tabNoteAt(tabCur.row,tabCur.col); if(ncX)idsX=[ncX.id]; }
       if(idsX.length){ var selX=seq.notes.filter(function(q){ return idsX.indexOf(q.id)>=0; }), allX=selX.length&&selX.every(function(q){ return !!q.x; });
         selX.forEach(function(q){ if(allX)delete q.x; else q.x=true; }); }
-      else if(tabCur){ var vX=tabCur.row, colX=tabCur.col, pbX=Math.max(1,Math.round(seq.div/seq.tsDen)), dX=pbX-(colX%pbX), pX=tabPitchOf(tabStrOfVoice(vX),tabCapoOff());
+      else if(tabCur){ var vX=tabCur.row, colX=tabCur.col, dX=1, pX=tabPitchOf(tabStrOfVoice(vX),tabCapoOff());
         if(pX>=0&&pX<SEQ_ROWS){ tabTruncate(vX,colX,colX+dX,-1); var nX={id:seq.nid++,start:colX,dur:Math.min(dX,seq.divs-colX),pitch:pX,vel:96,voice:vX,x:true}; seq.notes.push(nX); tabSel=[nX.id]; } }
       seqRefresh(); tabRequest(); if(typeof histQueue==='function')histQueue(); e.preventDefault(); e.stopPropagation(); return; }
     if(k==='s'||k==='p'||k==='r'||k==='u'){ var ids=tabSel.slice(); if(!ids.length&&tabCur){ var nc=tabNoteAt(tabCur.row,tabCur.col); if(nc)ids=[nc.id]; }
