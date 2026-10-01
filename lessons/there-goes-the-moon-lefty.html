@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v410 · lesson: Here Comes the Sun (left-handed) -->
+<!-- Tonal Field — Ring — v411 · lesson: Here Comes the Sun (left-handed) -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -68,6 +68,8 @@ body {
 .global-toolbar .view-btn.empty { opacity: 0.45; }
 .global-toolbar .tb-snd { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
 .global-toolbar .tb-snd input[type=range] { width: 64px; }
+/* v411: surfaces only — every tool's menus and names hidden; what is left is the display */
+body.bare .win-head,body.bare .panel-head,body.bare .win-close,body.bare .win-grip,body.bare .side-tab,body.bare #centerRail,body.bare #windRow,body.bare #ringRow2,body.bare #foldRow,body.bare #fmapToggles,body.bare #kbTools,body.bare #seqTransport,body.bare #seqZoomBar,body.bare #seqVGutter,body.bare #seqModeEdit,body.bare #seqVwEdit,body.bare #seqHint,body.bare #seqSubs,body.bare #fbOffCol,body.bare #fbRespCol,body.bare #tabBar,body.bare #stBar,body.bare #seqLaneSel,body.bare .seq-rowname { display: none !important; }
 .win-head .head-dial { display: flex; align-items: center; gap: 6px; }
 .win-head .head-dials { display: flex; align-items: center; gap: 12px; justify-self: center; min-width: 0; }
 .win-head .head-dial label { color: var(--dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -833,7 +835,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v410</span></h1>
+  <h1>Tonal Field <span>Ring v411</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -910,6 +912,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgLoadSeq" checked><label for="tgLoadSeq" title="uncheck to keep the sequencer as it stands and take only the file's display side">load sequencer data</label></div></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgLoadDisp" checked><label for="tgLoadDisp" title="uncheck to keep the workspace as it stands and take only the file's sequencer side">load display data</label></div></div>
     <details class="dm-bank" open><summary>panels</summary>
+    <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgBare"><label for="tgBare" title="every tool shows only its display: no menus, controls or names (the global toolbar stays, so this menu can bring them back)">surfaces only</label></div></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgLessons" checked><label for="tgLessons">lessons</label></div></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgGuide"><label for="tgGuide">guide</label></div></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgSeq"><label for="tgSeq">sequencer</label></div></div>
@@ -1290,7 +1293,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <div id="sideDivider" title="drag to trade height between spectrogram and surface"></div>
     <div class="panel" id="fretPanel">
       <div class="panel-head" style="align-items:flex-start;">
-        <span id="fbTitle">fretboard &middot; fourths &times; semitones</span>
+        <span id="fbTitle">fretboard</span>
         <span id="fbPhoneLab" class="fret-ctl-phone"><button class="toggle" id="fbPhLet" aria-pressed="true" title="note names on the fretboard">letters</button><button class="toggle" id="fbPhSol" aria-pressed="false" title="solfège on the fretboard">solfège</button></span>
         <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="fret-ctl">
@@ -2983,7 +2986,7 @@ function seqRenderPed(){
   svg.setAttribute('width',W); svg.setAttribute('height',SEQ_PEDH); key.setAttribute('width',SEQ_KEYW); key.setAttribute('height',SEQ_PEDH);
   svg.innerHTML=''; key.innerHTML='';
   seqEl('rect',{width:SEQ_KEYW,height:SEQ_PEDH,fill:'#1a1a19'},key);
-  var kt=seqEl('text',{x:SEQ_KEYW-5,y:SEQ_PEDH-5,'text-anchor':'end','font-size':8,fill:'#7a7a76'},key); kt.textContent='PED';
+  var kt=seqEl('text',{x:SEQ_KEYW-5,y:SEQ_PEDH-5,'text-anchor':'end','font-size':8,fill:'#7a7a76','class':'seq-rowname'},key); kt.textContent='PED';
   seqEl('rect',{width:W,height:SEQ_PEDH,fill:'#121211'},svg);
   for(var br=0;br<=seq.bars;br++){ var xb=br*seqCellsPerBar()*cw; if(xb>W+0.5)break; seqEl('line',{x1:xb,x2:xb,y1:0,y2:SEQ_PEDH,stroke:'#3a3a36','stroke-width':1.2},svg); }
   (seq.pedal||[]).forEach(function(p,i){ var x0=p[0]*cw, x1=p[1]*cw;
@@ -3024,7 +3027,7 @@ function seqRenderMode(){
   key.setAttribute('width',SEQ_KEYW); key.setAttribute('height',SEQ_MODEH);
   svg.innerHTML=''; key.innerHTML='';
   seqEl('rect',{width:SEQ_KEYW,height:SEQ_MODEH,fill:'#1a1a19'},key);
-  var kt=seqEl('text',{x:SEQ_KEYW-5,y:SEQ_MODEH-5,'text-anchor':'end','font-size':8,fill:'#7a7a76'},key);
+  var kt=seqEl('text',{x:SEQ_KEYW-5,y:SEQ_MODEH-5,'text-anchor':'end','font-size':8,fill:'#7a7a76','class':'seq-rowname'},key);
   kt.textContent=seq.modeOn?'MODE':'MUTE';
   kt.setAttribute('fill',seq.modeOn?'#7a7a76':'#9a5a5a');
   seqEl('rect',{width:W,height:SEQ_MODEH,fill:'#141413'},svg);
@@ -8148,8 +8151,7 @@ fretCv.addEventListener('dblclick',function(e){
 fretCv.addEventListener('pointerup',fretEnd);
 fretCv.addEventListener('pointercancel',fretEnd);
 function fbSetTitle(){
-  document.getElementById('fbTitle').textContent=
-    'fretboard \u00b7 '+(fbStack===7?'fifths':'fourths')+' \u00d7 semitones';
+  document.getElementById('fbTitle').textContent='fretboard';   /* v411: just its name */
 }
 /* v295 — the tuning and response controls are pinned to the CENTRE of the string they belong to.
    They used to be spread evenly down the column, which only lined up when the board happened to
@@ -8404,6 +8406,10 @@ document.getElementById('pentBtn').addEventListener('click',function(){
   if(typeof diagShow==='function')diagShow('dia');
 });
 var valRingAnim=null, valAccSaved=null;   /* v406: the spelling in force before g(x) went off */
+var bareOn=false;
+function bareSet(on){ on=!!on; var chg=(on!==bareOn); bareOn=on; document.body.classList.toggle('bare',bareOn); var c=document.getElementById('tgBare'); if(c)c.checked=bareOn;
+  if(chg)requestAnimationFrame(function(){ window.dispatchEvent(new Event('resize')); }); }   /* v411: the surfaces refit to the room the menus gave up */
+document.getElementById('tgBare').addEventListener('change',function(){ bareSet(this.checked); });
 function valenceSet(on,instant){
   valenceOn=!!on; var b=document.getElementById('valBtn'); if(b)b.setAttribute('aria-pressed',valenceOn?'true':'false');
   var gx=document.querySelector('.gx'); if(gx)gx.classList.toggle('val-off',!valenceOn);
@@ -9673,7 +9679,7 @@ function cfgCapture(){
            spectrogram:showSpec, surface:showFret, tab:showTab, staff:showStaff, print:printMode,
            badges:showBadges, dots:showDots, letters:showLetters, colorLetters:colorLetters,
            colorKeys:colorKeys, keyNames:showKeyNames, keySol:showKeySol, keyHz:showKeyHz, kbLesson:kbLesson,
-           pcLight:pcLight, houseLights:houseLights, houseSel:houseSel, spotAlpha:spotAlpha,
+           pcLight:pcLight, bare:bareOn, houseLights:houseLights, houseSel:houseSel, spotAlpha:spotAlpha,
            ringOct:ringOct, ringHz:ringHz,
            guideCollapsed:guideCollapsed, guideZoom:guideZoom, lessonZoom:lessonZoom,
            specCollapsed:specCollapsed, fretCollapsed:fretCollapsed,
@@ -9872,6 +9878,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   kbLesson=!!v.kbLesson;   /* v356 */
   pcLight=!!v.pcLight; setChk('tgPcLight',pcLight);
   houseSel=(v.houseSel===true); document.getElementById('tgHouseSel').checked=houseSel; if(typeof requestFret==='function')requestFret();
+  bareSet(!!v.bare);
   if(v.houseLights!==undefined){ houseLights=v.houseLights;
     document.getElementById('houseIn').value=houseLights;
     document.getElementById('houseVal').textContent=houseLights.toFixed(2); }
