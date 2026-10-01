@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v411 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v412 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -10,6 +10,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../icons/gg-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="../icons/gg-192.png">
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
+<script src="../ir/studio-room.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
@@ -835,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v411</span></h1>
+  <h1>Tonal Field <span>Ring v412</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -6194,6 +6195,20 @@ function strWarmUp(cb){
   setTimeout(fin,2000);                            /* never wait longer than this */
 }
 /* v329: the room's level, on the transport beside volume and mute */
+/* v412 — THE ROOM. The reverbs convolve with a simulated live room (ir/studio-room.js: image sources + ray tracing,
+   RT60 about a second, the highs dying first) instead of white noise under one slow decay, which hissed. The file is
+   shared by every page; a page opened without it builds its old synthetic room. */
+var _roomBuf=null;
+function tfRoomIR(fallback){
+  var R=window.TF_ROOM_IR; if(!R||!R.ch||!AC)return fallback();
+  if(_roomBuf&&_roomBuf.sampleRate===AC.sampleRate&&_roomBuf.__ctx===AC)return _roomBuf;
+  var sr=AC.sampleRate, ratio=R.sr/sr, n=Math.floor(R.n/ratio), buf=AC.createBuffer(2,n,sr);
+  for(var c=0;c<2;c++){ var bin=atob(R.ch[c]), m=bin.length>>1, src=new Float32Array(m);
+    for(var i=0;i<m;i++){ var v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8); if(v>32767)v-=65536; src[i]=v/32767; }
+    var d=buf.getChannelData(c);
+    for(var k=0;k<n;k++){ var x=k*ratio, i0=Math.floor(x), f=x-i0; d[k]=i0+1<m?src[i0]*(1-f)+src[i0+1]*f:(i0<m?src[i0]:0); } }
+  buf.__ctx=AC; _roomBuf=buf; return buf;
+}
 var strRev=0.3, strRevNode=null;
 function setStrRev(x){ strRev=Math.max(0,Math.min(1,+x)); var el=document.getElementById('revSlider'); if(el&&+el.value!==strRev)el.value=strRev; if(strRevNode&&AC)strRevNode.gain.setTargetAtTime(strRev,AC.currentTime,0.04); if(pianoRevNode&&AC)pianoRevNode.gain.setTargetAtTime(0.55*strRev,AC.currentTime,0.04); }
 /* ═══ v355 · THE PIANO ════════════════════════════════════════════════════════════════════════════════════════
@@ -6216,10 +6231,11 @@ function pianoBus(){
   var comp=AC.createDynamicsCompressor(); comp.threshold.value=-12; comp.knee.value=12; comp.ratio.value=2.5; comp.attack.value=0.004; comp.release.value=0.25;
   var mk=AC.createGain(); mk.gain.value=PS.base?PIANO_MAKEUP:1; mk.connect(master);   /* v364: the recorded piano brought up to the guitar's level */
   inp.connect(body); body.connect(air); air.connect(comp); comp.connect(mk);
-  var conv=AC.createConvolver(), L=Math.floor(AC.sampleRate*2.6), ir=AC.createBuffer(2,L,AC.sampleRate);
+  var conv=AC.createConvolver();
+  conv.buffer=tfRoomIR(function(){ var L=Math.floor(AC.sampleRate*2.6), ir=AC.createBuffer(2,L,AC.sampleRate);
   for(var ch=0;ch<2;ch++){ var d=ir.getChannelData(ch), lpv=0, cf=1-Math.exp(-2*Math.PI*5200/AC.sampleRate);
     for(var k=0;k<L;k++){ var t=k/AC.sampleRate; lpv+=cf*((Math.random()*2-1)-lpv); d[k]=lpv*Math.exp(-t/0.78)*(k<600?k/600:1); } }
-  conv.buffer=ir; var hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=120;
+  return ir; });   /* v412 */ var hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=120;
   var rv=AC.createGain(); rv.gain.value=0.55*strRev; pianoRevNode=rv;
   air.connect(hp); hp.connect(conv); conv.connect(rv); rv.connect(mk);
   pianoBusIn=inp; return inp;
@@ -6352,10 +6368,11 @@ function strBus(){
   var dl=AC.createDelay(0.05); dl.delayTime.value=0.016; var lfo=AC.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.45; var dep=AC.createGain(); dep.gain.value=0.0016; lfo.connect(dep); dep.connect(dl.delayTime); lfo.start();
   var chg=AC.createGain(); chg.gain.value=0.35; cab.connect(dl); dl.connect(chg); chg.connect(master);
   /* the room */
-  var conv=AC.createConvolver(); var L=Math.floor(AC.sampleRate*2.2), ir=AC.createBuffer(2,L,AC.sampleRate);
+  var conv=AC.createConvolver();
+  conv.buffer=tfRoomIR(function(){ var L=Math.floor(AC.sampleRate*2.2), ir=AC.createBuffer(2,L,AC.sampleRate);
   for(var ch=0;ch<2;ch++){ var d=ir.getChannelData(ch), lpv=0, cf=1-Math.exp(-2*Math.PI*3800/AC.sampleRate);
     for(var k=0;k<L;k++){ var t=k/AC.sampleRate; lpv+=cf*((Math.random()*2-1)-lpv); d[k]=lpv*Math.exp(-t/0.62)*(k<400?k/400:1); } }
-  conv.buffer=ir; var rv=AC.createGain(); rv.gain.value=strRev; strRevNode=rv; var rvhp=AC.createBiquadFilter(); rvhp.type='highpass'; rvhp.frequency.value=180;
+  return ir; });   /* v412 */ var rv=AC.createGain(); rv.gain.value=strRev; strRevNode=rv; var rvhp=AC.createBiquadFilter(); rvhp.type='highpass'; rvhp.frequency.value=180;
   cab.connect(rvhp); rvhp.connect(conv); conv.connect(rv); rv.connect(master);
   strBusIn=inp; return inp;
 }
