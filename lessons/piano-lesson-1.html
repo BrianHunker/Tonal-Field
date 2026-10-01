@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v390 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v391 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -826,7 +826,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v390</span></h1>
+  <h1>Tonal Field <span>Ring v391</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1347,6 +1347,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <span class="seq-slash" title="the loop region">–</span>
         <input id="tabLoopB" type="text" spellcheck="false" title="where the loop turns back — the first beat past the region" style="width:46px;font-family:var(--font-mono);font-size:11px;">
         <button class="toggle" id="tabRing" aria-pressed="false" title="let ring: the selected tones (or, with nothing selected, the loop region; with the loop on the whole piece, the whole piece) ring on until their string is struck again. Pressed again over a region already ringing, it takes the let ring away.">let ring</button>
+        <button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button>
         <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
         <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -2279,7 +2280,7 @@ function seqGlideTo(v,n){
     var amp_=Math.pow(n.vel/128,1.4)*((vs&&vs.vol!==undefined)?vs.vol:1), peak_=0.19*(0.35+0.65*amp_);
     var _rk=seqStrumRank(n), _node=vv.o.node, _semi=semi;
     function strike(){ var t2=AC.currentTime; try{ vv.o.frequency.cancelScheduledValues(t2); vv.o.frequency.setValueAtTime(f,t2); }catch(e){}
-      try{ _node.port.postMessage({pluck:amp_,f0:f}); }catch(e){}
+      try{ _node.port.postMessage({pluck:amp_,f0:f,pm:seqPMAt(n.start)}); }catch(e){} vv.pmT=seqPMAt(n.start)?seqPMT60(v):0;   /* v391 */
       try{ vv.g.gain.cancelScheduledValues(t2); vv.g.gain.setTargetAtTime(Math.max(0.0001,peak_*((vs&&vs.s!==undefined)?vs.s:1)),t2,0.004); }catch(e){}
       vv.semi=_semi; vv.amp0=Math.max(0,Math.min(1,Math.pow(amp_,1/1.4))); vv.amp=vv.amp0; vv.onT=t2; vv.bendSemi=undefined; requestLight(); requestRing(); }   /* v319: the light is the strike */
     if(_rk>0)setTimeout(strike,_rk*seqStrumMs(n)); else strike();
@@ -4377,6 +4378,9 @@ var SEQ_STRUM_MS=22, SEQ_ROLL_MS=70;
 /* v315/316: this string's place in the roll — counted from the low string up, or from the high string down when the strum is up */
 function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q!==n&&q.strum&&q.start===n.start&&(n.sup?q.voice<n.voice:q.voice>n.voice))r++; } return r; }
 function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:SEQ_STRUM_MS; }
+/* v391: a tone struck inside a palm-mute region is struck with the palm on it */
+function seqPMAt(col){ var R=seq.pm||[]; for(var i=0;i<R.length;i++)if(col>=R[i][0]&&col<R[i][1])return 1; return 0; }
+function seqPMT60(v){ var vs=seq.vsynth[v], g=(vs&&vs.gauge!==undefined)?+vs.gauge:0.5; return 0.22+0.18*g; }
 /* v355: the pedal range in force at a position, or -1 */
 function seqPedalIdx(pos){ var P=seq.pedal||[]; for(var i=0;i<P.length;i++)if(pos>=P[i][0]-1e-9&&pos<P[i][1]-1e-9)return i; return -1; }
 function seqPedalNormalize(){ var P=(seq.pedal||[]).map(function(p){ return [seqClamp(Math.round(p[0]),0,seq.divs-1),seqClamp(Math.round(p[1]),1,seq.divs)]; }).filter(function(p){ return p[1]>p[0]; }).sort(function(a,b){ return a[0]-b[0]; });
@@ -4394,7 +4398,7 @@ function seqNoteOnV(v,n){
   var vs=seq.vsynth[v];
   var amp=Math.pow(n.vel/128,1.4)*(vs?vs.vol:1);
   var rank=seqStrumRank(n);
-  function fire(){ seqWithVoice(v,function(){ noteOn(id,semi,amp); }); var _vf=voices.get(id); if(_vf)_vf.finger=n.finger||null;   /* v355: the finger, for the key */ activeNotes.set(id,{chroma:((semi%12)+12)%12,semi:semi,latched:false,vel:n.vel/128}); requestDraw(); requestLight(); }
+  function fire(){ var _pm=seqPMAt(n.start); strPM=_pm; seqWithVoice(v,function(){ noteOn(id,semi,amp); }); strPM=0; var _vf=voices.get(id); if(_vf)_vf.pmT=_pm?seqPMT60(v):0; if(_vf)_vf.finger=n.finger||null;   /* v355: the finger, for the key */ activeNotes.set(id,{chroma:((semi%12)+12)%12,semi:semi,latched:false,vel:n.vel/128}); requestDraw(); requestLight(); }
   if(rank>0){ var _a=seqAudio; setTimeout(function(){ if(seqAudio!==_a||!seq.playing)return; var still=false; for(var k=0;k<held.length;k++)if(held[k].n===n.id&&held[k].s===slot)still=true; if(!still)return; fire(); },rank*seqStrumMs(n)); }
   else fire();
   held.push({n:n.id,s:slot});
@@ -4623,7 +4627,7 @@ function seqTick(){
       var tOn=(vv3.onT!==undefined&&AC)?Math.max(0,AC.currentTime-vv3.onT):1, vs3=seq.vsynth[v]||synth;
       var a3=Math.max(0.003,+vs3.a||0.003), dd3=Math.max(0.01,+vs3.d||0.01), s3=(vs3.s===undefined?1:+vs3.s);
       var env=Math.min(1,tOn/a3)*(s3+(1-s3)*Math.exp(-Math.max(0,tOn-a3)/(dd3/3)));
-      if(vs3.wave==='string'){ var g3=(vs3.gauge!==undefined?+vs3.gauge:0.5); env*=Math.pow(10,-3*tOn/(9+5*g3)); }
+      if(vs3.wave==='string'){ var g3=(vs3.gauge!==undefined?+vs3.gauge:0.5); env*=Math.pow(10,-3*tOn/(vv3.pmT||(9+5*g3))); }   /* v391: a muted string's light dies with it */
       else if(vs3.wave==='piano'){ var T3=pianoT60(freqOfSemi(vv3.semi)); env*=0.4*Math.pow(10,-3*tOn/T3)+0.6*Math.exp(-tOn/(0.25*T3/6.9)); }   /* v355: the piano's two-stage fall */
       var na3=vv3.amp0*env*(1-0.92*w3), dp3=1-0.92*w3;
       if(Math.abs(dp3-(vv3.dip===undefined?1:vv3.dip))>0.01){ vv3.dip=dp3; requestLight(); }   /* v358: the dip alone, for the solfege badge */
@@ -5016,6 +5020,7 @@ function seqSnapshot(){
     swing:!!seq.swing,
     accomp:(seq.accomp||[]).map(function(e){ return {start:e.start,dur:e.dur,m:e.m,vel:e.vel}; }), accompVol:(seq.accompVol===undefined?1:seq.accompVol),   /* v369 */
     ring:(seq.ring||[]).map(function(r){ return [r[0],r[1]]; }),   /* v386: let ring */
+    pm:(seq.pm||[]).map(function(r){ return [r[0],r[1]]; }),   /* v391: palm mute */
     chords:(seq.chords||[]).map(function(q){ return q.off?{col:q.col,text:'',off:true}:{col:q.col,text:q.text}; }),
     gestures:seq.gestures.map(function(g){
       var vary=seqGestVaries(g);
@@ -5089,6 +5094,7 @@ function seqApply(o){
   }
   seq.pedal=Array.isArray(o.pedal)?o.pedal.filter(function(p){ return p&&p.length===2; }).map(function(p){ return [+p[0]||0,+p[1]||0]; }):[]; seqPedalNormalize();   /* v355 */
   seq.swing=!!o.swing;   /* v366 */
+  seq.pm=Array.isArray(o.pm)?o.pm.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];   /* v391 */
   seq.ring=Array.isArray(o.ring)?o.ring.filter(function(r){ return r&&r.length===2&&+r[1]>+r[0]; }).map(function(r){ return [+r[0],+r[1]]; }):[];   /* v386 */
   seq.accomp=Array.isArray(o.accomp)?o.accomp.filter(function(e){ return e&&isFinite(+e.start)&&isFinite(+e.m); }).map(function(e){ return {start:+e.start,dur:Math.max(0.25,+e.dur||1),m:+e.m,vel:Math.max(1,Math.min(127,+e.vel||64))}; }):[];   /* v369 */
   seq.accompVol=isFinite(+o.accompVol)?Math.max(0,Math.min(2,+o.accompVol)):1;
@@ -5212,7 +5218,7 @@ function seqSyncControls(){
 function seqReset(){
   seqStop();
   seq.notes=[]; seq.nid=1; seq.sel=null;
-  seq.gestures=[]; seq.gid=1; seq.gsel=null; seq.tool='note'; seqDrawing=null; seq.msel={n:[],g:[]}; seqPenAnchor=null; seq.chords=[]; seq.ring=[];
+  seq.gestures=[]; seq.gid=1; seq.gsel=null; seq.tool='note'; seqDrawing=null; seq.msel={n:[],g:[]}; seqPenAnchor=null; seq.chords=[]; seq.ring=[]; seq.pm=[];
   seq.modes=[]; seq.mid=1; seqModeSel=null; seqModeApplied=null; seqModeVeil(null);
   seq.bars=1; seq.tsNum=4; seq.tsDen=4; seq.div=16; seqRecalcDivs();
   seq.viewRows=25; seq.bpm=120; seq.zoomX=1; seq.zoomY=1; seq.catch=true;
@@ -6029,21 +6035,21 @@ var STR_WORKLET_SRC=[
 "class TFString extends AudioWorkletProcessor{",
 " static get parameterDescriptors(){ return [{name:'frequency',defaultValue:220,minValue:8,maxValue:9000,automationRate:'a-rate'}]; }",
 " constructor(o){ super(); var p=(o&&o.processorOptions)||{}; this.sr=sampleRate; this.N=8192; this.buf=new Float32Array(this.N); this.w=0; this.alive=true;",
-"  this.g=Math.max(0,Math.min(1,+p.gauge||0)); this.lp=0; this.ap=0; this.apx=0; this.exN=0; this.exI=0; this.ex=new Float32Array(2); this.c=0.3; this.t60=3.5;",
+"  this.g=Math.max(0,Math.min(1,+p.gauge||0)); this.lp=0; this.ap=0; this.apx=0; this.exN=0; this.exI=0; this.ex=new Float32Array(2); this.c=0.3; this.t60=3.5; this.pm=Math.max(0,Math.min(1,+p.pm||0));",
 "  this.excite(Math.max(8,+p.f0||220),(p.vel==null?1:+p.vel));",
-"  var self=this; this.port.onmessage=function(e){ var d=e.data; if(d==='stop')self.alive=false; else if(d&&d.pluck!==undefined)self.excite(Math.max(8,+d.f0||220),+d.pluck); };",
+"  var self=this; this.port.onmessage=function(e){ var d=e.data; if(d==='stop')self.alive=false; else if(d&&d.pluck!==undefined){ if(d.pm!==undefined)self.pm=Math.max(0,Math.min(1,+d.pm)); self.excite(Math.max(8,+d.f0||220),+d.pluck); } };",
 " }",
 " excite(f0,v){",
-"  var g=this.g; v=Math.max(0.05,Math.min(1,v));",
-"  var fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc)/this.sr);   /* the loop damping: the highs go first, the body of the tone stays */",
-"  this.t60=9+5*g;   /* a string on an amplifier: it rings until a hand stops it */",
+"  var g=this.g, pm=this.pm; v=Math.max(0.05,Math.min(1,v));",
+"  var fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.75*pm))/this.sr);   /* the loop damping: the highs go first, the body of the tone stays */",
+"  this.t60=(9+5*g)*(1-pm)+(0.22+0.18*g)*pm;   /* a string on an amplifier rings until a hand stops it; the palm at the bridge stops it at once */",
 "  var per=Math.max(2,Math.round(this.sr/f0)); this.exN=per; this.exI=0; this.ex=new Float32Array(per);",
 "  var pick=0.14+0.14*g, pd=Math.max(1,Math.min(per-1,Math.round(per*pick)));",
 "  /* the pluck: the string's initial shape — a triangle with its apex under the pick — plus a little",
 "     lowpassed pick noise; the shape carries the fundamental, the noise the touch of the attack */",
-"  var efc=(1500+2500*v)*(0.6+0.4*(1-g)), ec=1-Math.exp(-2*Math.PI*efc/this.sr);",
+"  var efc=(1500+2500*v)*(0.6+0.4*(1-g))*(1-0.5*pm), ec=1-Math.exp(-2*Math.PI*efc/this.sr);",
 "  var n=new Float32Array(per+pd), y=0; for(var i=0;i<n.length;i++){ y+=ec*((Math.random()*2-1)-y); n[i]=y; }",
-"  var aT=0.7*(0.45+0.55*v), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));",
+"  var aT=0.7*(0.45+0.55*v)*(1-0.15*pm), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));",
 "  for(var k=0;k<per;k++){ var tri=(k<pd)?(k/pd):((per-k)/(per-pd)); var env=k<fade?0.5-0.5*Math.cos(Math.PI*k/fade):1;",
 "    this.ex[k]=(tri-0.5)*aT+(n[k+pd]-n[k])*aN*env; }",
 " }",
@@ -6081,7 +6087,7 @@ function strWorkletLoad(){
 /* the amplifier. Every string voice plays through one bus: a gentle tanh stage (warmth and a little
    compression), a low shelf of body, a cabinet lowpass, then dry + a slow shallow chorus + a room
    (a convolver on a generated 2.2 s tail) into the master. The strings sound plugged in. */
-var strBusIn=null, seqStartWaiting=false;
+var strBusIn=null, seqStartWaiting=false, strPM=0;   /* v391: the palm, for the next string struck */
 /* v350 — WARM-UP. On a phone the first string voice can take a moment to start producing sound (the processor is
    set up on the audio thread the first time one is made), and a short first note was over before it began. Before
    the first play one silent string voice is started, and play begins only once it is actually running. */
@@ -6293,7 +6299,7 @@ function mkStringSource(f,vel){
     var t0=AC.currentTime; lp0.frequency.setTargetAtTime(Math.max(f*1.5,300),t0,0.35);
     var g0=AC.createGain(); g0.gain.value=0.3; o0.connect(lp0); lp0.connect(g0); return {o:o0,out:g0};
   }
-  var node=new AudioWorkletNode(AC,'tf-string',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{gauge:strGauge(f),vel:vel,f0:f}});
+  var node=new AudioWorkletNode(AC,'tf-string',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{gauge:strGauge(f),vel:vel,f0:f,pm:strPM}});
   var fp=node.parameters.get('frequency'); fp.value=f;
   var stopped=false;
   function halt(){ if(stopped)return; stopped=true; try{ node.port.postMessage('stop'); }catch(e){} try{ node.disconnect(); }catch(e){} }
@@ -10763,7 +10769,7 @@ function tabTransposeTo(val){
 }
 function tabClearAll(){
   if(seq.playing)seqStop();
-  seq.notes=[]; seq.sel=null; seq.msel={n:[],g:[]}; seq.gestures=[]; seq.gsel=null; seq.chords=[]; seq.tabTr=0; seq.pedal=[]; seq.ring=[];
+  seq.notes=[]; seq.sel=null; seq.msel={n:[],g:[]}; seq.gestures=[]; seq.gsel=null; seq.chords=[]; seq.tabTr=0; seq.pedal=[]; seq.ring=[]; seq.pm=[];
   var st=(seq.modes||[]).filter(function(m){ return m.col<=0; }).sort(function(a,b){ return a.col-b.col; }), m0=st.length?st[st.length-1]:null;
   seq.modes=m0?[m0]:[]; if(typeof seqModeSel!=='undefined')seqModeSel=null;
   var br=document.getElementById('seqBarsIn'); if(br){ br.value=1; br.dispatchEvent(new Event('change')); }
@@ -10910,6 +10916,7 @@ function tabBarSync(){
   setv('tabTrIn',seq.tabTr||0);
   setv('tabLoopA',stFmtPos(seq.loopA)); setv('tabLoopB',stFmtPos(seq.loopB));   /* v386 */
   var rg=document.getElementById('tabRing'); if(rg){ var sp=tabRingSpan(); rg.setAttribute('aria-pressed',tabRingCovered(sp[0],sp[1])?'true':'false'); }
+  var pmb=document.getElementById('tabPM'); if(pmb){ var sp2=tabRingSpan(); pmb.setAttribute('aria-pressed',tabRegCovered('pm',sp2[0],sp2[1])?'true':'false'); }   /* v391 */
   var cr=document.getElementById('tabCapoRel'); if(cr&&cr.checked!==tabCapoRel)cr.checked=tabCapoRel;
   var ps=document.getElementById('tabPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)); var t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
 }
@@ -10931,6 +10938,7 @@ function tabBarWire(){
       if(id==='tabLoopA')stSetLoop(v,Math.max(v+1,seq.loopB)); else stSetLoop(Math.min(seq.loopA,v-1),v); tabBarSync(); });
     el.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); });
   var rgb=document.getElementById('tabRing'); if(rgb)rgb.addEventListener('click',function(){ tabRingToggle(); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });
+  var pmw=document.getElementById('tabPM'); if(pmw)pmw.addEventListener('click',function(){ if(!seq.pm)seq.pm=[]; tabRegToggle('pm'); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });   /* v391 */
   var _sv=document.getElementById('tabSave'); if(_sv)_sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var _cl=document.getElementById('tabClear'); if(_cl)_cl.addEventListener('click',tabClearAll);
   var _ld=document.getElementById('tabLoad'); if(_ld)_ld.addEventListener('click',function(){ var b=document.getElementById('seqLoadBtn'); if(b)b.click(); });
@@ -11000,12 +11008,12 @@ function tabRender(){
     }
     /* v386: let ring — 'let ring' where a region begins, dashes while it runs, a hook where it ends */
     (function(){ var lc0=b0*cpb, lc1=b1*cpb, yR=y0+(n-1)*TAB_ROW+19*TAB_S, xOf=function(col){ return TAB_GUT+(col-lc0)*cw; };
-      (seq.ring||[]).forEach(function(r){ var a=Math.max(r[0],lc0), z=Math.min(r[1],lc1); if(z<=a)return;
+      [['ring','let ring'],['pm','P.M.']].forEach(function(KL){ (seq[KL[0]]||[]).forEach(function(r){ var a=Math.max(r[0],lc0), z=Math.min(r[1],lc1); if(z<=a)return;   /* v391: P.M. too */
         var x=xOf(a)+2, xe=xOf(z)-2; c.save(); c.fillStyle='#b9b7ae'; c.strokeStyle='#b9b7ae'; c.lineWidth=1.2*TAB_S; c.textAlign='left'; c.textBaseline='middle';
-        if(r[0]>=lc0){ c.font='italic 600 '+tabFontPx(11)+'px "IBM Plex Sans", sans-serif'; c.fillText('let ring',x,yR); x+=c.measureText('let ring').width+5*TAB_S; }
+        if(r[0]>=lc0){ c.font='italic 600 '+tabFontPx(11)+'px "IBM Plex Sans", sans-serif'; c.fillText(KL[1],x,yR); x+=c.measureText(KL[1]).width+5*TAB_S; }
         c.setLineDash([4*TAB_S,4*TAB_S]); c.beginPath(); c.moveTo(x,yR); c.lineTo(Math.max(x,xe),yR); c.stroke(); c.setLineDash([]);
         if(r[1]<=lc1){ c.beginPath(); c.moveTo(xe,yR); c.lineTo(xe,yR-6*TAB_S); c.stroke(); }
-        c.restore(); }); })();
+        c.restore(); }); }); })();
     /* v386: the loop strip — the whole line dim, the region gold (bright while the loop is on), handles at its ends */
     (function(){ var lc0=b0*cpb, lc1=b1*cpb, sy0=y0+(n-1)*TAB_ROW+27*TAB_S, sh=8*TAB_S, xa=TAB_GUT, xb=TAB_GUT+(lc1-lc0)*cw;
       c.fillStyle='rgba(255,210,122,0.07)'; c.fillRect(xa,sy0,xb-xa,sh);
@@ -11142,13 +11150,18 @@ function tabCommitBuf(){
 function tabRingSpan(){ var S={}; tabSel.forEach(function(id){ S[id]=1; }); var a=Infinity, b=-Infinity;
   seq.notes.forEach(function(q){ if(S[q.id]){ a=Math.min(a,q.start); b=Math.max(b,q.start+q.dur); } });
   if(a<b)return [a,b]; return [Math.max(0,Math.min(seq.loopA,seq.loopB)),Math.min(seq.divs,Math.max(seq.loopA,seq.loopB))]; }
-function tabRingNorm(){ var R=(seq.ring||[]).filter(function(r){ return r[1]>r[0]; }).sort(function(x,y){ return x[0]-y[0]; }), out=[];
-  R.forEach(function(r){ var l=out[out.length-1]; if(l&&r[0]<=l[1])l[1]=Math.max(l[1],r[1]); else out.push([r[0],r[1]]); }); seq.ring=out; }
-function tabRingCovered(a,b){ var x=a; tabRingNorm(); for(var i=0;i<seq.ring.length;i++){ var r=seq.ring[i]; if(r[0]<=x&&r[1]>x)x=r[1]; } return x>=b; }
-function tabRingToggle(){ var sp=tabRingSpan(), a=sp[0], b=sp[1]; if(!(b>a))return;
-  if(tabRingCovered(a,b)){ var out=[]; seq.ring.forEach(function(r){ if(r[1]<=a||r[0]>=b){ out.push(r); return; } if(r[0]<a)out.push([r[0],a]); if(r[1]>b)out.push([b,r[1]]); }); seq.ring=out; }
-  else { seq.ring.push([a,b]); }
-  tabRingNorm(); tabRequest(); if(typeof histQueue==='function')histQueue(); }
+/* v391: a region list of either kind — 'ring' (let ring) or 'pm' (palm mute) */
+function tabRegNorm(k){ var R=(seq[k]||[]).filter(function(r){ return r[1]>r[0]; }).sort(function(x,y){ return x[0]-y[0]; }), out=[];
+  R.forEach(function(r){ var l=out[out.length-1]; if(l&&r[0]<=l[1])l[1]=Math.max(l[1],r[1]); else out.push([r[0],r[1]]); }); seq[k]=out; }
+function tabRegCovered(k,a,b){ var x=a; tabRegNorm(k); for(var i=0;i<seq[k].length;i++){ var r=seq[k][i]; if(r[0]<=x&&r[1]>x)x=r[1]; } return x>=b; }
+function tabRegCut(k,a,b){ var out=[]; (seq[k]||[]).forEach(function(r){ if(r[1]<=a||r[0]>=b){ out.push(r); return; } if(r[0]<a)out.push([r[0],a]); if(r[1]>b)out.push([b,r[1]]); }); seq[k]=out; }
+function tabRegToggle(k){ var sp=tabRingSpan(), a=sp[0], b=sp[1]; if(!(b>a))return;
+  if(tabRegCovered(k,a,b))tabRegCut(k,a,b);
+  else { seq[k].push([a,b]); tabRegCut(k==='ring'?'pm':'ring',a,b); }   /* the palm and a ringing string do not share a tone */
+  tabRegNorm(k); tabRequest(); if(typeof histQueue==='function')histQueue(); }
+function tabRingNorm(){ tabRegNorm('ring'); }
+function tabRingCovered(a,b){ return tabRegCovered('ring',a,b); }
+function tabRingToggle(){ tabRegToggle('ring'); }
 function tabDeleteSel(){
   if(!tabSel.length&&tabCur){ var n=tabNoteAt(tabCur.row,tabCur.col); if(n)tabSel=[n.id]; }
   if(!tabSel.length)return;
