@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v395 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v396 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v395</span></h1>
+  <h1>Tonal Field <span>Ring v396</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -6051,8 +6051,8 @@ var STR_WORKLET_SRC=[
 " }",
 " excite(f0,v){",
 "  var g=this.g, pm=this.pm; v=Math.max(0.05,Math.min(1,v));",
-"  if(this.dead){ var L=Math.max(64,Math.round(0.02*this.sr)), tau=0.004*this.sr, px=0; this.exN=L; this.exI=0; this.ex=new Float32Array(L);   /* v395: a dead string is pick noise, no pitch */",
-"    for(var j=0;j<L;j++){ var wn=Math.random()*2-1; this.ex[j]=0.42*v*Math.exp(-j/tau)*(wn-0.5*px); px=wn; }",
+"  if(this.dead){ var sr=this.sr, L=Math.round(0.08*sr), fl=(650+1900*(1-g))*(0.75+0.25*v), cl=1-Math.exp(-2*Math.PI*fl/sr), fth=70+110*(1-g), tn=(0.010+0.010*g)*sr, tt=(1.5/fth)*sr, ln=0, ln2=0; this.exN=L; this.exI=0; this.ex=new Float32Array(L);   /* v396: a string struck under the fretting hand — a chonk: low-passed pick noise and a body thud, both deeper and longer for a heavier string */",
+"    for(var j=0;j<L;j++){ var wn=Math.random()*2-1; ln+=cl*(wn-ln); ln2+=cl*(ln-ln2); var at=Math.min(1,j/(0.0012*sr)); this.ex[j]=v*at*(1.8*Math.sqrt(1200/fl)*ln2*Math.exp(-j/tn)+0.5*Math.sin(2*Math.PI*fth*j/sr)*Math.exp(-j/tt)); }",
 "    this.t60=0.012; this.c=0.9; return; }",
 "  var fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);   /* the loop damping: the highs go first, the body of the tone stays */",
 "  this.t60=(9+5*g)*Math.pow(0.03/(9+5*g),pm);   /* a string on an amplifier rings until a hand stops it; the palm shortens it geometrically, to a click at full depth */",
@@ -7792,7 +7792,7 @@ function fretDraw(){
   fx.drawImage(fbLow,0,0,D.CW,D.CH);
   var rowH=D.ch, fw=D.cw;
   /* v395: a dead note's string flashes grey along its whole length, beneath the labels */
-  for(var _dr in fbDeadFlash){ var _ag=(performance.now()-fbDeadFlash[_dr])/FB_DEAD_MS; if(!(_ag<1))continue; fx.fillStyle='rgba(196,196,190,'+(0.62*(1-_ag)).toFixed(3)+')'; fx.fillRect(0,(fbStrings-1-(+_dr))*rowH,D.CW,rowH); }   /* string index counts from the low string; the board's rows from the top */
+  for(var _dr in fbDeadFlash){ var _ag=(performance.now()-fbDeadFlash[_dr])/FB_DEAD_MS; if(!(_ag<1))continue; fx.fillStyle='rgba(214,214,208,'+(0.95*(1-_ag)).toFixed(3)+')'; fx.fillRect(0,(fbStrings-1-(+_dr)+0.45)*rowH,D.CW,Math.max(1.5,0.1*rowH)); }   /* v396: a thin grey line along the middle of the row — the string itself */   /* string index counts from the low string; the board's rows from the top */
   var anyLabels=fbNames||fbSol||fbHz;
   fx.textAlign='center'; fx.textBaseline='middle';
   function badge(xp,yp,lines,alpha){
