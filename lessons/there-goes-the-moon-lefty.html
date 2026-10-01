@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v400 · lesson: Here Comes the Sun (left-handed) -->
+<!-- Tonal Field — Ring — v401 · lesson: Here Comes the Sun (left-handed) -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v400</span></h1>
+  <h1>Tonal Field <span>Ring v401</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -2433,6 +2433,7 @@ function modeLitDegs(m){
    fully dark a quarter-octave (three semitones) to either side. modeQ sharpens the peak within
    that window without ever reopening the tails. dd is the signed semitone offset from a centre. */
 function modeBandAmp(dd){
+  if(Math.abs(dd)>=modeBW)return 0;          /* v401: the cosine repeats; outside the window is dark, whoever asks */
   var wq=Math.cos(Math.PI*dd/(2*modeBW));   /* 1 at dd=0, 0 at |dd|=modeBW semitones, negative beyond */
   if(wq<=0)return 0;
   var sharp=0.25+5.75*modeQ, ped=0.55*(1-modeQ);
@@ -4794,15 +4795,15 @@ function seqModeLightColor(){ return seqVeilColor||null; }
 function seqLightAt(chroma,which){
   if(!seqVeilColor)return null;                 /* v284: the head governs the light, not the transport */
   var m=seqModeAt(Math.floor(seqPos)); if(!m)return null;
-  var reach=1.2+4.8*MODE_DIFF, gain=(modeGain[which]!==undefined?modeGain[which]:1);
+  var gain=(modeGain[which]!==undefined?modeGain[which]:1);
   var wr=0,wg=0,wb=0,wsum=0;
   function pool(mm,scale){
     var degs=modeLitDegs(mm); if(!degs.length)return;
     for(var i=0;i<degs.length;i++){
       var g=degs[i];
       var d=((((chroma-g.chroma)%12)+12)%12); if(d>6)d=12-d;
-      var f=(which==='keys')?(d===0?1:0):Math.max(0,1-d/reach); if(f<=0)continue;   /* v376: on the keyboard, only the degree's own keys light */
-      var w=0.84*gain*g.L*f*f*scale;
+      var f=(which==='keys')?(d===0?1:0):modeBandAmp(d); if(f<=0)continue;   /* v376: on the keyboard, only the degree's own keys light; v401: string and fretboard take the bandwidth profile the seq grid and spectrogram use */
+      var w=0.84*gain*g.L*f*scale;
       wr+=g.col[0]*w; wg+=g.col[1]*w; wb+=g.col[2]*w; wsum+=w;
     }
   }
