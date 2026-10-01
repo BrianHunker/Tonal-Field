@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v392 · lesson: Intro to Tonality — Lesson 1 -->
+<!-- Tonal Field — Ring — v393 · lesson: Intro to Tonality — Lesson 1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -212,6 +212,7 @@ body { overflow: auto; }
 .win-body.side-col { gap: 0; }
 .win .panel { border: 0; border-radius: 0; background: transparent; height: 100%; box-sizing: border-box; }
 #notepadPanel { display: flex; flex-direction: column; min-height: 0; }
+html body #tabBar, html body.phone #tabBar { row-gap: 18px; padding-bottom: 14px; }   /* v393: room under the row for the P.M. depth slider, on every wrapped line (outranks the toolbar's own gap rules) */
 #notepadBody { overflow-y: auto; flex: 1; min-height: 0; padding: 12px 16px 20px; font-size: 12.5px; line-height: 1.62; color: #c6c4bd; }
 #notepadBody h3 { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin: 16px 0 6px; }
 #notepadBody h3:first-child { margin-top: 2px; }
@@ -826,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v392</span></h1>
+  <h1>Tonal Field <span>Ring v393</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1352,7 +1353,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <span class="seq-slash" title="the loop region">–</span>
         <input id="tabLoopB" type="text" spellcheck="false" title="where the loop turns back — the first beat past the region" style="width:46px;font-family:var(--font-mono);font-size:11px;">
         <button class="toggle" id="tabRing" aria-pressed="false" title="let ring: the selected tones (or, with nothing selected, the loop region; with the loop on the whole piece, the whole piece) ring on until their string is struck again. Pressed again over a region already ringing, it takes the let ring away.">let ring</button>
-        <span style="display:inline-flex;flex-direction:column;align-items:stretch;gap:3px;vertical-align:middle;flex:0 0 auto;width:64px;"><button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button><input type="range" id="tabPMAmt" min="0" max="1" step="0.01" value="0.5" title="palm mute depth: how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick." style="width:100%;min-width:44px;height:10px;margin:0;"></span>
+        <span style="position:relative;display:inline-flex;flex:0 0 auto;"><button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button><input type="range" id="tabPMAmt" min="0" max="1" step="0.001" value="0.5" title="palm mute depth: how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
         <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
         <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -4384,6 +4385,9 @@ var SEQ_STRUM_MS=22, SEQ_ROLL_MS=70;
 function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q!==n&&q.strum&&q.start===n.start&&(n.sup?q.voice<n.voice:q.voice>n.voice))r++; } return r; }
 function seqStrumMs(n){ return n.strum==='r'?SEQ_ROLL_MS:SEQ_STRUM_MS; }
 /* v391: a tone struck inside a palm-mute region is struck with the palm on it */
+/* v393: the slider's shape — fine in the middle, quick at the ends */
+function pmSlideToDepth(s){ var u=2*Math.max(0,Math.min(1,+s))-1; return Math.max(0,Math.min(1,0.5+0.5*Math.sinh(4*u)/Math.sinh(4))); }
+function pmDepthToSlide(d){ var x=(Math.max(0,Math.min(1,+d))-0.5)/0.5*Math.sinh(4); return (Math.asinh(x)/4+1)/2; }
 function seqPMAmt(){ return (seq.pmAmt===undefined||!isFinite(+seq.pmAmt))?0.5:Math.max(0,Math.min(1,+seq.pmAmt)); }   /* v392: the palm's depth */
 function seqPMAt(col){ var R=seq.pm||[]; for(var i=0;i<R.length;i++)if(col>=R[i][0]&&col<R[i][1])return seqPMAmt(); return 0; }
 function seqPMT60(v,pm){ var vs=seq.vsynth[v], g=(vs&&vs.gauge!==undefined)?+vs.gauge:0.5, o=9+5*g; return o*Math.pow(0.03/o,pm); }
@@ -10923,7 +10927,7 @@ function tabBarSync(){
   setv('tabTrIn',seq.tabTr||0);
   setv('tabLoopA',stFmtPos(seq.loopA)); setv('tabLoopB',stFmtPos(seq.loopB));   /* v386 */
   var rg=document.getElementById('tabRing'); if(rg){ var sp=tabRingSpan(); rg.setAttribute('aria-pressed',tabRingCovered(sp[0],sp[1])?'true':'false'); }
-  var pma=document.getElementById('tabPMAmt'); if(pma&&pma!==f&&Math.abs(+pma.value-seqPMAmt())>1e-6)pma.value=seqPMAmt();   /* v392 */
+  var pma=document.getElementById('tabPMAmt'); if(pma&&pma!==f){ var _sl=pmDepthToSlide(seqPMAmt()); if(Math.abs(+pma.value-_sl)>1e-3)pma.value=_sl; pma.title='palm mute depth '+seqPMAmt().toFixed(2)+' — how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick. The middle of the slider is the fine range.'; }   /* v392 */
   var pmb=document.getElementById('tabPM'); if(pmb){ var sp2=tabRingSpan(); pmb.setAttribute('aria-pressed',tabRegCovered('pm',sp2[0],sp2[1])?'true':'false'); }   /* v391 */
   var cr=document.getElementById('tabCapoRel'); if(cr&&cr.checked!==tabCapoRel)cr.checked=tabCapoRel;
   var ps=document.getElementById('tabPosOut'); if(ps){ var cpb=tabCPB(), b=Math.floor(seqPos/cpb), bt=Math.floor((seqPos-b*cpb)/Math.max(1,seq.div/seq.tsDen)); var t=(b+1)+'.'+(bt+1); if(ps.textContent!==t)ps.textContent=t; }
@@ -10946,7 +10950,7 @@ function tabBarWire(){
       if(id==='tabLoopA')stSetLoop(v,Math.max(v+1,seq.loopB)); else stSetLoop(Math.min(seq.loopA,v-1),v); tabBarSync(); });
     el.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); });
   var rgb=document.getElementById('tabRing'); if(rgb)rgb.addEventListener('click',function(){ tabRingToggle(); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });
-  var pmaw=document.getElementById('tabPMAmt'); if(pmaw){ pmaw.addEventListener('input',function(){ seq.pmAmt=Math.max(0,Math.min(1,+this.value)); }); pmaw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); pmaw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v392 */
+  var pmaw=document.getElementById('tabPMAmt'); if(pmaw){ pmaw.addEventListener('input',function(){ seq.pmAmt=pmSlideToDepth(+this.value); this.title='palm mute depth '+seq.pmAmt.toFixed(2); }); pmaw.addEventListener('change',function(){ if(typeof histQueue==='function')histQueue(); }); pmaw.addEventListener('keydown',function(e){ e.stopPropagation(); }); }   /* v392 */
   var pmw=document.getElementById('tabPM'); if(pmw)pmw.addEventListener('click',function(){ if(!seq.pm)seq.pm=[]; tabRegToggle('pm'); var s=tabScrollEl(); if(s)s.focus({preventScroll:true}); });   /* v391 */
   var _sv=document.getElementById('tabSave'); if(_sv)_sv.addEventListener('click',function(){ var b=document.getElementById('seqSaveBtn'); if(b)b.click(); });
   var _cl=document.getElementById('tabClear'); if(_cl)_cl.addEventListener('click',tabClearAll);
