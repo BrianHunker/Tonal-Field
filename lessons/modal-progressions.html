@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v399 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v400 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v399</span></h1>
+  <h1>Tonal Field <span>Ring v400</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1098,8 +1098,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <button class="toggle" id="seqLoopBtn" aria-pressed="true" title="loop the region">loop</button>
           <button class="toggle" id="seqSwingBtn" aria-pressed="false" title="swing the eighths: each pair played long-short, 2:1, as written straight">swing</button>
           <button class="toggle" id="seqCatchBtn" aria-pressed="true" title="scroll to follow the playhead">catch</button>
-          <button class="toggle" id="seqFitXBtn" title="fit across: the looped region fills the view (or, with no loop, the edit voice's whole span)">fit &#8596;</button>
-          <button class="toggle" id="seqFitYBtn" title="fit down: the edit voice's whole pitch range fills the view">fit &#8597;</button>
+          <button class="toggle" id="seqFitXBtn" title="fit across: the looped region fills the view (or, with no loop, the whole phrase)">fit &#8596;</button>
+          <button class="toggle" id="seqFitYBtn" title="fit down: every voice's notes fill the view">fit &#8597;</button>
           <button class="toggle" id="seqModeOnBtn" aria-pressed="true" title="mute the modal channel: the phrase plays but the field is not turned">mode</button>
           <button class="toggle" id="seqGBtn" aria-pressed="false" title="shade the roll by g(x): the potential in grayscale. Off: plain dark rows">g</button>
           <button class="toggle" id="seqSingBtn" title="sing: the current voice's note events become one drawn line per breath — on the beat, held for the value, joined by symmetric S-curves as long as the voice's glide (ms)">sing</button>
@@ -1137,10 +1137,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <div id="seqPedRow"><svg id="seqPedKey"></svg><svg id="seqPed"></svg></div>
         <div id="seqLaneRow"><div id="seqLaneKeyWrap"><svg id="seqLaneKey"></svg><select id="seqLaneSel" title="what this lane shows"><option value="vel">velocity</option><option value="vw">vowel</option><option value="lpf">lpf</option></select></div><svg id="seqLane"></svg></div>
       </div>
-      <div id="seqVGutter"><input type="range" class="seq-zoom vert" id="seqZoomY" min="0.6" max="2.5" step="0.05" value="1" title="vertical zoom"></div>
+      <div id="seqVGutter"><input type="range" class="seq-zoom vert" id="seqZoomY" min="0.25" max="2.5" step="0.05" value="1" title="vertical zoom"></div>
       </div>
       <div id="seqZoomBar">
-        <input type="range" class="seq-zoom" id="seqZoomX" min="0" max="1" step="0.002" value="1" title="horizontal zoom: sixteen bars across at the left, one bar at the right">
+        <input type="range" class="seq-zoom" id="seqZoomX" min="0" max="1" step="0.002" value="1" title="horizontal zoom: sixty-four bars across at the left, one bar at the right">
         <button class="toggle" id="seqZoomRst" title="reset zoom to 1:1">1:1</button>
       </div>
       <div id="seqModeEdit">
@@ -2196,7 +2196,7 @@ var SEQ_MAXV=8, SEQ_KEYW=48, SEQ_LANEH=64, SEQ_RULH=22, SEQ_LOOPH=8;
    scrolling vertically through pitch and horizontally through time */
 var SEQ_MAXPX=30000;      /* widest the grid may be drawn, in px */
 var SEQ_MAXCVS=8192, SEQ_MAXCVSA=16777216;   /* ceiling on a canvas backing store */
-var SEQ_ZXMIN=0.0625;    /* sixteen bars across: the far left of the zoom slider */
+var SEQ_ZXMIN=1/64;    /* v400: sixty-four bars across at the far left of the zoom slider (was sixteen), so a long piece fits whole */
 var SEQ_ROWS=96, SEQ_BASE=-36;      /* C1 .. B8, in semitones from C4 */
 var SEQ_REFCOLS=16;                 /* fallback reference for cell width */
 function seqRefCols(){ return Math.max(4,Math.min(32,Math.round(seqCellsPerBar()))); }
@@ -2508,13 +2508,13 @@ function seqCellW(){
      make the grid wider than the panel and scroll, they don't shrink cells.
      zoomX is read as bars across the view: 1 shows a bar, 1/16 shows sixteen */
   var base=avail/seqRefCols();
-  var w=Math.max(2,Math.min(560,base*seq.zoomX));
+  var w=Math.max(1.5,Math.min(560,base*seq.zoomX));
   /* a browser will refuse to paint one element past a few tens of thousands
      of pixels and leave it blank, so the whole grid must stay inside that */
   var cap=Math.max(2,SEQ_MAXPX/Math.max(1,seq.divs));
   /* kept fractional: at sixteen bars across, a whole pixel per cell is too
      coarse a step and the view would land short of the sixteen asked for */
-  return Math.max(2,Math.round(Math.min(w,cap)*100)/100);
+  return Math.max(1.5,Math.round(Math.min(w,cap)*100)/100);
 }
 /* Two things made most of the slider inert. Bars across the view goes as
    1/zoomX, so half the travel bought the last bar and the other half the
@@ -2551,7 +2551,7 @@ function seqZoomCapped(){                /* true when length, not zoom, is the l
 }
 function seqCellH(){
   var base=seq.viewRows>32?12:(seq.viewRows>24?14:16);
-  return Math.max(5,Math.min(48,Math.round(base*seq.zoomY)));
+  return Math.max(3,Math.min(48,Math.round(base*seq.zoomY)));
 }
 function seqRowY(r){ return (SEQ_ROWS-1-r)*seqCellH(); }
 function seqYRow(y){ return seqClamp(SEQ_ROWS-1-Math.floor(y/seqCellH()),0,SEQ_ROWS-1); }
@@ -5070,7 +5070,7 @@ function seqApply(o){
   seqRecalcDivs();
   seq.viewRows=seqClamp(+(o.viewRows||o.rows)||25,7,48);
   if(o.zoomX!==undefined)seq.zoomX=seqClamp(+o.zoomX,0.0625,1);
-  if(o.zoomY!==undefined)seq.zoomY=seqClamp(+o.zoomY,0.6,2.5);
+  if(o.zoomY!==undefined)seq.zoomY=seqClamp(+o.zoomY,0.25,2.5);
   if(o.catch!==undefined)seq.catch=!!o.catch;
   if(o.modeOn!==undefined)seq.modeOn=!!o.modeOn;
   seq.gShade=!!o.gShade;                      /* v211: off unless the file says on */
@@ -9054,7 +9054,7 @@ function seqVoiceSpan(v){
 function seqFitX(){
   var cpb=Math.max(1,seqRefCols()), a, b;
   if(seq.loop&&seq.loopB>seq.loopA+1e-9){ a=+seq.loopA; b=+seq.loopB; }
-  else { var s=seqVoiceSpan(seq.av); if(!s)return; a=Math.floor(s.a); b=Math.ceil(s.b); }
+  else { a=0; b=seq.divs; }   /* v400: with no loop, the whole phrase, in bars */
   if(!(b>a))return;
   seq.zoomX=seqClamp(1/((b-a)/cpb),SEQ_ZXMIN,seqZoomXMax());
   var zx=document.getElementById('seqZoomX'); if(zx&&typeof seqZoomPos==='function')zx.value=seqZoomPos(seq.zoomX);
@@ -9068,10 +9068,12 @@ function seqGridViewH(){
   return Math.max(40,h);
 }
 function seqFitY(lo,hi){
-  if(lo==null||hi==null){ var s=seqVoiceSpan(seq.av); if(!s)return; lo=Math.floor(s.lo); hi=Math.ceil(s.hi); }
+  if(lo==null||hi==null){ var L=Infinity, H=-Infinity;   /* v400: every voice's events, not the edit voice's alone */
+    for(var v0=0;v0<seq.nv;v0++){ var s=seqVoiceSpan(v0); if(s){ L=Math.min(L,s.lo); H=Math.max(H,s.hi); } }
+    if(!isFinite(L))return; lo=Math.floor(L); hi=Math.ceil(H); }
   lo=seqClamp(Math.round(lo),0,SEQ_ROWS-1); hi=seqClamp(Math.round(hi),lo,SEQ_ROWS-1);
   var H=seqGridViewH(), span=hi-lo+1, base=seq.viewRows>32?12:(seq.viewRows>24?14:16);
-  seq.zoomY=seqClamp(Math.floor(H/(span+1))/base,0.6,2.5);          /* half a row of margin at each end */
+  seq.zoomY=seqClamp(Math.floor(H/(span+1))/base,0.25,2.5);          /* half a row of margin at each end */
   var zy=document.getElementById('seqZoomY'); if(zy)zy.value=seq.zoomY.toFixed(2);
   seqRefresh();
   var sc=document.getElementById('seqScroll'); if(!sc)return;
@@ -10299,6 +10301,7 @@ function viewStashSeq(){
   if(cur==='boot'){ if(bootState)bootState.seq=st; return; }
   if(cur&&typeof cur==='object'){ if(!cur.state)cur.state={}; cur.state.seq=st; }
 }
+var viewFitted={};   /* v400 */
 function viewApply(n){
   var v=views[n]; if(!v)return false;
   if(n!==viewCur)viewStashSeq();
@@ -10327,6 +10330,7 @@ function viewApply(n){
       fbCellW=Math.max(4,vw/nc); fbCellH=null; if(fbStrings*fbCellW/FB_PHI>vh)fbCellW=Math.max(4,(vh/fbStrings)*FB_PHI);   /* frets 0–12 across the width; if the strings then overflow, the height decides */
       fbPanX=fbFx(_ff[0])*fbCellW; fbPanY=0; fbClampPan(vw,r.height-FB_BAND); requestFret(); if(showTab){ tabSize(); tabRequest(); } }); }
   if(phoneMode()){ phoneFbLabFromView(); phoneSync(); }   /* v346: the view's TAB paging and fretboard zoom give way to the phone stack */
+  if(seqOn&&!viewFitted[n]){ viewFitted[n]=true; requestAnimationFrame(function(){ requestAnimationFrame(function(){ if(viewCur===n&&seqOn){ seqFitX(); seqFitY(); } }); }); }   /* v400: a view opens with its roll fitted to its bars and its notes */
   viewCur=n; viewBtnsSync(); return true;
 }
 function viewBtnsSync(){ document.querySelectorAll('.view-btn').forEach(function(b){ var n=+b.dataset.view; b.setAttribute('aria-pressed',n===viewCur?'true':'false'); b.classList.toggle('empty',!views[n]);
