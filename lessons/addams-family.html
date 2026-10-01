@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v407 · lesson: Addams Family -->
+<!-- Tonal Field — Ring — v408 · lesson: Addams Family -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -829,7 +829,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v407</span></h1>
+  <h1>Tonal Field <span>Ring v408</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11182,7 +11182,7 @@ function tabRender(){
     if(nn.start>=lo&&R0.line>=0&&R0.line<tabLines){
       var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=R0.x+R0.w/2;
       /* v347: in the phone's narrow cells a strum arrow sits where the number would; the number steps right of it */
-      if(nn.strum&&phoneMode()){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
+      if(nn.strum){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
       tabPlate(c,nx-tw/2,R0.y-bh,tw,2*bh);
       if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
       c.fillStyle=rgba(col,alpha); c.textAlign='center';
