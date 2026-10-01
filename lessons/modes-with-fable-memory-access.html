@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v401 · lesson: Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v402 · lesson: Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -827,7 +827,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v401</span></h1>
+  <h1>Tonal Field <span>Ring v402</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -936,14 +936,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </details>
     <details class="dm-bank"><summary>lighting</summary>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgPcLight"><label for="tgPcLight">light all octaves (pitch class)</label></div></div>
-    <div class="dm-slider"><label>house lights <span id="houseVal">0.25</span></label><input type="range" id="houseIn" min="0.05" max="1" step="0.01" value="0.25"></div>
+    <div class="dm-slider"><label>house lights <span id="houseVal">0.00</span></label><input type="range" id="houseIn" min="0" max="1" step="0.01" value="0"></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgHouseSel"><label for="tgHouseSel" title="on: outside the fretboard selection the surface goes dark. off: the house lights and mode light carry on outside it, so only the badges dim">house lights &middot; selection only</label></div></div>
     <div class="dm-slider"><label>spotlights <span id="spotVal">0.00</span></label><input type="range" id="spotIn" min="0" max="1" step="0.01" value="0"></div>
     <div class="dm-row"><div class="dm-check"><input type="checkbox" id="tgMagnet" checked><label for="tgMagnet">magnet</label></div></div>
     </details>
     <details class="dm-bank"><summary>mode lighting</summary>
       <div class="dm-slider"><label>overall <span id="modeMasterVal">1.00</span></label><input type="range" id="modeMasterIn" min="0" max="1" step="0.01" value="1.00"></div>
-      <div class="dm-slider"><label>bandwidth <span id="modeBWVal">1/6 oct</span></label><input type="range" id="modeBWIn" min="1" max="6" step="0.05" value="2"></div>
+      <div class="dm-slider"><label>bandwidth <span id="modeBWVal">1/12 oct</span></label><input type="range" id="modeBWIn" min="1" max="6" step="0.05" value="1"></div>
       <div class="dm-div"></div>
       <div class="dm-slider"><label>Root <span id="degVal0">1.00</span></label><input type="range" id="degIn0" min="0" max="1" step="0.01" value="1.00"></div>
       <div class="dm-slider"><label>5th &middot; dominant <span id="degVal1">0.86</span></label><input type="range" id="degIn1" min="0" max="1" step="0.01" value="0.86"></div>
@@ -2224,13 +2224,13 @@ var seq={
 };
 var MODE_DIFF=0.5;       /* how far the mode light spreads on the ring and the instruments */
 var modeMaster=1.0;      /* v271: the general fader — scales the whole modal hierarchy at once */
-var modeBW=2;            /* v272: band half-width in SEMITONES — the falloff distance to zero, tunable 1..6 (1/12..1/2 octave); default 2 = 1/6 octave */
+var modeBW=1;            /* v272: band half-width in SEMITONES — the falloff distance to zero, tunable 1..6 (1/12..1/2 octave); v402: default 1 = 1/12 octave */
 /* v272 — per-valence brightness handicap. La's purple (#732699) is far darker than the other
    valences and reads dimmer at the same strength, so its mode light is boosted to sit level with
    the rest. Indexed by fn-index; only La (7) departs from 1. */
 var FN_BOOST=[1,1,1,1,1,1,1,1.2,1,1,1,1];
 var DEG_OFF=[0,1,4,5,2,3,6];                              /* Root,5th,3rd,7th,9th,13th,11th — fifths from root along the diatonic chain (mod 7) */
-var DEG_DEFAULT=[0.5,0,0,0,0,0,0];   /* v389: overall 1.0, root 0.5 */   /* v377: the default lights the root alone; the other degrees start at zero */
+var DEG_DEFAULT=[1,0.7,0.5,0,0,0,0];   /* v402: Root 1.0, 5th 0.7, 3rd 0.5 (v389 was root 0.5 alone) */   /* v377: the default lights the root alone; the other degrees start at zero */
 var degLight=DEG_DEFAULT.slice();                        /* per-degree strength, before the general fader */
 var modeQ=0.25;          /* spectrogram: sharpness about the modal center frequency.
                             low Q is a broad wash that never closes at the tritone;
@@ -5888,7 +5888,7 @@ function fadeAndStop(vv, tc){
   setTimeout(function(){try{o.stop();}catch(e){}},(tc*6+0.15)*1000);
 }
 var pcLight=false;                 /* OFF: only the registered pitch lights */
-var houseLights=0.25, houseSel=false;   /* v330: false — the house lights fall outside the selection too */              /* silent-surface dimmer: potential vs realization */
+var houseLights=0, houseSel=false;   /* v402: default dark */   /* v330: false — the house lights fall outside the selection too */              /* silent-surface dimmer: potential vs realization */
 var spotAlpha=0;                /* spotlight (glow dot) opacity, 0 = off */
 var fbColSel=null, fbRowSel=null;  /* DAW-style loop selections: which cells respond to lights */
 var FB_BAND=12;                    /* selector band size, CSS px */
@@ -8731,7 +8731,7 @@ document.getElementById('modeCopyBtn').addEventListener('click',function(){
   }catch(e){}
 });
 document.getElementById('modeResetBtn').addEventListener('click',function(){
-  modeMaster=1.0; modeBW=2; modeQ=0.25; degLight=DEG_DEFAULT.slice();
+  modeMaster=1.0; modeBW=1; modeQ=0.25; degLight=DEG_DEFAULT.slice();
   modeGain={ring:1,keys:1,string:1,matrix:1,spec:1,strip:1,haze:1};
   modeLightSync(); modeLightRepaint();
   var ta=document.getElementById('modeJson'); if(ta)ta.style.display='none';
