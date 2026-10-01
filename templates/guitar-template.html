@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v409 · template: guitar, one view, one bar -->
+<!-- Tonal Field — Ring — v410 · template: guitar, one view, one bar -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -829,7 +829,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v409</span></h1>
+  <h1>Tonal Field <span>Ring v410</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1352,7 +1352,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <button class="toggle" id="tabRing" aria-pressed="false" title="let ring: the selected tones (or, with nothing selected, the loop region; with the loop on the whole piece, the whole piece) ring on until their string is struck again. Pressed again over a region already ringing, it takes the let ring away.">let ring</button>
         <span style="position:relative;display:inline-flex;flex:0 0 auto;"><button class="toggle" id="tabPM" aria-pressed="false" title="palm mute: the selected tones (or, with nothing selected, the loop region) are struck with the palm resting on the strings at the bridge — short, dark and thick. Pressed again over a muted region, it lifts the palm. A palm-muted span is not let ring, and the other way round.">P.M.</button><input type="range" id="tabPMAmt" min="0" max="1" step="0.001" value="0.5" title="palm mute depth: how far the palm lies onto the strings from the bridge. Left: open, the string rings. Right: only the click of the pick." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
         <span style="position:relative;display:inline-flex;flex:0 0 auto;"><button class="toggle" id="tabOD" aria-pressed="false" title="overdrive: the selected tones (or, with nothing selected, the loop region) play through a driven amplifier. Pressed again over a driven region, it returns to clean. Overdrive may overlap P.M. and let ring.">O.D.</button><input type="range" id="tabODAmt" min="0" max="1" step="0.001" value="0.5" title="overdrive: how hard the amplifier is driven. Left: a light edge. Right: full saturation." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
-        <span style="position:relative;display:inline-flex;flex:0 0 auto;"><span id="tabStrumLbl" title="strum: the time between strings in a strum" style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a9a96;border:1px solid #3a3a3a;border-radius:3px;padding:5px 8px;white-space:nowrap;">strum 22ms</span><input type="range" id="tabStrumMs" min="0" max="60" step="1" value="22" title="strum: milliseconds between strings. Left: all strings at once. Right: a slow sweep." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
+        <span style="position:relative;display:inline-flex;flex:0 0 auto;"><span id="tabStrumLbl" title="strum: the time between strings in a strum" style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a9a96;border:1px solid #3a3a3a;border-radius:3px;padding:5px 8px;white-space:nowrap;">strum 8ms</span><input type="range" id="tabStrumMs" min="0" max="60" step="1" value="8" title="strum: milliseconds between strings. Left: all strings at once. Right: a slow sweep." style="position:absolute;left:0;top:100%;width:100%;height:10px;margin:2px 0 0 0;"></span>
         <button class="toggle" id="tabSave" title="save the phrase (TAB, sequence, chords) as JSON">save</button>
         <button class="toggle" id="tabLoad" title="load a phrase JSON">load</button>
         <button class="toggle" id="tabClear" title="clear all: every note, bend and chord label goes; the phrase returns to one measure (undo brings it back)">clear all</button>
@@ -4397,7 +4397,7 @@ function seqPreview(n){
 }
 
 /* ── transport: the grid plays the host synth ──────────────── */
-var SEQ_STRUM_MS=22, SEQ_ROLL_MS=70;
+var SEQ_STRUM_MS=8, SEQ_ROLL_MS=70;   /* v410: 8 ms between strings is the default strum */
 /* v315/316: this string's place in the roll — counted from the low string up, or from the high string down when the strum is up */
 function seqStrumRank(n){ if(!n.strum)return 0; var r=0; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(q!==n&&q.strum&&q.start===n.start&&(n.sup?q.voice<n.voice:q.voice>n.voice))r++; } return r; }
 /* v399: a velocity drag — the one note, or the whole selection moved by the same amount, each held to 1..127 */
