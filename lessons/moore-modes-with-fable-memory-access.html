@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v415 · lesson: Moore Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v416 · lesson: Moore Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v415</span></h1>
+  <h1>Tonal Field <span>Ring v416</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10726,6 +10726,7 @@ function fitHeights(){ winFitAll(); }
    selection, option drags a copy, an empty drag draws a rectangle. The playhead drags. The bar at
    the top carries the transport and the meter — the sequencer's own controls, mirrored.
    Everything writes the sequencer, so the global undo covers it. */
+var tabFollowOnly=false;   /* v416 */
 var showTab=false, tabLines=1, tabMPL=2, tabFirstLine=0, tabView=1, tabTopLine=0, tabScrollPend=true;   /* v373: tabLines/tabFirstLine are now the drawn lines (all of them, from 0); tabView = lines the window shows, tabTopLine = the line at its top */
 var TAB_S=1.5;                                             /* v301: everything 50% larger */
 var TAB_FONT=14*TAB_S, TAB_ROW=20*TAB_S, TAB_GUT=34*TAB_S, TAB_TOP=56*TAB_S, TAB_BOT=50*TAB_S;   /* v316: the top band holds the bar numbers, a chord row, and room for bend labels */
@@ -11118,11 +11119,14 @@ function tabPlate(c,x,y,w,h){ c.save(); c.shadowBlur=0; c.fillStyle='rgba(0,0,0,
   if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,Math.min(4*TAB_S,h/2)); c.fill(); } else c.fillRect(x,y,w,h); c.restore(); }
 function tabSize(){
   var cv=tabEl(), sc=tabScrollEl(); if(!cv||!sc)return;
-  tabLines=Math.max(1,tabNLines()); tabFirstLine=0;   /* v373: every line drawn; the window scrolls */
+  if(tabFollowOnly){   /* v416: only the lines in view are drawn, following the playhead — a long phrase at one bar a line was 50 lines a frame */
+    var _ln=Math.floor(Math.floor(Math.max(0,seqPos)/tabCPB())/tabMPL); tabLines=Math.max(1,tabView||1); tabFirstLine=Math.max(0,Math.min(_ln,tabNLines()-tabLines)); }
+  else { tabLines=Math.max(1,tabNLines()); tabFirstLine=0; }   /* v373: every line drawn; the window scrolls */
   var W=Math.max(200,sc.clientWidth-(sc.scrollHeight>sc.clientHeight?0:2)), H=tabLines*tabLineH(), d=tabBigDpr(W,H);
   if(cv.style.width!==W+'px')cv.style.width=W+'px'; if(cv.style.height!==H+'px')cv.style.height=H+'px';
   var pw=Math.round(W*d), ph=Math.round(H*d); if(cv.width!==pw)cv.width=pw; if(cv.height!==ph)cv.height=ph; cv._dpr=d;
-  if(tabScrollPend&&sc.clientHeight>0){ tabScrollPend=false; sc.scrollTop=Math.max(0,tabTopLine*tabLineH()); }
+  if(tabFollowOnly){ if(sc.scrollTop)sc.scrollTop=0; }
+  else if(tabScrollPend&&sc.clientHeight>0){ tabScrollPend=false; sc.scrollTop=Math.max(0,tabTopLine*tabLineH()); }
 }
 /* v373: a tall canvas keeps the screen's resolution unless it would pass what a browser will paint */
 function tabBigDpr(W,H){ var d=tabDpr(); return Math.max(0.5,Math.min(d,30000/Math.max(1,H),Math.sqrt(2.4e8/Math.max(1,W*H)))); }

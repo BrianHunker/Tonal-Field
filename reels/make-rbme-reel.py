@@ -74,7 +74,7 @@ body.reel .header{background:#000 !important;border:none !important;justify-cont
 body.reel .header > *:not(.site-link):not(#reelQ){display:none !important;}
 #reelQ{display:block;width:1080px;text-align:center;white-space:nowrap;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;color:#f4f0e4;line-height:1.08;margin:0 0 8px;letter-spacing:0.005em;}
 body.reel #tabScroll{overflow:hidden !important;}
-body.reel .header .site-link{font-size:40px !important;font-weight:700 !important;letter-spacing:0.05em;color:#ece8dc !important;text-decoration:none;position:static !important;margin:0 auto;}
+body.reel .header .site-link{display:inline-block !important;transform:none !important;left:auto !important;font-size:40px !important;font-weight:700 !important;letter-spacing:0.05em;color:#ece8dc !important;text-decoration:none;position:static !important;margin:0 auto;}
 body.reel .global-toolbar{display:flex !important;background:#000 !important;border:none !important;justify-content:center !important;padding:8px 0 24px !important;}
 body.reel .global-toolbar > *:not(.gx){display:none !important;}
 body.reel .gx{font-size:31.5px !important;margin:0 auto;white-space:nowrap;}
@@ -95,9 +95,15 @@ JS = r'''
   document.body.classList.add('reel');
   /* readability at phone size; each can be tuned from the address: ?outline=0.08&letters=1.55&badges=2 */
   var _q=new URLSearchParams(location.search); function qn(k,d){ var v=parseFloat(_q.get(k)); return isFinite(v)?v:d; }
-  tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55); RING_BADGE_K=qn('badges',2.0);
+  tabFollowOnly=true; tabView=1; tabDpr=function(){ return dpr; };   /* one TAB line drawn, at the resolution it is seen */
+  /* the field's band is 680 tall but the plot keeps the size it had at 600: the letter ring moves out, away from the badges */
+  var BANDK=600/680; PLOT_SCALE=PLOT_SCALE*BANDK;
+  tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55)*BANDK; RING_BADGE_K=qn('badges',2.0)*BANDK;
   function fit(){ var k=Math.min(window.innerWidth/1080,window.innerHeight/1920); document.body.style.transform='scale('+k+')';
-    document.body.style.left=Math.max(0,(window.innerWidth-1080*k)/2)+'px'; }
+    document.body.style.left=Math.max(0,(window.innerWidth-1080*k)/2)+'px';
+    /* the canvases draw at the size they are seen, not at the stage's full 1080 x 1920: a stage shrunk to a window
+       at pixel ratio 2 would otherwise paint four times the pixels it shows, and the audio thread starves */
+    dpr=Math.min(2,Math.max(0.5,(window.devicePixelRatio||1)*k)); }
   fit(); window.addEventListener('resize',fit);
   /* space starts and stops the loop wherever the focus is */
   document.addEventListener('keydown',function(e){ if(e.key===' '||e.code==='Space'){ if(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
@@ -111,9 +117,12 @@ JS = r'''
   _map=function(a,r){ if(a===_la&&r===_lr)return; _mapO(a,r);
     if(_st){ _lx=_st.mx+(_lx-_st.mx)*_st.sx+_st.dx; _ly=_st.my+(_ly-_st.my)*_st.sy+_st.dy; } };
   windPrep=function(){
-    _st=null; _wpO();
+    /* the engine's own windPrep, minus its canvas resizing: the band keeps one size, so the ring's cached layers live */
+    _st=null;
+    _u.k=(Math.abs(R0)<8)?1:Math.max(0,windK); _u.aB=Math.PI/2; _u.Rb=R0;
+    var sFlat=(C-36)/(Math.PI*Math.max(20,Math.abs(R0))); _u.s=(sFlat<1)?1+(sFlat-1)*(1-_u.k):1; _u.ty=0; _la=null;
     var cw=Math.max(W,Math.round(cv.parentElement.clientWidth)), ch=W;
-    if(cv.width!==cw*dpr||cv.height!==ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
+    var bw=Math.round(cw*dpr), bh=Math.round(ch*dpr); if(cv.width!==bw||cv.height!==bh){ cv.width=bw; cv.height=bh; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
     OFFX=(cw-W)/2;
     if(_u.k<0.999){
       var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A+W*(0.03+0.04*RING_BADGE_K),R0-A-W*(0.03+0.04*RING_BADGE_K),RL+W*(0.015+0.03*RING_LETTER_K),R0];   /* the curve, its badges past each peak and trough, and the letter row */
@@ -134,9 +143,9 @@ JS = r'''
   drawRingBase=shifted(_rb); drawRingTop=shifted(_rt); drawRingDynamic=shifted(_rd);
   if(typeof seqRingBacklight==='function'){ var _bl=seqRingBacklight; seqRingBacklight=shifted(_bl); }
   /* the stage's own layout, in stage pixels */
-  var REEL_TAB_K=2.3, RING=600, GAP=14;
+  var REEL_TAB_K=2.1, RING=680, GAP=12;
   var _tss=tabScaleSet; tabScaleSet=function(){ _tss(REEL_TAB_K); };
-  var LOGO=560, endBox=document.createElement('div'); endBox.id='reelEnd';
+  var LOGO=600, endBox=document.createElement('div'); endBox.id='reelEnd';
   endBox.innerHTML='<div class="tag">Stay tuned for more demos</div><img src="../icons/gg-512.png" width="'+LOGO+'" height="'+LOGO+'">';
   endBox.style.transform='translateY(-2400px)'; document.body.appendChild(endBox);
   var G=null, _scNow=0;
@@ -145,9 +154,9 @@ JS = r'''
       FB_BAND=0; tabScaleSet(); fbNumPx=Math.round(TAB_FONT); FB_NUMH=Math.round(TAB_FONT*1.3);   /* fret numbers the size of the TAB's */ var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
       winL.ring={x:0,y:0,w:DW,h:RING}; winPlace('ring'); ringMaxH=RING; sizeRing();
       var y=RING+GAP; winL.fret={x:0,y:y,w:DW,h:500}; winPlace('fret');
-      var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, H=Math.round(fbStrings*cw/FB_PHI+fbFootH());
+      var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, chh=cw/FB_PHI*0.88, H=Math.round(fbStrings*chh+fbFootH());   /* rows a little shorter than golden */
       winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+H+4); winPlace('fret');
-      fbCellW=cw; fbCellH=null; fbPanX=0; fbPanY=0; fretViewH=H; sizeFret();
+      fbCellW=cw; fbCellH=chh; fbPanX=0; fbPanY=0; fretViewH=H; sizeFret();
       y+=winL.fret.h+GAP;
       fitQ();
       var tabH=Math.ceil(TAB_TOP+TAB_ROW*(tabNStr()-1)+0.5*TAB_ROW+winChromeAround(document.getElementById('tabScroll'),document.getElementById('tabPanel')));   /* cut just below the low E: the playhead hangs a little past it */
@@ -158,8 +167,8 @@ JS = r'''
             rr=document.getElementById('win-ring').getBoundingClientRect(), fr=document.getElementById('win-fret').getBoundingClientRect();
         var linkTop=sl.top/k, gxBot=gq.bottom/k, ringTop=rr.top/k, ringH=rr.height/k, fretTop=fr.top/k, g=110;
         var dyH=960-(linkTop+gxBot)/2;                                   /* the question, url and equation to the centre */
-        var dyR=(gxBot+dyH+g)-ringTop+14;                                  /* the ring just below them (measured: equal gaps, 132 px each) */
-        var logoTop=(linkTop+dyH)-(g+(ringH-LOGO)/2)-LOGO+14;              /* the badge as far above as the ring is below */
+        var dyR=(gxBot+dyH+g)-ringTop+28;                                  /* the ring just below them (measured: equal gaps, 132 px each) */
+        var logoTop=(linkTop+dyH)-(g+(ringH-LOGO)/2)-LOGO+28;              /* the badge as far above as the ring is below */
         var tagH=endBox.querySelector('.tag').offsetHeight+26, boxTop=logoTop-tagH;
         endBox.style.top=Math.round(boxTop)+'px';
         G={dyH:dyH, dyR:dyR, dyB:1920-fretTop+60, inY:-(boxTop+tagH+LOGO+80)};
