@@ -64,13 +64,16 @@ B['labels']['colors'] = [dark(c) if nm.startswith('~') else c for nm, c in zip(B
 s = s[:m.start(1)] + json.dumps(B, ensure_ascii=False, separators=(',', ':')) + s[m.end(1):]
 s = re.sub(r'var VIEW_NAME=\{[^}]*\};', 'var VIEW_NAME={"1": "ALL"};', s, 1)
 s = re.sub(r'(<button class="toggle view-btn" data-view="[2-6]"[^\n]*\n)', '', s)
+s = s.replace('<a class="site-link"', '<div id="reelQ"><span>Where do chords come from?</span></div>\n  <a class="site-link"', 1)
 s = s.replace('<title>Right Before My Eyes — Tonal Field</title>', '<title>Right Before My Eyes — reel</title>')
 
 CSS = '''<style id="reelCSS">
 html,body{background:#000 !important;overflow:hidden;}
 body.reel{width:1080px;height:1920px;position:absolute;left:0;top:0;transform-origin:0 0;margin:0;}
-body.reel .header{background:#000 !important;border:none !important;justify-content:center !important;padding:52px 0 4px !important;}
-body.reel .header > *:not(.site-link){display:none !important;}
+body.reel .header{background:#000 !important;border:none !important;justify-content:center !important;flex-direction:column !important;align-items:center !important;padding:34px 0 4px !important;}
+body.reel .header > *:not(.site-link):not(#reelQ){display:none !important;}
+#reelQ{display:block;width:1080px;text-align:center;white-space:nowrap;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;color:#f4f0e4;line-height:1.08;margin:0 0 8px;letter-spacing:0.005em;}
+body.reel #tabScroll{overflow:hidden !important;}
 body.reel .header .site-link{font-size:40px !important;font-weight:700 !important;letter-spacing:0.05em;color:#ece8dc !important;text-decoration:none;position:static !important;margin:0 auto;}
 body.reel .global-toolbar{display:flex !important;background:#000 !important;border:none !important;justify-content:center !important;padding:8px 0 24px !important;}
 body.reel .global-toolbar > *:not(.gx){display:none !important;}
@@ -143,14 +146,15 @@ JS = r'''
       winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+H+4); winPlace('fret');
       fbCellW=cw; fbCellH=null; fbPanX=0; fbPanY=0; fretViewH=H; sizeFret();
       y+=winL.fret.h+GAP;
-      var tabH=Math.ceil(tabLineH()+winChromeAround(document.getElementById('tabScroll'),document.getElementById('tabPanel')));
+      fitQ();
+      var tabH=Math.ceil(TAB_TOP+TAB_ROW*(tabNStr()-1)+0.5*TAB_ROW+winChromeAround(document.getElementById('tabScroll'),document.getElementById('tabPanel')));   /* cut just below the low E: the playhead hangs a little past it */
       winL.tab={x:0,y:y,w:DW,h:tabH}; winPlace('tab');
       if(_scNow===0){   /* the resting geometry, measured before anything has moved */
         var k=parseFloat((document.body.style.transform.match(/scale\(([^)]+)\)/)||[0,1])[1])||1;
-        var sl=document.querySelector('.header .site-link').getBoundingClientRect(), gq=document.querySelector('.gx').getBoundingClientRect(),
+        var sl=document.getElementById('reelQ').getBoundingClientRect(), gq=document.querySelector('.gx').getBoundingClientRect(),
             rr=document.getElementById('win-ring').getBoundingClientRect(), fr=document.getElementById('win-fret').getBoundingClientRect();
         var linkTop=sl.top/k, gxBot=gq.bottom/k, ringTop=rr.top/k, ringH=rr.height/k, fretTop=fr.top/k, g=110;
-        var dyH=960-(linkTop+gxBot)/2;                                   /* the url and equation to the centre */
+        var dyH=960-(linkTop+gxBot)/2;                                   /* the question, url and equation to the centre */
         var dyR=(gxBot+dyH+g)-ringTop+14;                                  /* the ring just below them (measured: equal gaps, 132 px each) */
         var logoTop=(linkTop+dyH)-(g+(ringH-LOGO)/2)-LOGO+14;              /* the badge as far above as the ring is below */
         var tagH=endBox.querySelector('.tag').offsetHeight+26, boxTop=logoTop-tagH;
@@ -160,6 +164,7 @@ JS = r'''
       requestFret(); if(typeof tabRequest==='function')tabRequest(); if(typeof draw==='function')draw();
     }catch(e){ console.error(e); }
   }
+  function fitQ(){ var q=document.getElementById('reelQ'); if(!q)return; var sp=q.querySelector('span'); q.style.fontSize='100px'; var w=sp.offsetWidth||1; q.style.fontSize=(100*1036/w).toFixed(2)+'px'; }
   window.reelLayout=reelLayout;
   setTimeout(reelLayout,400); setTimeout(reelLayout,1200);
   window.addEventListener('resize',function(){ setTimeout(reelLayout,60); });
