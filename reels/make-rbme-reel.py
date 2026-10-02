@@ -98,6 +98,7 @@ JS = r'''
   tabFollowOnly=true; tabView=1; tabDpr=function(){ return dpr; };   /* one TAB line drawn, at the resolution it is seen */
   /* the field's band is 680 tall but the plot keeps the size it had at 600: the letter ring moves out, away from the badges */
   var BANDK=600/680; PLOT_SCALE=PLOT_SCALE*BANDK;
+  ringDegreeWeights={root:qn('root',5.0), fifth:qn('fifth',3.0), third:qn('third',1.4)};   /* ?root=&fifth=&third= */
   tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55)*BANDK; RING_BADGE_K=qn('badges',2.0)*BANDK;
   function fit(){ var k=Math.min(window.innerWidth/1080,window.innerHeight/1920); document.body.style.transform='scale('+k+')';
     document.body.style.left=Math.max(0,(window.innerWidth-1080*k)/2)+'px';
@@ -187,18 +188,18 @@ JS = r'''
      bars 41-42, as the victory lap begins, everything scrolls down: fretboard and TAB off the bottom, the ring to the lower
      half, url and equation to the centre, and the studio's badge in from above, as far over the url as the ring is under the
      equation, with 'Stay tuned for more demos' over it.
-     bars 27-28 (the F chord of R-5-R-3) the waterline opens, rho 0.5 to 2.0, so the anti badges stand apart. Then the closing chord, held two bars. */
+     bars 25-26 (the Do chord of R-5-R-3) the waterline opens, rho 0.5 to 2.0, so the anti badges stand apart. Then the closing chord, held two bars. */
   function ease(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
   window.reelState=function(p){
     var bar=p/16;
-    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2), rho=0.5+1.5*ease((bar-26)/2);
+    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2), rho=0.5+1.5*ease((bar-24)/2);
     return {wind:wind, off:Math.PI*turn, scroll:sc, rho:rho};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
   };
   var _last='';
   function choreo(){
     var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.scroll.toFixed(4)+'|'+st.rho.toFixed(4);
     if(key!==_last&&G){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; _scNow=st.scroll;
-      var Rr=0.383, nf=Rr*(st.rho-1)/(st.rho+1); if(Math.abs(nf-rInF)>1e-6){ rInF=nf; geom(); }   /* the waterline: rho 0.5 -> 2.0 over the F chord of R-5-R-3 */
+      var Rr=0.383, nf=Rr*(st.rho-1)/(st.rho+1); if(Math.abs(nf-rInF)>1e-6){ rInF=nf; geom(); }   /* the waterline: rho 0.5 -> 2.0 over the Do chord of R-5-R-3 */
       function ty(el,y){ if(el)el.style.transform=y?'translateY('+y.toFixed(1)+'px)':''; }
       var sc=st.scroll;
       ty(document.querySelector('.header'),G.dyH*sc); ty(document.querySelector('.global-toolbar'),G.dyH*sc);

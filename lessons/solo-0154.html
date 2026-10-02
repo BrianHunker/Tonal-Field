@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v416 · lesson: “Crazy For You” Solo [01:54] -->
+<!-- Tonal Field — Ring — v417 · lesson: “Crazy For You” Solo [01:54] -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v416</span></h1>
+  <h1>Tonal Field <span>Ring v417</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1743,7 +1743,8 @@ function chromaAngle(chromaSemi){
 }
 
 var windK=1;
-var RING_LETTER_K=1, RING_BADGE_K=1;          /* v414: the ring's letter and badge sizes, as multiples of their own */
+var RING_LETTER_K=1, RING_BADGE_K=1;
+var ringDegreeWeights=null;   /* v417: {root,fifth,third} line widths for the sounding tones' dashed lines, by degree from the mode's root */          /* v414: the ring's letter and badge sizes, as multiples of their own */
 var tabDigitRing=false, tabDigitRingW=0.08;   /* v414: TAB numbers outlined in white, dark until they sound (width as a share of the font) */
 var ringMaxH=1e9;                 /* ring height budget set by fitHeights */
 var centerSplit=2/3;              /* share of the center column above the divider */
@@ -2059,6 +2060,8 @@ function drawRingDynamic(hh){
       var _k=0.15+0.85*Math.sqrt(_lv), _rd=W*0.0155*(0.45+0.55*_k);
       ctx.strokeStyle=rgba(dc,0.9*_k);
       ctx.lineWidth=note.latched?2.8:(note.vel!==undefined?(1.1+1.7*note.vel):1.5);
+      if(ringDegreeWeights){ var _m=seqModeAt(Math.floor(seqPos)); if(_m&&_m.val){ var _dg=((Math.round(note.chroma-_m.anchor)%12)+12)%12;   /* v417: the chord's root thickest, its 5th middle, its 3rd thinnest */
+        var _w=ringDegreeWeights[_dg===0?'root':(_dg===7?'fifth':((_dg===3||_dg===4)?'third':''))]; if(_w)ctx.lineWidth=_w; } }
       ctx.setLineDash([5,4]);
       ctx.beginPath();
       ctx.moveTo(PX(a,Math.max(2,R0-A-W*0.016)),PY(a,Math.max(2,R0-A-W*0.016)));
