@@ -12472,7 +12472,7 @@ if(!RM){
   /* the choreography, read off the playhead (in sixteenths; a bar is 16):
      bars 1-16 the field lies flat as a line, E-flat/Re at both ends;
      bars 17-18 it winds into the ring, the two Re's meeting at the bottom; 19-20 it holds, inverted;
-     bars 21-22 it turns clockwise until E-flat/Re stands at the top; then it stays.
+     bars 23-24 (the fourth chord, A-flat) it turns clockwise until E-flat/Re stands at the top; then it stays.
      bars 41-42, as the victory lap begins, everything scrolls down: fretboard and TAB off the bottom, the ring to the lower
      half, url and equation to the centre, and the studio's badge in from above, as far over the url as the ring is under the
      equation, with 'Stay tuned for more demos' over it.
@@ -12480,7 +12480,7 @@ if(!RM){
   function ease(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
   window.reelState=function(p){
     var bar=p/16;
-    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2), rho=0.5+1.5*ease((bar-24)/2);
+    var wind=ease((bar-16)/2), turn=ease((bar-22)/2), sc=ease((bar-40)/2), rho=0.5+1.5*ease((bar-24)/2);
     return {wind:wind, off:Math.PI*turn, scroll:sc, rho:rho};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
   };
   var _last='';
