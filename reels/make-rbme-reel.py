@@ -9,7 +9,7 @@ m = re.search(r'var BOOT_CFG=(\{.*?\});\n', s, re.S); B = json.loads(m.group(1))
 
 # ---- the sequence: views 1-5 in order, then view 5 again ------------------------------------------------------
 SEC = [B['views'][k]['state']['seq']['snap'] for k in '12345'] + [B['views']['5']['state']['seq']['snap']]
-BARS = 8 * len(SEC); DIV = 16 * BARS
+BARS = 8 * len(SEC) + 2; DIV = 16 * BARS            # + the closing Do chord, held two bars
 # chord of each 2-bar pair, with its solfege in D-flat (Do = D-flat) and its quality
 CH = [dict(n='D♭', R='Do', T='Mi', F='Sol', minor=False), dict(n='F', R='Mi', T='Sol', F='Ti', minor=True),
       dict(n='B♭', R='La', T='Do', F='Mi', minor=True), dict(n='A♭', R='Sol', T='Ti', F='Re', minor=False)]
@@ -29,6 +29,12 @@ for i, sn in enumerate(SEC):
         chords.append({'col': o + 16 * b, 'text': label(min(i, 3), CH[b // 2])})
     for col in range(0, 128, 2):                       # every other strike keeps its label off
         if col % 16: chords.append({'col': o + col, 'text': '', 'off': True})
+# the close: one full Do chord (the R-5-R-3-5-R barre) struck on the downbeat after the last bar, held two bars
+o = 128 * len(SEC); last = SEC[-1]
+for n in [x for x in last['notes'] if x['start'] == 0]:
+    q = dict(n); q['start'] = o; q['dur'] = 32; q['vel'] = 96; q.pop('sup', None); notes.append(q)
+for md in [x for x in last['modes'] if x['col'] == 0]: q = dict(md); q['col'] = o; modes.append(q)
+chords.append({'col': o, 'text': label(3, CH[0])})
 chords.sort(key=lambda c: c['col'])
 
 allv = copy.deepcopy(B['views']['6'])
@@ -40,7 +46,7 @@ allv['tab_'] = {"lines": 1, "mpl": 1, "first": 0, "capoRel": True}
 su = allv['state']['surface']; su.update(labelScale=2.4, frets=7, cellW=None, cellH=None, panX=0, panY=0, capo=0, colSel=None, rowSel=None, lefty=False)
 allv['state']['ring']['wind'] = 0
 snap = allv['state']['seq']['snap']
-snap.update(bars=BARS, divs=DIV, notes=notes, chords=chords, modes=modes, pm=pm, od=[], ring=[], pedal=[], accomp=[], loop=True, loopA=0, loopB=DIV, strumMs=8)
+snap.update(bars=BARS, divs=DIV, notes=notes, chords=chords, modes=modes, pm=pm, od=[], ring=[], pedal=[], accomp=[], loop=False, loopA=0, loopB=DIV, strumMs=8)
 allv['state']['seq']['pos'] = 0
 B['views'] = {'1': allv}; B['views'].update({str(k): None for k in range(2, 8)}); B['bootView'] = 1
 for k in ('seq', 'keyboard', 'string', 'spectrogram', 'staff', 'guide', 'lessons'): B['view'][k] = False
@@ -72,9 +78,14 @@ body.reel .gx{font-size:31.5px !important;margin:0 auto;white-space:nowrap;}
 body.reel .gx #t-beat, body.reel .gx #t-res{opacity:1 !important;}
 body.reel .gx .f-x{color:#cfcbc0 !important;}
 body.reel #t-res .f-env{color:#e4e0d4 !important;} body.reel #t-res .f-car{color:#7ee0bf !important;}
-body.reel, body.reel #desk, body.reel .win, body.reel .win-body, body.reel .panel, body.reel #fretWrap, body.reel #tabScroll{background:#000 !important;border-color:transparent !important;box-shadow:none !important;}
+body.reel, body.reel .win, body.reel .win-body, body.reel .panel, body.reel #fretWrap, body.reel #tabScroll{background:#000 !important;border-color:transparent !important;box-shadow:none !important;}
 body.reel .win{border:none !important;}
-#reelLogo{position:absolute;pointer-events:none;opacity:0;z-index:50;}
+#reelLogo{position:absolute;pointer-events:none;opacity:0;z-index:-1;}
+#reelCTA{position:absolute;left:0;width:1080px;text-align:center;pointer-events:none;opacity:0;z-index:60;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#ece8dc;}
+#reelCTA .l1{font-size:38px;letter-spacing:0.03em;color:#cfcbc0;} #reelCTA .l2{font-size:52px;font-weight:700;letter-spacing:0.04em;margin-top:10px;}
+/* the badge sits behind the fretboard: the board's black lets it through, its light lies over it */
+body.reel #win-fret, body.reel #win-fret .win-body, body.reel #fretPanel, body.reel #fretWrap{background:transparent !important;}
+body.reel #desk{background:transparent !important;} body.reel #win-fret{mix-blend-mode:screen;}
 </style>
 '''
 s = s.replace('</head>', CSS + '</head>', 1)
@@ -123,6 +134,7 @@ JS = r'''
   var REEL_TAB_K=2.3, RING=600, GAP=14;
   var _tss=tabScaleSet; tabScaleSet=function(){ _tss(REEL_TAB_K); };
   var logo=document.createElement('img'); logo.id='reelLogo'; logo.src='../icons/gg-512.png'; document.body.appendChild(logo);
+  var cta=document.createElement('div'); cta.id='reelCTA'; cta.innerHTML='<div class="l1">To learn more visit:</div><div class="l2">GablesGuitar.com/tonal-field</div>'; document.body.appendChild(cta);
   function reelLayout(){
     try{
       FB_BAND=0; tabScaleSet(); var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
@@ -134,8 +146,10 @@ JS = r'''
       y+=winL.fret.h+GAP;
       var tabH=Math.ceil(tabLineH()+winChromeAround(document.getElementById('tabScroll'),document.getElementById('tabPanel')));
       winL.tab={x:0,y:y,w:DW,h:tabH}; winPlace('tab');
-      var rw=document.getElementById('win-ring'); if(rw){ var r=rw.getBoundingClientRect(), k=parseFloat((document.body.style.transform.match(/scale\(([^)]+)\)/)||[0,1])[1])||1, L=520;
-        logo.style.width=L+'px'; logo.style.left=Math.round((r.left-parseFloat(document.body.style.left||0))/k+(r.width/k-L)/2)+'px'; logo.style.top=Math.round(r.top/k+(r.height/k-L)/2)+'px'; }
+      var fw=document.getElementById('win-fret'), tw=document.getElementById('win-tab'); if(fw){ var k=parseFloat((document.body.style.transform.match(/scale\(([^)]+)\)/)||[0,1])[1])||1, bl=parseFloat(document.body.style.left||0);
+        var r=fw.getBoundingClientRect(), L=Math.round(Math.min(r.height/k-20,560));
+        logo.style.width=L+'px'; logo.style.left=Math.round((r.left-bl)/k+(r.width/k-L)/2)+'px'; logo.style.top=Math.round(r.top/k+(r.height/k-L)/2)+'px';
+        var rt=tw?tw.getBoundingClientRect():r; cta.style.top=Math.round(rt.top/k+40)+'px'; }
       requestFret(); if(typeof tabRequest==='function')tabRequest(); if(typeof draw==='function')draw();
     }catch(e){ console.error(e); }
   }
@@ -146,17 +160,20 @@ JS = r'''
      bars 1-16 the field lies flat as a line, E-flat/Re at both ends;
      bars 17-18 it winds into the ring, the two Re's meeting at the bottom; 19-20 it holds, inverted;
      bars 21-22 it turns clockwise until E-flat/Re stands at the top; then it stays.
-     bars 41-42 the studio's badge fades in over the ring, to 75% transparency (25% opaque); it stays to the end */
+     bars 41-42 the studio's badge fades in behind the fretboard, to 75%;
+     bar 49 the closing chord: fretboard and TAB fade out, the badge takes its last 25%, the call to action comes up beneath it */
   function ease(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
   window.reelState=function(p){
     var bar=p/16;
-    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), logoA=0.25*ease((bar-40)/2);
-    return {wind:wind, off:Math.PI*turn, logo:logoA};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
+    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), logoA=0.75*ease((bar-40)/2)+0.25*ease(bar-48), out=ease(bar-48);
+    return {wind:wind, off:Math.PI*turn, logo:logoA, boards:1-out, cta:ease((bar-48.5)*2)};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
   };
   var _last='';
   function choreo(){
-    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.logo.toFixed(3);
-    if(key!==_last){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; logo.style.opacity=st.logo.toFixed(3); requestRing(); requestDraw(); }
+    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.logo.toFixed(3)+'|'+st.boards.toFixed(3);
+    if(key!==_last){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; logo.style.opacity=st.logo.toFixed(3); cta.style.opacity=st.cta.toFixed(3);
+      var fw=document.getElementById('win-fret'), tw=document.getElementById('win-tab'); if(fw)fw.style.opacity=st.boards.toFixed(3); if(tw)tw.style.opacity=st.boards.toFixed(3);
+      requestRing(); requestDraw(); }
     requestAnimationFrame(choreo);
   }
   requestAnimationFrame(choreo);
