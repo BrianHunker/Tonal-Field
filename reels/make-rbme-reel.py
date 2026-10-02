@@ -80,12 +80,9 @@ body.reel .gx .f-x{color:#cfcbc0 !important;}
 body.reel #t-res .f-env{color:#e4e0d4 !important;} body.reel #t-res .f-car{color:#7ee0bf !important;}
 body.reel, body.reel .win, body.reel .win-body, body.reel .panel, body.reel #fretWrap, body.reel #tabScroll{background:#000 !important;border-color:transparent !important;box-shadow:none !important;}
 body.reel .win{border:none !important;}
-#reelLogo{position:absolute;pointer-events:none;opacity:0;z-index:-1;}
-#reelCTA{position:absolute;left:0;width:1080px;text-align:center;pointer-events:none;opacity:0;z-index:60;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#ece8dc;}
-#reelCTA .l1{font-size:38px;letter-spacing:0.03em;color:#cfcbc0;} #reelCTA .l2{font-size:52px;font-weight:700;letter-spacing:0.04em;margin-top:10px;}
-/* the badge sits behind the fretboard: the board's black lets it through, its light lies over it */
-body.reel #win-fret, body.reel #win-fret .win-body, body.reel #fretPanel, body.reel #fretWrap{background:transparent !important;}
-body.reel #desk{background:transparent !important;} body.reel #win-fret{mix-blend-mode:screen;}
+#reelEnd{position:absolute;left:0;width:1080px;text-align:center;pointer-events:none;z-index:60;}
+#reelEnd .tag{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:42px;letter-spacing:0.04em;color:#ece8dc;margin-bottom:26px;}
+#reelEnd img{display:block;margin:0 auto;}
 </style>
 '''
 s = s.replace('</head>', CSS + '</head>', 1)
@@ -113,10 +110,10 @@ JS = r'''
     if(cv.width!==cw*dpr||cv.height!==ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
     OFFX=(cw-W)/2;
     if(_u.k<0.999){
-      var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A,R0-A,RL+W*0.02,R0];
+      var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A+W*0.07,R0-A-W*0.07,RL+W*0.045,R0];   /* the curve, its badges past each peak and trough, and the letter row */
       for(var q=0;q<=96;q++){ var aq=_u.aB-Math.PI+1e-4+(TP-2e-4)*q/96;
         for(var z=0;z<rads.length;z++){ _la=null; _mapO(aq,rads[z]); if(_lx<minX)minX=_lx; if(_lx>maxX)maxX=_lx; if(_ly<minY)minY=_ly; if(_ly>maxY)maxY=_ly; } }
-      var pad=30, f=1-_u.k, sxT=(W+2*OFFX-2*pad)/Math.max(1,maxX-minX), syT=(W-2*pad)/Math.max(1,maxY-minY);
+      var pad=18, f=1-_u.k, sxT=(W+2*OFFX-2*pad)/Math.max(1,maxX-minX), syT=(W-2*pad)/Math.max(1,maxY-minY);
       var mx=(minX+maxX)/2, my=(minY+maxY)/2;
       _st={mx:mx,my:my,sx:1+(sxT-1)*f,sy:1+(syT-1)*f,dx:(W/2-mx)*f,dy:(W/2+RING_UP-my)*f};
     }
@@ -133,8 +130,10 @@ JS = r'''
   /* the stage's own layout, in stage pixels */
   var REEL_TAB_K=2.3, RING=600, GAP=14;
   var _tss=tabScaleSet; tabScaleSet=function(){ _tss(REEL_TAB_K); };
-  var logo=document.createElement('img'); logo.id='reelLogo'; logo.src='../icons/gg-512.png'; document.body.appendChild(logo);
-  var cta=document.createElement('div'); cta.id='reelCTA'; cta.innerHTML='<div class="l1">To learn more visit:</div><div class="l2">GablesGuitar.com/tonal-field</div>'; document.body.appendChild(cta);
+  var LOGO=560, endBox=document.createElement('div'); endBox.id='reelEnd';
+  endBox.innerHTML='<div class="tag">Stay tuned for more demos</div><img src="../icons/gg-512.png" width="'+LOGO+'" height="'+LOGO+'">';
+  endBox.style.transform='translateY(-2400px)'; document.body.appendChild(endBox);
+  var G=null, _scNow=0;
   function reelLayout(){
     try{
       FB_BAND=0; tabScaleSet(); var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
@@ -146,10 +145,18 @@ JS = r'''
       y+=winL.fret.h+GAP;
       var tabH=Math.ceil(tabLineH()+winChromeAround(document.getElementById('tabScroll'),document.getElementById('tabPanel')));
       winL.tab={x:0,y:y,w:DW,h:tabH}; winPlace('tab');
-      var fw=document.getElementById('win-fret'), tw=document.getElementById('win-tab'); if(fw){ var k=parseFloat((document.body.style.transform.match(/scale\(([^)]+)\)/)||[0,1])[1])||1, bl=parseFloat(document.body.style.left||0);
-        var r=fw.getBoundingClientRect(), L=Math.round(Math.min(r.height/k-20,560));
-        logo.style.width=L+'px'; logo.style.left=Math.round((r.left-bl)/k+(r.width/k-L)/2)+'px'; logo.style.top=Math.round(r.top/k+(r.height/k-L)/2)+'px';
-        var rt=tw?tw.getBoundingClientRect():r; cta.style.top=Math.round(rt.top/k+40)+'px'; }
+      if(_scNow===0){   /* the resting geometry, measured before anything has moved */
+        var k=parseFloat((document.body.style.transform.match(/scale\(([^)]+)\)/)||[0,1])[1])||1;
+        var sl=document.querySelector('.header .site-link').getBoundingClientRect(), gq=document.querySelector('.gx').getBoundingClientRect(),
+            rr=document.getElementById('win-ring').getBoundingClientRect(), fr=document.getElementById('win-fret').getBoundingClientRect();
+        var linkTop=sl.top/k, gxBot=gq.bottom/k, ringTop=rr.top/k, ringH=rr.height/k, fretTop=fr.top/k, g=110;
+        var dyH=960-(linkTop+gxBot)/2;                                   /* the url and equation to the centre */
+        var dyR=(gxBot+dyH+g)-ringTop+14;                                  /* the ring just below them (measured: equal gaps, 132 px each) */
+        var logoTop=(linkTop+dyH)-(g+(ringH-LOGO)/2)-LOGO+14;              /* the badge as far above as the ring is below */
+        var tagH=endBox.querySelector('.tag').offsetHeight+26, boxTop=logoTop-tagH;
+        endBox.style.top=Math.round(boxTop)+'px';
+        G={dyH:dyH, dyR:dyR, dyB:1920-fretTop+60, inY:-(boxTop+tagH+LOGO+80)};
+      }
       requestFret(); if(typeof tabRequest==='function')tabRequest(); if(typeof draw==='function')draw();
     }catch(e){ console.error(e); }
   }
@@ -160,19 +167,25 @@ JS = r'''
      bars 1-16 the field lies flat as a line, E-flat/Re at both ends;
      bars 17-18 it winds into the ring, the two Re's meeting at the bottom; 19-20 it holds, inverted;
      bars 21-22 it turns clockwise until E-flat/Re stands at the top; then it stays.
-     bars 41-42 the studio's badge fades in behind the fretboard, to 75%;
-     bar 49 the closing chord: fretboard and TAB fade out, the badge takes its last 25%, the call to action comes up beneath it */
+     bars 41-42, as the victory lap begins, everything scrolls down: fretboard and TAB off the bottom, the ring to the lower
+     half, url and equation to the centre, and the studio's badge in from above, as far over the url as the ring is under the
+     equation, with 'Stay tuned for more demos' over it. Then the closing chord, held two bars. */
   function ease(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
   window.reelState=function(p){
     var bar=p/16;
-    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), logoA=0.75*ease((bar-40)/2)+0.25*ease(bar-48), out=ease(bar-48);
-    return {wind:wind, off:Math.PI*turn, logo:logoA, boards:1-out, cta:ease((bar-48.5)*2)};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
+    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2);
+    return {wind:wind, off:Math.PI*turn, scroll:sc};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
   };
   var _last='';
   function choreo(){
-    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.logo.toFixed(3)+'|'+st.boards.toFixed(3);
-    if(key!==_last){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; logo.style.opacity=st.logo.toFixed(3); cta.style.opacity=st.cta.toFixed(3);
-      var fw=document.getElementById('win-fret'), tw=document.getElementById('win-tab'); if(fw)fw.style.opacity=st.boards.toFixed(3); if(tw)tw.style.opacity=st.boards.toFixed(3);
+    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.scroll.toFixed(4);
+    if(key!==_last&&G){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; _scNow=st.scroll;
+      function ty(el,y){ if(el)el.style.transform=y?'translateY('+y.toFixed(1)+'px)':''; }
+      var sc=st.scroll;
+      ty(document.querySelector('.header'),G.dyH*sc); ty(document.querySelector('.global-toolbar'),G.dyH*sc);
+      ty(document.getElementById('win-ring'),G.dyR*sc);
+      ty(document.getElementById('win-fret'),G.dyB*sc); ty(document.getElementById('win-tab'),G.dyB*sc);
+      endBox.style.transform='translateY('+(G.inY*(1-sc)).toFixed(1)+'px)';
       requestRing(); requestDraw(); }
     requestAnimationFrame(choreo);
   }
