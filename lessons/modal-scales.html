@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v413 · lesson: Modal Scales -->
+<!-- Tonal Field — Ring — v414 · lesson: Modal Scales -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v413</span></h1>
+  <h1>Tonal Field <span>Ring v414</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1749,6 +1749,8 @@ function chromaAngle(chromaSemi){
 }
 
 var windK=1;
+var RING_LETTER_K=1, RING_BADGE_K=1;          /* v414: the ring's letter and badge sizes, as multiples of their own */
+var tabDigitRing=false, tabDigitRingW=0.08;   /* v414: TAB numbers outlined in white, dark until they sound (width as a share of the font) */
 var ringMaxH=1e9;                 /* ring height budget set by fitHeights */
 var centerSplit=2/3;              /* share of the center column above the divider */
 var centerSplitManual=false;      /* true once the user drags the divider: the upper share
@@ -2152,7 +2154,7 @@ function drawRingTop(hh){
       }
     }
     if(showLetters){
-      ctx.font='500 '+Math.round(W*0.031*RFIT)+'px "IBM Plex Mono", monospace';
+      ctx.font='500 '+Math.round(W*0.031*RFIT*RING_LETTER_K)+'px "IBM Plex Mono", monospace';
       var lc;
       if(!colorLetters||!valenceOn){ lc=[201,201,196]; }
       else if(greyscale){ var l=Math.round(255*(v+1)/2); lc=[l,l,l]; }
@@ -2190,7 +2192,7 @@ function drawRingTop(hh){
   }
 
   if(showBadges&&valenceOn){
-    ctx.font='600 '+Math.round(W*0.0235*RFIT)+'px "IBM Plex Mono", monospace';
+    ctx.font='600 '+Math.round(W*0.0235*RFIT*RING_BADGE_K)+'px "IBM Plex Mono", monospace';
     for(var j=0;j<12;j++){
       var v=vcan(j);
       var a = dial==='chromatic' ? sa(phi + j*ST) : slotAngle(aSlotNow() + 7*j);
@@ -11236,10 +11238,11 @@ function tabRender(){
       if(nn.strum){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
       tabPlate(c,nx-tw/2,R0.y-bh,tw,2*bh);
       if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
-      c.fillStyle=rgba(col,alpha); c.textAlign='center';
+      c.fillStyle=tabDigitRing?rgba(sounding?col:[Math.round(col[0]*0.32),Math.round(col[1]*0.32),Math.round(col[2]*0.32)],1):rgba(col,alpha); c.textAlign='center';   /* v414: ring style — dark at rest, lit as it sounds */
       /* v352: a sounding number glows, but the glow is its own layer beneath — the digits and their outline stay crisp */
       if(sounding){ c.save(); c.shadowColor=rgba(col,0.9); c.shadowBlur=10*TAB_S; c.fillText(txt,nx,R0.y); c.restore(); }
-      outlined(txt,nx,R0.y);
+      if(tabDigitRing){ c.lineJoin='round'; c.lineWidth=tabDigitRingW*TAB_FONT; c.strokeStyle='rgba(255,255,255,0.95)'; c.strokeText(txt,nx,R0.y); c.fillText(txt,nx,R0.y); }   /* v414: a white outline that stays */
+      else outlined(txt,nx,R0.y);
     }
     /* v310: a bend — the pitch contour drawn along the span, with its size at the crest */
     if(nn.bend&&nn.bend.length&&nn.start>=lo){

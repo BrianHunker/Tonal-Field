@@ -43,7 +43,7 @@ allv.update(plotRing=True, surface=True, tab=True)
 allv['layout'].update({"ring": {"x": 0.2, "y": 0.0, "w": 0.6, "h": 0.6}, "fret": {"x": 0.0, "y": 0.62, "w": 1.0, "h": 0.42},
                        "tab": {"x": 0.0, "y": 1.06, "w": 1.0, "h": 0.42}})
 allv['tab_'] = {"lines": 1, "mpl": 1, "first": 0, "capoRel": True}
-su = allv['state']['surface']; su.update(labelScale=2.4, frets=7, cellW=None, cellH=None, panX=0, panY=0, capo=0, colSel=None, rowSel=None, lefty=False)
+su = allv['state']['surface']; su.update(badgeIn=1, badgeOut=1, labelScale=2.4, frets=7, cellW=None, cellH=None, panX=0, panY=0, capo=0, colSel=None, rowSel=None, lefty=False)
 allv['state']['ring']['wind'] = 0
 snap = allv['state']['seq']['snap']
 snap.update(bars=BARS, divs=DIV, notes=notes, chords=chords, modes=modes, pm=pm, od=[], ring=[], pedal=[], accomp=[], loop=False, loopA=0, loopB=DIV, strumMs=8)
@@ -51,7 +51,7 @@ allv['state']['seq']['pos'] = 0
 B['views'] = {'1': allv}; B['views'].update({str(k): None for k in range(2, 8)}); B['bootView'] = 1
 for k in ('seq', 'keyboard', 'string', 'spectrogram', 'staff', 'guide', 'lessons'): B['view'][k] = False
 B['view'].update(plotRing=True, surface=True, tab=True, bare=True); B['view']['layout'] = copy.deepcopy(allv['layout'])
-B['surface'].update(labelScale=2.4, frets=7, cellW=None, panX=0, panY=0)
+B['surface'].update(badgeIn=1, badgeOut=1, labelScale=2.4, frets=7, cellW=None, panX=0, panY=0)
 B['tab'] = {"lines": 1, "mpl": 1, "first": 0, "capoRel": True}
 B['sequence'] = copy.deepcopy(snap)
 B['field'].update(phi=allv['state']['ring']['phi'], topPc=allv['state']['ring']['topPc'], diatonic=True, pentatonic=False, wind=0)
@@ -93,6 +93,9 @@ s = s.replace('</head>', CSS + '</head>', 1)
 JS = r'''
 (function(){
   document.body.classList.add('reel');
+  /* readability at phone size; each can be tuned from the address: ?outline=0.08&letters=1.55&badges=2 */
+  var _q=new URLSearchParams(location.search); function qn(k,d){ var v=parseFloat(_q.get(k)); return isFinite(v)?v:d; }
+  tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55); RING_BADGE_K=qn('badges',2.0);
   function fit(){ var k=Math.min(window.innerWidth/1080,window.innerHeight/1920); document.body.style.transform='scale('+k+')';
     document.body.style.left=Math.max(0,(window.innerWidth-1080*k)/2)+'px'; }
   fit(); window.addEventListener('resize',fit);
@@ -199,4 +202,10 @@ JS = r'''
 })();
 '''
 k = s.rindex('})();\n</script>'); s = s[:k] + '/* ===== reel ===== */\n' + JS + s[k:]
+import base64
+ir = open('ir/studio-room.js').read()
+s = s.replace('<script src="../ir/studio-room.js"></script>', '<script>' + ir + '</script>', 1)
+logo = 'data:image/png;base64,' + base64.b64encode(open('icons/gg-512.png', 'rb').read()).decode()
+s = s.replace("'../icons/gg-512.png'", "'" + logo + "'")
+s = s.replace('src="../icons/gg-512.png"', 'src="' + logo + '"')
 open(out, 'w').write(s); print('wrote', out, len(s), 'bars', BARS)
