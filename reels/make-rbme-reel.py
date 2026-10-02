@@ -99,7 +99,7 @@ JS = r'''
   /* the field's band is 680 tall but the plot keeps the size it had at 600: the letter ring moves out, away from the badges */
   var BANDK=600/680; PLOT_SCALE=PLOT_SCALE*BANDK;
   ringDegreeWeights={root:qn('root',5.0), fifth:qn('fifth',3.0), third:qn('third',1.4)};   /* ?root=&fifth=&third= */
-  tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55)*BANDK; RING_BADGE_K=qn('badges',2.0)*BANDK;
+  tabDigitRing=true; tabDigitRingW=qn('outline',0.08); RING_LETTER_K=qn('letters',1.55)*BANDK; RING_BADGE_K=qn('badges',2.0)*BANDK; ringBadgeClear=qn('gap',0.12);   /* ?gap= badge standoff past its text box, as a share of its font */
   function fit(){ var k=Math.min(window.innerWidth/1080,window.innerHeight/1920); document.body.style.transform='scale('+k+')';
     document.body.style.left=Math.max(0,(window.innerWidth-1080*k)/2)+'px';
     /* the canvases draw at the size they are seen, not at the stage's full 1080 x 1920: a stage shrunk to a window

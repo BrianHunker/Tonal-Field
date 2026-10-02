@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v417 · lesson: Modal Progressions -->
+<!-- Tonal Field — Ring — v418 · lesson: Modal Progressions -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v417</span></h1>
+  <h1>Tonal Field <span>Ring v418</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1746,6 +1746,7 @@ function chromaAngle(chromaSemi){
 
 var windK=1;
 var RING_LETTER_K=1, RING_BADGE_K=1;
+var ringBadgeClear=0;   /* v418: when set, ring badges stand off by their text box along the radius, plus this share of their font size once wound (the line keeps its spacing) */
 var ringDegreeWeights=null;   /* v417: {root,fifth,third} line widths for the sounding tones' dashed lines, by degree from the mode's root */          /* v414: the ring's letter and badge sizes, as multiples of their own */
 var tabDigitRing=false, tabDigitRingW=0.08;   /* v414: TAB numbers outlined in white, dark until they sound (width as a share of the font) */
 var ringMaxH=1e9;                 /* ring height budget set by fitHeights */
@@ -2197,6 +2198,12 @@ function drawRingTop(hh){
       var a = dial==='chromatic' ? sa(phi + j*ST) : slotAngle(aSlotNow() + 7*j);
       var r=R0+A*v;
       var rb=r+(v>=-1e-9?1:-1)*W*0.030*RFIT;   /* v415: a hinge (v = 0 up to rounding) wears its badge outside, Fa as Ti */
+      if(ringBadgeClear){   /* v418: the offset above clears the text's half height (the line's vertical case); where the radius runs sideways
+                               on the screen the badge needs its half width instead, so it moves out until the radius leaves its text box (the box's reach along the radius past half height) */
+        var _x0=PX(a,r), _y0=PY(a,r), _ux=PX(a,rb)-_x0, _uy=PY(a,rb)-_y0, _ul=Math.hypot(_ux,_uy);
+        if(_ul>1e-6){ var _fs=W*0.0235*RFIT*RING_BADGE_K, _hh=_fs*0.36, _hw=ctx.measureText(fn[j].n).width/2;
+          var _ax=Math.abs(_ux/_ul), _ay=Math.abs(_uy/_ul), _ex=Math.max(0,Math.min(_ax>1e-6?_hw/_ax:1e9,_ay>1e-6?_hh/_ay:1e9)-_hh)+ringBadgeClear*_fs*Math.max(0,Math.min(1,windK));
+          rb+=(v>=-1e-9?1:-1)*_ex*(Math.abs(rb-r)/_ul); } }
       ctx.fillStyle=rgba(badgeColor(j,v),lblA);
       ctx.fillText(fn[j].n,PX(a,rb),PY(a,rb));
     }
