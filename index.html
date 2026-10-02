@@ -10,98 +10,207 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/gg-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/gg-192.png">
 <link rel="apple-touch-icon" href="icons/gg-180.png">
-<meta name="description" content="Interactive tonal lessons by Brian Hunker: each one plays and animates a progression through the tonal field.">
+<meta name="description" content="Interactive tonal lessons by Brian Hunker: each one plays a piece of music and draws it on the tonal field as it sounds.">
+<meta property="og:title" content="Tonal Field — lessons by Brian Hunker">
+<meta property="og:description" content="Each lesson plays a piece of music and draws it on the tonal field as it sounds.">
+<meta property="og:image" content="images/ring.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;1,500;1,600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --font-sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
-  --font-mono:'IBM Plex Mono',ui-monospace,Monaco,monospace;
-  --font-serif:'IBM Plex Serif',Georgia,serif;
-  --bg:#232323; --panel:#1f1f1f; --line:#3a3a3a; --ink:#d8d8d4; --dim:#8a8a86; --gold:#d8c878;
+  --serif:'IBM Plex Serif',Georgia,serif;
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Monaco,monospace;
+  --bg:#000; --raise:#151413; --rule:#2c2b28; --ink:#ece8dc; --body:#c9c5ba; --dim:#8f8b81; --gold:#e2c46a;
+  --do:#22BB22; --re:#FF8800; --mi:#2255FF; --fa:#FFD700; --sol:#EE0000; --la:#9a4fc4; --ti:#FF00FF;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.55;min-height:100vh;display:flex;flex-direction:column}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--body);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit}
-header{border-bottom:1px solid var(--line);padding:28px 16px 24px}
-.brand{display:flex;align-items:center;gap:20px}
-.brand .logo{flex:0 0 auto;display:block;width:104px;height:104px;border-radius:50%;transition:transform .15s}
-.brand .logo:hover,.brand .logo:focus-visible{transform:scale(1.04);outline:none}
-.brand .logo img{width:100%;height:100%;display:block}
-.brand .words{min-width:0}
-.wrap{max-width:880px;margin:0 auto;width:100%}
-h1{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:34px;color:#e8e6dc;line-height:1.15}
-.tagline{font-size:13px;color:var(--dim);margin-top:4px}
-.eq{font-family:var(--font-serif);font-style:italic;font-size:17px;margin-top:18px;color:#aaa;overflow-wrap:anywhere}
-.eq .g{color:#d8a838}.eq .env{color:#c8c4b8}.eq .car{color:#5acca8}.eq .s5{color:#ffa07a}.eq .s7{color:#7ad9ff}
-main{flex:1;padding:28px 16px 40px}
-.label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
-.lessons{list-style:none;display:flex;flex-direction:column;gap:14px}
-.card{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 20px;transition:border-color .15s}
-.card:hover,.card:focus-visible{border-color:var(--gold);outline:none}
-.card h2{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:23px;color:#e8e6dc;line-height:1.2}
-.views{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 8px}
-.view{font-family:var(--font-mono);font-weight:700;font-size:12px;border:1px solid var(--line);border-radius:3px;padding:3px 8px;background:#262626}
-.view .dash{color:#8a8a86}
-.card p{color:#b4b4b0;font-size:14px}
-.card h2 + p{margin-top:8px}
-.open{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.card:hover .open{color:var(--gold)}
-.note{margin-top:26px;font-size:13px;color:var(--dim)}
-.jump{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
-.jump a{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:3px;padding:5px 10px}
-.jump a:hover,.jump a:focus-visible{color:var(--gold);border-color:var(--gold);outline:none}
-.jump a .n{color:#6f6f6b;margin-left:6px}
-.section{margin-bottom:38px;scroll-margin-top:16px}
-.section-head{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:16px}
-.section-head h3{font-family:var(--font-serif);font-style:italic;font-weight:500;font-size:26px;color:#e8e6dc}
-.section-head .count{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
-.series{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8f8f8a;margin:18px 0 10px}
-.series:first-of-type{margin-top:0}
-footer{border-top:1px solid var(--line);padding:16px;font-family:var(--font-mono);font-size:11px;color:#777}
-footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-footer a{text-decoration:none}footer a:hover{color:var(--gold)}
-footer .credit{margin-top:8px;color:#666;font-size:10px}footer .credit a{text-decoration:underline}
-@media (max-width:520px){h1{font-size:28px}.card{padding:16px}.brand{gap:14px}.brand .logo{width:76px;height:76px}}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+/* top bar */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0}
+.home{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px}
+.home img{width:40px;height:40px;border-radius:50%;display:block}
+.bar .study-link{font-size:15px;font-weight:500;color:var(--gold);text-decoration:none;border-bottom:1px solid transparent}
+.bar .study-link:hover{border-bottom-color:var(--gold)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1fr minmax(0,460px);gap:40px;align-items:center;padding:28px 0 56px}
+.hero h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(46px,7vw,80px);line-height:1;color:var(--ink);letter-spacing:-.01em}
+.hero .by{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--dim);margin-top:12px}
+.hero .lede{font-family:var(--serif);font-size:20px;line-height:1.6;color:var(--ink);margin-top:28px;max-width:34em}
+.lede b{font-family:var(--mono);font-weight:700;font-size:.86em}
+.eq{font-family:var(--serif);font-style:italic;font-size:16px;color:#a9a59b;margin-top:26px;overflow-wrap:anywhere}
+.eq .g{color:#d8a838}.eq .car{color:#5acca8}.eq .s5{color:#ffa07a}.eq .s7{color:#7ad9ff}
+.ring{position:relative;aspect-ratio:1}
+.ring img{width:100%;height:100%;display:block;-webkit-mask-image:radial-gradient(circle closest-side,#000 86%,transparent 100%);mask-image:radial-gradient(circle closest-side,#000 86%,transparent 100%)}
+
+/* section headings */
+h2{font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(30px,4vw,40px);line-height:1.15;color:var(--ink)}
+.sub{color:var(--dim);margin-top:6px;max-width:40em}
+
+/* start here: a real sequence, so it is numbered */
+.start{padding:44px 0 64px;border-top:1px solid var(--rule)}
+.path{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px;counter-reset:step}
+.path li{counter-increment:step}
+.step{position:relative;display:flex;flex-direction:column;height:100%;text-decoration:none;background:var(--raise);border-radius:10px;padding:20px 20px 18px;border-top:3px solid var(--c,var(--gold))}
+.step::before{content:counter(step);font-family:var(--serif);font-style:italic;font-size:34px;line-height:1;color:var(--c,var(--gold))}
+.step .q{font-family:var(--serif);font-size:21px;line-height:1.3;color:var(--ink);margin-top:14px}
+.step .which{font-size:14px;color:var(--dim);margin-top:auto;padding-top:16px}
+.step:hover .q{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+
+/* library */
+.library{padding:44px 0 40px;border-top:1px solid var(--rule)}
+.lib-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:18px 30px}
+.filter{display:inline-flex;background:var(--raise);border-radius:999px;padding:4px}
+.filter button{font:500 15px var(--sans);color:var(--dim);background:none;border:0;border-radius:999px;padding:8px 16px;cursor:pointer}
+.filter button[aria-pressed="true"]{background:var(--ink);color:#000}
+.filter button .n{opacity:.6;margin-left:6px;font-size:13px}
+.shelf{margin-top:42px}
+.shelf h3{font-family:var(--serif);font-weight:400;font-size:26px;color:var(--ink)}
+.shelf .what{color:var(--dim);font-size:15px;margin-top:2px}
+.rows{list-style:none;margin-top:10px}
+.row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 24px;padding:18px 0;border-bottom:1px solid var(--rule)}
+.rows li:first-child .row{border-top:1px solid var(--rule)}
+.row h4{font-family:var(--serif);font-style:italic;font-weight:500;font-size:22px;line-height:1.25;color:var(--ink)}
+.row h4 a{text-decoration:none}
+.row h4 a::after{content:"";position:absolute;inset:0}          /* the whole row opens the lesson */
+.row:hover h4{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.row .inst{grid-column:2;grid-row:1/span 2;align-self:start;padding-top:5px;font-size:13px;line-height:1.35;color:var(--dim);white-space:nowrap;text-align:right}
+.row .inst .ser{display:block}
+.row .about{grid-column:1;font-size:15px;color:var(--body);max-width:46em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row.open .about{display:block}
+.row .more{position:relative;z-index:1;justify-self:start;grid-column:1;font:500 14px var(--sans);color:var(--gold);background:none;border:0;padding:2px 0;cursor:pointer}
+.views{grid-column:1;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.view{font-family:var(--mono);font-weight:700;font-size:12px;line-height:1;padding:6px 8px;border-radius:5px;background:var(--raise);color:#b9b5aa}
+.view .dash{color:#6f6c65}
+.device{margin-top:28px;font-size:14px;color:var(--dim)}
+
+/* study */
+.studyband{margin:40px 0 0;background:var(--raise);border-radius:14px;padding:40px clamp(20px,5vw,56px);display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px 48px;align-items:center}
+.studyband p{color:var(--body);margin-top:12px;max-width:34em}
+.actions{display:flex;flex-direction:column;gap:12px}
+.btn{display:block;text-align:center;text-decoration:none;font-weight:600;font-size:17px;padding:15px 22px;border-radius:999px}
+.btn.primary{background:var(--gold);color:#000}
+.btn.primary:hover{background:#efd486}
+.btn.ghost{border:1.5px solid var(--rule);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--ink)}
+.actions small{text-align:center;color:var(--dim);font-size:14px}
+
+footer{margin-top:56px;border-top:1px solid var(--rule);padding:22px 0 34px;font-size:13px;color:var(--dim)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px}
+footer a{text-decoration:none}footer a:hover{color:var(--ink)}
+footer .credit a{text-decoration:underline}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr;gap:8px;padding-top:4px}
+  .ring{order:-1;max-width:420px;width:100%;margin:0 auto}
+  .path{grid-template-columns:1fr 1fr}
+  .studyband{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .wrap{padding:0 16px}
+  .hero .lede{font-size:18px}
+  .path{grid-template-columns:1fr}
+  .step{padding:16px 18px}
+  .row{grid-template-columns:1fr}
+  .row .inst{grid-column:1;grid-row:auto;text-align:left}
+  .row .inst .ser{display:inline;margin-left:.7em}
+  .bar .study-link{font-size:14px}
+  .home span{display:none}
+}
 </style>
 </head>
 <body>
-<header>
+<div class="wrap">
+  <div class="bar">
+    <a class="home" href="https://gablesguitar.com"><img src="images/gables-guitar-studio.png" alt="" width="40" height="40"><span>Gables Guitar Studio</span></a>
+    <a class="study-link" href="#study">Study with Brian</a>
+  </div>
+
+  <section class="hero">
+    <div>
+      <h1>Tonal Field</h1>
+      <p class="by">Lessons by Brian Hunker</p>
+      <p class="lede" id="lede">Each lesson plays a piece of music and draws it on the tonal field as it sounds. Every note takes the color of its function, and the ring turns as the music moves through it.</p>
+      <p class="eq" aria-label="g of x equals cos x times cos 6x plus one sixth sin x times sin 6x, equals seven twelfths cos 5x plus five twelfths cos 7x"><span class="g">g(x)</span> = cos(x)&middot;<span class="car">cos(6x)</span> + (1/6)&middot;sin(x)&middot;<span class="car">sin(6x)</span> = <span class="s5">(7/12)&middot;cos(5x)</span> + <span class="s7">(5/12)&middot;cos(7x)</span></p>
+    </div>
+    <div class="ring"><img src="images/ring.jpg" alt="The tonal field ring: a five-petalled curve with the seven functions Do, Re, Mi, Fa, Sol, La and Ti in their colors, and the note names around the outside" width="720" height="720"></div>
+  </section>
+</div>
+
+<section class="start" aria-labelledby="start-h">
   <div class="wrap">
-    <div class="brand">
-      <a class="logo" href="https://gablesguitar.com" target="_blank" rel="noopener" title="Gables Guitar Studio"><img src="images/gables-guitar-studio.png" alt="Gables Guitar Studio" width="104" height="104"></a>
-      <div class="words">
-        <h1>Tonal Field</h1>
-        <div class="tagline">ici bas, et retour &middot; lessons by Brian Hunker</div>
+    <h2 id="start-h">New here? Start with these</h2>
+    <p class="sub">Four lessons, in order, each answering one question.</p>
+    <ol class="path" id="path"></ol>
+  </div>
+</section>
+
+<section class="library" aria-labelledby="lib-h">
+  <div class="wrap">
+    <div class="lib-head">
+      <div>
+        <h2 id="lib-h">All lessons</h2>
+        <p class="sub" id="libcount"></p>
+      </div>
+      <div class="filter" role="group" aria-label="Show lessons for" id="filter"></div>
+    </div>
+    <div id="shelves"></div>
+    <p class="device">Each lesson opens in the full Tonal Field tool. Press play above the TAB or the staff to hear and watch it. Best on a laptop or desktop, with the sound on.</p>
+
+    <div class="studyband" id="study">
+      <div>
+        <h2>Study the tonal field one&#8209;on&#8209;one</h2>
+        <p>Brian teaches guitar and piano at Gables Guitar Studio in Coral Gables, Florida, and online. Lessons are for players of every level, built around your own music.</p>
+      </div>
+      <div class="actions">
+        <a class="btn primary" href="https://gablesguitar.com/lessons">See open lesson times</a>
+        <a class="btn ghost" href="sms:+13055826881">Text (305) 582-6881</a>
+        <small>Pick a time on the calendar, or send a text with any questions.</small>
       </div>
     </div>
-    <div class="eq" aria-label="g of x equals cos x times cos 6x plus one sixth sin x times sin 6x, equals seven twelfths cos 5x plus five twelfths cos 7x"><span class="g">g(x)</span> = <span class="env">cos(x)</span>&middot;<span class="car">cos(6x)</span> + (1/6)&middot;<span class="env">sin(x)</span>&middot;<span class="car">sin(6x)</span> = <span class="s5">(7/12)&middot;cos(5x)</span> + <span class="s7">(5/12)&middot;cos(7x)</span></div>
   </div>
-</header>
-<main>
-  <div class="wrap">
-    <nav class="jump" id="jump" aria-label="instruments"></nav>
-    <div id="sections"></div>
-    <p class="note">Each lesson opens in the full Tonal Field tool. Press play above the TAB or the staff to hear and watch it. Best on a laptop or desktop, with the sound on.</p>
-  </div>
-</main>
+</section>
+
 <footer>
-  <div class="wrap"><span>&copy; Brian Hunker</span><a href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a></div>
-  <div class="wrap credit">Piano sound: <a href="samples/piano/CREDITS.md">Salamander Grand Piano V3</a> by Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a> (sampled subset).</div>
+  <div class="wrap"><span>&copy; Brian Hunker</span><a href="https://gablesguitar.com/tonal-field">GablesGuitar.com/tonal-field</a></div>
+  <div class="wrap" style="margin-top:6px;display:block">Piano sound: <a href="samples/piano/CREDITS.md">Salamander Grand Piano V3</a> by Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a> (sampled subset).</div>
 </footer>
+
 <script>
 /* ── THE LESSON LIST ─────────────────────────────────────────────────────────
-   Grouped on the page by instrument (in the order of INSTRUMENTS), and within an instrument by series,
-   in the order the series first appear below. Within a series, lessons appear in the order listed here.
-   To add a lesson: put its HTML file in the lessons/ folder and add one entry here.
+   To add a lesson: put its HTML file in the lessons/ folder and add one entry to LESSONS.
      title       — the lesson's name
      instrument  — 'piano' or 'guitar' (a new one needs a line in INSTRUMENTS)
-     series      — optional: a group of lessons that go together, shown as a sub-heading
+     series      — the group it belongs to; SHELVES below says which shelf each series sits on
      file        — the path to its page, from this folder
      views       — the view buttons inside it (function names are coloured automatically)
-     about       — one or two sentences for students */
+     about       — one or two sentences for students
+   A lesson whose series is on no shelf still shows, on a last shelf called "More". */
 var INSTRUMENTS=[ {id:'guitar',name:'Guitar'}, {id:'piano',name:'Piano'} ];
+
+/* The shelves, top to bottom, and the series on each (in this order). */
+var SHELVES=[
+  { name:'Foundations', what:'Scales, modes and chords: the field itself.', series:['Intro to Tonality','Piano Basics','Scales','Chords & Cadences'] },
+  { name:'Songs',       what:'Real music, heard and seen on the field.',    series:['Repertoire'] },
+  { name:'Lines',       what:'Melodies and solos written from the field rather than the chord.', series:['Lines'] }
+];
+
+/* "New here?" — the path for a first visit, in order: a question each, and the lesson that answers it. */
+var START=[
+  { q:'What are the seven modes?',            file:'lessons/intro-to-tonality-lesson-1.html', c:'--fa' },
+  { q:'Where do chords come from?',           file:'lessons/right-before-my-eyes.html',      c:'--do' },
+  { q:'How do chords move from one to the next?', file:'lessons/modal-progressions.html',   c:'--mi' },
+  { q:'How do you write a line from the field?',  file:'lessons/the-field-in-motion.html',  c:'--sol' }
+];
+
 var LESSONS=[
   { title:'Piano Lesson 1 — Do Scale', instrument:'piano', series:'Piano Basics',
     file:'lessons/piano-lesson-1.html',
@@ -168,39 +277,88 @@ var LESSONS=[
     views:['Roots','Root-5','Root-5-R','R-5-R-3','R-5-R-3-5-R','ALL'],
     about:'D♭, F, B♭, A♭, two bars each in straight eighths — built up one interval at a time from the roots alone to the full barre chord, R-5-R-3-5-R, the interval sequence the lesson is about.' },
 ];
-/* the functions' colours, as the tool draws them */
+
+/* ── rendering (no need to edit below) ── */
 var FN_COL={Do:'#22BB22',Re:'#FF8800',Mi:'#2255FF',Fa:'#FFD700',Sol:'#EE0000',La:'#9a4fc4',Ti:'#FF00FF'};
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function viewHTML(name){
   return name.split(/(-)/).map(function(w){
     if(w==='-')return '<span class="dash">-</span>';
-    return FN_COL[w]?'<span style="color:'+FN_COL[w]+'">'+esc(w)+'</span>':'<span>'+esc(w)+'</span>';
+    return FN_COL[w]?'<span style="color:'+FN_COL[w]+'">'+esc(w)+'</span>':esc(w);
   }).join('');
 }
-function card(L){
+function instName(id){ for(var i=0;i<INSTRUMENTS.length;i++) if(INSTRUMENTS[i].id===id) return INSTRUMENTS[i].name; return id; }
+function byFile(f){ for(var i=0;i<LESSONS.length;i++) if(LESSONS[i].file===f) return LESSONS[i]; return null; }
+
+/* the lede names the seven functions in their colours */
+(function(){
+  var l=document.getElementById('lede');
+  l.innerHTML='Each lesson plays a piece of music and draws it on the tonal field as it sounds. Every note takes the color of its function ('
+    +Object.keys(FN_COL).map(function(k){ return '<b style="color:'+FN_COL[k]+'">'+k+'</b>'; }).join(', ')
+    +') and the ring turns as the music moves through it.';
+})();
+
+/* start here */
+var path=document.getElementById('path');
+START.forEach(function(s){
+  var L=byFile(s.file); if(!L)return;
   var li=document.createElement('li');
-  li.innerHTML='<a class="card" href="'+encodeURI(L.file)+'">'
-    +'<h2>'+esc(L.title)+'</h2>'
-    +(L.views&&L.views.length?'<div class="views">'+L.views.map(function(v){ return '<span class="view">'+viewHTML(v)+'</span>'; }).join('')+'</div>':'')
-    +(L.about?'<p>'+esc(L.about)+'</p>':'')
-    +'<span class="open">open lesson &rarr;</span></a>';
+  li.innerHTML='<a class="step" style="--c:var('+s.c+')" href="'+encodeURI(L.file)+'"><span class="q">'+esc(s.q)+'</span><span class="which">'+esc(L.title)+', '+esc(instName(L.instrument).toLowerCase())+'</span></a>';
+  path.appendChild(li);
+});
+
+/* the library */
+var shelvesEl=document.getElementById('shelves'), filterEl=document.getElementById('filter'), countEl=document.getElementById('libcount');
+var current='all';
+try{ current=localStorage.getItem('tf-instrument')||'all'; }catch(e){}
+
+function row(L,withSeries){
+  var li=document.createElement('li');
+  li.innerHTML='<div class="row">'
+    +'<h4><a href="'+encodeURI(L.file)+'">'+esc(L.title)+'</a></h4>'
+    +'<span class="inst">'+esc(instName(L.instrument||'guitar'))+(withSeries&&L.series?'<span class="ser">'+esc(L.series)+'</span>':'')+'</span>'
+    +(L.about?'<p class="about">'+esc(L.about)+'</p>':'')
+    +(L.views&&L.views.length?'<div class="views" aria-label="Views">'+L.views.map(function(v){ return '<span class="view">'+viewHTML(v)+'</span>'; }).join('')+'</div>':'')
+    +'</div>';
   return li;
 }
-var host=document.getElementById('sections'), jump=document.getElementById('jump');
-INSTRUMENTS.forEach(function(I){
-  var mine=LESSONS.filter(function(L){ return (L.instrument||'guitar')===I.id; }); if(!mine.length)return;
-  var sec=document.createElement('section'); sec.className='section'; sec.id=I.id;
-  sec.innerHTML='<div class="section-head"><h3>'+esc(I.name)+'</h3><span class="count">'+mine.length+' lesson'+(mine.length===1?'':'s')+'</span></div>';
-  var order=[]; mine.forEach(function(L){ var s=L.series||''; if(order.indexOf(s)<0)order.push(s); });
-  order.forEach(function(s){
-    if(s){ var h=document.createElement('div'); h.className='series'; h.textContent=s; sec.appendChild(h); }
-    var ul=document.createElement('ul'); ul.className='lessons';
-    mine.filter(function(L){ return (L.series||'')===s; }).forEach(function(L){ ul.appendChild(card(L)); });
-    sec.appendChild(ul);
+function render(){
+  shelvesEl.innerHTML='';
+  var shown=LESSONS.filter(function(L){ return current==='all'||(L.instrument||'guitar')===current; });
+  var placed={};
+  var shelves=SHELVES.map(function(S){ return {name:S.name,what:S.what,series:S.series.slice()}; });
+  var stray=[]; shown.forEach(function(L){ var on=SHELVES.some(function(S){ return S.series.indexOf(L.series||'')>=0; }); if(!on&&stray.indexOf(L.series||'')<0)stray.push(L.series||''); });
+  if(stray.length) shelves.push({name:'More',what:'',series:stray});
+  shelves.forEach(function(S){
+    var groups=S.series.map(function(s){ return {s:s, items:shown.filter(function(L){ return (L.series||'')===s; })}; }).filter(function(g){ return g.items.length; });
+    if(!groups.length)return;
+    var n=groups.reduce(function(a,g){ return a+g.items.length; },0);
+    var sec=document.createElement('section'); sec.className='shelf';
+    sec.innerHTML='<h3>'+esc(S.name)+'</h3>'+(S.what?'<p class="what">'+esc(S.what)+'</p>':'');
+    groups.forEach(function(g){
+    });
+    var ul=document.createElement('ul'); ul.className='rows'; groups.forEach(function(g){ g.items.forEach(function(L){ ul.appendChild(row(L,S.series.length>1)); }); }); sec.appendChild(ul);
+    shelvesEl.appendChild(sec);
   });
-  host.appendChild(sec);
-  var a=document.createElement('a'); a.href='#'+I.id; a.innerHTML=esc(I.name)+'<span class="n">'+mine.length+'</span>'; jump.appendChild(a);
+  countEl.textContent=shown.length+' lesson'+(shown.length===1?'':'s')+(current==='all'?'':' for '+instName(current).toLowerCase())+', and more added often.';
+  /* a "Read more" only where the description is cut off */
+  [].forEach.call(shelvesEl.querySelectorAll('.row'),function(r){
+    var p=r.querySelector('.about'); if(!p||p.scrollHeight<=p.clientHeight+2)return;
+    var b=document.createElement('button'); b.className='more'; b.type='button'; b.textContent='Read more'; b.setAttribute('aria-expanded','false');
+    b.onclick=function(){ var o=r.classList.toggle('open'); b.textContent=o?'Show less':'Read more'; b.setAttribute('aria-expanded',o?'true':'false'); };
+    p.after(b);
+  });
+  [].forEach.call(filterEl.children,function(b){ b.setAttribute('aria-pressed',b.dataset.id===current?'true':'false'); });
+}
+[{id:'all',name:'All'}].concat(INSTRUMENTS).forEach(function(I){
+  var n=I.id==='all'?LESSONS.length:LESSONS.filter(function(L){ return (L.instrument||'guitar')===I.id; }).length; if(!n)return;
+  var b=document.createElement('button'); b.type='button'; b.dataset.id=I.id; b.innerHTML=esc(I.name)+'<span class="n">'+n+'</span>';
+  b.onclick=function(){ current=I.id; try{ localStorage.setItem('tf-instrument',current); }catch(e){} render(); };
+  filterEl.appendChild(b);
 });
+if(current!=='all'&&!INSTRUMENTS.some(function(I){ return I.id===current; })) current='all';
+render();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(render);   /* re-measure the cut-off descriptions once the fonts are in */
 </script>
 </body>
 </html>
