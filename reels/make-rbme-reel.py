@@ -145,6 +145,8 @@ JS = r'''
   if(typeof seqRingBacklight==='function'){ var _bl=seqRingBacklight; seqRingBacklight=shifted(_bl); }
   /* the stage's own layout, in stage pixels */
   var REEL_TAB_K=2.1, RING=680, GAP=12;
+  /* fretboard rows a little shorter than golden, applied where the board takes its dimensions so the numbers and dots stay on */
+  var FB_ROWK=0.88, _fbD=fbDims; fbDims=function(vw){ var d=_fbD(vw); d.ch*=FB_ROWK; d.CH=d.ch*fbStrings; return d; };
   var _tss=tabScaleSet; tabScaleSet=function(){ _tss(REEL_TAB_K); };
   var LOGO=600, endBox=document.createElement('div'); endBox.id='reelEnd';
   endBox.innerHTML='<div class="tag">Stay tuned for more demos</div><img src="../icons/gg-512.png" width="'+LOGO+'" height="'+LOGO+'">';
@@ -155,7 +157,7 @@ JS = r'''
       FB_BAND=0; tabScaleSet(); fbNumPx=Math.round(TAB_FONT); FB_NUMH=Math.round(TAB_FONT*1.3);   /* fret numbers the size of the TAB's */ var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
       winL.ring={x:0,y:0,w:DW,h:RING}; winPlace('ring'); ringMaxH=RING; sizeRing();
       var y=RING+GAP; winL.fret={x:0,y:y,w:DW,h:500}; winPlace('fret');
-      var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, chh=cw/FB_PHI*0.88, H=Math.round(fbStrings*chh+fbFootH());   /* rows a little shorter than golden */
+      var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, chh=cw/FB_PHI*FB_ROWK, H=Math.round(fbStrings*chh+fbFootH());   /* rows a little shorter than golden */
       winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+H+4); winPlace('fret');
       fbCellW=cw; fbCellH=chh; fbPanX=0; fbPanY=0; fretViewH=H; sizeFret();
       y+=winL.fret.h+GAP;
