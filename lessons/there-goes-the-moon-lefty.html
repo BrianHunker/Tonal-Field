@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v414 · lesson: Here Comes the Sun (left-handed) -->
+<!-- Tonal Field — Ring — v415 · lesson: Here Comes the Sun (left-handed) -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v414</span></h1>
+  <h1>Tonal Field <span>Ring v415</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -2191,7 +2191,7 @@ function drawRingTop(hh){
       var v=vcan(j);
       var a = dial==='chromatic' ? sa(phi + j*ST) : slotAngle(aSlotNow() + 7*j);
       var r=R0+A*v;
-      var rb=r+(v>=0?1:-1)*W*0.030*RFIT;
+      var rb=r+(v>=-1e-9?1:-1)*W*0.030*RFIT;   /* v415: a hinge (v = 0 up to rounding) wears its badge outside, Fa as Ti */
       ctx.fillStyle=rgba(badgeColor(j,v),lblA);
       ctx.fillText(fn[j].n,PX(a,rb),PY(a,rb));
     }
@@ -7677,7 +7677,7 @@ var FB_FOOT=18, FB_DOTS={4:1,6:1,8:1,10:1,13:2,16:1,18:1,20:1,22:1};   /* 1-base
 var FB_DOTS_BANJO={4:1,6:1,8:1,11:1,13:2,16:1,18:1,20:1,23:1};   /* v367: frets 3 5 7 10 12 15 17 19 22 */
 /* v292 — FRET NUMBERS: a row under the bottom string, one number per column. When it is on the
    dots step down beneath it; when it is off the dots keep their place right under the strings. */
-var FB_NUMH=14, fbFretNums=true;
+var FB_NUMH=14, fbFretNums=true, fbNumPx=0;   /* v415: fbNumPx > 0 sets the fret-number size */
 function fbFootH(){ return (fbFretNums?FB_NUMH:0)+(fbHasNeck()?FB_FOOT:0); }
 function fbHasNeck(){ return fbFretZero==='nut'; }
 /* left-handed matrix: the fret order reverses, but nothing is drawn mirrored --
@@ -7950,7 +7950,7 @@ function fretDraw(){
   if(fbFretNums){
     /* v292: the number of each column, under the bottom string — 0 at the open string with a
        nut; signed about the root column in the centred layout. Left-handed, they read mirrored. */
-    var nfs=Math.max(7,Math.min(11,fw*0.42));
+    var nfs=fbNumPx>0?fbNumPx:Math.max(7,Math.min(11,fw*0.42));   /* v415: a stated size wins */
     fx.font='500 '+nfs+'px "IBM Plex Mono", monospace';
     fx.textAlign='center'; fx.textBaseline='middle';
     fx.fillStyle='rgba(225,218,196,0.78)';

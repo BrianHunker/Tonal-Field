@@ -116,7 +116,7 @@ JS = r'''
     if(cv.width!==cw*dpr||cv.height!==ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
     OFFX=(cw-W)/2;
     if(_u.k<0.999){
-      var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A+W*0.07,R0-A-W*0.07,RL+W*0.045,R0];   /* the curve, its badges past each peak and trough, and the letter row */
+      var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A+W*(0.03+0.04*RING_BADGE_K),R0-A-W*(0.03+0.04*RING_BADGE_K),RL+W*(0.015+0.03*RING_LETTER_K),R0];   /* the curve, its badges past each peak and trough, and the letter row */
       for(var q=0;q<=96;q++){ var aq=_u.aB-Math.PI+1e-4+(TP-2e-4)*q/96;
         for(var z=0;z<rads.length;z++){ _la=null; _mapO(aq,rads[z]); if(_lx<minX)minX=_lx; if(_lx>maxX)maxX=_lx; if(_ly<minY)minY=_ly; if(_ly>maxY)maxY=_ly; } }
       var pad=18, f=1-_u.k, sxT=(W+2*OFFX-2*pad)/Math.max(1,maxX-minX), syT=(W-2*pad)/Math.max(1,maxY-minY);
@@ -142,7 +142,7 @@ JS = r'''
   var G=null, _scNow=0;
   function reelLayout(){
     try{
-      FB_BAND=0; tabScaleSet(); var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
+      FB_BAND=0; tabScaleSet(); fbNumPx=Math.round(TAB_FONT); FB_NUMH=Math.round(TAB_FONT*1.3);   /* fret numbers the size of the TAB's */ var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
       winL.ring={x:0,y:0,w:DW,h:RING}; winPlace('ring'); ringMaxH=RING; sizeRing();
       var y=RING+GAP; winL.fret={x:0,y:y,w:DW,h:500}; winPlace('fret');
       var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, H=Math.round(fbStrings*cw/FB_PHI+fbFootH());
@@ -177,17 +177,19 @@ JS = r'''
      bars 21-22 it turns clockwise until E-flat/Re stands at the top; then it stays.
      bars 41-42, as the victory lap begins, everything scrolls down: fretboard and TAB off the bottom, the ring to the lower
      half, url and equation to the centre, and the studio's badge in from above, as far over the url as the ring is under the
-     equation, with 'Stay tuned for more demos' over it. Then the closing chord, held two bars. */
+     equation, with 'Stay tuned for more demos' over it.
+     bars 27-28 (the F chord of R-5-R-3) the waterline opens, rho 0.5 to 2.0, so the anti badges stand apart. Then the closing chord, held two bars. */
   function ease(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
   window.reelState=function(p){
     var bar=p/16;
-    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2);
-    return {wind:wind, off:Math.PI*turn, scroll:sc};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
+    var wind=ease((bar-16)/2), turn=ease((bar-20)/2), sc=ease((bar-40)/2), rho=0.5+1.5*ease((bar-26)/2);
+    return {wind:wind, off:Math.PI*turn, scroll:sc, rho:rho};   /* with the half-turn on: E-flat starts at the bottom of the ring, the seam */
   };
   var _last='';
   function choreo(){
-    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.scroll.toFixed(4);
+    var st=reelState(typeof seqPos==='number'?seqPos:0), key=st.wind.toFixed(4)+'|'+st.off.toFixed(4)+'|'+st.scroll.toFixed(4)+'|'+st.rho.toFixed(4);
     if(key!==_last&&G){ _last=key; flipV=true; windK=st.wind; anchorOff=st.off; _scNow=st.scroll;
+      var Rr=0.383, nf=Rr*(st.rho-1)/(st.rho+1); if(Math.abs(nf-rInF)>1e-6){ rInF=nf; geom(); }   /* the waterline: rho 0.5 -> 2.0 over the F chord of R-5-R-3 */
       function ty(el,y){ if(el)el.style.transform=y?'translateY('+y.toFixed(1)+'px)':''; }
       var sc=st.scroll;
       ty(document.querySelector('.header'),G.dyH*sc); ty(document.querySelector('.global-toolbar'),G.dyH*sc);
