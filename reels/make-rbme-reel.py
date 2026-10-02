@@ -89,10 +89,36 @@ JS = r'''
   document.addEventListener('keydown',function(e){ if(e.key===' '||e.code==='Space'){ if(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
     e.preventDefault(); e.stopPropagation(); if(typeof ensureAC==='function')ensureAC(); var b=document.getElementById('seqPlayBtn'); if(b)b.click(); if(typeof tabRequest==='function')tabRequest(); } },true);
   /* the field keeps all twelve colours: the diatonic blinders are for the fretboard alone */
+  /* the field's band is the full width: the ring keeps its own square geometry (W), drawn shifted to the middle of a
+     canvas as wide as the band (OFFX); while it is a line, every mapped point is scaled about the line's centre so the
+     plot fills the band both ways, and that stretch eases off with the winding until the circle closes at its own size.
+     Points move; lettering is placed by them, never stretched. */
+  var OFFX=0, _st=null, _mapO=_map, _wpO=windPrep;
+  _map=function(a,r){ if(a===_la&&r===_lr)return; _mapO(a,r);
+    if(_st){ _lx=_st.mx+(_lx-_st.mx)*_st.sx+_st.dx; _ly=_st.my+(_ly-_st.my)*_st.sy+_st.dy; } };
+  windPrep=function(){
+    _st=null; _wpO();
+    var cw=Math.max(W,Math.round(cv.parentElement.clientWidth)), ch=W;
+    if(cv.width!==cw*dpr||cv.height!==ch*dpr){ cv.width=cw*dpr; cv.height=ch*dpr; cv.style.width=cw+'px'; cv.style.height=ch+'px'; }
+    OFFX=(cw-W)/2;
+    if(_u.k<0.999){
+      var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9, rads=[R0+A,R0-A,RL+W*0.02,R0];
+      for(var q=0;q<=96;q++){ var aq=_u.aB-Math.PI+1e-4+(TP-2e-4)*q/96;
+        for(var z=0;z<rads.length;z++){ _la=null; _mapO(aq,rads[z]); if(_lx<minX)minX=_lx; if(_lx>maxX)maxX=_lx; if(_ly<minY)minY=_ly; if(_ly>maxY)maxY=_ly; } }
+      var pad=30, f=1-_u.k, sxT=(W+2*OFFX-2*pad)/Math.max(1,maxX-minX), syT=(W-2*pad)/Math.max(1,maxY-minY);
+      var mx=(minX+maxX)/2, my=(minY+maxY)/2;
+      _st={mx:mx,my:my,sx:1+(sxT-1)*f,sy:1+(syT-1)*f,dx:(W/2-mx)*f,dy:(W/2+RING_UP-my)*f};
+    }
+    _la=null;
+  };
+  function shifted(fn){ return function(h){ var c=ctx, oS=c.setTransform, oR=c.resetTransform; c.save();
+      var m=c.getTransform(); oS.call(c,m.a,m.b,m.c,m.d,m.e+OFFX*dpr,m.f);
+      c.setTransform=function(a,b,cc,d,e,f){ if(typeof a==='object')return oS.call(c,a); return oS.call(c,a,b,cc,d,e+OFFX*dpr,f); };
+      c.resetTransform=function(){ return oS.call(c,1,0,0,1,OFFX*dpr,0); };
+      try{ return unblinded(function(){ return fn(h); }); } finally{ delete c.setTransform; delete c.resetTransform; c.restore(); } }; }
   var _rb=drawRingBase, _rt=drawRingTop, _rd=drawRingDynamic;
-  drawRingBase=function(h){ return unblinded(function(){ return _rb(h); }); };
-  drawRingTop=function(h){ return unblinded(function(){ return _rt(h); }); };
-  drawRingDynamic=function(h){ return unblinded(function(){ return _rd(h); }); };
+  drawRingBase=shifted(_rb); drawRingTop=shifted(_rt); drawRingDynamic=shifted(_rd);
+  if(typeof seqRingBacklight==='function'){ var _bl=seqRingBacklight; seqRingBacklight=shifted(_bl); }
   /* the stage's own layout, in stage pixels */
   var REEL_TAB_K=2.3, RING=600, GAP=14;
   var _tss=tabScaleSet; tabScaleSet=function(){ _tss(REEL_TAB_K); };
@@ -100,7 +126,7 @@ JS = r'''
   function reelLayout(){
     try{
       FB_BAND=0; tabScaleSet(); var desk=document.getElementById('desk'), DW=desk?desk.clientWidth:1080;
-      winL.ring={x:Math.round((DW-RING)/2),y:0,w:RING,h:RING}; winPlace('ring');
+      winL.ring={x:0,y:0,w:DW,h:RING}; winPlace('ring'); ringMaxH=RING; sizeRing();
       var y=RING+GAP; winL.fret={x:0,y:y,w:DW,h:500}; winPlace('fret');
       var fp=document.getElementById('fretPanel'), w=fp.clientWidth-22, cw=w/fbFrets, H=Math.round(fbStrings*cw/FB_PHI+fbFootH());
       winL.fret.h=Math.ceil(winChromeAround(fretCv,fp)+H+4); winPlace('fret');
