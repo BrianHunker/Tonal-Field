@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v418 · lesson: Piano Lesson 1 — Do Scale -->
+<!-- Tonal Field — Ring — v419 · lesson: Piano Lesson 1 — Do Scale -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v418</span></h1>
+  <h1>Tonal Field <span>Ring v419</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1745,6 +1745,7 @@ function chromaAngle(chromaSemi){
 
 var windK=1;
 var RING_LETTER_K=1, RING_BADGE_K=1;
+var scoreFitLines=false;   /* v419: TAB and staff windows sized to the lines they show (on in the blank templates) */
 var ringBadgeClear=0;   /* v418: when set, ring badges stand off by their text box along the radius, plus this share of their font size once wound (the line keeps its spacing) */
 var ringDegreeWeights=null;   /* v417: {root,fifth,third} line widths for the sounding tones' dashed lines, by degree from the mode's root */          /* v414: the ring's letter and badge sizes, as multiples of their own */
 var tabDigitRing=false, tabDigitRingW=0.08;   /* v414: TAB numbers outlined in white, dark until they sound (width as a share of the font) */
@@ -10236,7 +10237,17 @@ function winDefaults(){
 }
 var winFrac=null;
 function winToFrac(){ var DW=deskW(), o={}; WIN_DEFS.forEach(function(d){ var L=winL[d.id]; if(L)o[d.id]={x:+(L.x/DW).toFixed(4),y:+(L.y/DW).toFixed(4),w:+(L.w/DW).toFixed(4),h:+(L.h/DW).toFixed(4)}; }); return o; }
-function winFromFrac(){ if(!winFrac)return; var DW=deskW(); WIN_DEFS.forEach(function(d){ var F=winFrac[d.id]; if(F)winL[d.id]={x:winSnap(F.x*DW),y:winSnap(F.y*DW),w:Math.max(WIN_MINW,winSnap(F.w*DW)),h:Math.max(WIN_MINH,winSnap(F.h*DW))}; }); }
+function winFromFrac(){ if(!winFrac)return; var DW=deskW(); WIN_DEFS.forEach(function(d){ var F=winFrac[d.id]; if(F)winL[d.id]={x:winSnap(F.x*DW),y:winSnap(F.y*DW),w:Math.max(WIN_MINW,winSnap(F.w*DW)),h:Math.max(WIN_MINH,winSnap(F.h*DW))}; }); 
+  if(scoreFitLines)scoreFitAll(); }
+/* v419: a saved layout keeps window heights as a share of the desk's width, but a TAB or staff line keeps its own height
+   whatever the width, so on a wide screen the score windows grew black space below their lines. With scoreFitLines on,
+   the TAB and staff windows take the height of the lines they show (the 'lines' control) and the windows below close up. */
+function scoreFitAll(){ if(typeof phoneMode==='function'&&phoneMode())return;
+  [['tab','tabPanel',function(){ return tabScrollEl(); },function(){ return tabView*tabLineH(); }],
+   ['staff','staffPanel',function(){ return stScrollEl(); },function(){ return stView*stLineH(); }]].forEach(function(S){
+    var id=S[0], L=winL[id]; if(!L||!winVisible(id))return; var p=document.getElementById(S[1]), sc=S[2](); if(!p||!sc)return;
+    winPlace(id); var h0=L.h; L.h=Math.max(WIN_MINH,Math.ceil(winChromeAround(sc,p)+S[3]()+8)); winPlace(id); winFollowBelow(id,h0); });
+}
 function winLayoutCapture(){ return (phoneMode()&&winFrac)?JSON.parse(JSON.stringify(winFrac)):winToFrac(); }   /* v346: the phone stack is never saved as a layout */
 /* ═══ v255 · VIEWS ═══ a view is which windows are shown and where. 1 is the boot view (guide and
    ring, half and half); 2 is a fixed arrangement; 3 and 4 start empty. Shift-click stores the current
