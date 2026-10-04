@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v422 · lesson: Addams Family -->
+<!-- Tonal Field — Ring — v423 · lesson: Addams Family -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v422</span></h1>
+  <h1>Tonal Field <span>Ring v423</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1483,7 +1483,7 @@ var showKeyNames=true, showKeySol=false, showKeyHz=false;   /* the keyboard's la
 var kbLesson=false;   /* v356: a piano lesson's keyboard — the struck key's solfege fades up beneath its finger */
 var fbNames=true, fbSol=false, fbHz=false;                  /* the matrix's own, independent */
 var fbLabelScale=1;                                         /* matrix label size, × the fitted size */
-var rOuterF=0.383, rInF=-0.1277;     /* the theory's R: every waterline station is a value of this */
+var rOuterF=0.383, rInF=0.1277;     /* the theory's R: every waterline station is a value of this */
 var RFIT=1, RHZ=0;                   /* v296: the ring's fit factor and the Hz band's radius */
 var PLOT_SCALE=1.04;                 /* v251: a touch smaller, so the names clear the function labels */                 /* v250: the drawing is enlarged by this — the stations (rho, the ticks) are untouched (v245 had scaled R itself, which moved them) */
 var RING_UP=0;                       /* v250: the whole assembly sits this much above the square's centre, clearing the waterline at six o'clock */
@@ -5935,7 +5935,7 @@ function fadeAndStop(vv, tc){
   setTimeout(function(){try{o.stop();}catch(e){}},(tc*6+0.15)*1000);
 }
 var pcLight=false;                 /* OFF: only the registered pitch lights */
-var houseLights=0, houseSel=false;   /* v402: default dark */   /* v330: false — the house lights fall outside the selection too */              /* silent-surface dimmer: potential vs realization */
+var houseLights=0.25, houseSel=false;   /* v402: default dark; v423: a quarter */   /* v330: false — the house lights fall outside the selection too */              /* silent-surface dimmer: potential vs realization */
 var spotAlpha=0;                /* spotlight (glow dot) opacity, 0 = off */
 var fbColSel=null, fbRowSel=null;  /* DAW-style loop selections: which cells respond to lights */
 var FB_BAND=12;                    /* selector band size, CSS px */
@@ -11366,8 +11366,34 @@ function tabDeleteSel(){
   seq.notes=seq.notes.filter(function(n){ return !S[n.id]; }); tabSel=[];
   seqRefresh(); tabRequest(); if(typeof histQueue==='function')histQueue();
 }
+/* v423: on a touch screen a finger scrolls the TAB and the staff; a tap places the cursor or picks a note, as a click does;
+   press and hold (about half a second, without moving) to drag — a note, a span, a bend, the loop, the playhead.
+   A pen or a mouse is unchanged. */
+function touchCalm(cv){
+  if(!cv||cv.dataset.touchCalm)return; cv.dataset.touchCalm='1';
+  cv.style.touchAction='manipulation'; cv.style.webkitTouchCallout='none'; cv.style.webkitUserSelect='none'; cv.style.userSelect='none';   /* no callout or selection on a long press */
+  cv.addEventListener('contextmenu',function(e){ if(T)e.preventDefault(); });
+  cv.setPointerCapture=function(id){ try{ Element.prototype.setPointerCapture.call(this,id); }catch(_){} };   /* a replayed tap's pointer has already lifted */
+  var T=null, HOLD=450, SLOP=10;
+  function replay(type,e){ var ev=new PointerEvent(type,{bubbles:true,cancelable:true,composed:true,pointerId:e.pointerId,pointerType:'touch',isPrimary:true,
+      clientX:e.clientX,clientY:e.clientY,screenX:e.screenX,screenY:e.screenY,button:0,buttons:type==='pointerup'?0:1}); ev._tfReplay=true; cv.dispatchEvent(ev); }
+  cv.addEventListener('pointerdown',function(e){ if(e._tfReplay||e.pointerType!=='touch')return; e.stopImmediatePropagation();
+    if(T)clearTimeout(T.timer);
+    T={id:e.pointerId,x:e.clientX,y:e.clientY,down:{pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,screenX:e.screenX,screenY:e.screenY},armed:false,dead:false};
+    T.timer=setTimeout(function(){ if(!T||T.dead)return; T.armed=true; if(navigator.vibrate)try{ navigator.vibrate(10); }catch(_){} replay('pointerdown',T.down); },HOLD); },true);
+  cv.addEventListener('pointermove',function(e){ if(e._tfReplay||e.pointerType!=='touch'||!T||e.pointerId!==T.id||T.armed)return; e.stopImmediatePropagation();
+    if(Math.hypot(e.clientX-T.x,e.clientY-T.y)>SLOP){ T.dead=true; clearTimeout(T.timer); } },true);
+  function end(e){ if(e._tfReplay||e.pointerType!=='touch'||!T||e.pointerId!==T.id)return; clearTimeout(T.timer);
+    if(T.armed){ T=null; return; }                       /* a held press was handed to the editor: its lift is the editor's too */
+    e.stopImmediatePropagation();
+    if(!T.dead&&e.type==='pointerup'){ replay('pointerdown',T.down); replay('pointerup',e); }   /* a tap */
+    T=null; }
+  cv.addEventListener('pointerup',end,true); cv.addEventListener('pointercancel',end,true);
+  cv.addEventListener('touchmove',function(e){ if(T&&T.armed)e.preventDefault(); },{passive:false});   /* once held, the finger edits instead of scrolling */
+}
 function tabWire(){
   var cv=tabEl(), sc=tabScrollEl(); if(!cv||cv.dataset.wired)return; cv.dataset.wired='1';
+  touchCalm(cv);   /* v423 */
   tabBarWire();
   function pt(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
   function gripHit(p){                       /* the handle: a tone's span past the middle of its first cell — and for a
@@ -12159,6 +12185,7 @@ function stBarWire(){
 }
 function stWire(){
   var cv=stEl(), sc=stScrollEl(); if(!cv||cv.dataset.wired)return; cv.dataset.wired='1';
+  touchCalm(cv);   /* v423 */
   stBarWire();
   if(document.fonts&&document.fonts.load)document.fonts.load('20px "TF Staff Glyphs"').then(function(){ stFontReady=true; stRequest(); },function(){});
   function pt(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
