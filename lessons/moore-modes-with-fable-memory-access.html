@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v420 · lesson: Moore Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v421 · lesson: Moore Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v420</span></h1>
+  <h1>Tonal Field <span>Ring v421</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -12364,6 +12364,13 @@ bootState=viewStateCapture();                /* v268: what view 1 returns to */
   else { if(!v.state.ring)v.state.ring=ringStateCapture();       /* v268: boot views stored before the ring state take the boot's ring */
          if(!v.state.seq)v.state.seq=seqStateFromCfg(BOOT_CFG,v)||seqStateCapture(); } });   /* v269: ... and the boot's sequence */   /* v264.1: give the old-model boot views a per-view state from the boot's fretboard */
 if(BOOT_CFG.bootView&&views[BOOT_CFG.bootView])VIEW_BOOT=+BOOT_CFG.bootView;   /* v334: the file names its boot view */
+/* v421: a link can open a lesson on one of its views — #view=3, or #view=Name by the button's name (case, spaces and dashes
+   do not count: #view=resoldo opens Re-Sol-Do) — so each exercise has an address of its own to hand to a student */
+(function(){ var m=/[#?&]view=([^&#]+)/.exec(location.hash+' '+location.search); if(!m)return;
+  var norm=function(s){ return String(s).toLowerCase().replace(/[\s\-_]+/g,''); }, q=norm(decodeURIComponent(m[1])), n=null;
+  if(/^\d+$/.test(q))n=+q;
+  else for(var k=1;k<=7;k++){ var nm=VIEW_NAME[k]||(typeof VIEW_FN!=='undefined'&&VIEW_FN[k]!==undefined&&VIEW_FN[k]!==null&&typeof fn!=='undefined'?fn[VIEW_FN[k]].n:''); if(nm&&norm(nm)===q){ n=k; break; } }
+  if(n&&views[n])VIEW_BOOT=n; })();
 if(!viewApply(VIEW_BOOT)){ for(var _bv=1;_bv<=7;_bv++)if(viewApply(_bv)){ VIEW_BOOT=_bv; break; } }
 viewBtnsSync();              /* v306: boot opens on view 2 (the ring, fretboard, TAB and sequencer) */
 diagShow('welcome');                        /* v286: the guide's own page is ready for when it is called up from the tools menu */
