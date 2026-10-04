@@ -94,11 +94,18 @@ section.band{padding:44px 0 56px;border-top:1px solid var(--rule)}
 .panel .kicker{font-size:13px;color:var(--dim)}
 .panel h3{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.15;color:var(--ink);margin-top:2px}
 .panel .sb{color:var(--body);font-size:15px;margin-top:4px}
-.ex-group{margin-top:20px}
-.ex-group h4{font-size:16px;font-weight:600;color:var(--ink)}
-.ex-group h4 a{text-decoration:none}
-.ex-group h4 a:hover{text-decoration:underline;text-underline-offset:3px}
-.ex-group p{font-size:13.5px;line-height:1.5;color:var(--body);margin-top:3px}
+.ex-group{margin-top:12px}
+.ex-group summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;font-size:16px;font-weight:600;color:var(--ink);padding:4px 0}
+.ex-group summary::-webkit-details-marker{display:none}
+.ex-group summary::before{content:"";flex:0 0 auto;width:7px;height:7px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(-45deg);transition:transform .15s}
+.ex-group[open] summary::before{transform:rotate(45deg)}
+.ex-group summary .t{flex:1;min-width:0}
+.ex-group summary .c{font-size:12px;font-weight:400;color:var(--dim)}
+.ex-group summary:hover .t{text-decoration:underline;text-underline-offset:3px}
+.ex-group p{font-size:13.5px;line-height:1.5;color:var(--body);margin-top:6px}
+.ex-group .openl{display:inline-block;margin-top:6px;font-size:13.5px;color:var(--gold);text-decoration:none}
+.ex-group .openl:hover{text-decoration:underline;text-underline-offset:3px}
+@media (prefers-reduced-motion:reduce){ .ex-group summary::before{transition:none} }
 .ex{list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:5px}
 .ex a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 11px;border:1px solid var(--rule);border-radius:7px;background:var(--raise);text-decoration:none;font-family:var(--mono);font-weight:700;font-size:13px;color:#d6d2c6}
 .ex a:hover{border-color:var(--gold)}
@@ -442,9 +449,11 @@ function renderPanel(){
   h+='<h3>'+esc(t.name)+'</h3>'+(t.sub?'<p class="sb">'+esc(t.sub)+'</p>':'');
   if(!ex.length) h+='<p class="none">Nothing in this compartment yet.'+(mu.length?' The music below already calls for it.':'')+'</p>';
   ex.forEach(function(L){
-    h+='<div class="ex-group"><h4><a href="'+encodeURI(L.file)+'">'+esc(L.title)+'</a></h4>'+(L.about?'<p>'+esc(L.about)+'</p>':'');
-    if(L.views&&L.views.length){ h+='<ol class="ex">'+L.views.map(function(v,i){ return '<li><a href="'+viewURL(L,v)+'">'+viewHTML(v)+'<span class="n">'+(i+1)+'</span></a></li>'; }).join('')+'</ol>'; }
-    h+='</div>';
+    var nv=(L.views||[]).length;   /* each lesson folds to one line, its name; open it for the description and an exercise per view */
+    h+='<details class="ex-group"><summary><span class="t">'+esc(L.title)+'</span>'+(nv?'<span class="c">'+nv+'</span>':'')+'</summary>'
+      +(L.about?'<p>'+esc(L.about)+'</p>':'')+'<a class="openl" href="'+encodeURI(L.file)+'">Open the lesson</a>';
+    if(nv){ h+='<ol class="ex">'+L.views.map(function(v,i){ return '<li><a href="'+viewURL(L,v)+'">'+viewHTML(v)+'<span class="n">'+(i+1)+'</span></a></li>'; }).join('')+'</ol>'; }
+    h+='</details>';
   });
   if(mu.length){ h+='<div class="used"><h4>Music that uses it</h4><div class="chips">'+mu.map(function(L){ return '<a class="chip" href="'+encodeURI(L.file)+'">'+esc(L.title)+'</a>'; }).join('')+'</div></div>'; }
   p.innerHTML=h;
