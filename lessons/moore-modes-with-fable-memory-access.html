@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v419 · lesson: Moore Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v420 · lesson: Moore Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v419</span></h1>
+  <h1>Tonal Field <span>Ring v420</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1514,7 +1514,13 @@ var fn=FN.map(function(n){return {n:n, c:hx(HEX[n]), a:n.charAt(0)==='~'};});
    .c, which then answers one flat light grey (.raw keeps the real colour for saving and editing); the value-
    shading primitives (blackouts, fades, grayscale-by-value) answer the same grey; the mode light goes dark. */
 var valenceOn=true, VAL_FLAT=[200,200,196], valRing=1;   /* v405: valRing — the ring's field height, eased to 0 (a plain circle) with valence off */
-function valWrap(f){ var c=f.c; Object.defineProperty(f,'c',{get:function(){ return valenceOn?c:VAL_FLAT.slice(); },set:function(v){ c=v; },enumerable:true,configurable:true});
+/* v420: colour follows the field's height. As g(x) goes off the curve flattens (valRing 1 -> 0) and every colour fades with it
+   toward the plain ink; going back on, they bloom as the curve takes its shape again. One factor, the curve's own height. */
+function valLive(){ return valenceOn||valRing>1e-3; }
+function valMix(c,flat){ var F=flat||VAL_FLAT, k=valRing; if(!c||c.length<3)return c; if(k>=0.999)return c; if(k<=0.001)return F.slice();
+  return [Math.round(F[0]+(c[0]-F[0])*k),Math.round(F[1]+(c[1]-F[1])*k),Math.round(F[2]+(c[2]-F[2])*k)]; }
+function valFade(f,flat){ return function(){ if(!valLive())return (flat||VAL_FLAT).slice(); return valMix(f.apply(this,arguments),flat); }; }
+function valWrap(f){ var c=f.c; Object.defineProperty(f,'c',{get:function(){ return valLive()?valMix(c):VAL_FLAT.slice(); },set:function(v){ c=v; },enumerable:true,configurable:true});
   Object.defineProperty(f,'raw',{get:function(){ return c; },configurable:true}); return f; }
 fn.forEach(valWrap);
 function rgba(c,a){return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';}
@@ -1594,7 +1600,6 @@ function fieldVowelNameAt(chroma){
    and blends the two diatonic neighbours across the whole gap. v213–v221 had wrongly
    applied the vowel's rule to colour. */
 function colorFor(n,v){
-  if(!valenceOn) return VAL_FLAT.slice();
   if(diatonic && fn[n].a) return [0,0,0];
   if(hingeOut(n)) return [0,0,0];
   if(greyscale){ var l=Math.round(255*(v+1)/2); return [l,l,l]; }
@@ -1607,7 +1612,6 @@ function fadeT(n,v,chroma){
 }
 function fadedOf(n,v,chroma){
   var hinge=(n===3||n===9);
-  if(!valenceOn) return VAL_FLAT.slice();
   if(diatonic && !hinge && fn[n].a) return [0,0,0];      /* blackout outranks greyscale, matching the ring; by station (v222) */
   if(hingeOut(n)) return [0,0,0];                          /* v249: pentatonic takes the hinges too */
   if(greyscale){ var l=Math.round(255*(v+1)/2); return [l,l,l]; }
@@ -1630,7 +1634,7 @@ function diaStationColor(n,ph){
 }
 function diaBlendColor(u,ph,cont){
   var q=diaNeighbours(u);
-  if(valenceOn&&!cont&&Math.abs(u-Math.round(u))<1e-6&&q.xi>1e-6&&q.xi<1-1e-6)return [0,0,0];   /* an anti, exactly (lattice callers only) */
+  if(valLive()&&!cont&&Math.abs(u-Math.round(u))<1e-6&&q.xi>1e-6&&q.xi<1-1e-6)return [0,0,0];   /* an anti, exactly (lattice callers only) */
   var n0=((q.lo%12)+12)%12, n1=q.hi%12;
   if(q.xi<1e-6)return diaStationColor(n0,ph);
   if(q.xi>1-1e-6)return diaStationColor(n1,ph);
@@ -1676,7 +1680,6 @@ function colorForX(chroma,v){
   return mix(colorFor(n0,v), colorFor(n1,v), xi);
 }
 function badgeColor(n,v){
-  if(!valenceOn) return VAL_FLAT.slice();
   if(diatonic && v<-1e-9) return [26,26,26];      /* blinders: dark on dark */
   if(hingeOut(n)) return [26,26,26];
   if(greyscale){ var l=Math.round(255*(v+1)/2); return [l,l,l]; }   /* pure value */
@@ -1946,7 +1949,7 @@ function drawRingBase(hh){
      colours (a crossfade). Evaluating each endpoint by temporarily setting phi keeps every hinge
      and blinder rule exact. Idle: the plain single-orientation reading. */
   var _MM=(morphMix>=0), _MA=morphMix, _PA=morphPhiA;
-  function _alOf(v){ return (greyscale||!valenceOn)?0.95:(diatonic&&v<-1e-9?0.9:0.35+0.65*Math.abs(v)); }
+  function _alOf(v){ if(!valLive())return 0.95; var a=greyscale?0.95:(diatonic&&v<-1e-9?0.9:0.35+0.65*Math.abs(v)); return 0.95+(a-0.95)*Math.min(1,valRing); }   /* v420 */
   function sampChrom(x){
     if(!_MM){ var v=G(x,phi); return {v:v,cc:colorForX(x/ST,v),al:_alOf(v),env:fadeColor(fnIndexOf(x/ST),v,x/ST)}; }
     var sv=phi;
@@ -2161,7 +2164,7 @@ function drawRingTop(hh){
     if(showLetters){
       ctx.font='500 '+Math.round(W*0.031*RFIT*RING_LETTER_K)+'px "IBM Plex Mono", monospace';
       var lc;
-      if(!colorLetters||!valenceOn){ lc=[201,201,196]; }
+      if(!colorLetters||!valLive()){ lc=[201,201,196]; }
       else if(greyscale){ var l=Math.round(255*(v+1)/2); lc=[l,l,l]; }
       else if(diatonic&&v<-1e-9&&!(n===3||n===9)){ lc=[90,90,88]; }
       else if(hingeOut(n)){ lc=[90,90,88]; }
@@ -2171,10 +2174,11 @@ function drawRingTop(hh){
         lc=mix([201,201,196], hue, fadeTB(k,v));
       }
       var vL=valueAtChroma(k);
-      if(!valenceOn){}
+      if(!valLive()){}
       else if(diatonic && vL<-1e-9) lc=[26,26,26];
       else if(hingeOut(fnIndexOf(k))) lc=[26,26,26];
       else if(greyscale){ var lgs=Math.round(255*(vL+1)/2); lc=[lgs,lgs,lgs]; }
+      lc=valMix(lc,[201,201,196]);   /* v420 */
       var mixv=1-gAmp;
       var lg=[Math.round(lc[0]+(150-lc[0])*mixv),Math.round(lc[1]+(150-lc[1])*mixv),Math.round(lc[2]+(146-lc[2])*mixv)];
       ctx.fillStyle=rgba(lg,Math.max(0.45,lblA));
@@ -2196,7 +2200,7 @@ function drawRingTop(hh){
     }
   }
 
-  if(showBadges&&valenceOn){
+  if(showBadges&&valLive()){
     ctx.font='600 '+Math.round(W*0.0235*RFIT*RING_BADGE_K)+'px "IBM Plex Mono", monospace';
     for(var j=0;j<12;j++){
       var v=vcan(j);
@@ -2209,7 +2213,7 @@ function drawRingTop(hh){
         if(_ul>1e-6){ var _fs=W*0.0235*RFIT*RING_BADGE_K, _hh=_fs*0.36, _hw=ctx.measureText(fn[j].n).width/2;
           var _ax=Math.abs(_ux/_ul), _ay=Math.abs(_uy/_ul), _ex=Math.max(0,Math.min(_ax>1e-6?_hw/_ax:1e9,_ay>1e-6?_hh/_ay:1e9)-_hh)+ringBadgeClear*_fs*Math.max(0,Math.min(1,windK));
           rb+=(v>=-1e-9?1:-1)*_ex*(Math.abs(rb-r)/_ul); } }
-      ctx.fillStyle=rgba(badgeColor(j,v),lblA);
+      ctx.fillStyle=rgba(badgeColor(j,v),lblA*Math.min(1,valRing));   /* v420: the badges fade with the field */
       ctx.fillText(fn[j].n,PX(a,rb),PY(a,rb));
     }
   }
@@ -2462,7 +2466,7 @@ function degColorOff(off){ if(greyscale){ var l=Math.round(255*(vcan(off)+1)/2);
    times its own set point. Returns fn-index, colour, absolute chroma and strength L, strongest (root)
    first, only those with L>0. */
 function modeLitDegs(m){
-  if(!valenceOn) return [];                      /* v404: no valence, no mode light */
+  if(!valLive()) return [];                      /* v404: no valence, no mode light (v420: until the field has flattened) */
   if(!m||!m.val)return [];
   var ci=DEG_CI[m.val], rootOff=FNOFF[m.val];
   if(ci===undefined||rootOff===undefined)return [];
@@ -7918,15 +7922,15 @@ function fretDraw(){
   function labelFor(semi){
     var ch=((semi%12)+12)%12, n=fnIndexOf(ch);
     var v=valueAtChroma(ch);
-    function lc(base){
-      if(!valenceOn) return VAL_FLAT.slice();
+    function lc(base){ return valLive()?valMix(lc0(base)):VAL_FLAT.slice(); }   /* v420 */
+    function lc0(base){
       if(diatonic && v<-1e-9) return [26,26,26];                 /* blinders */
       if(hingeOut(n)) return [26,26,26];                         /* v284: pentatonic takes Fa and Ti here too */
       if(greyscale){ var l=Math.round(255*(v+1)/2); return [l,l,l]; } /* value */
       return base;
     }
     var lines=[];
-    if(fbSol&&valenceOn)lines.push([fn[n].n, lc(lift(fn[n].c,60))]);
+    if(fbSol&&valLive())lines.push([fn[n].n, valMix(lc0(lift(fn[n].c,60)),[26,26,26])]);   /* v420: the function names dissolve into the board, not into grey */
     if(fbNames)lines.push([pcName(ch)+(Math.floor(semi/12)+4), lc(colorLetters?letterHue(ch,v,[220,218,210]):[220,218,210])]);   /* v289: coloured letters */
     if(fbHz)lines.push([(261.626*Math.pow(2,semi/12)).toFixed(0), lc(colorLetters?letterHue(ch,v,[188,186,178]):[188,186,178])]);
     return lines;
@@ -8457,7 +8461,7 @@ function valenceSet(on,instant){
   var r0=valRing, r1=valenceOn?1:0, t0=performance.now(), DUR=900;
   if(instant){ valRing=r1; geom(); }
   else (function step(now){ var u=Math.min(1,((now||t0)-t0)/DUR), e=0.5-0.5*Math.cos(Math.PI*u);   /* ease in-out: the field settles into a circle */
-    valRing=r0+(r1-r0)*e; geom(); draw(); valRingAnim=(u<1)?requestAnimationFrame(step):null; })(t0);
+    valRing=r0+(r1-r0)*e; geom(); draw(); valRedrawSurfaces(); valRingAnim=(u<1)?requestAnimationFrame(step):null; })(t0);
   _sgCache=Object.create(null); _sgKeys=[];
   if(typeof seqModeVeilPaint==='function')seqModeVeilPaint();
   if(typeof seqRefresh==='function')seqRefresh();
@@ -8466,6 +8470,10 @@ function valenceSet(on,instant){
   if(typeof tabRequest==='function')tabRequest(); if(typeof stRequest==='function')stRequest();
   draw(); requestFret(); requestLight();
 }
+function valRedrawSurfaces(){ _sgCache=Object.create(null); _sgKeys=[];   /* v420: the surfaces that paint by the field's colours, every frame of the fade */
+  if(typeof requestFret==='function')requestFret(); if(typeof requestLight==='function')requestLight();
+  if(typeof tabRequest==='function')tabRequest(); if(typeof stRequest==='function')stRequest(); }
+colorFor=valFade(colorFor); fadedOf=valFade(fadedOf); badgeColor=valFade(badgeColor);
 document.getElementById('valBtn').addEventListener('click',function(){ valenceSet(!valenceOn); });
 document.getElementById('greyBtn').addEventListener('click',function(){
   greyscale=!greyscale; this.setAttribute('aria-pressed',greyscale?'true':'false');
@@ -9070,8 +9078,8 @@ var lesson={steps:null,i:0,card:null,active:false,edit:false,title:''};
    the ring's letters do: the hue at its place on the field, faded toward the surface's own ink as
    the orientation leaves it. neutral is that ink, so a letter stays legible on a dark ring, a pale
    white key or a dark fret alike. */
-function letterHue(ch,v,neutral){
-  if(!valenceOn) return neutral||[201,201,196];
+function letterHue(ch,v,neutral){ var N=neutral||[201,201,196]; return valLive()?valMix(letterHue0(ch,v,neutral),N):N.slice(); }   /* v420 */
+function letterHue0(ch,v,neutral){
   var u2=fnU(ch), n0=Math.floor(u2)%12, xi2=u2-Math.floor(u2), n1=(n0+1)%12;
   return mix(neutral||[201,201,196], mix(fn[n0].c, fn[n1].c, xi2), fadeTB(ch,v));
 }
