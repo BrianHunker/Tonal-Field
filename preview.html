@@ -263,34 +263,36 @@ footer a{text-decoration:none}footer a:hover{color:var(--ink)}
    A tool with no exercise yet still shows, as an empty compartment: the box is also the list of what to build. */
 var BOXES=[
   { id:'guitar', name:'Guitar', trays:[
-    { name:'Listening: Tonality of the Ear', where:'tools stored in the head', tools:[
-      { id:'intervals',          name:'Intervals',          sub:'Every distance by ear, semitone to double octave', short:'Intervals' },
-      { id:'scales-modes',       name:'CAGED Positions',    sub:'Scales & modes', short:'Scales & modes' },
-      { id:'chord-shapes',       name:'CAGED Position',     sub:'Chord shapes', short:'Chord shapes' },
-      { id:'pentatonic',         name:'Pentatonic',         sub:'Position scales', short:'Pentatonic scales' },
-      { id:'sliding-pentatonic', name:'3:2 “Sliding”',      sub:'Pentatonic tool', short:'3:2 sliding pentatonic' },
-      { id:'arpeggios',          name:'CAGED Position',     sub:'Arpeggios', short:'Arpeggios' },
-      { id:'chromatic',          name:'The Chromatic Scale', sub:'', wide:true, short:'Chromatic scale' }
+    { name:'Listening: Tonality of the Ear', where:'tools stored in the head', four:true, tools:[
+      { id:'single-string', name:'Single String', sub:'Modes, semimodes, chromatics' },
+      { id:'tuning',        name:'Tuning',        sub:'Relating two or more strings' },
+      { id:'intervals',     name:'Intervals',     sub:'Semitone sizes, fretboard shapes' },
+      { id:'caged',         name:'CAGED Position', sub:'Scales & modes, arpeggios, chord shapes', short:'CAGED position' },
+      { id:'pentatonic',    name:'Pentatonic',    sub:'Do / La modes, position boxes, 3:2 sliding tool' },
+      { id:'triads',        name:'Triads',        sub:'Major, minor, diminished, augmented, embellishments' },
+      { id:'tetrachords',   name:'Tetrachords',   sub:'7ths, shell voicings, extensions, superposition' },
+      { id:'changes',       name:'Changes',       sub:'Root progressions, modality, modulation' }
     ]},
     { name:'Movement: Keeping Time', where:'tools stored in the body', tools:[
-      { id:'strumming',   name:'Strumming',         sub:'Finding the beat: the pulse of actions', short:'Strumming' },
+      { id:'strumming',   name:'Strumming',         sub:'Finding the beat: the pulse of actions' },
       { id:'alt-picking', name:'Alternate Picking', sub:'Subdivision of the pulse', short:'Alternate picking' },
       { id:'breathing',   name:'Breathing Waves',   sub:'The measure of musical thought', short:'Breathing waves' }
     ]},
     { name:'Special Guitar Techniques', where:'', four:true, tools:[
       { id:'bends',     name:'String Bends' },
       { id:'slides',    name:'Slides' },
-      { id:'legato',    name:'Legados', sub:'Hammer-ons, pull-offs, tapping', short:'Legados' },
+      { id:'legato',    name:'Legados', sub:'Hammer-ons, pull-offs, tapping' },
       { id:'harmonics', name:'String Harmonics' }
     ]}
   ]},
   { id:'piano', name:'Keyboard', trays:[
     { name:'Listening: Tonality of the Ear', where:'tools stored in the head', tools:[
-      { id:'intervals',    name:'Intervals',     sub:'Every distance by ear, semitone to double octave', short:'Intervals' },
       { id:'scales-modes', name:'Scales & Modes' },
-      { id:'chord-shapes', name:'Chord Shapes' },
-      { id:'arpeggios',    name:'Arpeggios' },
-      { id:'chromatic',    name:'The Chromatic Scale', sub:'', wide:true, short:'Chromatic scale' }
+      { id:'intervals',    name:'Intervals',   sub:'Semitone sizes, keyboard shapes' },
+      { id:'pentatonic',   name:'Pentatonic',  sub:'Do / La modes' },
+      { id:'triads',       name:'Triads',      sub:'Major, minor, diminished, augmented, embellishments' },
+      { id:'tetrachords',  name:'Tetrachords', sub:'7ths, shell voicings, extensions, superposition' },
+      { id:'changes',      name:'Changes',     sub:'Root progressions, modality, modulation' }
     ]},
     { name:'Movement: Keeping Time', where:'tools stored in the body', tools:[] }
   ]}
@@ -317,15 +319,15 @@ var START=[
                     view is one exercise, and its link opens the lesson on that view
      about       — one or two sentences for students */
 var LESSONS=[
-  { title:'Intro to Tonality — Lesson 1', instrument:'guitar', kind:'exercise', tools:['scales-modes'],
+  { title:'Intro to Tonality — Lesson 1', instrument:'guitar', kind:'exercise', tools:['single-string'],
     file:'lessons/intro-to-tonality-lesson-1.html',
     views:['Fa','Do','Sol','Re','La','Mi','Ti'],
     about:'All seven modes, each played on every string in turn — from E on the 6th string, then A, D, G and B, to E on the 1st. One view per mode, in fifths from Fa to Ti.' },
-  { title:'Modal Scales', instrument:'guitar', kind:'exercise', tools:['scales-modes'],
+  { title:'Modal Scales', instrument:'guitar', kind:'exercise', tools:['caged'],
     file:'lessons/modal-scales.html',
     views:['Ascending','Descending','Mixed','Smooth','Smooth2','Smooth3','Smooth4'],
     about:'All seven modes, one bar each — ascending, descending, mixed (down, up, down, up), and four Smooth lines through every bar, each root reached by step (Smooth2 by half step; Smooth3 in arpeggios only; Smooth4 strictly diatonic), in fourths from D_Re through G_Sol, C_Do, F_Fa, B_Ti, E_Mi and A_La, then A as Sol, the dominant.' },
-  { title:'Modal Progressions', instrument:'guitar', kind:'exercise', tools:['chord-shapes'],
+  { title:'Modal Progressions', instrument:'guitar', kind:'exercise', tools:['changes','tetrachords'],
     file:'lessons/modal-progressions.html',
     views:['Re-Sol-Do','Ti-Mi-La','Full Circle'],
     about:'Diatonic seventh-chord cadences on guitar: Re–Sol–Do, Ti–Mi–La, and the full circle through all seven functions, each chord lit by the mode it names.' },
@@ -334,35 +336,35 @@ var LESSONS=[
     views:['Right','Left'],
     about:'The Do scale in eighth notes with fingers 1–4 of each hand: the right hand up from middle C and back, the left hand down from middle C and back. The finger numbers show on the notes, and on the keys as they sound.' },
 
-  { title:'Right Before My Eyes', instrument:'guitar', kind:'music', group:'Songs', tools:['chord-shapes','intervals','strumming'],
+  { title:'Right Before My Eyes', instrument:'guitar', kind:'music', group:'Songs', tools:['triads','intervals','caged','strumming'],
     file:'lessons/right-before-my-eyes.html',
     views:['Roots','Root-5','Root-5-R','R-5-R-3','R-5-R-3-5-R','ALL'],
     about:'D♭, F, B♭, A♭, two bars each in straight eighths — built up one interval at a time from the roots alone to the full barre chord, R-5-R-3-5-R, the interval sequence the lesson is about.' },
-  { title:'Here Comes the Sun', instrument:'guitar', kind:'music', group:'Songs', tools:['arpeggios','strumming'],
+  { title:'Here Comes the Sun', instrument:'guitar', kind:'music', group:'Songs', tools:['caged','strumming'],
     file:'lessons/there-goes-the-moon.html',
     views:['Here Comes the Sun'],
     about:'Eight bars of ringing arpeggios in A, capo 7, TABbed by Brian — let ring throughout, with strums and a roll.' },
-  { title:'Here Comes the Sun (left-handed)', instrument:'guitar', kind:'music', group:'Songs', tools:['arpeggios','strumming'],
+  { title:'Here Comes the Sun (left-handed)', instrument:'guitar', kind:'music', group:'Songs', tools:['caged','strumming'],
     file:'lessons/there-goes-the-moon-lefty.html',
     views:['Here Comes the Sun'],
     about:'The same lesson with the fretboard mirrored for left-handed players.' },
-  { title:'Starless Intro', instrument:'guitar', kind:'music', group:'Songs', tools:['scales-modes'],
+  { title:'Starless Intro', instrument:'guitar', kind:'music', group:'Songs', tools:['single-string','caged'],
     file:'lessons/starless-intro.html',
     views:['Starless','Re-Mi-La'],
     about:'The intro to King Crimson’s “Starless,” bars 1–8, with exercises in C_Re, D_Mi and G_La.' },
-  { title:'“Crazy For You” Solo [01:54]', instrument:'guitar', kind:'music', group:'Songs', tools:['scales-modes','chord-shapes'],
+  { title:'“Crazy For You” Solo [01:54]', instrument:'guitar', kind:'music', group:'Songs', tools:['changes','caged'],
     file:'lessons/solo-0154.html',
     views:['Solo'],
     about:'A solo transcribed from Brian’s handwritten page — A♭maj7 through a ii–V into F minor and on to Cm7 — with every chord’s mode on the ring, a soft piano comping the changes underneath, and the notepad’s bar-by-bar reading.' },
-  { title:'The Field in Motion', instrument:'guitar', kind:'music', group:'Lines', tools:['scales-modes','chord-shapes'],
+  { title:'The Field in Motion', instrument:'guitar', kind:'music', group:'Lines', tools:['changes','tetrachords'],
     file:'lessons/the-field-in-motion.html',
     views:['Inner Voice','Two Homes','Hinges','Still Point','Suspensions','Anticipations','The Long Line'],
     about:'Seven lines over the Modal Scales progression, each written from the field rather than the chord: guide tones, two cadences and their leading tones, the Fa–Ti hinges, a pedal on Do, suspension and anticipation chains, and one arch for the whole form — with the thinking behind every bar in the notepad.' },
-  { title:'Modes with Fable Memory Access', instrument:'guitar', kind:'music', group:'Lines', tools:['scales-modes','chord-shapes'],
+  { title:'Modes with Fable Memory Access', instrument:'guitar', kind:'music', group:'Lines', tools:['changes','caged'],
     file:'lessons/modes-with-fable-memory-access.html',
     views:['Standing','Force','The Rim','Re','Shadows','Return','Six Choruses'],
     about:'Six choruses over the same eight bars, written in the field’s own terms — standing, force, the wells, the tritone’s aim — after a reading of the tool’s guide; the seventh view plays all six as one solo, and its notepad re-examines The Field in Motion in that light.' },
-  { title:'Moore Modes with Fable Memory Access', instrument:'guitar', kind:'music', group:'Lines', tools:['scales-modes','chord-shapes'],
+  { title:'Moore Modes with Fable Memory Access', instrument:'guitar', kind:'music', group:'Lines', tools:['changes','caged'],
     file:'lessons/moore-modes-with-fable-memory-access.html',
     views:['Filled fourths','Led','Reactive','Home','Boardings','Open strings','Six choruses'],
     about:'Six more choruses over the same eight bars, each written from a stated effect in the field — the semi-mode that establishes each station, a melody ahead of the changes and one behind them, a chorus that refuses the turn and stays home, the seven boardings of one ladder, and the field turning under ringing open strings; the seventh view plays all six as one solo, and its notepad re-reads the previous six choruses tone by tone with the listener mechanism.' },
@@ -371,11 +373,11 @@ var LESSONS=[
     file:'lessons/new-earth-right-hand.html',
     views:['Right Hand ALL','Verse','Chorus'],
     about:'The right-hand melody of “A Whole New World” at 108 bpm: the whole melody first, then the verse and the chorus on their own. Each struck key shows its solfege.' },
-  { title:'A Whole New World', instrument:'piano', kind:'music', group:'Songs', tools:['scales-modes','chord-shapes'],
+  { title:'A Whole New World', instrument:'piano', kind:'music', group:'Songs', tools:['scales-modes','triads'],
     file:'lessons/new-earth.html',
     views:['Hands Together','Right Hand','Left Hand'],
     about:'“A Whole New World” with both hands, verse and chorus, at 108 bpm: hands together first, then each hand on its own.' },
-  { title:'Addams Family', instrument:'piano', kind:'music', group:'Songs', tools:['scales-modes','chord-shapes'],
+  { title:'Addams Family', instrument:'piano', kind:'music', group:'Songs', tools:['changes','triads'],
     file:'lessons/addams-family.html',
     views:['Hands Together','Right Hand','Left Hand'],
     about:'The Addams Family theme with both hands, in 12/8 at 140 (dotted quarters): hands together first, then each hand on its own. The whole piece stands in B♭’s orientation and turns through its modes; only the vamp’s G–A–B–C phrases turn the field, heard as Sol La Ti Do in C — and the key signature changes right where each of those phrases begins.' },
@@ -472,7 +474,7 @@ function renderPanel(){
   if(!found){ p.innerHTML='<p class="none">Pick a tool.</p>'; return; }
   var t=found.tool, ex=exercisesFor(box.id,t.id), mu=musicFor(box.id,t.id), h='';
   h+='<p class="kicker">'+esc(box.name)+' · '+esc(found.tray.name.replace(/^.*?:\s*/,''))+'</p>';
-  h+='<h3>'+esc(t.name)+(t.sub?' <span style="font-weight:400;color:var(--body)">'+esc(t.sub)+'</span>':'')+'</h3>';
+  h+='<h3>'+esc(t.name)+'</h3>'+(t.sub?'<p class="sb">'+esc(t.sub)+'</p>':'');
   if(!ex.length) h+='<p class="none">Nothing in this compartment yet.'+(mu.length?' The music below already calls for it.':'')+'</p>';
   ex.forEach(function(L){
     h+='<div class="ex-group"><h4><a href="'+encodeURI(L.file)+'">'+esc(L.title)+'</a></h4>'+(L.about?'<p>'+esc(L.about)+'</p>':'');
