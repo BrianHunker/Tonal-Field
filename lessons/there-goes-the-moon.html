@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v421 · lesson: Here Comes the Sun -->
+<!-- Tonal Field — Ring — v422 · lesson: Here Comes the Sun -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v421</span></h1>
+  <h1>Tonal Field <span>Ring v422</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -1686,7 +1686,7 @@ var activeNotes=new Map();
 
 /* ================= ring canvas ================= */
 var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
-var W=0,C=0,R0=0,A=0,RL=0,dpr=Math.min(window.devicePixelRatio||1,2);
+var W=0,C=0,R0=0,A=0,A_FULL=0,RL=0,dpr=Math.min(window.devicePixelRatio||1,2);
 function geom(){
   RFIT=ringFit();                            /* v296: 1, or a touch smaller when the Hz ring shows */
   var PS=PLOT_SCALE*RFIT;
@@ -1694,7 +1694,7 @@ function geom(){
   /* two arms meeting at the figure-8: beyond it, A mirrors back down so the
      reverse cardioid sits at finite reach and the family completes the trade */
   A = (rInF>=-rOuterF) ? W*PS*(rOuterF-rInF)/2 : W*PS*(3*rOuterF+rInF)/2;
-  A*=valRing;                                /* v405 */
+  A_FULL=A; A*=valRing;                     /* v405; v422: A_FULL, the field's height before g(x) flattens it */
   RL=W*0.456*RFIT; RING_UP=Math.round(W*0.025);   /* v251: the name ring a little wider, the lift a little less */
   RHZ=RL+W*0.034;                            /* the Hz band, just outside the letters */
 }
@@ -2069,8 +2069,9 @@ function drawRingDynamic(hh){
         var _w=ringDegreeWeights[_dg===0?'root':(_dg===7?'fifth':((_dg===3||_dg===4)?'third':''))]; if(_w)ctx.lineWidth=_w; } }
       ctx.setLineDash([5,4]);
       ctx.beginPath();
-      ctx.moveTo(PX(a,Math.max(2,R0-A-W*0.016)),PY(a,Math.max(2,R0-A-W*0.016)));
-      ctx.lineTo(PX(a,(R0+A+W*0.016)),PY(a,(R0+A+W*0.016)));
+      var _AL=A_FULL;   /* v422: a sounding tone's line keeps its full reach with g(x) off, where the field is a plain circle */
+      ctx.moveTo(PX(a,Math.max(2,R0-_AL-W*0.016)),PY(a,Math.max(2,R0-_AL-W*0.016)));
+      ctx.lineTo(PX(a,(R0+_AL+W*0.016)),PY(a,(R0+_AL+W*0.016)));
       ctx.stroke(); ctx.setLineDash([]);
       /* envelope value in the current dial's own coordinates */
       var vd;
