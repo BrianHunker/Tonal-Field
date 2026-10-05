@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css">
+<link rel="stylesheet" href="studio.css?v=2">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -53,8 +53,8 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
   <div id="out"><p class="muted" style="margin-top:20px">Loading…</p></div>
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js"></script>
-<script src="studio.js"></script>
+<script src="config.js?v=2"></script>
+<script src="studio.js?v=2"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
