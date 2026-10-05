@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=18">
+<link rel="stylesheet" href="studio.css?v=19">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -112,7 +112,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
           <div class="field" id="loopwrap" hidden><span>Repeat</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
         </div>
         <div class="row"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
-        <div class="row" id="framerow"><div class="field"><span>Fingering</span><div class="chips" id="frames"></div></div></div>
+        <div class="row" id="framerow"><div class="field"><span>Where the key doesn’t fit four frets</span><div class="chips" id="frames"></div><span class="hint" id="framehint"></span></div></div>
         <div class="row"><div class="field"><span>Range</span><div class="chips" id="ranges"></div></div></div>
         <div class="row"><div class="field"><span>Direction</span><div class="chips" id="dirs"></div></div></div>
       </div>
@@ -158,13 +158,13 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=18"></script>
-<script src="../lessons.js?v=18"></script>
-<script src="studio.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="../lessons.js?v=19"></script>
+<script src="studio.js?v=19"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
-P.inst='guitar';
+P.inst='guitar'; P.pv=2;   /* new drills count positions by the index finger */
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
 var $=function(id){ return document.getElementById(id); };
 if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: drills and students are saved only in this browser until the Google Sheet is connected.</p>';
@@ -201,6 +201,7 @@ function renderControls(){
   [].forEach.call($('modes').children,function(b){ b.classList.add('fn'); });
   chips($('frames'),S.FRAMES,function(){return P.frame||'half';},function(v){P.frame=v;});
   var chromF=(P.mode==='Chromatic'||P.structure==='chromatic'||P.structure==='custom');
+  $('framehint').textContent=chromF?'The four-tone frame on every string.':((P.frame||'half')==='three'?'Three tones per string, major frames included; the position drifts as the hand climbs.':'No stretches: a string shifts to keep its half step together, and the position stays.');
   if(chromF) $('frames').innerHTML='<button type="button" class="chip" aria-pressed="true">Four per string</button>';
   P.range=S.fitRange(P);
   chips($('ranges'),S.rangesFor(P.anchor,P.inst),function(){return P.range;},function(v){P.range=v;});
@@ -240,7 +241,7 @@ function params(){
 }
 (function(){
   var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
-    o.textContent=p==='open'?'Open':(p==='chromatic'?'Chromatic shift':(p==='modal'?'Modal shift':'Position '+p)); ps.appendChild(o); });
+    o.textContent=p===0?'Position 0 (open)':(p==='chromatic'?'Chromatic shift':(p==='modal'?'Modal shift':'Position '+p)); ps.appendChild(o); });
   ps.value=String(P.position); ps.onchange=function(){ var v=this.value; P.position=(/^\d+$/.test(v)?+v:v); render(); };
   var ar=$('artic'); S.ARTICULATIONS.forEach(function(a){ var o=document.createElement('option'); o.value=a; o.textContent=a; ar.appendChild(o); });
   ar.value=P.artic; ar.onchange=function(){ P.artic=this.value; render(); };
@@ -291,8 +292,9 @@ function render(){
   var B=S.boxes(P), b=B[0];
   $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
-  var sq=S.sequence(P);
-  $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(P)+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
+  var sq=S.sequence(P), got=S.posOf(P,b), want=P.position==='open'?0:+P.position;
+  var miss=(!S.isShift(P)&&got!==want)?' · Position '+want+' can’t hold this shape so near the nut; this is the nearest, position '+got+'.':'';
+  $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(P)+miss+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
   if(!notesEdited)$('notes').value=S.autoNotes(P);
   $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(Object.assign({},P,{hand:HAND})));
 }
@@ -364,7 +366,11 @@ $('form').onsubmit=function(e){
 (function(){ var m=/[?&]edit=([\w]+)/.exec(location.search); if(!m)return;
   S.api('drill',{did:m[1]}).then(function(r){ if(!r.ok){ $('suberr').textContent='That item was not found.'; return; }
     var D=r.drill, pr=D.params||{}; KIND=S.kindOf(D);
-    if(KIND==='drill'){ P=Object.assign(S.defaults(),pr); if(!pr.inst)P.inst='guitar'; }
+    if(KIND==='drill'){ P=Object.assign(S.defaults(),pr); if(!pr.inst)P.inst='guitar';
+      if(!(pr.pv>=2)){   /* saved before index positions: keep the same boxes, renumbered by the index finger */
+        var old=Object.assign({},P,{pv:0}), at=function(w){ var q=Object.assign({},old,{position:w}); return S.handPos(Object.assign({},P,{pv:2}),S.boxes(q)[0]); };
+        if(S.isShift(P)){ P.start=at(+P.start||0); P.end=at(+P.end||0); } else P.position=at(P.position==='open'?0:+P.position);
+        P.pv=2; } }
     else { P.inst=D.inst||'guitar'; P.daily=pr.daily||1; }
     if(KIND==='song'){ SONG={rid:pr.rid||'',title:'',artist:'',lesson:'',part:pr.part||''}; $('spart').value=SONG.part; }
     if(KIND==='task'){ TASK={label:pr.label||'Other',link:pr.link||''}; $('tlink').value=TASK.link; }
