@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drill — Gables Guitar Studio</title>
+<meta name="robots" content="noindex">
+<style>body{background:#000;color:#8f8b81;font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;display:grid;place-content:center;min-height:100vh;margin:0;text-align:center;padding:20px}</style>
+</head>
+<body>
+<p id="msg">Loading the drill…</p>
+<script src="config.js"></script>
+<script src="studio.js"></script>
+<script>
+/* A drill page: the drill's settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as #p=…)
+   become a sequence, written into the guitar template's boot file, and the full Tonal Field tool opens on it. */
+(function(){
+  var S=Studio, msg=document.getElementById('msg');
+  function fail(t){ msg.textContent=t; }
+  function get(){
+    var m=/[#&]p=([^&]+)/.exec(location.hash);
+    if(m){ try{ return Promise.resolve({params:JSON.parse(decodeURIComponent(m[1])),notes:null,title:null}); }catch(e){ return Promise.reject('That drill link is damaged.'); } }
+    var d=/[?&]d=([\w]+)/.exec(location.search); if(!d) return Promise.reject('This link does not name a drill.');
+    return S.api('drill',{did:d[1]}).then(function(r){ if(!r.ok) throw 'That drill was not found.'; return r.drill; });
+  }
+  function htmlNotes(t){ return '<p>'+S.esc(t).replace(/\n+/g,'</p><p>')+'</p>'; }
+  get().then(function(D){
+    var P=Object.assign(S.defaults(),D.params||{}), sq=S.sequence(P), title=D.title||S.title(P);
+    if(!sq.length) throw 'This drill has no tones in its box.';
+    return fetch('../templates/guitar-template.html').then(function(r){ if(!r.ok) throw 'The tool could not be loaded.'; return r.text(); }).then(function(html){
+      var a=html.indexOf('var BOOT_CFG='), b=html.indexOf('\n',a); if(a<0||b<0) throw 'The tool could not be read.';
+      var line=html.slice(a+13,b).replace(/;\s*$/,''), cfg=JSON.parse(line);
+      var snap=JSON.parse(JSON.stringify(cfg.sequence));
+      snap.notes=sq.notes; snap.modes=sq.modes; snap.chords=[]; snap.ring=[]; snap.accomp=[]; snap.title=title;
+      snap.tsNum=4; snap.tsDen=4; snap.div=sq.per; snap.bars=sq.bars; snap.divs=sq.bars*sq.per; snap.bpm=+P.bpm||60;
+      snap.loop=true; snap.loopA=0; snap.loopB=sq.length;
+      cfg.sequence=snap;
+      var v=cfg.views['1']; v.state.seq.snap=JSON.parse(JSON.stringify(snap)); v.state.seq.pos=0;
+      var lines=Math.min(4,Math.ceil(sq.bars/2));
+      v.tab_.lines=lines; cfg.tab.lines=lines;
+      cfg.field.valence=(P.mode!=='Chromatic');                      /* g(x) off for a chromatic drill, as in the chromatic lessons */
+      var notes=(D.notes!=null?D.notes:S.autoNotes(P));
+      cfg.notepad={'1':'<h3>'+S.esc(title)+'</h3><p class="np-sum">'+S.esc(S.summary(P))+'</p>'+htmlNotes(notes)};
+      v.notepad=true;
+      var L=v.layout; L.notepad={x:0,y:L.seq.y,w:1.0051,h:0.16}; L.seq={x:L.seq.x,y:L.seq.y+0.18,w:L.seq.w,h:L.seq.h};
+      html=html.slice(0,a+13)+JSON.stringify(cfg)+';'+html.slice(b);
+      html=html.replace(/var VIEW_NAME=\{[^;]*\};/,'var VIEW_NAME={"1": "Drill"};')
+               .replace(/(<button class="toggle view-btn" data-view="1" aria-pressed="false">)[^<]*(<\/button>)/,'$1Drill$2')
+               .replace(/<title>[^<]*<\/title>/,'<title>'+S.esc(title)+' — Tonal Field</title>');
+      document.open(); document.write(html); document.close();
+    });
+  }).catch(function(e){ fail(typeof e==='string'?e:'The drill could not be opened.'); });
+})();
+</script>
+</body>
+</html>

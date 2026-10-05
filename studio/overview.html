@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Overview — Gables Guitar Studio</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="studio.css">
+<style>
+.tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
+.tools input[type=text]{width:220px}
+.weeknav{display:flex;align-items:center;gap:10px}
+.weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:32px;height:32px;cursor:pointer;color:var(--ink)}
+.weeknav button[disabled]{opacity:.35;cursor:default}
+table{width:100%;border-collapse:collapse;margin-top:14px}
+th{font-size:13px;font-weight:500;color:var(--dim);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+td{padding:10px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.name a{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink);text-decoration:none}
+td.name a:hover{text-decoration:underline;text-underline-offset:3px}
+td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;color:var(--gold);font-size:13px;cursor:pointer}
+.dl{display:flex;align-items:center;gap:10px;padding:3px 0}
+.dl .t{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl .t a{text-decoration:none} .dl .t a:hover{text-decoration:underline}
+.mini{display:flex;gap:3px}
+.mini i{width:13px;height:13px;border-radius:3px;border:1px solid #4a4842;display:block}
+.mini i.on{background:var(--green);border-color:var(--green)}
+.tot{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);white-space:nowrap}
+.last{font-size:13px;color:var(--dim);white-space:nowrap}
+.none{color:var(--dim);font-size:14px}
+@media (max-width:700px){ th.h-last,td.last{display:none} .dl .t{white-space:normal} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <a class="home" href="../index.html"><img src="../images/gables-guitar-studio.png" alt="" width="36" height="36"><span>Gables Guitar Studio</span></a>
+    <nav class="nav"><a href="designer.html">Drill Designer</a><a href="overview.html" aria-current="page">Studio Overview</a></nav>
+  </div>
+  <h1>Studio Overview</h1>
+  <p class="sub">Who has which drills, and the days they practiced them.</p>
+  <div id="demo"></div>
+  <div class="tools">
+    <input type="text" id="q" placeholder="Find a student" aria-label="Find a student">
+    <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span id="wk" style="font-weight:600;color:var(--ink)"></span><button type="button" id="next" aria-label="Next week">›</button></div>
+  </div>
+  <div class="passrow" id="passrow" hidden style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <label class="field"><span>Passphrase</span><input type="password" id="pass" autocomplete="current-password"></label>
+    <button class="btn" id="passgo" type="button">Unlock</button><span id="passerr" style="color:#ff8a7a;font-size:14px"></span>
+  </div>
+  <div id="out"><p class="muted" style="margin-top:20px">Loading…</p></div>
+</div>
+<footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
+<script src="config.js"></script>
+<script src="studio.js"></script>
+<script>
+var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
+try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
+if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: showing what was saved in this browser.</p>';
+function fmt(key){ var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]), e=new Date(d); e.setDate(e.getDate()+6);
+  var o={month:'short',day:'numeric'}; return d.toLocaleDateString(undefined,o)+' – '+e.toLocaleDateString(undefined,o); }
+function render(){
+  $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week); $('next').disabled=(week>=thisWeek);
+  var q=$('q').value.trim().toLowerCase();
+  var studs=data.students.filter(function(s){ return !q||String(s.name).toLowerCase().indexOf(q)>=0; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Assign a drill in the Drill Designer.')+'</p>'; return; }
+  var h='<table><thead><tr><th>Student</th><th>Drills, newest first, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
+  studs.forEach(function(s){
+    var ds=data.drills.filter(function(d){ return d.sid===s.sid; }).sort(function(a,b){ return (b.date+'|'+String(b.ex).padStart(4,'0'))<(a.date+'|'+String(a.ex).padStart(4,'0'))?-1:1; });
+    var cs=data.checks.filter(function(c){ return c.sid===s.sid; }), days={}, last='';
+    cs.forEach(function(c){ var dk=S.addDays(c.week,+c.day); if(dk>last)last=dk; if(c.week===week)days[c.day]=1; });
+    var rows=ds.map(function(d){ var mini=''; for(var k=0;k<7;k++){ var on=cs.some(function(c){ return c.did===d.did&&c.week===week&&+c.day===k; }); mini+='<i'+(on?' class="on"':'')+' title="'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][k]+'"></i>'; }
+      return '<div class="dl"><span class="t"><a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+S.esc(d.ex)+'. '+S.esc(d.title)+'</a></span><span class="mini">'+mini+'</span></div>'; }).join('')||'<span class="none">No drills.</span>';
+    var link=S.base()+'student.html?s='+s.sid;
+    h+='<tr><td class="name"><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a><button class="copy" data-c="'+S.esc(link)+'">Copy page link</button></td>'
+      +'<td>'+rows+'</td><td class="tot">'+Object.keys(days).length+' / 7</td><td class="last">'+(last||'—')+'</td></tr>';
+  });
+  $('out').innerHTML=h+'</tbody></table>';
+  [].forEach.call(document.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent='Copy page link'; },1500); }); }; });
+}
+function load(){ S.api('overview',{pass:pass}).then(function(r){
+    if(!r.ok){ $('out').innerHTML=''; $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; return; }
+    $('passrow').hidden=true; data=r; render(); })
+  .catch(function(){ $('out').innerHTML='<p class="none" style="margin-top:20px">Could not reach the sheet.</p>'; }); }
+$('passgo').onclick=function(){ pass=$('pass').value; try{ localStorage.setItem('studio-pass',pass); }catch(e){} load(); };
+$('q').oninput=function(){ if(data)render(); };
+$('prev').onclick=function(){ week=S.addDays(week,-7); if(data)render(); };
+$('next').onclick=function(){ if(week<thisWeek){ week=S.addDays(week,7); if(data)render(); } };
+load();
+</script>
+</body>
+</html>

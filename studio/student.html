@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice — Gables Guitar Studio</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../icons/gg-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="studio.css">
+<style>
+.weeknav{display:flex;align-items:center;gap:12px;margin:22px 0 4px;flex-wrap:wrap}
+.weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink)}
+.weeknav button[disabled]{opacity:.35;cursor:default}
+.weeknav .wk{font-weight:600;color:var(--ink)}
+.drills{display:flex;flex-direction:column;gap:16px;margin-top:18px}
+.drill{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 20px}
+.drill .g{grid-row:1/span 3;color:var(--ink)}
+.drill .ex{font-size:13px;color:var(--dim)}
+.drill h2{font-size:21px;line-height:1.3}
+.drill .meta{font-size:14px;color:var(--dim)}
+.drill .acts{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;margin-top:8px;grid-column:2}
+.drill details{grid-column:1/-1;margin-top:6px}
+.drill summary{cursor:pointer;color:var(--gold);font-size:14px}
+.drill .notes p{margin-top:8px;font-size:15px;max-width:44em}
+.count{font-size:13px;color:var(--dim)}
+.empty{margin-top:24px}
+@media (max-width:600px){ .drill{grid-template-columns:1fr} .drill .g{grid-row:auto} .drill .acts{grid-column:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <a class="home" href="../index.html"><img src="../images/gables-guitar-studio.png" alt="" width="36" height="36"><span>Gables Guitar Studio</span></a>
+  </div>
+  <h1 id="who">Your practice</h1>
+  <p class="sub">Your drills, newest first. Open one to hear and see it; tick each day you practice it.</p>
+  <div id="demo"></div>
+  <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button type="button" id="next" aria-label="Next week">›</button></div>
+  <div class="drills" id="drills"><p class="muted">Loading…</p></div>
+</div>
+<footer><div class="wrap">Gables Guitar Studio · Coral Gables · <a href="https://gablesguitar.com/lessons">gablesguitar.com/lessons</a></div></footer>
+<script src="config.js"></script>
+<script src="studio.js"></script>
+<script>
+var S=Studio, $=function(id){ return document.getElementById(id); };
+var sid=(/[?&]s=([\w]+)/.exec(location.search)||[])[1], data=null, week=S.weekKey(), thisWeek=week;
+var DAYS=['M','T','W','T','F','S','S'];
+if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: this page is saved only in this browser.</p>';
+function fmt(key){ var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]), e=new Date(d); e.setDate(e.getDate()+6);
+  var o={month:'short',day:'numeric'}; return d.toLocaleDateString(undefined,o)+' – '+e.toLocaleDateString(undefined,o); }
+function ticked(did,wk,day){ return data.checks.some(function(c){ return c.did===did&&c.week===wk&&+c.day===day; }); }
+function render(){
+  $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week);
+  $('next').disabled=(week>=thisWeek);
+  var today=(new Date().getDay()+6)%7, host=$('drills');
+  var list=data.drills.slice().sort(function(a,b){ return (b.date+'|'+String(b.ex).padStart(4,'0'))<(a.date+'|'+String(a.ex).padStart(4,'0'))?-1:1; });
+  if(!list.length){ host.innerHTML='<p class="empty muted">No drills yet.</p>'; return; }
+  host.innerHTML='';
+  list.forEach(function(d){
+    var P=Object.assign(S.defaults(),d.params||{}), b=S.boxes(P)[0];
+    var n=0; for(var k=0;k<7;k++) if(ticked(d.did,week,k)) n++;
+    var el=document.createElement('article'); el.className='card drill';
+    el.innerHTML='<div class="g">'+S.glyphSVG(P,{box:b,tones:true,frets:true,size:1.5})+'</div>'
+      +'<p class="ex">Exercise '+S.esc(d.ex)+' · assigned '+S.esc(d.date)+'</p>'
+      +'<h2>'+S.esc(d.title||S.title(P))+'</h2>'
+      +'<p class="meta">'+S.esc(S.summary(P))+'</p>'
+      +'<div class="acts"><a class="btn primary" href="drill.html?d='+encodeURIComponent(d.did)+'">Open the drill</a>'
+      +'<div><div class="week">'+DAYS.map(function(L,k){ return '<label class="day'+(week===thisWeek&&k===today?' today':'')+'"><input type="checkbox" data-day="'+k+'"'+(ticked(d.did,week,k)?' checked':'')+' aria-label="'+['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][k]+'"><span>'+L+'</span></label>'; }).join('')+'</div>'
+      +'<p class="count">'+n+' of 7 days</p></div></div>'
+      +(d.notes?'<details><summary>Notes</summary><div class="notes">'+d.notes.split(/\n+/).map(function(t){ return '<p>'+S.esc(t)+'</p>'; }).join('')+'</div></details>':'');
+    [].forEach.call(el.querySelectorAll('input[data-day]'),function(cb){ cb.onchange=function(){
+      var day=+cb.getAttribute('data-day'), on=cb.checked;
+      data.checks=data.checks.filter(function(c){ return !(c.did===d.did&&c.week===week&&+c.day===day); });
+      if(on)data.checks.push({sid:sid,did:d.did,week:week,day:day});
+      var cnt=el.querySelector('.count'), m=0; for(var k=0;k<7;k++) if(ticked(d.did,week,k)) m++; cnt.textContent=m+' of 7 days';
+      S.api('check',{sid:sid,did:d.did,week:week,day:day,on:on}).then(function(r){ if(!r.ok){ cb.checked=!on; cnt.textContent='Not saved — try again.'; } })
+        .catch(function(){ cb.checked=!on; cnt.textContent='Not saved — check your connection.'; });
+    }; });
+    host.appendChild(el);
+  });
+}
+$('prev').onclick=function(){ week=S.addDays(week,-7); render(); };
+$('next').onclick=function(){ if(week<thisWeek){ week=S.addDays(week,7); render(); } };
+if(!sid){ $('drills').innerHTML='<p class="muted">This link does not name a student.</p>'; }
+else S.api('student',{sid:sid}).then(function(r){
+  if(!r.ok){ $('drills').innerHTML='<p class="muted">This practice page was not found.</p>'; return; }
+  data=r; $('who').textContent=r.student.name+'’s practice'; document.title=r.student.name+' — practice'; render();
+}).catch(function(){ $('drills').innerHTML='<p class="muted">Could not load your drills. Check your connection and reload.</p>'; });
+</script>
+</body>
+</html>

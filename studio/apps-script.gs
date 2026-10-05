@@ -1,0 +1,110 @@
+/* Gables Guitar Studio — the drill book's back end (Google Apps Script)
+   ──────────────────────────────────────────────────────────────────────
+   One-time setup (about five minutes):
+     1. Create a blank Google Sheet (any name, e.g. "Studio Drills").
+     2. In the sheet: Extensions → Apps Script. Delete what is there, paste this whole file, and save.
+     3. Change PASSPHRASE below to a phrase only you know. The Drill Designer and the Studio Overview ask for it.
+     4. Deploy → New deployment → gear icon → Web app.
+          Execute as: Me        Who has access: Anyone
+        Click Deploy, allow the permissions Google asks for (it is your own script, writing to your own sheet).
+     5. Copy the "Web app URL" (it ends in /exec) and send it to Claude.
+   If you ever edit this script, use Deploy → Manage deployments → edit (pencil) → Version: New version → Deploy,
+   so the URL stays the same.
+
+   The sheet gets three tabs, made automatically on first use:
+     Students — one row per student: id (the private link), name, date added
+     Drills   — one row per assigned drill: id, student id, date, exercise number, title, settings, notes
+     Checks   — one row per ticked practice day: student id, drill id, week (Monday's date), day 0–6 (Mon–Sun)
+   Rows can be read, sorted or deleted by hand; deleting a student's rows removes them from every page. */
+
+var PASSPHRASE = 'change-me';
+
+function doGet(e)  { return handle_(e && e.parameter ? e.parameter : {}); }
+function doPost(e) {
+  var p = {};
+  try { p = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'bad request' }); }
+  return handle_(p);
+}
+
+function handle_(p) {
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var a = p.action;
+    if (a === 'student') return out_(student_(p.sid));
+    if (a === 'drill')   return out_(drill_(p.did));
+    if (a === 'check')   return out_(check_(p));
+    /* everything below is the teacher's */
+    if (p.pass !== PASSPHRASE) return out_({ ok: false, error: 'wrong passphrase' });
+    if (a === 'ping')     return out_({ ok: true });
+    if (a === 'students') return out_({ ok: true, students: rows_('Students').map(function (r) { return { sid: r[0], name: r[1] }; }) });
+    if (a === 'assign')   return out_(assign_(p));
+    if (a === 'overview') return out_(overview_());
+    return out_({ ok: false, error: 'unknown action' });
+  } finally { lock.releaseLock(); }
+}
+
+function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+var HEAD = { Students: ['sid', 'name', 'added'], Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added'], Checks: ['sid', 'did', 'week', 'day', 'at'] };
+function sheet_(name) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); sh.appendRow(HEAD[name]); sh.setFrozenRows(1); }
+  return sh;
+}
+function rows_(name) { var v = sheet_(name).getDataRange().getValues(); v.shift(); return v; }
+function id_(n) { var c = 'abcdefghjkmnpqrstuvwxyz23456789', s = ''; for (var i = 0; i < n; i++) s += c.charAt(Math.floor(Math.random() * c.length)); return s; }
+function day_(d) { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
+
+function assign_(p) {
+  var name = String(p.student || '').trim(); if (!name) return { ok: false, error: 'no student name' };
+  var st = rows_('Students'), sid = null;
+  for (var i = 0; i < st.length; i++) if (String(st[i][1]).trim().toLowerCase() === name.toLowerCase()) { sid = st[i][0]; name = st[i][1]; break; }
+  if (!sid) { sid = id_(10); sheet_('Students').appendRow([sid, name, new Date()]); }
+  var mine = rows_('Drills').filter(function (r) { return r[1] === sid; });
+  var ex = p.ex ? Number(p.ex) : mine.length + 1;
+  var did = id_(8);
+  sheet_('Drills').appendRow([did, sid, p.date || day_(new Date()), ex, p.title || '', JSON.stringify(p.params || {}), p.notes || '', new Date()]);
+  return { ok: true, sid: sid, did: did, ex: ex, name: name };
+}
+
+function drillObj_(r) {
+  var params = {}; try { params = JSON.parse(r[5]); } catch (e) {}
+  return { did: r[0], sid: r[1], date: r[2] instanceof Date ? day_(r[2]) : String(r[2]), ex: r[3], title: r[4], params: params, notes: r[6] };
+}
+
+function drill_(did) {
+  var r = rows_('Drills').filter(function (r) { return r[0] === did; })[0];
+  return r ? { ok: true, drill: drillObj_(r) } : { ok: false, error: 'no such drill' };
+}
+
+function checksFor_(sid) {
+  return rows_('Checks').filter(function (r) { return !sid || r[0] === sid; }).map(function (r) {
+    return { sid: r[0], did: r[1], week: r[2] instanceof Date ? day_(r[2]) : String(r[2]), day: Number(r[3]) };
+  });
+}
+
+function student_(sid) {
+  var s = rows_('Students').filter(function (r) { return r[0] === sid; })[0];
+  if (!s) return { ok: false, error: 'no such student' };
+  var drills = rows_('Drills').filter(function (r) { return r[1] === sid; }).map(drillObj_);
+  return { ok: true, student: { sid: sid, name: s[1] }, drills: drills, checks: checksFor_(sid) };
+}
+
+function check_(p) {
+  var sid = p.sid, did = p.did, week = String(p.week), d = Number(p.day);
+  var ok = rows_('Drills').some(function (r) { return r[0] === did && r[1] === sid; });   /* a student can tick only their own drills */
+  if (!ok || !(d >= 0 && d <= 6) || !/^\d{4}-\d{2}-\d{2}$/.test(week)) return { ok: false, error: 'not allowed' };
+  var sh = sheet_('Checks'), v = sh.getDataRange().getValues();
+  for (var i = v.length - 1; i >= 1; i--) {
+    var w = v[i][2] instanceof Date ? day_(v[i][2]) : String(v[i][2]);
+    if (v[i][0] === sid && v[i][1] === did && w === week && Number(v[i][3]) === d) { if (!p.on) sh.deleteRow(i + 1); return { ok: true }; }
+  }
+  if (p.on) sh.appendRow([sid, did, "'" + week, d, new Date()]);
+  return { ok: true };
+}
+
+function overview_() {
+  var students = rows_('Students').map(function (r) { return { sid: r[0], name: r[1] }; });
+  var drills = rows_('Drills').map(drillObj_);
+  return { ok: true, students: students, drills: drills, checks: checksFor_(null) };
+}

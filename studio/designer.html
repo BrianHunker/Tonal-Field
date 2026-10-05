@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drill Designer — Gables Guitar Studio</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="studio.css">
+<style>
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
+form.card{display:flex;flex-direction:column;gap:0;padding:0}
+.sec{padding:18px 20px;border-top:1px solid var(--rule)}
+.sec:first-child{border-top:0}
+.sec h3{font-family:var(--serif);font-style:italic;font-weight:500;font-size:19px;color:var(--ink);margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
+.row + .row{margin-top:14px}
+.anchors{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.anchor{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--raise2);border:1.5px solid #3a3833;border-radius:10px;padding:10px 4px 8px;cursor:pointer;color:var(--ink)}
+.anchor[aria-pressed="true"]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.anchor .w{font-size:13px;font-weight:600}
+.dots{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:flex-end}
+.dot{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--dim)}
+.dot button{width:22px;height:22px;border-radius:50%;border:1.5px solid #5a574f;background:none;cursor:pointer}
+.dot button[aria-pressed="true"]{background:var(--green);border-color:var(--green)}
+.dot button[disabled]{cursor:default}
+.preview{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
+.preview .glyphbox{display:flex;justify-content:center;padding:6px 0}
+.tones{display:flex;flex-wrap:wrap;gap:4px 8px;font-family:var(--mono);font-weight:700;font-size:14px}
+.ptitle{font-family:var(--serif);font-size:19px;line-height:1.3;color:var(--ink)}
+.notes-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.linkbtn{background:none;border:0;color:var(--gold);font-size:13px;cursor:pointer;padding:0}
+.done{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+.done .l{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.done input{flex:1;min-width:200px;font-family:var(--mono);font-size:13px}
+.err{color:#ff8a7a;font-size:14px}
+.passrow{margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:900px){ .layout{grid-template-columns:1fr} .preview{position:static} }
+@media (max-width:560px){ .anchors{grid-template-columns:repeat(3,minmax(0,1fr))} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <a class="home" href="../index.html"><img src="../images/gables-guitar-studio.png" alt="" width="36" height="36"><span>Gables Guitar Studio</span></a>
+    <nav class="nav"><a href="designer.html" aria-current="page">Drill Designer</a><a href="overview.html">Studio Overview</a></nav>
+  </div>
+  <h1>Drill Designer</h1>
+  <p class="sub">Build a drill on an anchor, check it, and assign it. Submitting adds it to the student’s page.</p>
+  <div id="demo"></div>
+  <div class="passrow" id="passrow" hidden>
+    <label class="field"><span>Passphrase</span><input type="password" id="pass" autocomplete="current-password"></label>
+    <button class="btn" id="passgo" type="button">Unlock</button><span class="err" id="passerr"></span>
+  </div>
+
+  <div class="layout">
+    <form class="card" id="form" autocomplete="off">
+      <div class="sec">
+        <h3>Assigned to</h3>
+        <div class="row">
+          <label class="field" style="flex:2 1 200px"><span>Student</span><input type="text" id="student" list="studentlist" placeholder="First name"></label>
+          <datalist id="studentlist"></datalist>
+          <label class="field" style="flex:1 1 140px"><span>Date</span><input type="date" id="date"></label>
+          <label class="field" style="flex:0 1 110px"><span>Exercise #</span><input type="number" id="ex" min="1" placeholder="next"></label>
+        </div>
+      </div>
+      <div class="sec">
+        <h3>Anchor</h3>
+        <div class="anchors" id="anchors" role="group" aria-label="Anchor"></div>
+      </div>
+      <div class="sec">
+        <h3>Tonality</h3>
+        <div class="row">
+          <label class="field"><span>Position</span><select id="position"></select></label>
+          <label class="field" id="startwrap" hidden><span>Starting fret</span><input type="number" id="start" min="0" max="20" value="1" style="width:90px"></label>
+        </div>
+        <div class="row"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
+        <div class="row"><div class="field"><span>Range</span><div class="chips" id="ranges"></div></div></div>
+        <div class="row"><div class="field"><span>Direction</span><div class="chips" id="dirs"></div></div></div>
+      </div>
+      <div class="sec">
+        <h3>Harmonic structure</h3>
+        <div class="chips" id="structs"></div>
+        <div class="dots" id="custom" hidden></div>
+      </div>
+      <div class="sec">
+        <h3>Timing</h3>
+        <div class="row">
+          <label class="field"><span>BPM</span><input type="number" id="bpm" min="20" max="300" value="60" style="width:90px"></label>
+          <div class="field"><span>Subdivision</span><div class="chips" id="subs"></div></div>
+        </div>
+        <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label></div>
+      </div>
+      <div class="sec">
+        <div class="notes-head"><h3>Notes</h3><button type="button" class="linkbtn" id="regen">Rewrite from the settings</button></div>
+        <textarea id="notes" rows="9"></textarea>
+        <p class="muted" style="font-size:13px;margin-top:6px">Written from the settings until you edit them; after that your words stay.</p>
+      </div>
+      <div class="sec" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <a class="btn" id="try" target="_blank" rel="noopener">Try the drill</a>
+        <button class="btn primary" id="submit" type="submit">Submit</button>
+        <span class="err" id="suberr"></span>
+      </div>
+    </form>
+
+    <aside class="preview">
+      <div class="card">
+        <p class="label">Preview</p>
+        <p class="ptitle" id="ptitle"></p>
+        <div class="glyphbox glyph" id="pglyph"></div>
+        <p class="label">Tones, low to high</p>
+        <div class="tones" id="ptones"></div>
+        <p class="muted" style="font-size:14px;margin-top:10px" id="psum"></p>
+      </div>
+      <div class="card" id="done" hidden></div>
+    </aside>
+  </div>
+</div>
+<footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
+
+<script src="config.js"></script>
+<script src="studio.js"></script>
+<script>
+var S=Studio, P=S.defaults(), notesEdited=false, pass='';
+try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
+var $=function(id){ return document.getElementById(id); };
+if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: drills and students are saved only in this browser until the Google Sheet is connected.</p>';
+
+/* ── controls ── */
+function chips(host,items,get,set,label){
+  host.innerHTML=''; items.forEach(function(it){
+    var b=document.createElement('button'); b.type='button'; b.className='chip'; b.innerHTML=label?label(it):S.esc(it.name||it);
+    b.setAttribute('aria-pressed',String(get()===(it.id!==undefined?it.id:it))); b.onclick=function(){ set(it.id!==undefined?it.id:it); render(); };
+    host.appendChild(b); });
+}
+function renderControls(){
+  var an=$('anchors'); an.innerHTML='';
+  S.ANCHORS.forEach(function(A){ var b=document.createElement('button'); b.type='button'; b.className='anchor'; b.setAttribute('aria-pressed',String(P.anchor===A.id));
+    b.innerHTML=S.glyphSVG({anchor:A.id})+'<span class="w">'+A.word+'</span>'; b.onclick=function(){ P.anchor=A.id; render(); }; an.appendChild(b); });
+  chips($('modes'),S.MODES,function(){return P.mode;},function(v){ P.mode=v;
+      if(v==='Chromatic'&&['mode','triad','tetrachord','do-pent','la-pent'].indexOf(P.structure)>=0)P.structure='chromatic';
+      if(P.structure==='do-pent'&&v!=='Do')P.structure='mode'; if(P.structure==='la-pent'&&v!=='La')P.structure='mode'; },
+    function(m){ var f=S.FN.filter(function(x){return x.n===m;})[0]; return '<span style="color:'+(f?f.c:'#c9c5ba')+'">'+m+'</span>'; });
+  [].forEach.call($('modes').children,function(b){ b.classList.add('fn'); });
+  chips($('ranges'),S.RANGES,function(){return P.range;},function(v){P.range=v;});
+  chips($('dirs'),S.DIRECTIONS,function(){return P.dir;},function(v){P.dir=v;});
+  chips($('structs'),S.STRUCTURES,function(){return P.structure;},function(v){ P.structure=v; if(v==='do-pent')P.mode='Do'; if(v==='la-pent')P.mode='La';
+      if(P.mode==='Chromatic'&&['mode','triad','tetrachord'].indexOf(v)>=0)P.mode='Do'; });
+  chips($('subs'),S.SUBDIVISIONS,function(){return +P.sub;},function(v){P.sub=v;});
+  var cu=$('custom'); cu.hidden=(P.structure!=='custom'); cu.innerHTML='';
+  for(var i=0;i<=12;i++){ (function(i){ var d=document.createElement('div'); d.className='dot'; var on=(i===0||i===12)?true:!!P.custom[i];
+    d.innerHTML='<button type="button" aria-pressed="'+on+'" aria-label="'+i+' semitones"'+((i===0||i===12)?' disabled':'')+'></button><span>'+i+'</span>';
+    d.querySelector('button').onclick=function(){ P.custom[i]=P.custom[i]?0:1; render(); }; cu.appendChild(d); })(i); }
+  $('startwrap').hidden=!(P.position==='chromatic'||P.position==='modal');
+}
+(function(){
+  var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
+    o.textContent=p==='open'?'Open':(p==='chromatic'?'Chromatic shift':(p==='modal'?'Modal shift':'Position '+p)); ps.appendChild(o); });
+  ps.value=String(P.position); ps.onchange=function(){ var v=this.value; P.position=(/^\d+$/.test(v)?+v:v); render(); };
+  var ar=$('artic'); S.ARTICULATIONS.forEach(function(a){ var o=document.createElement('option'); o.value=a; o.textContent=a; ar.appendChild(o); });
+  ar.value=P.artic; ar.onchange=function(){ P.artic=this.value; render(); };
+  $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
+  $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
+  $('date').value=S.ymd(new Date());
+  $('notes').oninput=function(){ notesEdited=true; };
+  $('regen').onclick=function(){ notesEdited=false; render(); };
+})();
+
+/* ── preview ── */
+function render(){
+  renderControls();
+  var B=S.boxes(P), b=B[0];
+  $('ptitle').textContent=S.title(P);
+  $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1});
+  $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
+  var sq=S.sequence(P);
+  $('psum').textContent=S.summary(P)+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
+  if(!notesEdited)$('notes').value=S.autoNotes(P);
+  $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(P));
+}
+
+/* ── the passphrase (kept in this browser), students for the name list ── */
+function loadStudents(){ S.api('students',{pass:pass}).then(function(r){ if(!r.ok){ if(!S.isDemo()){ $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; } return; }
+  $('passrow').hidden=true; $('studentlist').innerHTML=r.students.map(function(s){ return '<option value="'+S.esc(s.name)+'">'; }).join(''); }).catch(function(){ $('passerr').textContent='Could not reach the sheet.'; $('passrow').hidden=false; }); }
+$('passgo').onclick=function(){ pass=$('pass').value; try{ localStorage.setItem('studio-pass',pass); }catch(e){} loadStudents(); };
+loadStudents();
+
+/* ── submit ── */
+$('form').onsubmit=function(e){
+  e.preventDefault(); $('suberr').textContent='';
+  var name=$('student').value.trim(); if(!name){ $('suberr').textContent='Add the student’s name.'; $('student').focus(); return; }
+  var btn=$('submit'); btn.disabled=true; btn.textContent='Saving…';
+  S.api('assign',{pass:pass,student:name,date:$('date').value,ex:$('ex').value||'',title:S.title(P),params:P,notes:$('notes').value}).then(function(r){
+    btn.disabled=false; btn.textContent='Submit';
+    if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
+    var sp=S.base()+'student.html?s='+r.sid, dp=S.base()+'drill.html?d='+r.did;
+    var d=$('done'); d.hidden=false;
+    d.innerHTML='<h2>Assigned to '+S.esc(r.name)+'</h2><p class="muted">Exercise '+r.ex+'.</p><div class="done">'
+      +'<div class="l"><span class="label" style="width:100%">Student page</span><input readonly value="'+S.esc(sp)+'"><button type="button" class="btn" data-c="'+S.esc(sp)+'">Copy</button><a class="btn" href="'+S.esc(sp)+'" target="_blank" rel="noopener">Open</a></div>'
+      +'<div class="l"><span class="label" style="width:100%">This drill</span><input readonly value="'+S.esc(dp)+'"><button type="button" class="btn" data-c="'+S.esc(dp)+'">Copy</button><a class="btn" href="'+S.esc(dp)+'" target="_blank" rel="noopener">Open</a></div></div>';
+    [].forEach.call(d.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; },function(){ b.previousSibling.select(); }); }; });
+    $('ex').value=''; loadStudents();
+    d.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }).catch(function(){ btn.disabled=false; btn.textContent='Submit'; $('suberr').textContent='Could not reach the sheet. Nothing was saved.'; });
+};
+render();
+</script>
+</body>
+</html>
