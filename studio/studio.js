@@ -245,12 +245,18 @@ function boxes(P){
 }
 function isShift(P){ return P.position==='chromatic'||P.position==='modal'; }
 
-function ordered(cells,dir){
+/* ── the order of the tones. Up & down (and down & up) turn so that every change of direction starts on a beat: the turning
+      tone is played twice — it ends one run and begins the next — when the run alone would leave the turn off the beat
+      (a one-octave diatonic run in eighths: eight up, eight down, two bars), and once when that is what lands on the beat
+      (an odd count). Given the bar (per = cells in a 4/4 bar), the choice that also makes the lap fill whole bars wins. ── */
+function ordered(cells,dir,per){
   var up=cells.slice();
   if(dir==='up')return up;
   if(dir==='down')return up.slice().reverse();
   if(up.length<2)return up;
-  var dn=up.slice().reverse();
+  var dn=up.slice().reverse(), n=up.length, rep=false;
+  if(per){ var bt=Math.max(1,per/4), score=function(L){ return ((2*L)%per===0?2:0)+(L%bt===0?1:0); }; rep=score(n)>score(n-1); }
+  if(rep) return dir==='downup'?dn.concat(up):up.concat(dn);   /* each run complete: the turning tones are played twice */
   if(dir==='downup')return dn.concat(dn.slice(1,-1).reverse());   /* down, then back up to just below the start */
   return up.concat(up.slice(1,-1).reverse());   /* up, then back down to just above the start: it loops seamlessly */
 }
@@ -260,10 +266,15 @@ function sequence(P){
   var B=boxes(P), notes=[], modes=[], col=0;
   B.forEach(function(b){
     if(b.mode!=='Chromatic'){ var F=fnByName(b.mode); modes.push({col:col,anchor:b.rootPc,val:F.v}); }
-    ordered(b.cells,P.dir).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
+    ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
   });
-  var per=+P.sub||8, bars=Math.max(1,Math.ceil(col/per));
-  return { notes:notes, modes:modes, length:col, per:per, bars:bars, boxes:B, loop:!(isShift(P)&&P.loop===false) };
+  var per=+P.sub||8, loop=!(isShift(P)&&P.loop===false);
+  /* the loop restarts on a downbeat: as many full laps as it takes to fill whole bars (up to eight) */
+  if(loop&&col%per){ var k=1; while(k<8&&(k*col)%per)k++; if((k*col)%per===0&&k>1){ var n0=notes.slice(), m0=modes.slice();
+      for(var j=1;j<k;j++){ n0.forEach(function(x){ var y=Object.assign({},x); y.start+=j*col; notes.push(y); }); m0.forEach(function(x){ var y=Object.assign({},x); y.col+=j*col; modes.push(y); }); }
+      col*=k; } }
+  var bars=Math.max(1,Math.ceil(col/per));
+  return { notes:notes, modes:modes, length:col, per:per, bars:bars, boxes:B, loop:loop };
 }
 
 /* ── names ── */
