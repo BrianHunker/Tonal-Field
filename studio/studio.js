@@ -40,8 +40,15 @@ function nameOfRel(rel){ rel=((rel%12)+12)%12; for(var i=0;i<FN.length;i++) if(F
 
 var POSITIONS=['open'].concat(Array.apply(null,{length:20}).map(function(_,i){ return i+1; })).concat(['chromatic','modal']);
 var MODES=['Do','Re','Mi','Fa','Sol','La','Ti','Chromatic'];
-var RANGES=[ {id:'central',name:'Central',hint:'between the anchor’s octaves'}, {id:'attic',name:'Attic',hint:'above the top octave'},
-             {id:'basement',name:'Basement',hint:'below the root'}, {id:'all',name:'All',hint:'the whole frame, below the root and above the top octave too'} ];
+/* ranges: an A or D anchor spans one octave, so its frame has a middle, an attic above and a basement below; an E anchor spans
+   two octaves from the low E to the high E, so it divides into its lower and upper octave instead */
+var RANGES=[ {id:'central',name:'Central',hint:'between the anchor’s octaves',two:true}, {id:'attic',name:'Attic',hint:'above the top octave',two:true},
+             {id:'basement',name:'Basement',hint:'below the root',two:true},
+             {id:'lower',name:'Lower Octave',hint:'from the root on the low E to its octave',three:true}, {id:'upper',name:'Upper Octave',hint:'from the octave up to the high E',three:true},
+             {id:'all',name:'All',hint:'the whole frame',two:true,three:true} ];
+function rangesFor(anchorId){ var three=anchorOf(anchorId).tones.length===3; return RANGES.filter(function(r){ return three?r.three:r.two; }); }
+function fitRange(P){ var ok=rangesFor(P.anchor).some(function(r){ return r.id===P.range; }); if(ok)return P.range;
+  return anchorOf(P.anchor).tones.length===3?({central:'lower',basement:'lower',attic:'upper'}[P.range]||'all'):({lower:'central',upper:'central'}[P.range]||'all'); }
 var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad'}, {id:'tetrachord',name:'Tetrachord shape'},
                  {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'} ];
 var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'up',name:'Up'}, {id:'down',name:'Down'} ];
@@ -107,6 +114,7 @@ function boxAt(P,w,modeName){
     default: rel=modeRel;
   }
   var lo=Math.min.apply(null,anchorCells.map(function(c){return c.pitch;})), hi=Math.max.apply(null,anchorCells.map(function(c){return c.pitch;}));
+  var three=anchorCells.length===3, mid=three?lo+12:hi;
   /* the frame: every cell the drill may use, one per pitch */
   var frame=[], fMin=w, fMax=w+3;
   var chromFrame=chromatic||P.structure==='chromatic'||P.structure==='custom';   /* chromatic: four tones on every string, each string leaning a fret back as the fourths climb */
@@ -124,13 +132,17 @@ function boxAt(P,w,modeName){
   for(var s=1;s<=6;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
     var ok=(pp<lo&&STRIDX[s]<=STRIDX[A.root])||(pp>hi&&STRIDX[s]>=STRIDX[topStr]);
     if(!ok)continue; if(keyRel&&keyRel.indexOf(((pp-rootPc)%12+12)%12)<0)continue;
-    var prev=outer[pp], mid=(fMin+fMax)/2; if(!prev||Math.abs(f-mid)<Math.abs(prev.fret-mid)) outer[pp]={pitch:pp,string:s,fret:f}; }
+    var prev=outer[pp], fc=(fMin+fMax)/2; if(!prev||Math.abs(f-fc)<Math.abs(prev.fret-fc)) outer[pp]={pitch:pp,string:s,fret:f}; }
   var all=frame.concat(Object.keys(outer).map(function(k){ return outer[k]; }));
   var cells=[];
   all.forEach(function(c){ var p=c.pitch, r=((p-rootPc)%12+12)%12; if(rel.indexOf(r)<0)return;
-    if(P.range==='central'&&(p<lo||p>hi))return;
-    if(P.range==='attic'&&p<hi)return;
-    if(P.range==='basement'&&p>lo)return;
+    var rg=fitRange(P);
+    if(rg==='central'&&(p<lo||p>hi))return;
+    if(rg==='attic'&&p<hi)return;
+    if(rg==='basement'&&p>lo)return;
+    if(rg==='lower'&&(p<lo||p>mid))return;
+    if(rg==='upper'&&(p<mid||p>hi))return;
+    if(three&&(p<lo||p>hi))return;   /* an E anchor's frame is its two octaves: nothing below the low root or above the high one */
     var nm=chromatic?{n:LETTERS[p%12],c:'#c9c5ba'}:nameOfRel(p%12-doPc);
     cells.push({string:c.string,fret:c.fret,pitch:p,anchor:anchorCells.some(function(a){return a.pitch===p;}),name:nm.n,color:nm.c}); });
   cells.sort(function(a,b){ return a.pitch-b.pitch; });
@@ -186,7 +198,7 @@ function title(P){
   return A.word+' · '+st.name+' · '+modeTxt+' · '+where;
 }
 function summary(P){
-  var R=RANGES.filter(function(r){return r.id===P.range;})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
+  var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   return R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic;
 }
 
@@ -199,7 +211,7 @@ function autoNotes(P){
   if(P.mode!=='Chromatic') L.push('The root is '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
   var names=ordered(b.cells,'up').map(function(c){ return c.name; });
   if(names.length) L.push('Tones, low to high: '+names.join(' ')+'.');
-  var R=RANGES.filter(function(r){return r.id===P.range;})[0];
+  var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0];
   L.push('Range: '+R.name+' — '+R.hint+'.');
   if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: three tones on every string.':'Fingering: the half steps (Mi–Fa, Ti–Do) stay together on one string.');
   else L.push('Fingering: four tones on every string; each string up starts a fret further back.');
@@ -263,7 +275,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ OPEN:OPEN, ANCHORS:ANCHORS, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
-  DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
+  DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   title:title, summary:summary, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
