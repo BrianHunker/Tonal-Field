@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=15">
+<link rel="stylesheet" href="studio.css?v=16">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -78,7 +78,10 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
 <dialog id="prof" aria-labelledby="prof-h">
   <form method="dialog" id="profform" autocomplete="off">
     <h2 id="prof-h">Student</h2>
-    <label class="field"><span>Name</span><input type="text" id="pname" maxlength="80" required></label>
+    <div class="row">
+      <label class="field"><span>First name</span><input type="text" id="pname" maxlength="60" required></label>
+      <label class="field"><span>Last name</span><input type="text" id="plast" maxlength="60"></label>
+    </div>
     <div class="row">
       <label class="field"><span>Instrument</span><select id="pinst"><option value="guitar">Guitar</option><option value="bass">Bass</option><option value="keyboard">Keyboard</option></select></label>
       <label class="field"><span>Hand</span><select id="phand"><option value="right">Right-handed</option><option value="left">Left-handed</option></select></label>
@@ -88,14 +91,14 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
       <label class="field"><span>Mobile</span><input type="tel" id="pphone" maxlength="40" placeholder="for Text it"></label>
     </div>
     <label class="field" style="max-width:220px"><span>Lessons began</span><input type="date" id="psince"></label>
-    <p class="hint">Email and mobile stay here: they are never shown on the student’s page. A left-handed student’s drills and lessons open mirrored.</p>
+    <p class="hint">The student’s page shows only the first name. Last name, email and mobile stay here. A left-handed student’s drills and lessons open mirrored.</p>
     <div class="foot"><button class="btn primary" type="submit" value="save" id="psave">Save</button><button class="btn" type="button" id="pcancel">Cancel</button><span class="err" id="perr" style="color:#ff8a7a;font-size:14px"></span></div>
   </form>
 </dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=15"></script>
-<script src="../lessons.js?v=15"></script>
-<script src="studio.js?v=15"></script>
+<script src="config.js?v=16"></script>
+<script src="../lessons.js?v=16"></script>
+<script src="studio.js?v=16"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -150,13 +153,13 @@ function render(){
 /* ── a student's profile: a new one from "Add a student" ── */
 var editingSid=null;
 function openProfile(st){ editingSid=st?st.sid:null; $('prof-h').textContent=st?st.name:'Add a student'; $('perr').textContent='';
-  $('pname').value=st?st.name:''; $('pinst').value=st?st.inst:'guitar'; $('phand').value=st?st.hand:'right'; $('pemail').value=st?(st.email||''):''; $('pphone').value=st?(st.phone||''):'';
+  $('pname').value=st?(st.first||st.name):''; $('plast').value=st?(st.last||''):''; $('pinst').value=st?st.inst:'guitar'; $('phand').value=st?st.hand:'right'; $('pemail').value=st?(st.email||''):''; $('pphone').value=st?(st.phone||''):'';
   $('psince').value=st?(st.since||''):S.ymd(new Date()); $('prof').showModal(); $('pname').focus(); }
 $('addstu').onclick=function(){ openProfile(null); };
 $('pcancel').onclick=function(){ $('prof').close(); };
 $('profform').onsubmit=function(e){ e.preventDefault(); var nm=$('pname').value.trim(); if(!nm){ $('pname').focus(); return; }
   $('psave').disabled=true; $('perr').textContent='';
-  S.api('profile',{pass:pass,sid:editingSid||'',name:nm,inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value}).then(function(r){
+  S.api('profile',{pass:pass,sid:editingSid||'',first:nm,last:$('plast').value.trim(),inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value}).then(function(r){
     $('psave').disabled=false; if(!r.ok){ $('perr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':r.error; return; } $('prof').close(); load(); })
   .catch(function(){ $('psave').disabled=false; $('perr').textContent='Could not reach the sheet.'; }); };
 function load(){ S.api('overview',{pass:pass}).then(function(r){

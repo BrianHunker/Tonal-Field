@@ -14,8 +14,9 @@
    Google to send email as you. That is what lets the Overview and the Designer email a student their page.
 
    The sheet's tabs, made automatically on first use (new columns are added to old tabs by themselves):
-     Students   — one row per student: id (the private link), name, date added, tracking, instrument, hand, email, phone,
-                  about (the student's own words), since (the date lessons began)
+     Students   — one row per student: id (the private link), first name, date added, tracking, instrument, hand, email,
+                  phone, about (the student's own words), since (the date lessons began), last name. The student's
+                  own page shows only the first name; the Designer and the Overview show both.
      Drills     — one row per item of a student's routine: id, student id, date, number, title, settings, notes, added,
                   status (blank while it is in the routine, 'retired' once it is not). The settings say what the item is:
                   a drill (built in the Designer), a song from the student's repertoire, or any other assignment.
@@ -24,7 +25,7 @@
                   (only for students who switched practice tracking on, from their own page — the Students tab's 'tracking')
      Repertoire — one row per song: id, student id, title, artist, lesson (a Tonal Field page, if it has one), status
                   ('learning' or 'done'), started, finished, added
-   Rows can be read, sorted or deleted by hand. Email and phone are never sent to the student pages. */
+   Rows can be read, sorted or deleted by hand. Email, phone and last name are never sent to the student pages. */
 
 var PASSPHRASE = 'change-me';
 
@@ -65,7 +66,7 @@ function handle_(p) {
 
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-var HEAD = { Students: ['sid', 'name', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since'],
+var HEAD = { Students: ['sid', 'first', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since', 'last'],
              Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added', 'status'],
              Checks: ['sid', 'did', 'week', 'day', 'at'],
              Opens: ['sid', 'did', 'date', 'week', 'day', 'opens', 'playSecs', 'openSecs', 'last'],
@@ -84,21 +85,24 @@ function str_(v, n) { return String(v == null ? '' : v).slice(0, n || 200); }
 function rowOf_(name, col, val) { var v = sheet_(name).getDataRange().getValues(); for (var i = 1; i < v.length; i++) if (v[i][col] === val) return i + 1; return 0; }
 var INST = ['guitar', 'bass', 'keyboard'];
 
-/* a student row as an object; contact details only for the teacher */
+/* a student row as an object: the student sees their first name; the teacher, the full name and contact details */
+function full_(r) { return (String(r[1] || '').trim() + ' ' + String(r[10] || '').trim()).trim(); }
+function split_(n) { n = String(n || '').trim().replace(/\s+/g, ' '); var i = n.indexOf(' '); return i < 0 ? [n, ''] : [n.slice(0, i), n.slice(i + 1)]; }
 function profile_(r, teacher) {
-  var o = { sid: r[0], name: r[1], track: r[3] === true, inst: INST.indexOf(r[4]) >= 0 ? r[4] : 'guitar', hand: r[5] === 'left' ? 'left' : 'right',
+  var o = { sid: r[0], name: String(r[1] || '').trim(), track: r[3] === true, inst: INST.indexOf(r[4]) >= 0 ? r[4] : 'guitar', hand: r[5] === 'left' ? 'left' : 'right',
             about: String(r[8] || ''), since: ds_(r[9]) || ds_(r[2]) };
-  if (teacher) { o.email = String(r[6] || ''); o.phone = String(r[7] || ''); }
+  if (teacher) { o.first = o.name; o.last = String(r[10] || '').trim(); o.name = full_(r); o.email = String(r[6] || ''); o.phone = String(r[7] || ''); }
   return o;
 }
 
 function assign_(p) {
-  var name = String(p.student || '').trim(); if (!name) return { ok: false, error: 'no student name' };
+  var name = String(p.student || '').trim().replace(/\s+/g, ' '); if (!name && !p.sid) return { ok: false, error: 'no student name' };
   var st = rows_('Students'), sid = null, inst = 'guitar';
-  for (var i = 0; i < st.length; i++) if (String(st[i][1]).trim().toLowerCase() === name.toLowerCase()) { sid = st[i][0]; name = st[i][1]; inst = profile_(st[i]).inst; break; }
-  if (!sid) {   /* a new student: their instrument and hand come with the first assignment */
-    sid = id_(10); inst = INST.indexOf(p.inst) >= 0 ? p.inst : 'guitar';
-    sheet_('Students').appendRow([sid, name, new Date(), false, inst, p.hand === 'left' ? 'left' : 'right', '', '', '', "'" + day_(new Date())]);
+  for (var i = 0; i < st.length; i++) if (p.sid ? st[i][0] === p.sid : full_(st[i]).toLowerCase() === name.toLowerCase()) { sid = st[i][0]; name = full_(st[i]); inst = profile_(st[i]).inst; break; }
+  if (p.sid && !sid) return { ok: false, error: 'no such student' };
+  if (!sid) {   /* a new student, "First Last": their instrument and hand come with the first assignment */
+    var nm = split_(name); sid = id_(10); inst = INST.indexOf(p.inst) >= 0 ? p.inst : 'guitar';
+    sheet_('Students').appendRow([sid, nm[0], new Date(), false, inst, p.hand === 'left' ? 'left' : 'right', '', '', '', "'" + day_(new Date()), nm[1]]);
   }
   var mine = rows_('Drills').filter(function (r) { return r[1] === sid; });
   var ex = p.ex ? Number(p.ex) : mine.length + 1;
@@ -211,15 +215,15 @@ function remove_(p) {
 }
 /* a student's profile, from the Overview: a new student when there is no id */
 function setProfile_(p) {
-  var name = str_(p.name, 80).trim(); if (!name) return { ok: false, error: 'no student name' };
+  var first = str_(p.first, 60).trim(), last = str_(p.last, 60).trim(), name = (first + ' ' + last).trim(); if (!first) return { ok: false, error: 'no first name' };
   var inst = INST.indexOf(p.inst) >= 0 ? p.inst : 'guitar', hand = p.hand === 'left' ? 'left' : 'right';
   var email = str_(p.email, 120).trim(), phone = str_(p.phone, 40).trim(), since = /^\d{4}-\d{2}-\d{2}$/.test(String(p.since || '')) ? "'" + p.since : '';
-  var clash = rows_('Students').filter(function (r) { return r[0] !== p.sid && String(r[1]).trim().toLowerCase() === name.toLowerCase(); })[0];
-  if (clash) return { ok: false, error: 'another student already has that name' };
+  var clash = rows_('Students').filter(function (r) { return r[0] !== p.sid && full_(r).toLowerCase() === name.toLowerCase(); })[0];
+  if (clash) return { ok: false, error: 'another student already has that first and last name' };
   var sh = sheet_('Students');
-  if (!p.sid) { var sid = id_(10); sh.appendRow([sid, name, new Date(), false, inst, hand, email, phone, '', since || "'" + day_(new Date())]); return { ok: true, sid: sid }; }
+  if (!p.sid) { var sid = id_(10); sh.appendRow([sid, first, new Date(), false, inst, hand, email, phone, '', since || "'" + day_(new Date()), last]); return { ok: true, sid: sid }; }
   var i = rowOf_('Students', 0, p.sid); if (!i) return { ok: false, error: 'no such student' };
-  sh.getRange(i, 2).setValue(name); sh.getRange(i, 5, 1, 4).setValues([[inst, hand, email, phone]]); if (since) sh.getRange(i, 10).setValue(since);
+  sh.getRange(i, 2).setValue(first); sh.getRange(i, 11).setValue(last); sh.getRange(i, 5, 1, 4).setValues([[inst, hand, email, phone]]); if (since) sh.getRange(i, 10).setValue(since);
   return { ok: true, sid: p.sid };
 }
 /* email the student (the page writes the message; it only ever goes to the address on their profile) */

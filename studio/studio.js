@@ -309,8 +309,10 @@ function rid(n){ var c='abcdefghjkmnpqrstuvwxyz23456789',s=''; for(var i=0;i<n;i
 function demo(p){
   var db=demoDB(), a=p.action, today=ymd(new Date());
   function stu(sid){ return db.students.filter(function(x){return x.sid===sid;})[0]; }
-  function prof(s,teacher){ var o={sid:s.sid,name:s.name,track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today};
-    if(teacher){ o.email=s.email||''; o.phone=s.phone||''; } return o; }
+  function full(s){ return ((s.first||s.name||'')+' '+(s.last||'')).trim(); }
+  function split(n){ n=String(n||'').trim().replace(/\s+/g,' '); var i=n.indexOf(' '); return i<0?[n,'']:[n.slice(0,i),n.slice(i+1)]; }
+  function prof(s,teacher){ var o={sid:s.sid,name:(s.first||s.name||'').trim(),track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today};
+    if(teacher){ o.first=o.name; o.last=s.last||''; o.name=full(s); o.email=s.email||''; o.phone=s.phone||''; } return o; }
   function songs(sid){ return db.songs.filter(function(x){ return !sid||x.sid===sid; }); }
   function dr(d){ var o=JSON.parse(JSON.stringify(d)); o.status=o.status||''; return o; }
   if(a==='student'){ var s=stu(p.sid); if(!s)return {ok:false,error:'no such student'};
@@ -336,21 +338,21 @@ function demo(p){
   /* the teacher's (the demo has no passphrase) */
   if(a==='ping') return {ok:true};
   if(a==='students') return {ok:true,students:db.students.map(function(s){ return prof(s,true); })};
-  if(a==='assign'){ var nm=String(p.student||'').trim(); if(!nm)return {ok:false,error:'no student name'};
-    var st=db.students.filter(function(x){return x.name.toLowerCase()===nm.toLowerCase();})[0];
-    if(!st){ st={sid:rid(10),name:nm,inst:INSTRUMENTS[p.inst]?p.inst:'guitar',hand:p.hand==='left'?'left':'right',since:today}; db.students.push(st); }
+  if(a==='assign'){ var nm=String(p.student||'').trim().replace(/\s+/g,' '); if(!nm&&!p.sid)return {ok:false,error:'no student name'};
+    var st=db.students.filter(function(x){ return p.sid?x.sid===p.sid:full(x).toLowerCase()===nm.toLowerCase(); })[0]; if(p.sid&&!st)return {ok:false,error:'no such student'};
+    if(!st){ var sp0=split(nm); st={sid:rid(10),first:sp0[0],last:sp0[1],inst:INSTRUMENTS[p.inst]?p.inst:'guitar',hand:p.hand==='left'?'left':'right',since:today}; db.students.push(st); }
     var ex=p.ex?+p.ex:db.drills.filter(function(d){return d.sid===st.sid;}).length+1, did=rid(8);
-    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes,status:''}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:st.name,inst:st.inst||'guitar'}; }
+    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes,status:''}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:full(st),inst:st.inst||'guitar'}; }
   if(a==='overview') return {ok:true,students:db.students.map(function(s){ return prof(s,true); }),drills:db.drills.map(dr),checks:db.checks,opens:[],songs:songs(null)};
   if(a==='update'){ var du=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!du)return {ok:false,error:'no such drill'};
     ['date','title','params','notes'].forEach(function(k){ if(p[k]!==undefined)du[k]=p[k]; }); if(p.ex)du.ex=+p.ex; if(p.status!==undefined)du.status=p.status==='retired'?'retired':'';
     demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
   if(a==='remove'){ var n0=db.drills.length; db.drills=db.drills.filter(function(x){return x.did!==p.did;}); db.checks=db.checks.filter(function(c){return c.did!==p.did;}); demoSave(db); return n0>db.drills.length?{ok:true}:{ok:false,error:'no such drill'}; }
-  if(a==='profile'){ var pn=String(p.name||'').trim().slice(0,80); if(!pn)return {ok:false,error:'no student name'};
-    if(db.students.some(function(x){ return x.sid!==p.sid&&x.name.toLowerCase()===pn.toLowerCase(); }))return {ok:false,error:'another student already has that name'};
+  if(a==='profile'){ var pf=String(p.first||'').trim().slice(0,60), pl=String(p.last||'').trim().slice(0,60), pn=(pf+' '+pl).trim(); if(!pf)return {ok:false,error:'no first name'};
+    if(db.students.some(function(x){ return x.sid!==p.sid&&full(x).toLowerCase()===pn.toLowerCase(); }))return {ok:false,error:'another student already has that first and last name'};
     var sp=p.sid?stu(p.sid):null; if(p.sid&&!sp)return {ok:false,error:'no such student'};
     if(!sp){ sp={sid:rid(10),since:today}; db.students.push(sp); }
-    sp.name=pn; sp.inst=INSTRUMENTS[p.inst]?p.inst:'guitar'; sp.hand=p.hand==='left'?'left':'right'; sp.email=String(p.email||'').trim(); sp.phone=String(p.phone||'').trim();
+    sp.first=pf; sp.last=pl; delete sp.name; sp.inst=INSTRUMENTS[p.inst]?p.inst:'guitar'; sp.hand=p.hand==='left'?'left':'right'; sp.email=String(p.email||'').trim(); sp.phone=String(p.phone||'').trim();
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(p.since||'')))sp.since=p.since; demoSave(db); return {ok:true,sid:sp.sid}; }
   if(a==='notify'){ var sn=stu(p.sid); if(!sn)return {ok:false,error:'no such student'}; if(!sn.email)return {ok:false,error:'no email on this student’s profile'};
     try{ console.log('[demo] email to '+sn.email+': '+p.subject+'\n'+p.body); }catch(e){} return {ok:true,to:sn.email,left:99,demo:true}; }
@@ -372,10 +374,10 @@ function initials(name){ var w=String(name||'').replace(/[_.\-]+/g,' ').trim().s
 function byAssigned(a,b){ return (a.date+'|'+String(a.ex).padStart(4,'0'))<(b.date+'|'+String(b.ex).padStart(4,'0'))?-1:1; }
 function routine(drills){ return (drills||[]).filter(function(d){ return d.status!=='retired'; }).sort(byAssigned); }
 function itemTitle(d,songs){ if(d.title)return d.title; if(kindOf(d)==='drill')return title(Object.assign(defaults(),d.params||{})); if(kindOf(d)==='song'){ var s=(songs||[]).filter(function(x){ return x.rid===d.params.rid; })[0]; return songTitle(s); } return itemLabel(d); }
-function firstName(n){ return String(n||'').split(/[\s_]+/)[0]||String(n||''); }
+function firstName(n){ if(n&&typeof n==='object')n=n.first||n.name; return String(n||'').split(/[\s_]+/)[0]||String(n||''); }
 /* what the Designer and the Overview send a student: an email with the routine, a text with the link */
 function message(student,link,drills,songs){
-  var R=routine(drills), tot=R.reduce(function(t,d){ return t+minutesOf(d); },0), hi='Hi '+firstName(student.name);
+  var R=routine(drills), tot=R.reduce(function(t,d){ return t+minutesOf(d); },0), hi='Hi '+firstName(student);
   var lines=R.map(function(d,i){ return (i+1)+'. '+itemLabel(d)+' · '+itemTitle(d,songs)+' — '+minutesOf(d)+' min'; });
   return { subject:'Your practice this week',
            body:hi+',\n\nYour practice routine is ready'+(R.length?':\n\n'+lines.join('\n')+'\n\nAbout '+Math.round(tot)+' minutes a day.':'.')+'\n\nOpen your page to start: '+link+'\n\n— Brian\nGables Guitar Studio',

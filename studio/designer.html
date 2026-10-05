@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=15">
+<link rel="stylesheet" href="studio.css?v=16">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -60,7 +60,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
       <div class="sec">
         <h3>Assigned to</h3>
         <div class="row">
-          <label class="field" style="flex:2 1 200px"><span>Student</span><input type="text" id="student" list="studentlist" placeholder="First name"></label>
+          <label class="field" style="flex:2 1 200px"><span>Student</span><input type="text" id="student" list="studentlist" placeholder="First and last name"></label>
           <datalist id="studentlist"></datalist>
           <label class="field" style="flex:1 1 140px"><span>Date</span><input type="date" id="date"></label>
           <label class="field" style="flex:0 1 110px"><span>Item #</span><input type="number" id="ex" min="1" placeholder="next"></label>
@@ -158,9 +158,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=15"></script>
-<script src="../lessons.js?v=15"></script>
-<script src="studio.js?v=15"></script>
+<script src="config.js?v=16"></script>
+<script src="../lessons.js?v=16"></script>
+<script src="studio.js?v=16"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
@@ -181,7 +181,7 @@ function renderControls(){
   var locked=!!cur;   /* an existing student's instrument and hand come from their profile */
   chips($('insts'),['guitar','bass','keyboard'].map(function(k){ return {id:k,name:S.INSTRUMENTS[k].name}; }),function(){return P.inst;},function(v){ P.inst=v; },null,function(){ return locked; });
   chips($('hands'),[{id:'right',name:'Right'},{id:'left',name:'Left'}],function(){return HAND;},function(v){ HAND=v; },null,function(){ return locked; });
-  $('profhint').textContent=cur?('From '+cur.name+'’s profile. Change it in the Studio Overview.'):($('student').value.trim()?'A new student: these are saved with their first item.':'');
+  $('profhint').textContent=cur?('From '+cur.name+'’s profile. Change it in the Studio Overview.'):($('student').value.trim()?'A new student. Use their first and last name; they see only the first. These are saved with their first item.':'');
   chips($('kinds'),S.ITEM_KINDS.map(function(k){ return {id:k.id,name:k.name+' · '+k.label.toLowerCase()}; }),function(){return KIND;},function(v){ if(v!==KIND){ KIND=v; titleEdited=false; if(KIND!=='drill'&&!notesEdited)$('notes').value=''; } },null,function(v){ return v==='drill'&&!canDrill(); });
   [].forEach.call(document.querySelectorAll('.k-drill'),function(el){ el.hidden=(KIND!=='drill'); });
   [].forEach.call(document.querySelectorAll('.k-song'),function(el){ el.hidden=(KIND!=='song'); });
@@ -266,7 +266,7 @@ function params(){
 
 /* ── the student: an existing one brings their instrument, hand and repertoire ── */
 function matchStudent(){
-  var nm=$('student').value.trim().toLowerCase(), st=students.filter(function(x){ return String(x.name).toLowerCase()===nm; })[0]||null;
+  var nm=$('student').value.trim().replace(/\s+/g,' ').toLowerCase(), st=students.filter(function(x){ return String(x.name).toLowerCase()===nm; })[0]||null;
   if(st===cur){ render(); return; }
   cur=st; songs=[];
   if(cur){ P.inst=cur.inst||'guitar'; HAND=cur.hand||'right';
@@ -308,10 +308,10 @@ function sendRow(sid){
   var st=students.filter(function(x){ return x.sid===sid; })[0]; if(!st) return Promise.resolve('');
   return S.api('student',{sid:sid}).then(function(r){
     var link=S.base()+'student.html?s='+sid, M=S.message(st,link,r.drills||[],r.songs||[]), h='';
-    if(st.email) h+='<button type="button" class="btn" id="mailbtn">Email '+S.esc(S.firstName(st.name))+'</button>';
+    if(st.email) h+='<button type="button" class="btn" id="mailbtn">Email '+S.esc(S.firstName(st))+'</button>';
     if(st.phone) h+='<a class="btn" href="'+S.esc(S.smsHref(st.phone,M.text))+'">Text it</a>';
     if(!h) return '<p class="hint">Add an email or a mobile number to '+S.esc(st.name)+'’s profile in the Studio Overview to send the page from here.</p>';
-    window._msg={sid:sid,M:M}; return '<div class="l"><span class="label" style="width:100%">Let '+S.esc(S.firstName(st.name))+' know</span>'+h+'<span class="hint" id="mailres"></span></div>';
+    window._msg={sid:sid,M:M}; return '<div class="l"><span class="label" style="width:100%">Let '+S.esc(S.firstName(st))+' know</span>'+h+'<span class="hint" id="mailres"></span></div>';
   });
 }
 function wireSend(){ var b=$('mailbtn'); if(!b)return; b.onclick=function(){ var m=window._msg; b.disabled=true; b.textContent='Sending…';
@@ -328,7 +328,8 @@ function ensureSong(sid){   /* a new song joins the repertoire first */
 function ensureStudent(name){   /* a song needs the student to exist before it can join their repertoire */
   if(cur) return Promise.resolve(cur.sid);
   if(KIND!=='song') return Promise.resolve(null);
-  return S.api('profile',{pass:pass,name:name,inst:P.inst,hand:HAND}).then(function(r){ if(!r.ok)throw (r.error==='wrong passphrase'?'The passphrase is missing or wrong.':'Not saved: '+r.error); return loadStudents().then(function(){ return r.sid; }); });
+  var sp=name.replace(/\s+/g,' '), i=sp.indexOf(' ');
+  return S.api('profile',{pass:pass,first:i<0?sp:sp.slice(0,i),last:i<0?'':sp.slice(i+1),inst:P.inst,hand:HAND}).then(function(r){ if(!r.ok)throw (r.error==='wrong passphrase'?'The passphrase is missing or wrong.':'Not saved: '+r.error); return loadStudents().then(function(){ return r.sid; }); });
 }
 $('form').onsubmit=function(e){
   e.preventDefault(); $('suberr').textContent='';
@@ -342,7 +343,7 @@ $('form').onsubmit=function(e){
       if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
       var d=$('done'); d.hidden=false; d.innerHTML='<h2>Saved</h2><p class="muted">The item on '+S.esc(editing.name)+'’s page now has these settings.</p><div class="done"><div class="l"><a class="btn" href="overview.html">Back to the overview</a><a class="btn" href="student.html?s='+encodeURIComponent(r.sid)+'" target="_blank" rel="noopener">Open '+S.esc(editing.name)+'’s page</a></div></div>';
       d.scrollIntoView({behavior:'smooth',block:'nearest'}); });
-    return S.api('assign',{pass:pass,student:name,inst:P.inst,hand:HAND,date:$('date').value,ex:$('ex').value||'',title:ttl,params:prm,notes:notes}).then(function(r){
+    return S.api('assign',{pass:pass,student:name,sid:cur?cur.sid:'',inst:P.inst,hand:HAND,date:$('date').value,ex:$('ex').value||'',title:ttl,params:prm,notes:notes}).then(function(r){
       btn.disabled=false; btn.textContent='Submit';
       if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
       var sp=S.base()+'student.html?s='+r.sid, dp=S.base()+'drill.html?d='+r.did;
