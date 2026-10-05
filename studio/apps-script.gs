@@ -43,6 +43,8 @@ function handle_(p) {
     if (a === 'students') return out_({ ok: true, students: rows_('Students').map(function (r) { return { sid: r[0], name: r[1] }; }) });
     if (a === 'assign')   return out_(assign_(p));
     if (a === 'overview') return out_(overview_());
+    if (a === 'update')   return out_(update_(p));
+    if (a === 'remove')   return out_(remove_(p));
     return out_({ ok: false, error: 'unknown action' });
   } finally { lock.releaseLock(); }
 }
@@ -123,6 +125,28 @@ function optin_(p) {
   var sh = sheet_('Students'), v = sh.getDataRange().getValues();
   for (var i = 1; i < v.length; i++) if (v[i][0] === p.sid) { sh.getRange(i + 1, 4).setValue(!!p.on); return { ok: true, track: !!p.on }; }
   return { ok: false, error: 'no such student' };
+}
+
+/* the teacher's corrections: change a drill (title, settings, notes, date, number), or remove it with its stars and practice rows */
+function update_(p) {
+  var sh = sheet_('Drills'), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) if (v[i][0] === p.did) {
+    if (p.date) sh.getRange(i + 1, 3).setValue(p.date);
+    if (p.ex) sh.getRange(i + 1, 4).setValue(Number(p.ex));
+    if (p.title !== undefined) sh.getRange(i + 1, 5).setValue(p.title);
+    if (p.params) sh.getRange(i + 1, 6).setValue(JSON.stringify(p.params));
+    if (p.notes !== undefined) sh.getRange(i + 1, 7).setValue(p.notes);
+    return { ok: true, did: p.did, sid: v[i][1] };
+  }
+  return { ok: false, error: 'no such drill' };
+}
+function remove_(p) {
+  var found = false;
+  ['Drills', 'Checks', 'Opens'].forEach(function (name) {
+    var sh = sheet_(name), v = sh.getDataRange().getValues(), col = (name === 'Drills') ? 0 : 1;
+    for (var i = v.length - 1; i >= 1; i--) if (v[i][col] === p.did) { sh.deleteRow(i + 1); if (name === 'Drills') found = true; }
+  });
+  return found ? { ok: true } : { ok: false, error: 'no such drill' };
 }
 
 function overview_() {

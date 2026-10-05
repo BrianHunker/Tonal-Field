@@ -224,8 +224,9 @@ function title(P){
   var A=anchorOf(P.anchor), B=boxes(P), b=B[0], st=STRUCTURES.filter(function(s){return s.id===P.structure;})[0];
   var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
   var where=P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:'root at fret '+b.root.fret));
-  var modeTxt=P.mode==='Chromatic'?rootName(b):(rootName(b)+' as '+P.mode);
-  return A.word+' · '+st.name+' · '+modeTxt+' · '+where;
+  var modeTxt=P.mode==='Chromatic'?rootName(b)+' chromatic':(rootName(b)+' as '+P.mode);
+  /* it opens with the tonality, never with the anchor's name */
+  return modeTxt+' · '+(P.mode==='Chromatic'&&P.structure==='chromatic'?'':st.name+' · ')+A.word+' · '+where;
 }
 function summary(P){
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
@@ -306,6 +307,9 @@ function demo(p){
     db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:st.name}; }
   if(a==='open') return {ok:true};
   if(a==='overview') return {ok:true,students:db.students,drills:db.drills,checks:db.checks,opens:[]};
+  if(a==='update'){ var du=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!du)return {ok:false,error:'no such drill'};
+    ['date','title','params','notes'].forEach(function(k){ if(p[k]!==undefined)du[k]=p[k]; }); if(p.ex)du.ex=+p.ex; demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
+  if(a==='remove'){ var n0=db.drills.length; db.drills=db.drills.filter(function(x){return x.did!==p.did;}); db.checks=db.checks.filter(function(c){return c.did!==p.did;}); demoSave(db); return n0>db.drills.length?{ok:true}:{ok:false,error:'no such drill'}; }
   return {ok:false,error:'unknown action'};
 }
 
