@@ -8,6 +8,9 @@
      A back    — root on the A string, octave on the B string, 2 frets toward the nut
      D forward — root on the D string, octave on the B string, 3 frets toward the bridge
    (D back would be the top of E forward; G and higher roots are already inside the E shapes. That is why there are five.)
+   The same rule — a root and every octave of it inside four frets, dropping any shape inside another — run on the bass's
+   four strings (E A D G) gives three: E forward, E back, A forward. A drill carries its instrument (P.inst); every shape,
+   frame and glyph below reads the strings from it.
    A drill = an anchor, a position on the neck, a mode (which function the root is), a range of the four-fret box, a harmonic
    structure (which tones), a direction, and timing. From those the tones are found on the fretboard, ordered by pitch, and
    written as a sequence for the Tonal Field tool. */
@@ -16,19 +19,29 @@
 
 /* ── strings: 1 is the high E, 6 the low E. Pitches in the tool's own numbering (the low E open is 16; pitch mod 12 is the
       pitch class, E = 4). ── */
-var OPEN={1:40,2:35,3:31,4:26,5:21,6:16};
 var LETTERS=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
-var STRING_NAME={1:'high E',2:'B',3:'G',4:'D',5:'A',6:'low E'};
-
-/* ── the five anchors: [string, fret offset within the box] ── */
-var ANCHORS=[
-  { id:'E>', root:6, word:'E forward', glyph:'E▸', tones:[[6,0],[4,2],[1,0]] },
-  { id:'E<', root:6, word:'E back',    glyph:'E◂', tones:[[6,3],[3,0],[1,3]] },
-  { id:'A>', root:5, word:'A forward', glyph:'A▸', tones:[[5,0],[3,2]] },
-  { id:'A<', root:5, word:'A back',    glyph:'A◂', tones:[[5,2],[2,0]] },
-  { id:'D>', root:4, word:'D forward', glyph:'D▸', tones:[[4,0],[2,3]] }
-];
-function anchorOf(id){ for(var i=0;i<ANCHORS.length;i++) if(ANCHORS[i].id===id) return ANCHORS[i]; return ANCHORS[0]; }
+/* ── the instruments: open pitches by string number, string names, and the anchors ([string, fret offset within the box]).
+      Keyboard has no fretboard drills; its students get songs and other routine items. ── */
+var INSTRUMENTS={
+  guitar:{ id:'guitar', name:'Guitar', drills:true, open:{1:40,2:35,3:31,4:26,5:21,6:16}, names:{1:'high E',2:'B',3:'G',4:'D',5:'A',6:'low E'},
+    anchors:[ { id:'E>', root:6, word:'E forward', glyph:'E▸', tones:[[6,0],[4,2],[1,0]] },
+              { id:'E<', root:6, word:'E back',    glyph:'E◂', tones:[[6,3],[3,0],[1,3]] },
+              { id:'A>', root:5, word:'A forward', glyph:'A▸', tones:[[5,0],[3,2]] },
+              { id:'A<', root:5, word:'A back',    glyph:'A◂', tones:[[5,2],[2,0]] },
+              { id:'D>', root:4, word:'D forward', glyph:'D▸', tones:[[4,0],[2,3]] } ] },
+  bass:{ id:'bass', name:'Bass', drills:true, open:{1:19,2:14,3:9,4:4}, names:{1:'G',2:'D',3:'A',4:'E'},
+    anchors:[ { id:'E>', root:4, word:'E forward', glyph:'E▸', tones:[[4,0],[2,2]] },
+              { id:'E<', root:4, word:'E back',    glyph:'E◂', tones:[[4,3],[1,0]] },
+              { id:'A>', root:3, word:'A forward', glyph:'A▸', tones:[[3,0],[1,2]] } ] },
+  keyboard:{ id:'keyboard', name:'Keyboard', drills:false }
+};
+function instOf(x){ var k=(x&&typeof x==='object')?x.inst:x; return INSTRUMENTS[k]&&INSTRUMENTS[k].drills?INSTRUMENTS[k]:INSTRUMENTS.guitar; }
+/* the strings in use: set from the drill at each entry point (everything here runs synchronously) */
+var INST, OPEN, NS, STRING_NAME, ANCHORS, STRIDX, IDXSTR;
+function use(x){ var I=instOf(x); if(I===INST)return I; INST=I; OPEN=I.open; STRING_NAME=I.names; ANCHORS=I.anchors; NS=Object.keys(OPEN).length;
+  STRIDX={}; IDXSTR=[]; for(var k=0;k<NS;k++){ STRIDX[NS-k]=k; IDXSTR.push(NS-k); } return I; }   /* index 0 is the lowest string */
+use('guitar');
+function anchorOf(id,inst){ if(inst!==undefined)use(inst); for(var i=0;i<ANCHORS.length;i++) if(ANCHORS[i].id===id) return ANCHORS[i]; return ANCHORS[0]; }
 function rootOffset(A){ for(var i=0;i<A.tones.length;i++) if(A.tones[i][0]===A.root) return A.tones[i][1]; return 0; }
 
 /* ── the seven functions: semitones above Do, the tool's colours, and the mode letters the tool's sequencer uses ── */
@@ -46,8 +59,8 @@ var RANGES=[ {id:'central',name:'Central',hint:'between the anchor’s octaves',
              {id:'basement',name:'Basement',hint:'below the root',two:true},
              {id:'lower',name:'Lower Octave',hint:'from the root on the low E to its octave',three:true}, {id:'upper',name:'Upper Octave',hint:'from the octave up to the high E',three:true},
              {id:'all',name:'All',hint:'the whole frame',two:true,three:true} ];
-function rangesFor(anchorId){ var three=anchorOf(anchorId).tones.length===3; return RANGES.filter(function(r){ return three?r.three:r.two; }); }
-function fitRange(P){ var ok=rangesFor(P.anchor).some(function(r){ return r.id===P.range; }); if(ok)return P.range;
+function rangesFor(anchorId,inst){ if(inst!==undefined)use(inst); var three=anchorOf(anchorId).tones.length===3; return RANGES.filter(function(r){ return three?r.three:r.two; }); }
+function fitRange(P){ use(P); var ok=rangesFor(P.anchor).some(function(r){ return r.id===P.range; }); if(ok)return P.range;
   return anchorOf(P.anchor).tones.length===3?({central:'lower',basement:'lower',attic:'upper'}[P.range]||'all'):({lower:'central',upper:'central'}[P.range]||'all'); }
 var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad'}, {id:'tetrachord',name:'Tetrachord shape'},
                  {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'} ];
@@ -66,7 +79,6 @@ function defaults(){ return { anchor:'E>', position:5, start:1, end:5, loop:true
         (chromatic drills are strung separately: strictly four semitones per string)
       The anchors never move. Among all the ways to string the tones from the root up to the top anchor, the one with the
       fewest broken rules wins, then the narrowest span of frets. ── */
-var STRIDX={6:0,5:1,4:2,3:3,2:4,1:5}, IDXSTR=[6,5,4,3,2,1];
 function placeScale(pitches,fixed,w,rule){
   /* pitches ascending; fixed[pitch]=string for the anchor tones. Returns [{pitch,string,fret}] or null. */
   var best=null, bestCost=Infinity, n=pitches.length, cur=new Array(n);
@@ -77,7 +89,7 @@ function placeScale(pitches,fixed,w,rule){
       if(i>0&&pitches[i]-pitches[i-1]===1&&cur[i].string!==cur[i-1].string)split++; }
     var dev=0, s0=STRIDX[cur[0].string], s1=STRIDX[cur[n-1].string];
     var T=(rule==='four')?4:3;
-    for(var k=s0;k<s1;k++) dev+=Math.abs((per[IDXSTR[k]]||0)-T)*(rule!=='half'?(6-(k-s0)):1);   /* every string from the root's up to (not) the top anchor's, empty ones too; three per string fills from the root string up */
+    for(var k=s0;k<s1;k++) dev+=Math.abs((per[IDXSTR[k]]||0)-T)*(rule!=='half'?(NS-(k-s0)):1);   /* every string from the root's up to (not) the top anchor's, empty ones too; three per string fills from the root string up */
     var lean=0; for(var j=0;j<n;j++){ if(cur[j].fret<w)lean+=w-cur[j].fret; if(cur[j].fret>w+3)lean+=cur[j].fret-(w+3); }
     if(rule!=='half') c=1000*dev+100*split;
     else c=1000*split+100*dev;
@@ -87,7 +99,7 @@ function placeScale(pitches,fixed,w,rule){
     if(i===n){ var c=cost(); if(c<bestCost){ bestCost=c; best=cur.slice(); } return; }
     var p=pitches[i];
     if(fixed[p]!==undefined){ var fs=STRIDX[fixed[p]]; if(fs<sIdx)return; cur[i]={pitch:p,string:fixed[p],fret:p-OPEN[fixed[p]]}; go(i+1,fs); return; }
-    var limit=5; for(var q=i+1;q<n;q++) if(fixed[pitches[q]]!==undefined){ limit=STRIDX[fixed[pitches[q]]]; break; }
+    var limit=NS-1; for(var q=i+1;q<n;q++) if(fixed[pitches[q]]!==undefined){ limit=STRIDX[fixed[pitches[q]]]; break; }
     for(var si=sIdx;si<=limit;si++){ var st=IDXSTR[si], f=p-OPEN[st]; if(f<0||f<w-2||f>w+6)continue;
       cur[i]={pitch:p,string:st,fret:f}; go(i+1,si); }
   }
@@ -95,6 +107,7 @@ function placeScale(pitches,fixed,w,rule){
   return best;
 }
 function boxAt(P,w,modeName){
+  use(P);
   var A=anchorOf(P.anchor);
   var anchorCells=A.tones.map(function(t){ return {string:t[0],fret:w+t[1],pitch:OPEN[t[0]]+w+t[1]}; });
   var root=anchorCells.filter(function(c){ return c.string===A.root; })[0], rootPc=root.pitch%12;
@@ -127,11 +140,11 @@ function boxAt(P,w,modeName){
        below the nut keeps the tone instead. */
     all=[]; var rs=STRIDX[A.root], si=rs, cnt=0;
     for(var pu=root.pitch;;pu++){
-      if(cnt>=4&&si<5&&pu-OPEN[IDXSTR[si+1]]>=0){ si++; cnt=0; }
-      if(cnt>=4&&si===5&&pu>hi)break;
+      if(cnt>=4&&si<NS-1&&pu-OPEN[IDXSTR[si+1]]>=0){ si++; cnt=0; }
+      if(cnt>=4&&si===NS-1&&pu>hi)break;
       if(pu>hi+30)break;
       all.push({pitch:pu,string:IDXSTR[si],fret:pu-OPEN[IDXSTR[si]]}); cnt++;
-      if(si===5&&cnt>=4&&pu>=hi)break;
+      if(si===NS-1&&cnt>=4&&pu>=hi)break;
     }
     si=rs; cnt=0;
     for(var pd=root.pitch-1;;pd--){
@@ -149,11 +162,11 @@ function boxAt(P,w,modeName){
     var placed=placeScale(pitches,fixed,w,chromFrame?'four':(P.frame==='three'?'three':'half'));
     if(placed){ frame=placed; fMin=Math.min.apply(null,placed.map(function(c){return c.fret;})); fMax=Math.max.apply(null,placed.map(function(c){return c.fret;})); }
   }
-  if(!all&&!frame.length){ for(var s0=1;s0<=6;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
+  if(!all&&!frame.length){ for(var s0=1;s0<=NS;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
   /* below the root and above the top anchor: the strings outside the anchor, within the frame's frets */
   var topStr=anchorCells.filter(function(c){return c.pitch===hi;})[0].string;
   var outer={};
-  if(!all) for(var s=1;s<=6;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
+  if(!all) for(var s=1;s<=NS;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
     var ok=(pp<lo&&STRIDX[s]<=STRIDX[A.root])||(pp>hi&&STRIDX[s]>=STRIDX[topStr]);
     if(!ok)continue; if(keyRel&&keyRel.indexOf(((pp-rootPc)%12+12)%12)<0)continue;
     var prev=outer[pp], fc=(fMin+fMax)/2; if(!prev||Math.abs(f-fc)<Math.abs(prev.fret-fc)) outer[pp]={pitch:pp,string:s,fret:f}; }
@@ -179,6 +192,7 @@ function boxAt(P,w,modeName){
       chromatic shift: the box moves a fret at a time; modal shift: the root walks along its string through the tones of the
       key, each box in the mode of its new root. With P.loop (the default) the run comes back to its start and repeats. ── */
 function boxes(P){
+  use(P);
   var A=anchorOf(P.anchor), ro=rootOffset(A), a=Math.max(0,+P.start||0), e=Math.max(0,(P.end===undefined||P.end==='')?a:+P.end), d=e>=a?1:-1, out=[];
   if(P.position==='chromatic'){ for(var w=a;d>0?w<=e:w>=e;w+=d) out.push(boxAt(P,w,P.mode)); }
   else if(P.position==='modal'){
@@ -221,7 +235,7 @@ function sequence(P){
 /* ── names ── */
 function rootName(b){ return LETTERS[b.rootPc]; }
 function title(P){
-  var A=anchorOf(P.anchor), B=boxes(P), b=B[0], st=STRUCTURES.filter(function(s){return s.id===P.structure;})[0];
+  use(P); var A=anchorOf(P.anchor), B=boxes(P), b=B[0], st=STRUCTURES.filter(function(s){return s.id===P.structure;})[0];
   var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
   var where=P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:'root at fret '+b.root.fret));
   var modeTxt=P.mode==='Chromatic'?rootName(b)+' chromatic':(rootName(b)+' as '+P.mode);
@@ -236,7 +250,7 @@ function summary(P){
 
 /* ── the notes the designer writes for the student (a starting point: edit before submitting) ── */
 function autoNotes(P){
-  var A=anchorOf(P.anchor), B=boxes(P), b=B[0], L=[];
+  var B=boxes(P), A=anchorOf(P.anchor), b=B[0], L=[];
   var place=b.root.fret===0?'open':'at fret '+b.root.fret;
   var octs=b.anchorCells.filter(function(c){ return c.string!==A.root; }).map(function(c){ return STRING_NAME[c.string]+' string, fret '+c.fret; });
   L.push('Anchor: '+A.word+'. The root, '+rootName(b)+', is on the '+STRING_NAME[A.root]+' string '+place+'; its octave'+(octs.length>1?'s':'')+': '+octs.join(' and ')+'.');
@@ -256,19 +270,19 @@ function autoNotes(P){
   return L.join('\n');
 }
 
-/* ── the fretboard glyph: six strings (high E on top), the box's four frets, the nut at the left when it is in view ── */
+/* ── the fretboard glyph: the instrument's strings (the highest on top), the box's four frets, the nut at the left when it is in view ── */
 function glyphSVG(P,opts){
   /* Frets are the spaces between the wires: fret f sits between wire f−1 and wire f, and the nut is wire 0. An open string
      (fret 0) is drawn just left of the nut. So a frame that starts at fret 1 has the nut as its left edge, and one that holds
      open strings has a narrow open column, then the nut. */
-  opts=opts||{}; var A=anchorOf(P.anchor), size=opts.size||1, cw=22*size, sh=13*size, padL=14*size, padT=8*size, padR=8*size, padB=(opts.frets?16:8)*size;
+  opts=opts||{}; use(P); var A=anchorOf(P.anchor), size=opts.size||1, cw=22*size, sh=13*size, padL=14*size, padT=8*size, padR=8*size, padB=(opts.frets?16:8)*size;
   var b=opts.box||null, w=b?b.w:0, lo=b?b.gw:1, hi=b?b.gw+b.gn-1:4;   /* the frets shown: the frame's, at least the anchor's four */
   var openCol=(lo===0), first=Math.max(1,lo), ow=openCol?cw*0.75:0, nCells=hi-first+1;
-  var x0=padL+ow, W=x0+nCells*cw+padR, H=padT+5*sh+padB;
+  var x0=padL+ow, W=x0+nCells*cw+padR, H=padT+(NS-1)*sh+padB;
   function fx(f){ return f===0?padL+ow/2:x0+(f-first+0.5)*cw; }
   var s='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+A.word+'">';
-  for(var i=0;i<6;i++) s+='<line x1="'+padL+'" x2="'+(x0+nCells*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
-  for(var j=0;j<=nCells;j++){ var nut=(b&&j===0&&first===1); s+='<line x1="'+(x0+j*cw)+'" x2="'+(x0+j*cw)+'" y1="'+padT+'" y2="'+(padT+5*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3.5*size:1)+'"/>'; }
+  for(var i=0;i<NS;i++) s+='<line x1="'+padL+'" x2="'+(x0+nCells*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
+  for(var j=0;j<=nCells;j++){ var nut=(b&&j===0&&first===1); s+='<line x1="'+(x0+j*cw)+'" x2="'+(x0+j*cw)+'" y1="'+padT+'" y2="'+(padT+(NS-1)*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3.5*size:1)+'"/>'; }
   if(opts.frets&&b){ for(var f=lo;f<=hi;f++) s+='<text x="'+fx(f)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+f+'</text>'; }
   function xy(st,fret){ return [fx(fret), padT+(st-1)*sh]; }
   if(b&&opts.tones){
@@ -288,30 +302,86 @@ function api(action,payload){
   if(!URL) return Promise.resolve(demo(payload));
   return fetch(URL,{method:'POST',body:JSON.stringify(payload)}).then(function(r){ return r.json(); });
 }
-function demoDB(){ try{ return JSON.parse(localStorage.getItem('studio-demo')||'')||{students:[],drills:[],checks:[]}; }catch(e){ return {students:[],drills:[],checks:[]}; } }
+function demoDB(){ var e={students:[],drills:[],checks:[],songs:[]}; try{ var d=JSON.parse(localStorage.getItem('studio-demo')||'')||e; d.songs=d.songs||[]; return d; }catch(x){ return e; } }
 function demoSave(db){ try{ localStorage.setItem('studio-demo',JSON.stringify(db)); }catch(e){} }
 function rid(n){ var c='abcdefghjkmnpqrstuvwxyz23456789',s=''; for(var i=0;i<n;i++)s+=c.charAt(Math.floor(Math.random()*c.length)); return s; }
+/* the same answers the Google Sheet gives (apps-script.gs), kept in this browser */
 function demo(p){
-  var db=demoDB(), a=p.action;
-  if(a==='student'){ var s=db.students.filter(function(x){return x.sid===p.sid;})[0]; if(!s)return {ok:false,error:'no such student'};
-    return {ok:true,student:s,drills:db.drills.filter(function(d){return d.sid===p.sid;}),checks:db.checks.filter(function(c){return c.sid===p.sid;}),opens:[]}; }
-  if(a==='optin'){ var so=db.students.filter(function(x){return x.sid===p.sid;})[0]; if(!so)return {ok:false,error:'no such student'}; so.track=!!p.on; demoSave(db); return {ok:true,track:so.track}; }
-  if(a==='drill'){ var d=db.drills.filter(function(x){return x.did===p.did;})[0]; return d?{ok:true,drill:d}:{ok:false,error:'no such drill'}; }
+  var db=demoDB(), a=p.action, today=ymd(new Date());
+  function stu(sid){ return db.students.filter(function(x){return x.sid===sid;})[0]; }
+  function prof(s,teacher){ var o={sid:s.sid,name:s.name,track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today};
+    if(teacher){ o.email=s.email||''; o.phone=s.phone||''; } return o; }
+  function songs(sid){ return db.songs.filter(function(x){ return !sid||x.sid===sid; }); }
+  function dr(d){ var o=JSON.parse(JSON.stringify(d)); o.status=o.status||''; return o; }
+  if(a==='student'){ var s=stu(p.sid); if(!s)return {ok:false,error:'no such student'};
+    return {ok:true,student:prof(s),drills:db.drills.filter(function(d){return d.sid===p.sid;}).map(dr),checks:db.checks.filter(function(c){return c.sid===p.sid;}),opens:[],songs:songs(p.sid)}; }
+  if(a==='optin'){ var so=stu(p.sid); if(!so)return {ok:false,error:'no such student'}; so.track=!!p.on; demoSave(db); return {ok:true,track:so.track}; }
+  if(a==='about'){ var sa=stu(p.sid); if(!sa)return {ok:false,error:'no such student'}; sa.about=String(p.text||'').slice(0,2000); demoSave(db); return {ok:true,about:sa.about}; }
+  if(a==='song'){ if(!stu(p.sid))return {ok:false,error:'no such student'}; var les=/^lessons\/[\w-]+\.html$/.test(String(p.lesson||''))?p.lesson:'';
+    if(p.rid){ var sg=db.songs.filter(function(x){ return x.rid===p.rid&&x.sid===p.sid; })[0]; if(!sg)return {ok:false,error:'no such song'};
+      if(p.remove){ db.songs=db.songs.filter(function(x){ return x!==sg; }); demoSave(db); return {ok:true,songs:songs(p.sid)}; }
+      if(p.title!==undefined)sg.title=String(p.title).slice(0,120); if(p.artist!==undefined)sg.artist=String(p.artist).slice(0,120); if(p.lesson!==undefined)sg.lesson=les;
+      if(p.status==='done'||p.status==='learning'){ sg.status=p.status; sg.finished=p.status==='done'?today:''; }
+      demoSave(db); return {ok:true,songs:songs(p.sid),rid:sg.rid}; }
+    var t=String(p.title||'').trim(); if(!t)return {ok:false,error:'no title'};
+    var ns={rid:rid(8),sid:p.sid,title:t.slice(0,120),artist:String(p.artist||'').slice(0,120),lesson:les,status:p.status==='done'?'done':'learning',started:today,finished:p.status==='done'?today:''};
+    db.songs.push(ns); demoSave(db); return {ok:true,songs:songs(p.sid),rid:ns.rid}; }
+  if(a==='drill'){ var d=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!d)return {ok:false,error:'no such drill'};
+    var o=dr(d), sd=stu(d.sid)||{}; o.track=!!sd.track; o.hand=sd.hand==='left'?'left':'right'; o.inst=sd.inst||'guitar';
+    if(o.params&&o.params.kind==='song'){ var so2=db.songs.filter(function(x){ return x.rid===o.params.rid; })[0]; if(so2)o.song=so2; }
+    return {ok:true,drill:o}; }
   if(a==='check'){ db.checks=db.checks.filter(function(c){ return !(c.sid===p.sid&&c.did===p.did&&c.week===p.week&&c.day===+p.day); });
     if(p.on)db.checks.push({sid:p.sid,did:p.did,week:p.week,day:+p.day}); demoSave(db); return {ok:true}; }
-  if(a==='ping') return {ok:true};
-  if(a==='students') return {ok:true,students:db.students};
-  if(a==='assign'){ var nm=String(p.student||'').trim(); if(!nm)return {ok:false,error:'no student name'};
-    var st=db.students.filter(function(x){return x.name.toLowerCase()===nm.toLowerCase();})[0]; if(!st){ st={sid:rid(10),name:nm}; db.students.push(st); }
-    var ex=p.ex?+p.ex:db.drills.filter(function(d){return d.sid===st.sid;}).length+1, did=rid(8);
-    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:st.name}; }
   if(a==='open') return {ok:true};
-  if(a==='overview') return {ok:true,students:db.students,drills:db.drills,checks:db.checks,opens:[]};
+  /* the teacher's (the demo has no passphrase) */
+  if(a==='ping') return {ok:true};
+  if(a==='students') return {ok:true,students:db.students.map(function(s){ return prof(s,true); })};
+  if(a==='assign'){ var nm=String(p.student||'').trim(); if(!nm)return {ok:false,error:'no student name'};
+    var st=db.students.filter(function(x){return x.name.toLowerCase()===nm.toLowerCase();})[0];
+    if(!st){ st={sid:rid(10),name:nm,inst:INSTRUMENTS[p.inst]?p.inst:'guitar',hand:p.hand==='left'?'left':'right',since:today}; db.students.push(st); }
+    var ex=p.ex?+p.ex:db.drills.filter(function(d){return d.sid===st.sid;}).length+1, did=rid(8);
+    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes,status:''}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:st.name,inst:st.inst||'guitar'}; }
+  if(a==='overview') return {ok:true,students:db.students.map(function(s){ return prof(s,true); }),drills:db.drills.map(dr),checks:db.checks,opens:[],songs:songs(null)};
   if(a==='update'){ var du=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!du)return {ok:false,error:'no such drill'};
-    ['date','title','params','notes'].forEach(function(k){ if(p[k]!==undefined)du[k]=p[k]; }); if(p.ex)du.ex=+p.ex; demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
+    ['date','title','params','notes'].forEach(function(k){ if(p[k]!==undefined)du[k]=p[k]; }); if(p.ex)du.ex=+p.ex; if(p.status!==undefined)du.status=p.status==='retired'?'retired':'';
+    demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
   if(a==='remove'){ var n0=db.drills.length; db.drills=db.drills.filter(function(x){return x.did!==p.did;}); db.checks=db.checks.filter(function(c){return c.did!==p.did;}); demoSave(db); return n0>db.drills.length?{ok:true}:{ok:false,error:'no such drill'}; }
+  if(a==='profile'){ var pn=String(p.name||'').trim().slice(0,80); if(!pn)return {ok:false,error:'no student name'};
+    if(db.students.some(function(x){ return x.sid!==p.sid&&x.name.toLowerCase()===pn.toLowerCase(); }))return {ok:false,error:'another student already has that name'};
+    var sp=p.sid?stu(p.sid):null; if(p.sid&&!sp)return {ok:false,error:'no such student'};
+    if(!sp){ sp={sid:rid(10),since:today}; db.students.push(sp); }
+    sp.name=pn; sp.inst=INSTRUMENTS[p.inst]?p.inst:'guitar'; sp.hand=p.hand==='left'?'left':'right'; sp.email=String(p.email||'').trim(); sp.phone=String(p.phone||'').trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(p.since||'')))sp.since=p.since; demoSave(db); return {ok:true,sid:sp.sid}; }
+  if(a==='notify'){ var sn=stu(p.sid); if(!sn)return {ok:false,error:'no such student'}; if(!sn.email)return {ok:false,error:'no email on this student’s profile'};
+    try{ console.log('[demo] email to '+sn.email+': '+p.subject+'\n'+p.body); }catch(e){} return {ok:true,to:sn.email,left:99,demo:true}; }
   return {ok:false,error:'unknown action'};
 }
+
+/* ── routine items: a drill (built here), a song from the student's repertoire, or any other assignment (improvisation,
+      ear training…). Each has its daily minutes; each either opens a page (the drill, the song's lesson, a link) or the
+      page's own stopwatch. ── */
+var ITEM_KINDS=[ {id:'drill',name:'Drill',label:'Warm-up'}, {id:'song',name:'Song',label:'Repertoire'}, {id:'task',name:'Other',label:'Practice'} ];
+var TASK_LABELS=['Improvisation','Technique','Ear training','Reading','Rhythm','Writing','Listening','Other'];
+function kindOf(d){ var k=d&&d.params&&d.params.kind; return (k==='song'||k==='task')?k:'drill'; }
+function itemLabel(d){ var k=kindOf(d); if(k==='task')return (d.params.label||'Practice'); return k==='song'?'Repertoire':'Warm-up'; }
+function minutesOf(d){ return Math.max(0.5,+(d&&d.params&&d.params.daily)||1); }
+function lessonOf(file){ var L=G.LESSONS||[]; for(var i=0;i<L.length;i++) if(L[i].file===file) return L[i]; return null; }
+function initials(name){ var w=String(name||'').replace(/[_.\-]+/g,' ').trim().split(/\s+/).filter(Boolean); if(!w.length)return '?';
+  return (w[0].charAt(0)+(w.length>1?w[w.length-1].charAt(0):'')).toUpperCase(); }
+/* the routine: the items still in it, in the order they were assigned */
+function byAssigned(a,b){ return (a.date+'|'+String(a.ex).padStart(4,'0'))<(b.date+'|'+String(b.ex).padStart(4,'0'))?-1:1; }
+function routine(drills){ return (drills||[]).filter(function(d){ return d.status!=='retired'; }).sort(byAssigned); }
+function itemTitle(d,songs){ if(d.title)return d.title; if(kindOf(d)==='drill')return title(Object.assign(defaults(),d.params||{})); if(kindOf(d)==='song'){ var s=(songs||[]).filter(function(x){ return x.rid===d.params.rid; })[0]; return songTitle(s); } return itemLabel(d); }
+function firstName(n){ return String(n||'').split(/[\s_]+/)[0]||String(n||''); }
+/* what the Designer and the Overview send a student: an email with the routine, a text with the link */
+function message(student,link,drills,songs){
+  var R=routine(drills), tot=R.reduce(function(t,d){ return t+minutesOf(d); },0), hi='Hi '+firstName(student.name);
+  var lines=R.map(function(d,i){ return (i+1)+'. '+itemLabel(d)+' · '+itemTitle(d,songs)+' — '+minutesOf(d)+' min'; });
+  return { subject:'Your practice this week',
+           body:hi+',\n\nYour practice routine is ready'+(R.length?':\n\n'+lines.join('\n')+'\n\nAbout '+Math.round(tot)+' minutes a day.':'.')+'\n\nOpen your page to start: '+link+'\n\n— Brian\nGables Guitar Studio',
+           text:hi+'! Your practice for this week is ready: '+link }; }
+function smsHref(phone,text){ return 'sms:'+String(phone||'').replace(/[^\d+]/g,'')+'?&body='+encodeURIComponent(text); }   /* ?& works on iPhone and Android */
+function songTitle(s){ return s?(s.title+(s.artist?' — '+s.artist:'')):'A removed song'; }
 
 /* ── a day's star: empty, or filled from the bottom up by a fraction (0–1, in tenths) ── */
 var _starN=0;
@@ -335,8 +405,9 @@ function addDays(key,n){ var p=key.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
-G.Studio={ OPEN:OPEN, ANCHORS:ANCHORS, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
+G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
+  ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
   title:title, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);

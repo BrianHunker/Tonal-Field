@@ -9,27 +9,63 @@
 </head>
 <body>
 <p id="msg">Loading the drill…</p>
-<script src="config.js?v=14"></script>
-<script src="studio.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="../lessons.js?v=15"></script>
+<script src="studio.js?v=15"></script>
 <script>
-/* A drill page: the drill's settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as #p=…)
-   become a sequence, written into the guitar template's boot file, and the full Tonal Field tool opens on it. */
+/* A routine item's page. A drill: its settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as
+   #p=…) become a sequence, written into the instrument's template (guitar or bass), and the full Tonal Field tool opens on
+   it. A song with a lesson: that lesson opens. Either way the fretboard is mirrored for a left-handed student, and a student
+   who records practice time has the page report it. */
 (function(){
   var S=Studio, msg=document.getElementById('msg');
   function fail(t){ msg.textContent=t; }
   function get(){
     var m=/[#&]p=([^&]+)/.exec(location.hash);
-    if(m){ try{ return Promise.resolve({params:JSON.parse(decodeURIComponent(m[1])),notes:null,title:null}); }catch(e){ return Promise.reject('That drill link is damaged.'); } }
+    if(m){ try{ var P0=JSON.parse(decodeURIComponent(m[1])); return Promise.resolve({params:P0,notes:null,title:null,hand:P0.hand}); }catch(e){ return Promise.reject('That drill link is damaged.'); } }
+    var sr=/[?&]s=([\w]+)/.exec(location.search), rr=/[?&]r=([\w]+)/.exec(location.search);
+    if(sr&&rr) return S.api('student',{sid:sr[1]}).then(function(r){   /* a song from the student's repertoire (not an assignment: nothing is recorded) */
+      var s=r.ok&&(r.songs||[]).filter(function(x){ return x.rid===rr[1]; })[0]; if(!s) throw 'That song was not found.';
+      return {params:{kind:'song'},song:s,hand:r.student.hand}; });
     var d=/[?&]d=([\w]+)/.exec(location.search); if(!d) return Promise.reject('This link does not name a drill.');
     return S.api('drill',{did:d[1]}).then(function(r){ if(!r.ok) throw 'That drill was not found.'; return r.drill; });
   }
   function htmlNotes(t){ return '<p>'+S.esc(t).replace(/\n+/g,'</p><p>')+'</p>'; }
+  function bootOf(html){ var a=html.indexOf('var BOOT_CFG='), b=html.indexOf('\n',a); if(a<0||b<0) throw 'The tool could not be read.';
+    return {a:a,b:b,cfg:JSON.parse(html.slice(a+13,b).replace(/;\s*$/,''))}; }
+  function lefty(cfg){ if(cfg.surface)cfg.surface.lefty=true; Object.keys(cfg.views||{}).forEach(function(k){ var st=cfg.views[k]&&cfg.views[k].state; if(st&&st.surface)st.surface.lefty=true; }); }
+  /* reports to the sheet that the page was opened, and how long it was played and open. Not from the teacher's own devices
+     (the ones holding the passphrase), and not from the designer's previews. */
+  function reporter(D){
+    var teacher=false; try{ teacher=!!localStorage.getItem('studio-pass'); }catch(e){}
+    if(!(D.did&&D.track&&window.STUDIO_API&&!teacher)) return '';
+    var now=new Date(), wk=S.weekKey(now), day=(now.getDay()+6)%7, date=S.ymd(now);
+    return '<script>(function(){ var API='+JSON.stringify(window.STUDIO_API)+', base={action:"open",did:'+JSON.stringify(D.did)+',date:'+JSON.stringify(date)+',week:'+JSON.stringify(wk)+',day:'+day+'};'
+      +'function send(o,beacon){ var b=JSON.stringify(Object.assign({},base,o)); try{ if(beacon&&navigator.sendBeacon){ navigator.sendBeacon(API,b); return; } fetch(API,{method:"POST",body:b,keepalive:true}); }catch(e){} }'
+      +'var play=0, open=0, last=Date.now(); setInterval(function(){ var t=Date.now(), dt=t-last; last=t; if(document.visibilityState==="visible")open+=dt; try{ if(window.tf&&tf.seq().playing)play+=dt; }catch(e){} },1000);'
+      +'function flush(){ var p=Math.round(play/1000), o=Math.round(open/1000); if(p||o){ send({play:p,open:o},true); play=0; open=0; } }'
+      +'send({first:true},false);'
+      +'document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden")flush(); }); window.addEventListener("pagehide",flush);'
+      +'})();<\/script>';
+  }
+  function show(html,D){ var T=reporter(D); if(T){ var bi=html.lastIndexOf('</body>'); html=bi>0?html.slice(0,bi)+T+html.slice(bi):html+T; }
+    document.open(); document.write(html); document.close(); }
+  function load(url){ return fetch(url).then(function(r){ if(!r.ok) throw 'The page could not be loaded.'; return r.text(); }); }
+
   get().then(function(D){
-    var P=Object.assign(S.defaults(),D.params||{}), sq=S.sequence(P), title=D.title||S.title(P);
+    var P=Object.assign(S.defaults(),D.params||{}), left=(D.hand==='left');
+    if(P.kind==='song'){   /* a song: its lesson, when it has one */
+      var file=D.song&&D.song.lesson; if(!file) throw 'This song has no Tonal Field lesson yet. Use the stopwatch on your practice page.';
+      return load('../'+file).then(function(html){ var B=bootOf(html);
+        if(left){ lefty(B.cfg); html=html.slice(0,B.a+13)+JSON.stringify(B.cfg)+';'+html.slice(B.b); }
+        show(html,D); });
+    }
+    if(P.kind==='task') throw 'This item has no page of its own. Use the stopwatch on your practice page.';
+    var sq=S.sequence(P), title=D.title||S.title(P);
     if(!sq.length) throw 'This drill has no tones in its box.';
-    return fetch('../templates/guitar-template.html').then(function(r){ if(!r.ok) throw 'The tool could not be loaded.'; return r.text(); }).then(function(html){
-      var a=html.indexOf('var BOOT_CFG='), b=html.indexOf('\n',a); if(a<0||b<0) throw 'The tool could not be read.';
-      var line=html.slice(a+13,b).replace(/;\s*$/,''), cfg=JSON.parse(line);
+    var tpl=(S.instOf(P).id==='bass')?'bass':'guitar';
+    return load('../templates/'+tpl+'-template.html').then(function(html){
+      var B=bootOf(html), cfg=B.cfg;
       var snap=JSON.parse(JSON.stringify(cfg.sequence));
       snap.notes=sq.notes; snap.modes=sq.modes; snap.chords=[]; snap.ring=[]; snap.accomp=[]; snap.title=title;
       snap.tsNum=4; snap.tsDen=4; snap.div=sq.per; snap.bars=sq.bars; snap.divs=sq.bars*sq.per; snap.bpm=+P.bpm||60;
@@ -39,29 +75,16 @@
       var lines=Math.min(4,Math.ceil(sq.bars/2));
       v.tab_.lines=lines; cfg.tab.lines=lines;
       cfg.field.valence=(P.mode!=='Chromatic');                      /* g(x) off for a chromatic drill, as in the chromatic lessons */
+      if(left) lefty(cfg);
       var notes=(D.notes!=null?D.notes:S.autoNotes(P));
       cfg.notepad={'1':'<h3>'+S.esc(title)+'</h3><p class="np-sum">'+S.esc(S.summary(P))+'</p>'+htmlNotes(notes)};
       v.notepad=true;
       var L=v.layout; L.notepad={x:0,y:L.seq.y,w:1.0051,h:0.16}; L.seq={x:L.seq.x,y:L.seq.y+0.18,w:L.seq.w,h:L.seq.h};
-      html=html.slice(0,a+13)+JSON.stringify(cfg)+';'+html.slice(b);
+      html=html.slice(0,B.a+13)+JSON.stringify(cfg)+';'+html.slice(B.b);
       html=html.replace(/var VIEW_NAME=\{[^;]*\};/,'var VIEW_NAME={"1": "Drill"};')
                .replace(/(<button class="toggle view-btn" data-view="1" aria-pressed="false">)[^<]*(<\/button>)/,'$1Drill$2')
                .replace(/<title>[^<]*<\/title>/,'<title>'+S.esc(title)+' — Tonal Field</title>');
-      /* a drill opened from a student's link reports to the sheet that it was opened, and how long it was played and open.
-         Not from the teacher's own devices (the ones holding the passphrase), and not from the designer's previews. */
-      var teacher=false; try{ teacher=!!localStorage.getItem('studio-pass'); }catch(e){}
-      if(D.did&&D.track&&window.STUDIO_API&&!teacher){   /* only for a student who has switched practice tracking on */
-        var now=new Date(), wk=S.weekKey(now), day=(now.getDay()+6)%7, date=S.ymd(now);
-        var T='<script>(function(){ var API='+JSON.stringify(window.STUDIO_API)+', base={action:"open",did:'+JSON.stringify(D.did)+',date:'+JSON.stringify(date)+',week:'+JSON.stringify(wk)+',day:'+day+'};'
-          +'function send(o,beacon){ var b=JSON.stringify(Object.assign({},base,o)); try{ if(beacon&&navigator.sendBeacon){ navigator.sendBeacon(API,b); return; } fetch(API,{method:"POST",body:b,keepalive:true}); }catch(e){} }'
-          +'var play=0, open=0, last=Date.now(); setInterval(function(){ var t=Date.now(), dt=t-last; last=t; if(document.visibilityState==="visible")open+=dt; try{ if(window.tf&&tf.seq().playing)play+=dt; }catch(e){} },1000);'
-          +'function flush(){ var p=Math.round(play/1000), o=Math.round(open/1000); if(p||o){ send({play:p,open:o},true); play=0; open=0; } }'
-          +'send({first:true},false);'
-          +'document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden")flush(); }); window.addEventListener("pagehide",flush);'
-          +'})();<\/script>';
-        var bi=html.lastIndexOf('</body>'); html=bi>0?html.slice(0,bi)+T+html.slice(bi):html+T;
-      }
-      document.open(); document.write(html); document.close();
+      show(html,D);
     });
   }).catch(function(e){ fail(typeof e==='string'?e:'The drill could not be opened.'); });
 })();

@@ -27,11 +27,14 @@ h2{font-family:var(--serif);font-style:italic;font-weight:500;font-size:24px;col
 .btn[disabled]{opacity:.5;cursor:default}
 .field{display:flex;flex-direction:column;gap:5px}
 .field > span,.label{font-size:13px;color:var(--dim)}
-input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{background:var(--raise2);border:1px solid #3a3833;border-radius:8px;padding:8px 10px;min-width:0}
-textarea{line-height:1.5;resize:vertical}
+input:not([type]),input[type=text],input[type=number],input[type=date],input[type=password],input[type=email],input[type=tel],input[type=url],select,textarea{background:var(--raise2);border:1px solid #3a3833;border-radius:8px;padding:8px 10px;min-width:0}
+textarea{line-height:1.5;resize:vertical;width:100%}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid #3a3833;border-radius:999px;background:var(--raise2);padding:5px 12px;font-size:14px;cursor:pointer}
 .chip[aria-pressed="true"]{border-color:var(--gold);color:var(--ink);box-shadow:inset 0 0 0 1px var(--gold)}
+.chip[disabled]{opacity:.4;cursor:default}
+.hint{font-size:13px;color:var(--dim)}
+.avatar{display:grid;place-content:center;border-radius:50%;background:linear-gradient(135deg,#3a3420,#1d1c1a);border:1.5px solid var(--gold);color:var(--gold);font-family:var(--serif);font-style:italic;font-weight:600;flex:none}
 .chip.fn{font-family:var(--mono);font-weight:700}
 .week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;max-width:360px}
 .day{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--dim)}

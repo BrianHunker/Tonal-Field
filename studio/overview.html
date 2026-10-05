@@ -8,11 +8,12 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=14">
+<link rel="stylesheet" href="studio.css?v=15">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
 .weeknav{display:flex;align-items:center;gap:10px}
+.tools .grow{flex:1}
 .weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:32px;height:32px;cursor:pointer;color:var(--ink)}
 .weeknav button[disabled]{opacity:.35;cursor:default}
 table{width:100%;border-collapse:collapse;margin-top:14px}
@@ -38,6 +39,19 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
 .tot{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);white-space:nowrap}
 .last{font-size:13px;color:var(--dim);white-space:nowrap}
 .none{color:var(--dim);font-size:14px}
+.dl.retired{opacity:.5}
+.dl .lbl{font-size:12px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-right:6px}
+.act .rt{background:none;border:0;padding:0;color:var(--dim);font:inherit;cursor:pointer} .act .rt:hover{text-decoration:underline;color:var(--ink)}
+td.name .who{display:flex;gap:10px;align-items:center}
+td.name .meta{font-size:13px;color:var(--dim);margin-top:4px}
+td.name .links{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
+td.name .links a,td.name .links button{background:none;border:0;padding:0;color:var(--gold);font-family:var(--sans);font-style:normal;font-size:13px;cursor:pointer;text-decoration:none}
+td.name .links a:hover,td.name .links button:hover{text-decoration:underline}
+dialog{background:var(--raise);color:var(--body);border:1px solid var(--rule);border-radius:14px;padding:22px;width:min(520px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+dialog form{display:flex;flex-direction:column;gap:12px}
+dialog .row{display:flex;gap:12px;flex-wrap:wrap} dialog .row .field{flex:1 1 180px}
+dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap}
 @media (max-width:700px){ th.h-last,td.last{display:none} .dl .t{white-space:normal} }
 </style>
 </head>
@@ -48,10 +62,11 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
     <nav class="nav"><a href="designer.html">Drill Designer</a><a href="overview.html" aria-current="page">Studio Overview</a></nav>
   </div>
   <h1>Studio Overview</h1>
-  <p class="sub">Who has which drills, and the days they practiced them.</p>
+  <p class="sub">Each student’s routine, in the order assigned, and the days they practiced it.</p>
   <div id="demo"></div>
   <div class="tools">
     <input type="text" id="q" placeholder="Find a student" aria-label="Find a student">
+    <span class="grow"></span><button type="button" class="btn" id="addstu">Add a student</button>
     <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span id="wk" style="font-weight:600;color:var(--ink)"></span><button type="button" id="next" aria-label="Next week">›</button></div>
   </div>
   <div class="passrow" id="passrow" hidden style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -60,9 +75,27 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
   </div>
   <div id="out"><p class="muted" style="margin-top:20px">Loading…</p></div>
 </div>
+<dialog id="prof" aria-labelledby="prof-h">
+  <form method="dialog" id="profform" autocomplete="off">
+    <h2 id="prof-h">Student</h2>
+    <label class="field"><span>Name</span><input type="text" id="pname" maxlength="80" required></label>
+    <div class="row">
+      <label class="field"><span>Instrument</span><select id="pinst"><option value="guitar">Guitar</option><option value="bass">Bass</option><option value="keyboard">Keyboard</option></select></label>
+      <label class="field"><span>Hand</span><select id="phand"><option value="right">Right-handed</option><option value="left">Left-handed</option></select></label>
+    </div>
+    <div class="row">
+      <label class="field"><span>Email</span><input type="email" id="pemail" maxlength="120" placeholder="for sending their page"></label>
+      <label class="field"><span>Mobile</span><input type="tel" id="pphone" maxlength="40" placeholder="for Text it"></label>
+    </div>
+    <label class="field" style="max-width:220px"><span>Lessons began</span><input type="date" id="psince"></label>
+    <p class="hint">Email and mobile stay here: they are never shown on the student’s page. A left-handed student’s drills and lessons open mirrored.</p>
+    <div class="foot"><button class="btn primary" type="submit" value="save" id="psave">Save</button><button class="btn" type="button" id="pcancel">Cancel</button><span class="err" id="perr" style="color:#ff8a7a;font-size:14px"></span></div>
+  </form>
+</dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=14"></script>
-<script src="studio.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="../lessons.js?v=15"></script>
+<script src="studio.js?v=15"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -74,31 +107,58 @@ function render(){
   $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week); $('next').disabled=(week>=thisWeek);
   var q=$('q').value.trim().toLowerCase();
   var studs=data.students.filter(function(s){ return !q||String(s.name).toLowerCase().indexOf(q)>=0; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
-  if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Assign a drill in the Drill Designer.')+'</p>'; return; }
-  var h='<table><thead><tr><th>Student</th><th>Drills, newest first, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
+  if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Add one, or assign something in the Drill Designer.')+'</p>'; return; }
+  var h='<table><thead><tr><th>Student</th><th>Routine, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
   studs.forEach(function(s){
-    var ds=data.drills.filter(function(d){ return d.sid===s.sid; }).sort(function(a,b){ return (b.date+'|'+String(b.ex).padStart(4,'0'))<(a.date+'|'+String(a.ex).padStart(4,'0'))?-1:1; });
+    var all=data.drills.filter(function(d){ return d.sid===s.sid; }), ds=S.routine(all).concat(all.filter(function(d){ return d.status==='retired'; }).sort(S.byAssigned));
+    var songs=(data.songs||[]).filter(function(x){ return x.sid===s.sid; });
     var cs=data.checks.filter(function(c){ return c.sid===s.sid; }), days={}, last='';
     cs.forEach(function(c){ var dk=S.addDays(c.week,+c.day); if(dk>last)last=dk; if(c.week===week)days[c.day]=1; });
     var os=(data.opens||[]).filter(function(o){ return o.sid===s.sid&&o.week===week; }), playW=os.reduce(function(a,o){ return a+(+o.play||0); },0);
     if(s.track){ days={}; os.forEach(function(o){ if(+o.play>0)days[o.day]=1; }); (data.opens||[]).forEach(function(o){ if(o.sid===s.sid&&+o.play>0&&o.date>last)last=o.date; }); }   /* tracked: practice days are days played */
-    var rows=ds.map(function(d){ var mini=''; for(var k=0;k<7;k++){ var on=cs.some(function(c){ return c.did===d.did&&c.week===week&&+c.day===k; });
-        var op=os.filter(function(o){ return o.did===d.did&&+o.day===k; })[0], daily=+(d.params&&d.params.daily)||1, dn=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][k];
-        var fr=s.track?S.dayFrac(data.opens,d.did,S.addDays(week,k),daily).frac:(on?1:0);   /* opted in: the star fills by time played; otherwise the student's own star */
+    var rows=ds.map(function(d){ var mini='', ret=d.status==='retired', ttl=S.itemTitle(d,songs), k=S.kindOf(d), sg=k==='song'?songs.filter(function(x){ return x.rid===d.params.rid; })[0]:null;
+      for(var j=0;j<7;j++){ var on=cs.some(function(c){ return c.did===d.did&&c.week===week&&+c.day===j; });
+        var op=os.filter(function(o){ return o.did===d.did&&+o.day===j; })[0], daily=S.minutesOf(d), dn=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][j];
+        var fr=s.track?S.dayFrac(data.opens,d.did,S.addDays(week,j),daily).frac:(on?1:0);   /* opted in: the star fills by time played; otherwise the student's own star */
         var tip=dn+(s.track?': '+(op&&op.play?mins(op.play)+' of '+daily+' min':'not played'):(on?': starred':'')+(op?', opened':''));
         mini+='<span class="ms" title="'+tip+'">'+S.starSVG(fr,16,tip)+'</span>'; }
-      return '<div class="dl"><span class="t"><a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+S.esc(d.ex)+'. '+S.esc(d.title)+'</a></span><span class="mini">'+mini+'</span><span class="act"><a href="designer.html?edit='+encodeURIComponent(d.did)+'">Edit</a><button type="button" class="del" data-did="'+S.esc(d.did)+'" data-lbl="'+S.esc(d.ex+'. '+d.title)+'" data-who="'+S.esc(s.name)+'">Delete</button></span></div>'; }).join('')||'<span class="none">No drills.</span>';
-    var link=S.base()+'student.html?s='+s.sid;
-    h+='<tr><td class="name"><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a><button class="copy" data-c="'+S.esc(link)+'">Copy page link</button></td>'
+      var opens=k==='drill'||(sg&&sg.lesson), name=S.esc(d.ex)+'. '+S.esc(ttl);
+      return '<div class="dl'+(ret?' retired':'')+'"><span class="t"><span class="lbl">'+S.esc(S.itemLabel(d))+'</span>'+(opens?'<a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+name+'</a>':name)+'</span><span class="mini">'+mini+'</span>'
+        +'<span class="act"><a href="designer.html?edit='+encodeURIComponent(d.did)+'">Edit</a><button type="button" class="rt" data-rt="'+S.esc(d.did)+'" data-to="'+(ret?'':'retired')+'">'+(ret?'Restore':'Retire')+'</button><button type="button" class="del" data-did="'+S.esc(d.did)+'" data-lbl="'+S.esc(d.ex+'. '+ttl)+'" data-who="'+S.esc(s.name)+'">Delete</button></span></div>'; }).join('')||'<span class="none">Nothing assigned yet.</span>';
+    var link=S.base()+'student.html?s='+s.sid, M=S.message(s,link,all,songs), I=S.INSTRUMENTS[s.inst]||S.INSTRUMENTS.guitar;
+    h+='<tr><td class="name"><div class="who"><span class="avatar" style="width:34px;height:34px;font-size:14px" aria-hidden="true">'+S.esc(S.initials(s.name))+'</span><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a></div>'
+      +'<div class="meta">'+I.name+(s.hand==='left'?' · left-handed':'')+'</div>'
+      +'<div class="links"><button type="button" data-prof="'+S.esc(s.sid)+'">Profile</button><button type="button" class="copy" data-c="'+S.esc(link)+'">Copy page link</button>'
+      +(s.email?'<button type="button" data-mail="'+S.esc(s.sid)+'">Email</button>':'')+(s.phone?'<a href="'+S.esc(S.smsHref(s.phone,M.text))+'">Text it</a>':'')+'</div></td>'
       +'<td>'+rows+'</td><td class="tot">'+(s.track?'<span title="records practice time">⏱ </span>':'')+Object.keys(days).length+' / 7<div class="last">'+(playW?mins(playW)+' played':'')+'</div></td><td class="last">'+(last||'—')+'</td></tr>';
   });
-  $('out').innerHTML=h+'</tbody></table><p class="key">Stars: a student who records practice time fills them by playing, a tenth at a time toward the drill’s daily minutes; anyone else stars their own days. Hover a star for the time.</p>';
+  $('out').innerHTML=h+'</tbody></table><p class="key">Stars: a student who records practice time fills them by playing, a tenth at a time toward each item’s daily minutes; anyone else stars their own days. Hover a star for the time. Retired items leave the student’s routine but keep their history.</p>';
   [].forEach.call(document.querySelectorAll('.del'),function(b){ b.onclick=function(){
-    if(!confirm('Delete “'+b.getAttribute('data-lbl')+'” for '+b.getAttribute('data-who')+'?\nIts stars and practice time go with it.'))return;
+    if(!confirm('Delete “'+b.getAttribute('data-lbl')+'” for '+b.getAttribute('data-who')+'?\nIts stars and practice time go with it. (Retire keeps them.)'))return;
     b.disabled=true; b.textContent='Deleting…';
     S.api('remove',{pass:pass,did:b.getAttribute('data-did')}).then(function(r){ if(!r.ok){ alert('Could not delete: '+(r.error||'not found')); } load(); }).catch(function(){ alert('Could not reach the sheet.'); load(); }); }; });
+  [].forEach.call(document.querySelectorAll('[data-rt]'),function(b){ b.onclick=function(){ b.disabled=true;
+    S.api('update',{pass:pass,did:b.getAttribute('data-rt'),status:b.getAttribute('data-to')}).then(function(r){ if(!r.ok)alert('Not saved: '+r.error); load(); }).catch(function(){ alert('Could not reach the sheet.'); load(); }); }; });
+  [].forEach.call(document.querySelectorAll('[data-prof]'),function(b){ b.onclick=function(){ openProfile(data.students.filter(function(x){ return x.sid===b.getAttribute('data-prof'); })[0]); }; });
+  [].forEach.call(document.querySelectorAll('[data-mail]'),function(b){ b.onclick=function(){ var st=data.students.filter(function(x){ return x.sid===b.getAttribute('data-mail'); })[0];
+    var M=S.message(st,S.base()+'student.html?s='+st.sid,data.drills.filter(function(d){ return d.sid===st.sid; }),(data.songs||[]).filter(function(x){ return x.sid===st.sid; }));
+    if(!confirm('Email '+st.name+' ('+st.email+') their routine and page link?\n\n'+M.body))return; b.disabled=true; b.textContent='Sending…';
+    S.api('notify',{pass:pass,sid:st.sid,subject:M.subject,body:M.body}).then(function(r){ b.textContent=r.ok?'Emailed':'Email'; b.disabled=!!r.ok; if(!r.ok)alert('Not sent: '+r.error); })
+      .catch(function(){ b.disabled=false; b.textContent='Email'; alert('Could not reach the sheet.'); }); }; });
   [].forEach.call(document.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent='Copy page link'; },1500); }); }; });
 }
+/* ── a student's profile: a new one from "Add a student" ── */
+var editingSid=null;
+function openProfile(st){ editingSid=st?st.sid:null; $('prof-h').textContent=st?st.name:'Add a student'; $('perr').textContent='';
+  $('pname').value=st?st.name:''; $('pinst').value=st?st.inst:'guitar'; $('phand').value=st?st.hand:'right'; $('pemail').value=st?(st.email||''):''; $('pphone').value=st?(st.phone||''):'';
+  $('psince').value=st?(st.since||''):S.ymd(new Date()); $('prof').showModal(); $('pname').focus(); }
+$('addstu').onclick=function(){ openProfile(null); };
+$('pcancel').onclick=function(){ $('prof').close(); };
+$('profform').onsubmit=function(e){ e.preventDefault(); var nm=$('pname').value.trim(); if(!nm){ $('pname').focus(); return; }
+  $('psave').disabled=true; $('perr').textContent='';
+  S.api('profile',{pass:pass,sid:editingSid||'',name:nm,inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value}).then(function(r){
+    $('psave').disabled=false; if(!r.ok){ $('perr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':r.error; return; } $('prof').close(); load(); })
+  .catch(function(){ $('psave').disabled=false; $('perr').textContent='Could not reach the sheet.'; }); };
 function load(){ S.api('overview',{pass:pass}).then(function(r){
     if(!r.ok){ $('out').innerHTML=''; $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; return; }
     $('passrow').hidden=true; data=r; render(); })

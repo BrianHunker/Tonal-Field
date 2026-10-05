@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=14">
+<link rel="stylesheet" href="studio.css?v=15">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -48,7 +48,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
     <nav class="nav"><a href="designer.html" aria-current="page">Drill Designer</a><a href="overview.html">Studio Overview</a></nav>
   </div>
   <h1>Drill Designer</h1>
-  <p class="sub" id="lede">Build a drill on an anchor, check it, and assign it. Submitting adds it to the student’s page.</p>
+  <p class="sub" id="lede">Build a student’s routine one item at a time: drills to warm up, songs from their repertoire, and anything else. Submitting adds it to the student’s page.</p>
   <div id="demo"></div>
   <div class="passrow" id="passrow" hidden>
     <label class="field"><span>Passphrase</span><input type="password" id="pass" autocomplete="current-password"></label>
@@ -63,15 +63,47 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
           <label class="field" style="flex:2 1 200px"><span>Student</span><input type="text" id="student" list="studentlist" placeholder="First name"></label>
           <datalist id="studentlist"></datalist>
           <label class="field" style="flex:1 1 140px"><span>Date</span><input type="date" id="date"></label>
-          <label class="field" style="flex:0 1 110px"><span>Exercise #</span><input type="number" id="ex" min="1" placeholder="next"></label>
+          <label class="field" style="flex:0 1 110px"><span>Item #</span><input type="number" id="ex" min="1" placeholder="next"></label>
         </div>
-        <div class="row"><label class="field" style="flex:1 1 100%"><span style="display:flex;justify-content:space-between;gap:10px">Drill name <button type="button" class="linkbtn" id="retitle">Rewrite from the settings</button></span><input type="text" id="title" maxlength="160"></label></div>
+        <div class="row">
+          <div class="field"><span>Instrument</span><div class="chips" id="insts"></div></div>
+          <div class="field"><span>Hand</span><div class="chips" id="hands"></div></div>
+        </div>
+        <p class="hint" id="profhint" style="margin-top:8px"></p>
       </div>
       <div class="sec">
+        <h3>What</h3>
+        <div class="chips" id="kinds"></div>
+        <div class="row" style="margin-top:14px">
+          <label class="field"><span>Daily practice (minutes)</span><input type="number" id="daily" min="0.5" max="120" step="0.5" value="1" style="width:110px"></label>
+        </div>
+        <div class="row"><label class="field" style="flex:1 1 100%"><span style="display:flex;justify-content:space-between;gap:10px">Name on the student’s page <button type="button" class="linkbtn" id="retitle">Rewrite from the settings</button></span><input type="text" id="title" maxlength="160"></label></div>
+      </div>
+
+      <div class="sec k-song" hidden>
+        <h3>Song</h3>
+        <div class="row"><label class="field" style="flex:1 1 260px"><span>From the repertoire</span><select id="songsel"></select></label></div>
+        <div class="row" id="newsong">
+          <label class="field" style="flex:2 1 200px"><span>Title</span><input type="text" id="stitle" maxlength="120" placeholder="Don’t Cry"></label>
+          <label class="field" style="flex:1 1 160px"><span>Artist</span><input type="text" id="sartist" maxlength="120" placeholder="Guns N’ Roses"></label>
+        </div>
+        <div class="row" id="lessonrow"><label class="field" style="flex:1 1 260px"><span>Tonal Field lesson</span><select id="slesson"></select></label></div>
+        <div class="row"><label class="field" style="flex:1 1 100%"><span>What to practice (optional)</span><input type="text" id="spart" maxlength="80" placeholder="the solo"></label></div>
+        <p class="hint" id="songhint" style="margin-top:8px"></p>
+      </div>
+
+      <div class="sec k-task" hidden>
+        <h3>Assignment</h3>
+        <div class="field"><span>Kind</span><div class="chips" id="labels"></div></div>
+        <div class="row" style="margin-top:14px"><label class="field" style="flex:1 1 100%"><span>Link (optional): a backing track, a video, a page</span><input type="url" id="tlink" maxlength="400" placeholder="https://"></label></div>
+        <p class="hint" style="margin-top:8px">The student’s page gives it a stopwatch, and a button for the link.</p>
+      </div>
+
+      <div class="sec k-drill">
         <h3>Anchor</h3>
         <div class="anchors" id="anchors" role="group" aria-label="Anchor"></div>
       </div>
-      <div class="sec">
+      <div class="sec k-drill">
         <h3>Tonality</h3>
         <div class="row">
           <label class="field"><span>Position</span><select id="position"></select></label>
@@ -84,27 +116,26 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <div class="row"><div class="field"><span>Range</span><div class="chips" id="ranges"></div></div></div>
         <div class="row"><div class="field"><span>Direction</span><div class="chips" id="dirs"></div></div></div>
       </div>
-      <div class="sec">
+      <div class="sec k-drill">
         <h3>Harmonic structure</h3>
         <div class="chips" id="structs"></div>
         <div class="dots" id="custom" hidden></div>
       </div>
-      <div class="sec">
+      <div class="sec k-drill">
         <h3>Timing</h3>
         <div class="row">
           <label class="field"><span>BPM</span><input type="number" id="bpm" min="20" max="300" value="60" style="width:90px"></label>
           <div class="field"><span>Subdivision</span><div class="chips" id="subs"></div></div>
         </div>
-        <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label>
-          <label class="field"><span>Daily practice (minutes)</span><input type="number" id="daily" min="0.5" max="120" step="0.5" value="1" style="width:110px"></label></div>
+        <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label></div>
       </div>
       <div class="sec">
         <div class="notes-head"><h3>Notes</h3><button type="button" class="linkbtn" id="regen">Rewrite from the settings</button></div>
-        <textarea id="notes" rows="9"></textarea>
-        <p class="muted" style="font-size:13px;margin-top:6px">Written from the settings until you edit them; after that your words stay.</p>
+        <textarea id="notes" rows="7"></textarea>
+        <p class="muted" style="font-size:13px;margin-top:6px" id="noteshint">Written from the settings until you edit them; after that your words stay.</p>
       </div>
       <div class="sec" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <a class="btn" id="try" target="_blank" rel="noopener">Try the drill</a>
+        <a class="btn k-drill" id="try" target="_blank" rel="noopener">Try the drill</a>
         <button class="btn primary" id="submit" type="submit">Submit</button>
         <span class="err" id="suberr"></span>
       </div>
@@ -112,11 +143,13 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 
     <aside class="preview">
       <div class="card">
-        <p class="label">Preview</p>
+        <p class="label">Preview · <span id="pkind"></span></p>
         <p class="ptitle" id="ptitle"></p>
-        <div class="glyphbox glyph" id="pglyph"></div>
-        <p class="label">Tones, low to high</p>
-        <div class="tones" id="ptones"></div>
+        <div class="k-drill">
+          <div class="glyphbox glyph" id="pglyph"></div>
+          <p class="label">Tones, low to high</p>
+          <div class="tones" id="ptones"></div>
+        </div>
         <p class="muted" style="font-size:14px;margin-top:10px" id="psum"></p>
       </div>
       <div class="card" id="done" hidden></div>
@@ -125,25 +158,42 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=14"></script>
-<script src="studio.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="../lessons.js?v=15"></script>
+<script src="studio.js?v=15"></script>
 <script>
-var S=Studio, P=S.defaults(), notesEdited=false, titleEdited=false, pass='', editing=null;
+var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
+var notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
+P.inst='guitar';
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
 var $=function(id){ return document.getElementById(id); };
 if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: drills and students are saved only in this browser until the Google Sheet is connected.</p>';
 
 /* ── controls ── */
-function chips(host,items,get,set,label){
+function chips(host,items,get,set,label,off){
   host.innerHTML=''; items.forEach(function(it){
     var b=document.createElement('button'); b.type='button'; b.className='chip'; b.innerHTML=label?label(it):S.esc(it.name||it);
-    b.setAttribute('aria-pressed',String(get()===(it.id!==undefined?it.id:it))); b.onclick=function(){ set(it.id!==undefined?it.id:it); render(); };
-    host.appendChild(b); });
+    var v=it.id!==undefined?it.id:it; b.setAttribute('aria-pressed',String(get()===v)); if(off&&off(v))b.disabled=true;
+    b.onclick=function(){ set(v); render(); }; host.appendChild(b); });
 }
+function canDrill(){ return !!S.INSTRUMENTS[P.inst].drills; }
 function renderControls(){
-  var an=$('anchors'); an.innerHTML='';
-  S.ANCHORS.forEach(function(A){ var b=document.createElement('button'); b.type='button'; b.className='anchor'; b.setAttribute('aria-pressed',String(P.anchor===A.id));
-    b.innerHTML=S.glyphSVG({anchor:A.id})+'<span class="w">'+A.word+'</span>'; b.onclick=function(){ P.anchor=A.id; render(); }; an.appendChild(b); });
+  var locked=!!cur;   /* an existing student's instrument and hand come from their profile */
+  chips($('insts'),['guitar','bass','keyboard'].map(function(k){ return {id:k,name:S.INSTRUMENTS[k].name}; }),function(){return P.inst;},function(v){ P.inst=v; },null,function(){ return locked; });
+  chips($('hands'),[{id:'right',name:'Right'},{id:'left',name:'Left'}],function(){return HAND;},function(v){ HAND=v; },null,function(){ return locked; });
+  $('profhint').textContent=cur?('From '+cur.name+'’s profile. Change it in the Studio Overview.'):($('student').value.trim()?'A new student: these are saved with their first item.':'');
+  chips($('kinds'),S.ITEM_KINDS.map(function(k){ return {id:k.id,name:k.name+' · '+k.label.toLowerCase()}; }),function(){return KIND;},function(v){ if(v!==KIND){ KIND=v; titleEdited=false; if(KIND!=='drill'&&!notesEdited)$('notes').value=''; } },null,function(v){ return v==='drill'&&!canDrill(); });
+  [].forEach.call(document.querySelectorAll('.k-drill'),function(el){ el.hidden=(KIND!=='drill'); });
+  [].forEach.call(document.querySelectorAll('.k-song'),function(el){ el.hidden=(KIND!=='song'); });
+  [].forEach.call(document.querySelectorAll('.k-task'),function(el){ el.hidden=(KIND!=='task'); });
+  $('regen').hidden=(KIND!=='drill'); $('noteshint').textContent=KIND==='drill'?'Written from the settings until you edit them; after that your words stay.':'Anything the student should know: what to listen for, where to start.';
+  if(KIND==='song') renderSong();
+  if(KIND==='task') chips($('labels'),S.TASK_LABELS,function(){return TASK.label;},function(v){ TASK.label=v; });
+  if(KIND!=='drill') return;
+  var AS=S.anchorsFor(P.inst); if(!AS.some(function(A){ return A.id===P.anchor; }))P.anchor=AS[0].id;
+  var an=$('anchors'); an.innerHTML=''; an.style.gridTemplateColumns='repeat('+Math.max(3,AS.length)+',minmax(0,1fr))';
+  AS.forEach(function(A){ var b=document.createElement('button'); b.type='button'; b.className='anchor'; b.setAttribute('aria-pressed',String(P.anchor===A.id));
+    b.innerHTML=S.glyphSVG({anchor:A.id,inst:P.inst})+'<span class="w">'+A.word+'</span>'; b.onclick=function(){ P.anchor=A.id; render(); }; an.appendChild(b); });
   chips($('modes'),S.MODES,function(){return P.mode;},function(v){ P.mode=v;
       if(v==='Chromatic'&&['mode','triad','tetrachord','do-pent','la-pent'].indexOf(P.structure)>=0)P.structure='chromatic';
       if(P.structure==='do-pent'&&v!=='Do')P.structure='mode'; if(P.structure==='la-pent'&&v!=='La')P.structure='mode'; },
@@ -153,7 +203,7 @@ function renderControls(){
   var chromF=(P.mode==='Chromatic'||P.structure==='chromatic'||P.structure==='custom');
   if(chromF) $('frames').innerHTML='<button type="button" class="chip" aria-pressed="true">Four per string</button>';
   P.range=S.fitRange(P);
-  chips($('ranges'),S.rangesFor(P.anchor),function(){return P.range;},function(v){P.range=v;});
+  chips($('ranges'),S.rangesFor(P.anchor,P.inst),function(){return P.range;},function(v){P.range=v;});
   chips($('dirs'),S.DIRECTIONS,function(){return P.dir;},function(v){P.dir=v;});
   chips($('structs'),S.STRUCTURES,function(){return P.structure;},function(v){ P.structure=v; if(v==='do-pent')P.mode='Do'; if(v==='la-pent')P.mode='La';
       if(P.mode==='Chromatic'&&['mode','triad','tetrachord'].indexOf(v)>=0)P.mode='Do'; });
@@ -163,6 +213,30 @@ function renderControls(){
     d.innerHTML='<button type="button" aria-pressed="'+on+'" aria-label="'+i+' semitones"'+((i===0||i===12)?' disabled':'')+'></button><span>'+i+'</span>';
     d.querySelector('button').onclick=function(){ P.custom[i]=P.custom[i]?0:1; render(); }; cu.appendChild(d); })(i); }
   var sh=S.isShift(P); $('startwrap').hidden=!sh; $('endwrap').hidden=!sh; $('loopwrap').hidden=!sh; $('loop').setAttribute('aria-pressed',String(P.loop!==false));
+}
+/* the song: one of the student's, or a new one that joins their repertoire on Submit */
+function lessonOptions(sel,val){ var L=(window.LESSONS||[]).filter(function(x){ return x.kind==='music'; }).sort(function(a,b){ return a.title<b.title?-1:1; });
+  sel.innerHTML='<option value="">None yet (a stopwatch on the page)</option>'+L.map(function(x){ return '<option value="'+S.esc(x.file)+'">'+S.esc(x.title)+' · '+(x.instrument==='piano'?'keyboard':x.instrument)+'</option>'; }).join('');
+  sel.value=val||''; }
+function renderSong(){
+  var sel=$('songsel'), list=songs.filter(function(x){ return x.status!=='done'; }).concat(songs.filter(function(x){ return x.status==='done'; }));
+  sel.innerHTML='<option value="">New song…</option>'+list.map(function(x){ return '<option value="'+S.esc(x.rid)+'">'+S.esc(S.songTitle(x))+(x.status==='done'?' (completed)':'')+'</option>'; }).join('');
+  if(SONG.rid&&!songs.some(function(x){ return x.rid===SONG.rid; }))SONG.rid='';
+  sel.value=SONG.rid; $('newsong').hidden=!!SONG.rid; $('lessonrow').hidden=!!SONG.rid;
+  var s=songs.filter(function(x){ return x.rid===SONG.rid; })[0];
+  $('songhint').innerHTML=s?(s.lesson?'Opens its lesson: '+S.esc((S.lessonOf(s.lesson)||{}).title||s.lesson)+'.':'No lesson yet: the student gets a stopwatch. Link a lesson from their page’s repertoire.'):(cur?'It joins '+S.esc(cur.name)+'’s repertoire as “in progress”.':'It joins the student’s repertoire as “in progress”.');
+}
+function song(){ return songs.filter(function(x){ return x.rid===SONG.rid; })[0]||(SONG.title?{title:SONG.title,artist:SONG.artist}:null); }
+function autoTitle(){
+  if(KIND==='drill') return S.title(P);
+  if(KIND==='song'){ var s=song(); var t=s?s.title:'A song'; return SONG.part?t+' · '+SONG.part:t; }
+  return TASK.label;
+}
+function params(){
+  var daily=Math.max(0.5,Math.min(120,+$('daily').value||1));
+  if(KIND==='song') return {kind:'song',rid:SONG.rid,part:SONG.part,daily:daily};
+  if(KIND==='task') return {kind:'task',label:TASK.label,link:TASK.link,daily:daily};
+  var o=JSON.parse(JSON.stringify(P)); o.kind='drill'; o.daily=daily; return o;
 }
 (function(){
   var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
@@ -177,72 +251,133 @@ function renderControls(){
   $('loop').onclick=function(){ P.loop=(P.loop===false); render(); };
   $('date').value=S.ymd(new Date());
   $('notes').oninput=function(){ notesEdited=true; };
-  $('title').oninput=function(){ titleEdited=true; $('ptitle').textContent=$('title').value||S.title(P); };
+  $('title').oninput=function(){ titleEdited=true; $('ptitle').textContent=$('title').value||autoTitle(); };
   $('retitle').onclick=function(){ titleEdited=false; render(); };
   $('regen').onclick=function(){ notesEdited=false; render(); };
+  $('student').oninput=function(){ matchStudent(); };
+  $('songsel').onchange=function(){ SONG.rid=this.value; render(); };
+  $('stitle').oninput=function(){ SONG.title=this.value.trim(); render(); };
+  $('sartist').oninput=function(){ SONG.artist=this.value.trim(); render(); };
+  $('slesson').onchange=function(){ SONG.lesson=this.value; };
+  $('spart').oninput=function(){ SONG.part=this.value.trim(); render(); };
+  $('tlink').oninput=function(){ TASK.link=this.value.trim(); };
+  lessonOptions($('slesson'),'');
 })();
+
+/* ── the student: an existing one brings their instrument, hand and repertoire ── */
+function matchStudent(){
+  var nm=$('student').value.trim().toLowerCase(), st=students.filter(function(x){ return String(x.name).toLowerCase()===nm; })[0]||null;
+  if(st===cur){ render(); return; }
+  cur=st; songs=[];
+  if(cur){ P.inst=cur.inst||'guitar'; HAND=cur.hand||'right';
+    S.api('student',{sid:cur.sid}).then(function(r){ if(r.ok&&cur&&cur.sid===r.student.sid){ songs=r.songs||[]; render(); } }); }
+  if(!canDrill()&&KIND==='drill')KIND='song';
+  render();
+}
 
 /* ── preview ── */
 function render(){
+  if(!canDrill()&&KIND==='drill')KIND='song';
   renderControls();
+  var t=autoTitle(); if(!titleEdited)$('title').value=t;
+  $('ptitle').textContent=$('title').value||t;
+  $('pkind').textContent=KIND==='task'?TASK.label:S.ITEM_KINDS.filter(function(k){ return k.id===KIND; })[0].label;
+  var daily=+$('daily').value||1;
+  if(KIND!=='drill'){
+    var s=song(), les=KIND==='song'&&s&&(s.lesson||SONG.lesson);
+    $('psum').textContent=daily+' min a day · '+(KIND==='song'?(les?'opens its Tonal Field lesson':'with a stopwatch'):(TASK.link?'with a stopwatch and a link':'with a stopwatch'));
+    return;
+  }
   var B=S.boxes(P), b=B[0];
-  if(!titleEdited)$('title').value=S.title(P);
-  $('ptitle').textContent=$('title').value||S.title(P);
   $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
   var sq=S.sequence(P);
-  $('psum').textContent=S.summary(P)+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
+  $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(P)+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
   if(!notesEdited)$('notes').value=S.autoNotes(P);
-  $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(P));
+  $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(Object.assign({},P,{hand:HAND})));
 }
 
 /* ── the passphrase (kept in this browser), students for the name list ── */
-function loadStudents(){ S.api('students',{pass:pass}).then(function(r){ if(!r.ok){ if(!S.isDemo()){ $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; } return; }
-  $('passrow').hidden=true; $('studentlist').innerHTML=r.students.map(function(s){ return '<option value="'+S.esc(s.name)+'">'; }).join(''); }).catch(function(){ $('passerr').textContent='Could not reach the sheet.'; $('passrow').hidden=false; }); }
+function loadStudents(){ return S.api('students',{pass:pass}).then(function(r){ if(!r.ok){ if(!S.isDemo()){ $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; } return; }
+  $('passrow').hidden=true; students=r.students||[]; $('studentlist').innerHTML=students.map(function(s){ return '<option value="'+S.esc(s.name)+'">'; }).join(''); if(!editing)matchStudent(); }).catch(function(){ $('passerr').textContent='Could not reach the sheet.'; $('passrow').hidden=false; }); }
 $('passgo').onclick=function(){ pass=$('pass').value; try{ localStorage.setItem('studio-pass',pass); }catch(e){} loadStudents(); };
 loadStudents();
 
+/* ── after an item is saved: the links, and sending the page to the student ── */
+function sendRow(sid){
+  var st=students.filter(function(x){ return x.sid===sid; })[0]; if(!st) return Promise.resolve('');
+  return S.api('student',{sid:sid}).then(function(r){
+    var link=S.base()+'student.html?s='+sid, M=S.message(st,link,r.drills||[],r.songs||[]), h='';
+    if(st.email) h+='<button type="button" class="btn" id="mailbtn">Email '+S.esc(S.firstName(st.name))+'</button>';
+    if(st.phone) h+='<a class="btn" href="'+S.esc(S.smsHref(st.phone,M.text))+'">Text it</a>';
+    if(!h) return '<p class="hint">Add an email or a mobile number to '+S.esc(st.name)+'’s profile in the Studio Overview to send the page from here.</p>';
+    window._msg={sid:sid,M:M}; return '<div class="l"><span class="label" style="width:100%">Let '+S.esc(S.firstName(st.name))+' know</span>'+h+'<span class="hint" id="mailres"></span></div>';
+  });
+}
+function wireSend(){ var b=$('mailbtn'); if(!b)return; b.onclick=function(){ var m=window._msg; b.disabled=true; b.textContent='Sending…';
+  S.api('notify',{pass:pass,sid:m.sid,subject:m.M.subject,body:m.M.body}).then(function(r){ b.textContent=r.ok?'Emailed':'Email'; b.disabled=!!r.ok;
+    $('mailres').textContent=r.ok?('Sent to '+r.to+(r.demo?' (demo: not really sent)':'')):('Not sent: '+r.error); })
+  .catch(function(){ b.disabled=false; b.textContent='Email'; $('mailres').textContent='Could not reach the sheet.'; }); }; }
+
 /* ── submit ── */
+function ensureSong(sid){   /* a new song joins the repertoire first */
+  if(KIND!=='song'||SONG.rid) return Promise.resolve();
+  if(!SONG.title) return Promise.reject('Pick a song or give the new one a title.');
+  return S.api('song',{sid:sid,title:SONG.title,artist:SONG.artist,lesson:SONG.lesson}).then(function(r){ if(!r.ok)throw ('Not saved: '+r.error); songs=r.songs; SONG.rid=r.rid; });
+}
+function ensureStudent(name){   /* a song needs the student to exist before it can join their repertoire */
+  if(cur) return Promise.resolve(cur.sid);
+  if(KIND!=='song') return Promise.resolve(null);
+  return S.api('profile',{pass:pass,name:name,inst:P.inst,hand:HAND}).then(function(r){ if(!r.ok)throw (r.error==='wrong passphrase'?'The passphrase is missing or wrong.':'Not saved: '+r.error); return loadStudents().then(function(){ return r.sid; }); });
+}
 $('form').onsubmit=function(e){
   e.preventDefault(); $('suberr').textContent='';
   var name=$('student').value.trim(); if(!name){ $('suberr').textContent='Add the student’s name.'; $('student').focus(); return; }
   var btn=$('submit'), label=btn.textContent; btn.disabled=true; btn.textContent='Saving…';
-  var ttl=$('title').value.trim()||S.title(P);
-  if(editing){   /* correcting a drill already assigned */
-    S.api('update',{pass:pass,did:editing.did,date:$('date').value,ex:$('ex').value||editing.ex,title:ttl,params:P,notes:$('notes').value}).then(function(r){
+  function fail(m){ btn.disabled=false; btn.textContent=label; $('suberr').textContent=typeof m==='string'?m:'Could not reach the sheet. Nothing was saved.'; }
+  ensureStudent(name).then(function(sid){ return ensureSong(sid||(cur&&cur.sid)); }).then(function(){
+    var ttl=$('title').value.trim()||autoTitle(), prm=params(), notes=$('notes').value;
+    if(editing) return S.api('update',{pass:pass,did:editing.did,date:$('date').value,ex:$('ex').value||editing.ex,title:ttl,params:prm,notes:notes}).then(function(r){
       btn.disabled=false; btn.textContent=label;
       if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
-      var d=$('done'); d.hidden=false; d.innerHTML='<h2>Saved</h2><p class="muted">The drill on '+S.esc(editing.name)+'’s page now has these settings.</p><div class="done"><div class="l"><a class="btn" href="overview.html">Back to the overview</a><a class="btn" href="student.html?s='+encodeURIComponent(r.sid)+'" target="_blank" rel="noopener">Open '+S.esc(editing.name)+'’s page</a></div></div>';
-      d.scrollIntoView({behavior:'smooth',block:'nearest'});
-    }).catch(function(){ btn.disabled=false; btn.textContent=label; $('suberr').textContent='Could not reach the sheet. Nothing was saved.'; });
-    return;
-  }
-  S.api('assign',{pass:pass,student:name,date:$('date').value,ex:$('ex').value||'',title:ttl,params:P,notes:$('notes').value}).then(function(r){
-    btn.disabled=false; btn.textContent='Submit';
-    if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
-    var sp=S.base()+'student.html?s='+r.sid, dp=S.base()+'drill.html?d='+r.did;
-    var d=$('done'); d.hidden=false;
-    d.innerHTML='<h2>Assigned to '+S.esc(r.name)+'</h2><p class="muted">Exercise '+r.ex+'.</p><div class="done">'
-      +'<div class="l"><span class="label" style="width:100%">Student page</span><input readonly value="'+S.esc(sp)+'"><button type="button" class="btn" data-c="'+S.esc(sp)+'">Copy</button><a class="btn" href="'+S.esc(sp)+'" target="_blank" rel="noopener">Open</a></div>'
-      +'<div class="l"><span class="label" style="width:100%">This drill</span><input readonly value="'+S.esc(dp)+'"><button type="button" class="btn" data-c="'+S.esc(dp)+'">Copy</button><a class="btn" href="'+S.esc(dp)+'" target="_blank" rel="noopener">Open</a></div></div>';
-    [].forEach.call(d.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; },function(){ b.previousSibling.select(); }); }; });
-    $('ex').value=''; titleEdited=false; render(); loadStudents();
-    d.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }).catch(function(){ btn.disabled=false; btn.textContent='Submit'; $('suberr').textContent='Could not reach the sheet. Nothing was saved.'; });
+      var d=$('done'); d.hidden=false; d.innerHTML='<h2>Saved</h2><p class="muted">The item on '+S.esc(editing.name)+'’s page now has these settings.</p><div class="done"><div class="l"><a class="btn" href="overview.html">Back to the overview</a><a class="btn" href="student.html?s='+encodeURIComponent(r.sid)+'" target="_blank" rel="noopener">Open '+S.esc(editing.name)+'’s page</a></div></div>';
+      d.scrollIntoView({behavior:'smooth',block:'nearest'}); });
+    return S.api('assign',{pass:pass,student:name,inst:P.inst,hand:HAND,date:$('date').value,ex:$('ex').value||'',title:ttl,params:prm,notes:notes}).then(function(r){
+      btn.disabled=false; btn.textContent='Submit';
+      if(!r.ok){ $('suberr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':('Not saved: '+r.error); return; }
+      var sp=S.base()+'student.html?s='+r.sid, dp=S.base()+'drill.html?d='+r.did;
+      return loadStudents().then(function(){ return sendRow(r.sid); }).then(function(send){
+        var d=$('done'); d.hidden=false;
+        d.innerHTML='<h2>Assigned to '+S.esc(r.name)+'</h2><p class="muted">Item '+r.ex+' of their routine.</p><div class="done">'
+          +'<div class="l"><span class="label" style="width:100%">Student page</span><input readonly value="'+S.esc(sp)+'"><button type="button" class="btn" data-c="'+S.esc(sp)+'">Copy</button><a class="btn" href="'+S.esc(sp)+'" target="_blank" rel="noopener">Open</a></div>'
+          +(KIND==='drill'?'<div class="l"><span class="label" style="width:100%">This drill</span><input readonly value="'+S.esc(dp)+'"><button type="button" class="btn" data-c="'+S.esc(dp)+'">Copy</button><a class="btn" href="'+S.esc(dp)+'" target="_blank" rel="noopener">Open</a></div>':'')
+          +send+'</div>';
+        [].forEach.call(d.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent='Copied'; },function(){ b.previousSibling.select(); }); }; });
+        wireSend();
+        $('ex').value=''; titleEdited=false; if(KIND==='song'){ SONG={rid:'',title:'',artist:'',lesson:'',part:''}; ['stitle','sartist','spart'].forEach(function(k){ $(k).value=''; }); $('slesson').value=''; }
+        render(); d.scrollIntoView({behavior:'smooth',block:'nearest'}); });
+    });
+  }).catch(fail);
 };
-/* ── designer.html?edit=<drill id>: open an assigned drill to correct it ── */
+/* ── designer.html?edit=<item id>: open an assigned item to correct it ── */
 (function(){ var m=/[?&]edit=([\w]+)/.exec(location.search); if(!m)return;
-  S.api('drill',{did:m[1]}).then(function(r){ if(!r.ok){ $('suberr').textContent='That drill was not found.'; return; }
-    var D=r.drill; P=Object.assign(S.defaults(),D.params||{});
+  S.api('drill',{did:m[1]}).then(function(r){ if(!r.ok){ $('suberr').textContent='That item was not found.'; return; }
+    var D=r.drill, pr=D.params||{}; KIND=S.kindOf(D);
+    if(KIND==='drill'){ P=Object.assign(S.defaults(),pr); if(!pr.inst)P.inst='guitar'; }
+    else { P.inst=D.inst||'guitar'; P.daily=pr.daily||1; }
+    if(KIND==='song'){ SONG={rid:pr.rid||'',title:'',artist:'',lesson:'',part:pr.part||''}; $('spart').value=SONG.part; }
+    if(KIND==='task'){ TASK={label:pr.label||'Other',link:pr.link||''}; $('tlink').value=TASK.link; }
+    HAND=D.hand||'right';
     $('title').value=D.title||''; titleEdited=!!D.title; $('notes').value=D.notes||''; notesEdited=true;
     $('date').value=D.date||''; $('ex').value=D.ex||'';
     $('position').value=String(P.position); $('artic').value=P.artic; $('bpm').value=P.bpm; $('daily').value=P.daily||1; $('start').value=P.start; $('end').value=P.end;
-    return S.api('students',{pass:pass}).then(function(q){ var st=(q.students||[]).filter(function(x){ return x.sid===D.sid; })[0];
-      editing={did:D.did,ex:D.ex,name:st?st.name:'this student'};
+    return S.api('students',{pass:pass}).then(function(q){ students=q.students||[]; var st=students.filter(function(x){ return x.sid===D.sid; })[0];
+      editing={did:D.did,ex:D.ex,name:st?st.name:'this student'}; cur=st||null;
       $('student').value=editing.name; $('student').readOnly=true;
-      document.querySelector('h1').textContent='Edit drill';
-      $('lede').innerHTML='Exercise '+S.esc(D.ex)+' for '+S.esc(editing.name)+'. Saving changes it on their page; their stars and practice time stay. <a href="overview.html">Cancel</a>';
-      $('submit').textContent='Save changes'; render(); });
+      document.querySelector('h1').textContent='Edit item';
+      $('lede').innerHTML='Item '+S.esc(D.ex)+' for '+S.esc(editing.name)+'. Saving changes it on their page; their stars and practice time stay. <a href="overview.html">Cancel</a>';
+      $('submit').textContent='Save changes';
+      return S.api('student',{sid:D.sid}).then(function(x){ songs=(x&&x.songs)||[]; render(); }); });
   });
 })();
 render();
