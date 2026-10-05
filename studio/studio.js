@@ -127,8 +127,9 @@ function boxAt(P,w,modeName){
        below the nut keeps the tone instead. */
     all=[]; var rs=STRIDX[A.root], si=rs, cnt=0;
     for(var pu=root.pitch;;pu++){
-      if(cnt===4&&si<5&&pu-OPEN[IDXSTR[si+1]]>=0){ si++; cnt=0; }
-      if(cnt===4&&si===5&&pu>hi)break;
+      if(cnt>=4&&si<5&&pu-OPEN[IDXSTR[si+1]]>=0){ si++; cnt=0; }
+      if(cnt>=4&&si===5&&pu>hi)break;
+      if(pu>hi+30)break;
       all.push({pitch:pu,string:IDXSTR[si],fret:pu-OPEN[IDXSTR[si]]}); cnt++;
       if(si===5&&cnt>=4&&pu>=hi)break;
     }
