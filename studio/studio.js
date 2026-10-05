@@ -63,7 +63,7 @@ function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', frame
       octaves given a string. The frame flexes with the fingering rule:
         'half'  — keep the half steps (Mi–Fa, Ti–Do) together on one string; a tone may lean a fret outside the anchor's box
         'three' — three tones on every string between the anchor's strings
-        'four'  — chromatic drills: four tones (semitones) on every string, so the frame leans back a fret per string in fourths
+        (chromatic drills are strung separately: strictly four semitones per string)
       The anchors never move. Among all the ways to string the tones from the root up to the top anchor, the one with the
       fewest broken rules wins, then the narrowest span of frets. ── */
 var STRIDX={6:0,5:1,4:2,3:3,2:4,1:5}, IDXSTR=[6,5,4,3,2,1];
@@ -119,21 +119,44 @@ function boxAt(P,w,modeName){
   var frame=[], fMin=w, fMax=w+3;
   var chromFrame=chromatic||P.structure==='chromatic'||P.structure==='custom';   /* chromatic: four tones on every string, each string leaning a fret back as the fourths climb */
   var keyRel=chromFrame?null:modeRel, frameRel=chromFrame?[0,1,2,3,4,5,6,7,8,9,10,11]:modeRel;
+  var all=null;
+  if(chromFrame){
+    /* chromatic: strictly four semitones on every string, from the root up (and down), so each string in fourths starts a fret
+       further back (a fret further on, going down); the octaves land wherever the count puts them, not on the anchor's
+       strings. The top string takes any extra tone needed to reach the top of the anchor's range; a string that would run
+       below the nut keeps the tone instead. */
+    all=[]; var rs=STRIDX[A.root], si=rs, cnt=0;
+    for(var pu=root.pitch;;pu++){
+      if(cnt===4&&si<5&&pu-OPEN[IDXSTR[si+1]]>=0){ si++; cnt=0; }
+      if(cnt===4&&si===5&&pu>hi)break;
+      all.push({pitch:pu,string:IDXSTR[si],fret:pu-OPEN[IDXSTR[si]]}); cnt++;
+      if(si===5&&cnt>=4&&pu>=hi)break;
+    }
+    si=rs; cnt=0;
+    for(var pd=root.pitch-1;;pd--){
+      if(cnt===0){ if(si===0)break; si--; }
+      var fd=pd-OPEN[IDXSTR[si]]; if(fd<0)break;
+      all.push({pitch:pd,string:IDXSTR[si],fret:fd}); cnt=(cnt+1)%4;
+    }
+    var core=all.filter(function(c){ return c.pitch>=lo&&c.pitch<=hi; });
+    fMin=Math.min.apply(null,core.map(function(c){return c.fret;})); fMax=Math.max.apply(null,core.map(function(c){return c.fret;}));
+    frameRel=null;
+  }
   if(frameRel){
     var pitches=[]; for(var p=lo;p<=hi;p++) if(frameRel.indexOf(((p-rootPc)%12+12)%12)>=0) pitches.push(p);
     var fixed={}; anchorCells.forEach(function(c){ fixed[c.pitch]=c.string; });
     var placed=placeScale(pitches,fixed,w,chromFrame?'four':(P.frame==='three'?'three':'half'));
     if(placed){ frame=placed; fMin=Math.min.apply(null,placed.map(function(c){return c.fret;})); fMax=Math.max.apply(null,placed.map(function(c){return c.fret;})); }
   }
-  if(!frame.length){ for(var s0=1;s0<=6;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
+  if(!all&&!frame.length){ for(var s0=1;s0<=6;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
   /* below the root and above the top anchor: the strings outside the anchor, within the frame's frets */
   var topStr=anchorCells.filter(function(c){return c.pitch===hi;})[0].string;
   var outer={};
-  for(var s=1;s<=6;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
+  if(!all) for(var s=1;s<=6;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
     var ok=(pp<lo&&STRIDX[s]<=STRIDX[A.root])||(pp>hi&&STRIDX[s]>=STRIDX[topStr]);
     if(!ok)continue; if(keyRel&&keyRel.indexOf(((pp-rootPc)%12+12)%12)<0)continue;
     var prev=outer[pp], fc=(fMin+fMax)/2; if(!prev||Math.abs(f-fc)<Math.abs(prev.fret-fc)) outer[pp]={pitch:pp,string:s,fret:f}; }
-  var all=frame.concat(Object.keys(outer).map(function(k){ return outer[k]; }));
+  if(!all) all=frame.concat(Object.keys(outer).map(function(k){ return outer[k]; }));
   var cells=[];
   all.forEach(function(c){ var p=c.pitch, r=((p-rootPc)%12+12)%12; if(rel.indexOf(r)<0)return;
     var rg=fitRange(P);
@@ -145,6 +168,7 @@ function boxAt(P,w,modeName){
     if(three&&(p<lo||p>hi))return;   /* an E anchor's frame is its two octaves: nothing below the low root or above the high one */
     var nm=chromatic?{n:LETTERS[p%12],c:'#c9c5ba'}:nameOfRel(p%12-doPc);
     cells.push({string:c.string,fret:c.fret,pitch:p,anchor:anchorCells.some(function(a){return a.pitch===p;}),name:nm.n,color:nm.c}); });
+  if(all.length){ var fs=cells.length?cells.map(function(c){return c.fret;}):[fMin,fMax]; fMin=Math.min(fMin,Math.min.apply(null,fs)); fMax=Math.max(fMax,Math.max.apply(null,fs)); }
   cells.sort(function(a,b){ return a.pitch-b.pitch; });
   var gw=Math.min(w,fMin), gn=Math.max(w+3,fMax)-gw+1;
   return { w:w, gw:gw, gn:gn, cells:cells, anchorCells:anchorCells, root:root, rootPc:rootPc, mode:modeName, doPc:doPc };
@@ -233,6 +257,8 @@ function glyphSVG(P,opts){
   if(opts.frets&&b){ for(var k=0;k<nf;k++) s+='<text x="'+(padL+(k+0.5)*cw)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+(g+k)+'</text>'; }
   function xy(st,off){ return [padL+(off+0.5)*cw, padT+(st-1)*sh]; }
   if(b&&opts.tones){ b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret-g); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; }); }
+  if(b&&opts.tones){ b.cells.forEach(function(c){ if(!c.anchor)return; var p=xy(c.string,c.fret-g);
+      s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+c.color+'" stroke="#fff" stroke-width="'+(1.2*size)+'"/>'; }); return s+'</svg>'; }
   A.tones.forEach(function(t){ var p=xy(t[0],t[1]+w-g), col=(b&&opts.tones)?(b.cells.filter(function(c){return c.string===t[0]&&c.fret===w+t[1];})[0]||{color:'#22BB22'}).color:'#3ddc4a';
     s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+col+'" stroke="'+(opts.tones?'#fff':'#000')+'" stroke-width="'+(1.2*size)+'"/>'; });
   return s+'</svg>';
