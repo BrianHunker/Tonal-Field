@@ -16,6 +16,7 @@
      Drills   — one row per assigned drill: id, student id, date, exercise number, title, settings, notes
      Checks   — one row per ticked practice day: student id, drill id, week (Monday's date), day 0–6 (Mon–Sun)
      Opens    — one row per drill per day it was opened on a student's device: times opened, seconds played, seconds open
+                (only for students who switched practice tracking on, from their own page — the Students tab's 'tracking' column)
    Rows can be read, sorted or deleted by hand; deleting a student's rows removes them from every page. */
 
 var PASSPHRASE = 'change-me';
@@ -35,6 +36,7 @@ function handle_(p) {
     if (a === 'drill')   return out_(drill_(p.did));
     if (a === 'check')   return out_(check_(p));
     if (a === 'open')    return out_(open_(p));
+    if (a === 'optin')   return out_(optin_(p));
     /* everything below is the teacher's */
     if (p.pass !== PASSPHRASE) return out_({ ok: false, error: 'wrong passphrase' });
     if (a === 'ping')     return out_({ ok: true });
@@ -47,11 +49,12 @@ function handle_(p) {
 
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-var HEAD = { Students: ['sid', 'name', 'added'], Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added'], Checks: ['sid', 'did', 'week', 'day', 'at'],
+var HEAD = { Students: ['sid', 'name', 'added', 'tracking'], Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added'], Checks: ['sid', 'did', 'week', 'day', 'at'],
              Opens: ['sid', 'did', 'date', 'week', 'day', 'opens', 'playSecs', 'openSecs', 'last'] };
 function sheet_(name) {
   var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(name);
   if (!sh) { sh = ss.insertSheet(name); sh.appendRow(HEAD[name]); sh.setFrozenRows(1); }
+  else if (sh.getLastColumn() < HEAD[name].length) sh.getRange(1, 1, 1, HEAD[name].length).setValues([HEAD[name]]);   /* a column added in a later version */
   return sh;
 }
 function rows_(name) { var v = sheet_(name).getDataRange().getValues(); v.shift(); return v; }
@@ -77,7 +80,10 @@ function drillObj_(r) {
 
 function drill_(did) {
   var r = rows_('Drills').filter(function (r) { return r[0] === did; })[0];
-  return r ? { ok: true, drill: drillObj_(r) } : { ok: false, error: 'no such drill' };
+  if (!r) return { ok: false, error: 'no such drill' };
+  var d = drillObj_(r), st = rows_('Students').filter(function (x) { return x[0] === r[1]; })[0];
+  d.track = !!(st && st[3] === true);   /* the student has chosen to have practice time recorded */
+  return { ok: true, drill: d };
 }
 
 function checksFor_(sid) {
@@ -90,7 +96,7 @@ function student_(sid) {
   var s = rows_('Students').filter(function (r) { return r[0] === sid; })[0];
   if (!s) return { ok: false, error: 'no such student' };
   var drills = rows_('Drills').filter(function (r) { return r[1] === sid; }).map(drillObj_);
-  return { ok: true, student: { sid: sid, name: s[1] }, drills: drills, checks: checksFor_(sid) };
+  return { ok: true, student: { sid: sid, name: s[1], track: s[3] === true }, drills: drills, checks: checksFor_(sid), opens: opensFor_(sid) };
 }
 
 function check_(p) {
@@ -106,10 +112,23 @@ function check_(p) {
   return { ok: true };
 }
 
+function opensFor_(sid) {
+  return rows_('Opens').filter(function (r) { return !sid || r[0] === sid; }).map(function (r) {
+    return { sid: r[0], did: r[1], date: r[2] instanceof Date ? day_(r[2]) : String(r[2]), week: r[3] instanceof Date ? day_(r[3]) : String(r[3]), day: Number(r[4]), opens: Number(r[5]), play: Number(r[6]), open: Number(r[7]) };
+  });
+}
+
+/* the student's own choice, from their page: record practice time or not */
+function optin_(p) {
+  var sh = sheet_('Students'), v = sh.getDataRange().getValues();
+  for (var i = 1; i < v.length; i++) if (v[i][0] === p.sid) { sh.getRange(i + 1, 4).setValue(!!p.on); return { ok: true, track: !!p.on }; }
+  return { ok: false, error: 'no such student' };
+}
+
 function overview_() {
   var students = rows_('Students').map(function (r) { return { sid: r[0], name: r[1] }; });
   var drills = rows_('Drills').map(drillObj_);
-  var opens = rows_('Opens').map(function (r) { return { sid: r[0], did: r[1], week: r[3] instanceof Date ? day_(r[3]) : String(r[3]), day: Number(r[4]), opens: Number(r[5]), play: Number(r[6]), open: Number(r[7]) }; });
+  var opens = opensFor_(null);
   return { ok: true, students: students, drills: drills, checks: checksFor_(null), opens: opens };
 }
 
@@ -118,6 +137,8 @@ function overview_() {
 function open_(p) {
   var did = String(p.did || ''), date = String(p.date || ''), week = String(p.week || ''), d = Number(p.day);
   var dr = rows_('Drills').filter(function (r) { return r[0] === did; })[0];
+  var st = dr && rows_('Students').filter(function (x) { return x[0] === dr[1]; })[0];
+  if (!st || st[3] !== true) return { ok: false, error: 'tracking is off' };
   if (!dr || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{4}-\d{2}-\d{2}$/.test(week) || !(d >= 0 && d <= 6)) return { ok: false, error: 'not allowed' };
   var play = Math.max(0, Math.min(14400, Number(p.play) || 0)), open = Math.max(0, Math.min(14400, Number(p.open) || 0));
   var sh = sheet_('Opens'), v = sh.getDataRange().getValues();

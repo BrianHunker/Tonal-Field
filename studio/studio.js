@@ -284,7 +284,8 @@ function rid(n){ var c='abcdefghjkmnpqrstuvwxyz23456789',s=''; for(var i=0;i<n;i
 function demo(p){
   var db=demoDB(), a=p.action;
   if(a==='student'){ var s=db.students.filter(function(x){return x.sid===p.sid;})[0]; if(!s)return {ok:false,error:'no such student'};
-    return {ok:true,student:s,drills:db.drills.filter(function(d){return d.sid===p.sid;}),checks:db.checks.filter(function(c){return c.sid===p.sid;})}; }
+    return {ok:true,student:s,drills:db.drills.filter(function(d){return d.sid===p.sid;}),checks:db.checks.filter(function(c){return c.sid===p.sid;}),opens:[]}; }
+  if(a==='optin'){ var so=db.students.filter(function(x){return x.sid===p.sid;})[0]; if(!so)return {ok:false,error:'no such student'}; so.track=!!p.on; demoSave(db); return {ok:true,track:so.track}; }
   if(a==='drill'){ var d=db.drills.filter(function(x){return x.did===p.did;})[0]; return d?{ok:true,drill:d}:{ok:false,error:'no such drill'}; }
   if(a==='check'){ db.checks=db.checks.filter(function(c){ return !(c.sid===p.sid&&c.did===p.did&&c.week===p.week&&c.day===+p.day); });
     if(p.on)db.checks.push({sid:p.sid,did:p.did,week:p.week,day:+p.day}); demoSave(db); return {ok:true}; }

@@ -9,8 +9,8 @@
 </head>
 <body>
 <p id="msg">Loading the drill…</p>
-<script src="config.js?v=9"></script>
-<script src="studio.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="studio.js?v=10"></script>
 <script>
 /* A drill page: the drill's settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as #p=…)
    become a sequence, written into the guitar template's boot file, and the full Tonal Field tool opens on it. */
@@ -47,10 +47,10 @@
       html=html.replace(/var VIEW_NAME=\{[^;]*\};/,'var VIEW_NAME={"1": "Drill"};')
                .replace(/(<button class="toggle view-btn" data-view="1" aria-pressed="false">)[^<]*(<\/button>)/,'$1Drill$2')
                .replace(/<title>[^<]*<\/title>/,'<title>'+S.esc(title)+' — Tonal Field</title>');
-      /* v: a drill opened from a student's link reports to the sheet that it was opened, and how long it was played and open.
+      /* a drill opened from a student's link reports to the sheet that it was opened, and how long it was played and open.
          Not from the teacher's own devices (the ones holding the passphrase), and not from the designer's previews. */
       var teacher=false; try{ teacher=!!localStorage.getItem('studio-pass'); }catch(e){}
-      if(D.did&&window.STUDIO_API&&!teacher){
+      if(D.did&&D.track&&window.STUDIO_API&&!teacher){   /* only for a student who has switched practice tracking on */
         var now=new Date(), wk=S.weekKey(now), day=(now.getDay()+6)%7, date=S.ymd(now);
         var T='<script>(function(){ var API='+JSON.stringify(window.STUDIO_API)+', base={action:"open",did:'+JSON.stringify(D.did)+',date:'+JSON.stringify(date)+',week:'+JSON.stringify(wk)+',day:'+day+'};'
           +'function send(o,beacon){ var b=JSON.stringify(Object.assign({},base,o)); try{ if(beacon&&navigator.sendBeacon){ navigator.sendBeacon(API,b); return; } fetch(API,{method:"POST",body:b,keepalive:true}); }catch(e){} }'

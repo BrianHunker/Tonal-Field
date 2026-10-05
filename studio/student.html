@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=9">
+<link rel="stylesheet" href="studio.css?v=10">
 <style>
 .weeknav{display:flex;align-items:center;gap:12px;margin:22px 0 4px;flex-wrap:wrap}
 .weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink)}
@@ -27,6 +27,31 @@
 .drill .notes p{margin-top:8px;font-size:15px;max-width:44em}
 .count{font-size:13px;color:var(--dim)}
 .empty{margin-top:24px}
+
+/* practice time */
+.pt{margin-top:40px}
+.pt-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px 20px}
+.optin{margin-top:14px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.optin p{max-width:42em;font-size:15px}
+.periods{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
+.periods .pnav{background:none;border:1px solid var(--rule);border-radius:999px;width:32px;height:32px;cursor:pointer;color:var(--ink)}
+.periods .pnav[disabled]{opacity:.35;cursor:default}
+.plabel{font-weight:600;color:var(--ink);margin-left:4px}
+.total{font-family:var(--serif);font-size:30px;color:var(--ink);margin-top:14px;line-height:1.2}
+.total small{font-family:var(--sans);font-size:14px;color:var(--dim);margin-left:8px}
+.cols{display:flex;align-items:flex-end;gap:2px;height:120px;margin-top:18px;border-bottom:1px solid var(--rule);padding:0 2px}
+.cols .c{flex:1;min-width:3px;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
+.cols .c i{display:block;background:var(--gold);border-radius:4px 4px 0 0;min-height:0}
+.cols .c:hover i{background:#efd486}
+.ticks{display:flex;gap:2px;padding:0 2px;font-size:11px;color:var(--dim)}
+.ticks span{flex:1;min-width:3px;text-align:center;white-space:nowrap;overflow:visible}
+.bars{margin-top:20px;display:flex;flex-direction:column;gap:10px}
+.bars .b{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-size:14px}
+.bars .b .n{color:var(--body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bars .b .v{color:var(--ink);font-variant-numeric:tabular-nums}
+.bars .b .t{grid-column:1/-1;height:8px;background:var(--raise2);border-radius:4px;overflow:hidden}
+.bars .b .t i{display:block;height:100%;background:var(--gold);border-radius:4px}
+.offlink{background:none;border:0;color:var(--dim);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0}
 @media (max-width:600px){ .drill{grid-template-columns:1fr} .drill .g{grid-row:auto} .drill .acts{grid-column:1} }
 </style>
 </head>
@@ -40,10 +65,24 @@
   <div id="demo"></div>
   <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button type="button" id="next" aria-label="Next week">›</button></div>
   <div class="drills" id="drills"><p class="muted">Loading…</p></div>
+
+  <section class="pt" id="pt" hidden aria-labelledby="pt-h">
+    <div class="pt-head"><h2 id="pt-h">Practice time</h2><button type="button" class="offlink" id="ptoff" hidden>Stop recording practice time</button></div>
+    <div class="card optin" id="optin" hidden>
+      <p>Your drills can keep track of how long you play along with them — the drill running is your metronome. With this on, each drill you open from this page records the time it plays, and you (and Brian) can see where your practice went, by day, week, month and year. Nothing else is recorded, and you can turn it off at any time.</p>
+      <button type="button" class="btn primary" id="ptonbtn">Record my practice time</button>
+    </div>
+    <div id="ptbody" hidden>
+      <div class="periods" id="periods"></div>
+      <p class="total" id="ptotal"></p>
+      <div class="cols" id="pcols" role="img"></div><div class="ticks" id="pticks"></div>
+      <div class="bars" id="pbars"></div>
+    </div>
+  </section>
 </div>
 <footer><div class="wrap">Gables Guitar Studio · Coral Gables · <a href="https://gablesguitar.com/lessons">gablesguitar.com/lessons</a></div></footer>
-<script src="config.js?v=9"></script>
-<script src="studio.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="studio.js?v=10"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); };
 var sid=(/[?&]s=([\w]+)/.exec(location.search)||[])[1], data=null, week=S.weekKey(), thisWeek=week;
@@ -82,12 +121,60 @@ function render(){
     host.appendChild(el);
   });
 }
+
+/* ── practice time: what the drills recorded while playing, for a student who switched it on ── */
+var per='week', off=0, PERIODS=[['day','Day'],['week','Week'],['month','Month'],['year','Year'],['all','All']];
+function pdate(k){ var p=k.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function hm(sec){ var m=Math.round(sec/60); if(m<60) return m+' min'; return Math.floor(m/60)+' h '+(m%60? (m%60)+' min':''); }
+function periodRange(){
+  var t=new Date(), a, b, label, buckets=[];
+  if(per==='day'){ a=new Date(t.getFullYear(),t.getMonth(),t.getDate()-off); b=new Date(a); label=off===0?'Today':a.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}); }
+  else if(per==='week'){ a=pdate(S.addDays(S.weekKey(t),-7*off)); b=new Date(a); b.setDate(b.getDate()+6); label=(off===0?'This week · ':'')+a.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' – '+b.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    for(var i=0;i<7;i++){ var d=new Date(a); d.setDate(a.getDate()+i); buckets.push({from:S.ymd(d),to:S.ymd(d),tick:['M','T','W','T','F','S','S'][i],tip:d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}); } }
+  else if(per==='month'){ a=new Date(t.getFullYear(),t.getMonth()-off,1); b=new Date(a.getFullYear(),a.getMonth()+1,0); label=a.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    for(var j=1;j<=b.getDate();j++){ var dm=new Date(a.getFullYear(),a.getMonth(),j); buckets.push({from:S.ymd(dm),to:S.ymd(dm),tick:(j===1||j%5===0)?String(j):'',tip:dm.toLocaleDateString(undefined,{month:'short',day:'numeric'})}); } }
+  else if(per==='year'){ a=new Date(t.getFullYear()-off,0,1); b=new Date(a.getFullYear(),11,31); label=String(a.getFullYear());
+    for(var m=0;m<12;m++){ var m0=new Date(a.getFullYear(),m,1), m1=new Date(a.getFullYear(),m+1,0); buckets.push({from:S.ymd(m0),to:S.ymd(m1),tick:m0.toLocaleDateString(undefined,{month:'narrow'}),tip:m0.toLocaleDateString(undefined,{month:'long',year:'numeric'})}); } }
+  else { var ds=data.opens.map(function(o){return o.date;}).sort(); a=ds.length?pdate(ds[0]):new Date(t.getFullYear(),t.getMonth(),1); a=new Date(a.getFullYear(),a.getMonth(),1); b=t; label='Since '+a.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    for(var y=a.getFullYear(),mm=a.getMonth();new Date(y,mm,1)<=t;mm++){ if(mm>11){ mm=0; y++; } var q0=new Date(y,mm,1), q1=new Date(y,mm+1,0); buckets.push({from:S.ymd(q0),to:S.ymd(q1),tick:mm===0||buckets.length===0?q0.toLocaleDateString(undefined,{month:'short',year:'2-digit'}):'',tip:q0.toLocaleDateString(undefined,{month:'long',year:'numeric'})}); } }
+  return {from:S.ymd(a),to:S.ymd(b),label:label,buckets:buckets};
+}
+function renderPT(){
+  var on=!!data.student.track, has=data.opens.length>0;
+  $('pt').hidden=false; $('optin').hidden=on; $('ptoff').hidden=!on; $('ptbody').hidden=!(on||has);
+  if($('ptbody').hidden)return;
+  var R=periodRange(), rows=data.opens.filter(function(o){ return o.date>=R.from&&o.date<=R.to; });
+  var pe=$('periods'); pe.innerHTML='';
+  PERIODS.forEach(function(q){ var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=q[1]; b.setAttribute('aria-pressed',String(per===q[0])); b.onclick=function(){ per=q[0]; off=0; renderPT(); }; pe.appendChild(b); });
+  if(per!=='all'){ var pv=document.createElement('button'); pv.type='button'; pv.className='pnav'; pv.textContent='‹'; pv.setAttribute('aria-label','Earlier'); pv.onclick=function(){ off++; renderPT(); };
+    var nx=document.createElement('button'); nx.type='button'; nx.className='pnav'; nx.textContent='›'; nx.setAttribute('aria-label','Later'); nx.disabled=off===0; nx.onclick=function(){ if(off>0){ off--; renderPT(); } };
+    pe.appendChild(pv); pe.appendChild(nx); }
+  var lb=document.createElement('span'); lb.className='plabel'; lb.textContent=R.label; pe.appendChild(lb);
+  var total=rows.reduce(function(s,o){ return s+(+o.play||0); },0), days={}; rows.forEach(function(o){ if(+o.play>0)days[o.date]=1; });
+  var nd=Object.keys(days).length;
+  $('ptotal').innerHTML=total?S.esc(hm(total))+' played<small>on '+nd+' day'+(nd===1?'':'s')+'</small>':'<span class="muted" style="font-size:18px">No practice time recorded'+(on?' yet':'')+' for this '+(per==='all'?'page':per)+'.</span>';
+  /* over time (not for a single day) */
+  var cols=$('pcols'), ticks=$('pticks');
+  if(R.buckets.length&&total){ var vals=R.buckets.map(function(k){ return rows.filter(function(o){ return o.date>=k.from&&o.date<=k.to; }).reduce(function(s,o){ return s+(+o.play||0); },0); }), mx=Math.max.apply(null,vals)||1;
+    cols.hidden=false; ticks.hidden=false; cols.setAttribute('aria-label','Practice time by '+(per==='week'||per==='month'?'day':'month'));
+    cols.innerHTML=R.buckets.map(function(k,i){ var h=vals[i]?Math.max(3,Math.round(100*vals[i]/mx)):0; return '<div class="c" title="'+S.esc(k.tip)+': '+(vals[i]?hm(vals[i]):'—')+'"><i style="height:'+h+'%"></i></div>'; }).join('');
+    ticks.innerHTML=R.buckets.map(function(k){ return '<span>'+S.esc(k.tick)+'</span>'; }).join(''); }
+  else { cols.hidden=true; ticks.hidden=true; }
+  /* across the exercises */
+  var by={}; rows.forEach(function(o){ by[o.did]=(by[o.did]||0)+(+o.play||0); });
+  var list=Object.keys(by).filter(function(k){ return by[k]>0; }).sort(function(x,y){ return by[y]-by[x]; }), mx2=list.length?by[list[0]]:1;
+  $('pbars').innerHTML=list.map(function(did){ var d=data.drills.filter(function(x){ return x.did===did; })[0], nm=d?('Exercise '+d.ex+' · '+(d.title||'')):'A removed drill', pc=Math.round(100*by[did]/total);
+    return '<div class="b" title="'+S.esc(nm)+': '+hm(by[did])+' ('+pc+'%)"><span class="n">'+S.esc(nm)+'</span><span class="v">'+hm(by[did])+' · '+pc+'%</span><span class="t"><i style="width:'+Math.max(2,Math.round(100*by[did]/mx2))+'%"></i></span></div>'; }).join('');
+}
+function setTrack(on){ S.api('optin',{sid:sid,on:on}).then(function(r){ if(r.ok){ data.student.track=on; renderPT(); } }).catch(function(){}); }
+$('ptonbtn').onclick=function(){ setTrack(true); };
+$('ptoff').onclick=function(){ if(confirm('Stop recording practice time? What was recorded so far stays.'))setTrack(false); };
 $('prev').onclick=function(){ week=S.addDays(week,-7); render(); };
 $('next').onclick=function(){ if(week<thisWeek){ week=S.addDays(week,7); render(); } };
 if(!sid){ $('drills').innerHTML='<p class="muted">This link does not name a student.</p>'; }
 else S.api('student',{sid:sid}).then(function(r){
   if(!r.ok){ $('drills').innerHTML='<p class="muted">This practice page was not found.</p>'; return; }
-  data=r; $('who').textContent=r.student.name+'’s practice'; document.title=r.student.name+' — practice'; render();
+  data=r; data.opens=data.opens||[]; $('who').textContent=r.student.name+'’s practice'; document.title=r.student.name+' — practice'; render(); renderPT();
 }).catch(function(){ $('drills').innerHTML='<p class="muted">Could not load your drills. Check your connection and reload.</p>'; });
 </script>
 </body>
