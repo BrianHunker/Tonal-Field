@@ -41,17 +41,50 @@ function nameOfRel(rel){ rel=((rel%12)+12)%12; for(var i=0;i<FN.length;i++) if(F
 var POSITIONS=['open'].concat(Array.apply(null,{length:20}).map(function(_,i){ return i+1; })).concat(['chromatic','modal']);
 var MODES=['Do','Re','Mi','Fa','Sol','La','Ti','Chromatic'];
 var RANGES=[ {id:'central',name:'Central',hint:'between the anchor’s octaves'}, {id:'attic',name:'Attic',hint:'above the top octave'},
-             {id:'basement',name:'Basement',hint:'below the root'}, {id:'all',name:'All',hint:'the whole four-fret box'} ];
+             {id:'basement',name:'Basement',hint:'below the root'}, {id:'all',name:'All',hint:'the whole frame, below the root and above the top octave too'} ];
 var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad'}, {id:'tetrachord',name:'Tetrachord shape'},
                  {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'} ];
 var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'up',name:'Up'}, {id:'down',name:'Down'} ];
 var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'Triplets'}, {id:16,name:'Sixteenths'} ];
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
 
-function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
+var FRAMES=[ {id:'half',name:'Half steps together'}, {id:'three',name:'Three per string'} ];
+function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
-/* ── one box: the window of four frets starting at fret w, with the anchor placed in it ── */
+/* ── one frame: the anchor placed with its box starting at fret w, and every tone of the key between (and around) its
+      octaves given a string. The frame flexes with the fingering rule:
+        'half'  — keep the half steps (Mi–Fa, Ti–Do) together on one string; a tone may lean a fret outside the anchor's box
+        'three' — three tones on every string between the anchor's strings
+      The anchors never move. Among all the ways to string the tones from the root up to the top anchor, the one with the
+      fewest broken rules wins, then the narrowest span of frets. A chromatic drill keeps the plain four-fret box. ── */
+var STRIDX={6:0,5:1,4:2,3:3,2:4,1:5}, IDXSTR=[6,5,4,3,2,1];
+function placeScale(pitches,fixed,w,rule){
+  /* pitches ascending; fixed[pitch]=string for the anchor tones. Returns [{pitch,string,fret}] or null. */
+  var best=null, bestCost=Infinity, n=pitches.length, cur=new Array(n);
+  function cost(){
+    var frets=cur.map(function(c){return c.fret;}), lo=Math.min.apply(null,frets), hi=Math.max.apply(null,frets), c=0;
+    var split=0, per={};
+    for(var i=0;i<n;i++){ per[cur[i].string]=(per[cur[i].string]||0)+1;
+      if(i>0&&pitches[i]-pitches[i-1]===1&&cur[i].string!==cur[i-1].string)split++; }
+    var dev=0, s0=STRIDX[cur[0].string], s1=STRIDX[cur[n-1].string];
+    for(var k=s0;k<s1;k++) dev+=Math.abs((per[IDXSTR[k]]||0)-3)*(rule==='three'?(6-(k-s0)):1);   /* every string from the root's up to (not) the top anchor's, empty ones too; three per string fills from the root string up */
+    var lean=0; for(var j=0;j<n;j++){ if(cur[j].fret<w)lean+=w-cur[j].fret; if(cur[j].fret>w+3)lean+=cur[j].fret-(w+3); }
+    if(rule==='three') c=1000*dev+100*split;
+    else c=1000*split+100*dev;
+    return c+20*(hi-lo)+5*lean;
+  }
+  function go(i,sIdx){
+    if(i===n){ var c=cost(); if(c<bestCost){ bestCost=c; best=cur.slice(); } return; }
+    var p=pitches[i];
+    if(fixed[p]!==undefined){ var fs=STRIDX[fixed[p]]; if(fs<sIdx)return; cur[i]={pitch:p,string:fixed[p],fret:p-OPEN[fixed[p]]}; go(i+1,fs); return; }
+    var limit=5; for(var q=i+1;q<n;q++) if(fixed[pitches[q]]!==undefined){ limit=STRIDX[fixed[pitches[q]]]; break; }
+    for(var si=sIdx;si<=limit;si++){ var st=IDXSTR[si], f=p-OPEN[st]; if(f<0||f<w-2||f>w+6)continue;
+      cur[i]={pitch:p,string:st,fret:f}; go(i+1,si); }
+  }
+  go(0,0);
+  return best;
+}
 function boxAt(P,w,modeName){
   var A=anchorOf(P.anchor);
   var anchorCells=A.tones.map(function(t){ return {string:t[0],fret:w+t[1],pitch:OPEN[t[0]]+w+t[1]}; });
@@ -72,17 +105,34 @@ function boxAt(P,w,modeName){
     default: rel=modeRel;
   }
   var lo=Math.min.apply(null,anchorCells.map(function(c){return c.pitch;})), hi=Math.max.apply(null,anchorCells.map(function(c){return c.pitch;}));
-  var cells=[];
-  for(var s=1;s<=6;s++) for(var f=w;f<=w+3;f++){
-    var p=OPEN[s]+f, r=((p-rootPc)%12+12)%12; if(rel.indexOf(r)<0)continue;
-    if(P.range==='central'&&(p<lo||p>hi))continue;
-    if(P.range==='attic'&&p<hi)continue;
-    if(P.range==='basement'&&p>lo)continue;
-    var nm=chromatic?{n:LETTERS[p%12],c:'#c9c5ba'}:nameOfRel(p%12-doPc);
-    cells.push({string:s,fret:f,pitch:p,anchor:anchorCells.some(function(a){return a.pitch===p;}),name:nm.n,color:nm.c});
+  /* the frame: every cell the drill may use, one per pitch */
+  var frame=[], fMin=w, fMax=w+3;
+  var keyRel=chromatic||P.structure==='chromatic'||P.structure==='custom'?null:modeRel;
+  if(keyRel){
+    var pitches=[]; for(var p=lo;p<=hi;p++) if(keyRel.indexOf(((p-rootPc)%12+12)%12)>=0) pitches.push(p);
+    var fixed={}; anchorCells.forEach(function(c){ fixed[c.pitch]=c.string; });
+    var placed=placeScale(pitches,fixed,w,P.frame==='three'?'three':'half');
+    if(placed){ frame=placed; fMin=Math.min.apply(null,placed.map(function(c){return c.fret;})); fMax=Math.max.apply(null,placed.map(function(c){return c.fret;})); }
   }
+  if(!frame.length){ for(var s0=1;s0<=6;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
+  /* below the root and above the top anchor: the strings outside the anchor, within the frame's frets */
+  var topStr=anchorCells.filter(function(c){return c.pitch===hi;})[0].string;
+  var outer={};
+  for(var s=1;s<=6;s++) for(var f=fMin;f<=fMax;f++){ var pp=OPEN[s]+f;
+    var ok=(pp<lo&&STRIDX[s]<=STRIDX[A.root])||(pp>hi&&STRIDX[s]>=STRIDX[topStr]);
+    if(!ok)continue; if(keyRel&&keyRel.indexOf(((pp-rootPc)%12+12)%12)<0)continue;
+    var prev=outer[pp], mid=(fMin+fMax)/2; if(!prev||Math.abs(f-mid)<Math.abs(prev.fret-mid)) outer[pp]={pitch:pp,string:s,fret:f}; }
+  var all=frame.concat(Object.keys(outer).map(function(k){ return outer[k]; }));
+  var cells=[];
+  all.forEach(function(c){ var p=c.pitch, r=((p-rootPc)%12+12)%12; if(rel.indexOf(r)<0)return;
+    if(P.range==='central'&&(p<lo||p>hi))return;
+    if(P.range==='attic'&&p<hi)return;
+    if(P.range==='basement'&&p>lo)return;
+    var nm=chromatic?{n:LETTERS[p%12],c:'#c9c5ba'}:nameOfRel(p%12-doPc);
+    cells.push({string:c.string,fret:c.fret,pitch:p,anchor:anchorCells.some(function(a){return a.pitch===p;}),name:nm.n,color:nm.c}); });
   cells.sort(function(a,b){ return a.pitch-b.pitch; });
-  return { w:w, cells:cells, anchorCells:anchorCells, root:root, rootPc:rootPc, mode:modeName, doPc:doPc };
+  var gw=Math.min(w,fMin), gn=Math.max(w+3,fMax)-gw+1;
+  return { w:w, gw:gw, gn:gn, cells:cells, anchorCells:anchorCells, root:root, rootPc:rootPc, mode:modeName, doPc:doPc };
 }
 
 /* ── the boxes a drill visits: one, or a run of them (chromatic shift: up one fret at a time through the octave;
@@ -148,6 +198,7 @@ function autoNotes(P){
   if(names.length) L.push('Tones, low to high: '+names.join(' ')+'.');
   var R=RANGES.filter(function(r){return r.id===P.range;})[0];
   L.push('Range: '+R.name+' — '+R.hint+'.');
+  if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: three tones on every string.':'Fingering: the half steps (Mi–Fa, Ti–Do) stay together on one string.');
   if(P.position==='chromatic') L.push('When the box feels even, move the whole drill up one fret and play it again, through the octave.');
   if(P.position==='modal') L.push('When the box feels even, walk the root up its string to the next tone of the key and play the drill again from there: the box is the same shape, but the root takes a new function each time.');
   var S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
@@ -159,14 +210,14 @@ function autoNotes(P){
 /* ── the fretboard glyph: six strings (high E on top), the box's four frets, the nut at the left when it is in view ── */
 function glyphSVG(P,opts){
   opts=opts||{}; var A=anchorOf(P.anchor), size=opts.size||1, cw=22*size, sh=13*size, padL=18*size, padT=8*size, padR=8*size, padB=(opts.frets?16:8)*size;
-  var b=opts.box||null, w=b?b.w:0, W=padL+4*cw+padR, H=padT+5*sh+padB;
+  var b=opts.box||null, w=b?b.w:0, g=b?b.gw:0, nf=b?b.gn:4, W=padL+nf*cw+padR, H=padT+5*sh+padB;   /* the drawn frets: the frame's, at least the anchor's four */
   var s='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+A.word+'">';
-  for(var i=0;i<6;i++) s+='<line x1="'+padL+'" x2="'+(padL+4*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
-  for(var j=0;j<=4;j++){ var nut=(j===0&&b&&w===0); s+='<line x1="'+(padL+j*cw)+'" x2="'+(padL+j*cw)+'" y1="'+padT+'" y2="'+(padT+5*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3:1)+'"/>'; }
-  if(opts.frets&&b){ for(var k=0;k<4;k++) s+='<text x="'+(padL+(k+0.5)*cw)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+(w+k)+'</text>'; }
+  for(var i=0;i<6;i++) s+='<line x1="'+padL+'" x2="'+(padL+nf*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
+  for(var j=0;j<=nf;j++){ var nut=(j===0&&b&&g===0); s+='<line x1="'+(padL+j*cw)+'" x2="'+(padL+j*cw)+'" y1="'+padT+'" y2="'+(padT+5*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3:1)+'"/>'; }
+  if(opts.frets&&b){ for(var k=0;k<nf;k++) s+='<text x="'+(padL+(k+0.5)*cw)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+(g+k)+'</text>'; }
   function xy(st,off){ return [padL+(off+0.5)*cw, padT+(st-1)*sh]; }
-  if(b&&opts.tones){ b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret-w); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; }); }
-  A.tones.forEach(function(t){ var p=xy(t[0],t[1]), col=(b&&opts.tones)?(b.cells.filter(function(c){return c.string===t[0]&&c.fret===w+t[1];})[0]||{color:'#22BB22'}).color:'#3ddc4a';
+  if(b&&opts.tones){ b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret-g); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; }); }
+  A.tones.forEach(function(t){ var p=xy(t[0],t[1]+w-g), col=(b&&opts.tones)?(b.cells.filter(function(c){return c.string===t[0]&&c.fret===w+t[1];})[0]||{color:'#22BB22'}).color:'#3ddc4a';
     s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+col+'" stroke="'+(opts.tones?'#fff':'#000')+'" stroke-width="'+(1.2*size)+'"/>'; });
   return s+'</svg>';
 }
@@ -208,7 +259,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ OPEN:OPEN, ANCHORS:ANCHORS, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
-  DIRECTIONS:DIRECTIONS, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
+  DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   title:title, summary:summary, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
