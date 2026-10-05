@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v423 · lesson: Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v424 · lesson: Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v423</span></h1>
+  <h1>Tonal Field <span>Ring v424</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -864,10 +864,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <option value="fifths">dominant chain</option>
     </select>
   </div>
-  <div class="control-group" id="modModeGroup" title="how a modulation animates: morph the field in place, or rotate it (degenerate demo)">
+  <div class="control-group" id="modModeGroup" title="how a change of orientation animates: shortest (a semitone turns the field, anything larger morphs it), morph (always in place), or rotate (always turning)">
     <label for="modModeSelect">mod</label>
     <select id="modModeSelect">
-      <option value="morph" selected>morph</option>
+      <option value="shortest" selected>shortest</option>
+      <option value="morph">morph</option>
       <option value="rotate">rotate</option>
     </select>
   </div>
@@ -1453,7 +1454,13 @@ var phi=TP*2/12, topPc=2;
    recognition we show: the PERFORMER anticipates (the target's dots & badges fade up early, leading
    the curve), the LISTENER is driven by the change (the old labels hold, the target's fade up late,
    arriving as the curve finishes). The curve geometry and colours morph the same either way. */
-var morphMode='morph', modView='listener', morphMs=600, morphMix=-1, morphRecog=-1, morphPhiA=0, morphAnim=null, morphImgTop=null, morphImgFret=null;
+/* v424 — 'shortest' (the default): a change of orientation travels the shorter of its two paths. A turn moves the field
+   along the circle of semitones; a morph moves every tone's function along the circle of fifths. Multiplying by seven
+   relabels one circle as the other, fixing 2, 3, 4 and 6 and swapping 1 with 5: so a semitone is the one change shorter as
+   a turn (30° against 150°), a fourth or fifth the one shorter as a morph, and the ties go to the field's own circle, the
+   fifths. Hence: turn through ±1 semitone (or less, off the lattice), morph anything larger. morph and rotate stay for
+   demonstrating the difference. */
+var morphMode='shortest', modView='listener', morphMs=600, morphMix=-1, morphRecog=-1, morphPhiA=0, morphAnim=null, morphImgTop=null, morphImgFret=null;
 var dial='chromatic', diatonic=false, greyscale=false, printMode=false, flipV=false;
 /* v249 — PENTATONIC MODE: everything diatonic does (the antis black by station), and the two hinges,
    Fa and Ti, black as well, on every surface that shows valence. The two buttons are one choice:
@@ -5670,7 +5677,10 @@ function morphTo(delta){
   morphMix=0; morphRecog=0; draw(); morphAnim=requestAnimationFrame(step);
 }
 function glideBy(delta, ms, noMorph){
-  if(morphMode==='morph'&&!noMorph&&Math.abs(delta)>1e-9){ morphTo(delta); return; }
+  var _mm=morphMode;
+  if(_mm==='shortest'){ var _w=((delta%TP)+TP)%TP; if(_w>Math.PI)_w-=TP;
+    if(Math.abs(_w)<=ST+1e-6){ delta=_w; _mm='rotate'; } else _mm='morph'; }   /* v424: a semitone turns the shorter way round */
+  if(_mm==='morph'&&!noMorph&&Math.abs(delta)>1e-9){ morphTo(delta); return; }
   cancelMorph();
   cancelGlide();
   var dur=ms!==undefined?ms:glideMs*Math.abs(delta)/ST;
@@ -8840,7 +8850,7 @@ document.getElementById('wlSpeedIn').addEventListener('input',function(){
   document.getElementById('wlSpeedVal').textContent=wlMs+' ms';
 });
 document.getElementById('modModeSelect').addEventListener('change',function(){
-  morphMode=(this.value==='morph')?'morph':'rotate';
+  morphMode=(this.value==='morph'||this.value==='rotate')?this.value:'shortest';
   if(typeof cancelMorph==='function')cancelMorph();
 });
 document.getElementById('modViewSelect').addEventListener('change',function(){
@@ -9898,7 +9908,7 @@ function cfgApplyAll(c,skipSeq,skipDisplay){
   else if(c.misc&&c.misc.modeLight!==undefined)modeMaster=Math.max(0,Math.min(1,+c.misc.modeLight));   /* pre-v271 files: the old single fader is the general one */
   if(c.misc&&Array.isArray(c.misc.degLight))for(var _de=0;_de<7;_de++)degLight[_de]=Math.max(0,Math.min(1,+c.misc.degLight[_de]||0));
   if(c.misc&&(c.misc.accidentals==='sharp'||c.misc.accidentals==='flat'||c.misc.accidentals==='both')){ accidentals=c.misc.accidentals; var _as=document.getElementById('accSelect'); if(_as)_as.value=accidentals; if(typeof buildKeyboard==='function')buildKeyboard(); }   /* v406: the keys spell as the file says from the start */
-  if(c.misc&&c.misc.morphMode!==undefined){ morphMode=(c.misc.morphMode==='morph')?'morph':'rotate'; }
+  if(c.misc&&c.misc.morphMode!==undefined){ morphMode=(c.misc.morphMode==='morph'||c.misc.morphMode==='rotate')?c.misc.morphMode:'shortest'; }
   if(c.misc&&c.misc.modView!==undefined){ modView=(c.misc.modView==='performer')?'performer':'listener'; }
   if(c.misc&&c.misc.morphMs!==undefined)morphMs=Math.max(0,Math.min(6000,+c.misc.morphMs||0));
   if(c.misc&&c.misc.trMs!==undefined)trMs=Math.max(0,Math.min(6000,+c.misc.trMs||0));
