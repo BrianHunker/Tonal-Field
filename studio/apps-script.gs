@@ -126,7 +126,7 @@ function optin_(p) {
 }
 
 function overview_() {
-  var students = rows_('Students').map(function (r) { return { sid: r[0], name: r[1] }; });
+  var students = rows_('Students').map(function (r) { return { sid: r[0], name: r[1], track: r[3] === true }; });
   var drills = rows_('Drills').map(drillObj_);
   var opens = opensFor_(null);
   return { ok: true, students: students, drills: drills, checks: checksFor_(null), opens: opens };

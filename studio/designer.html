@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=10">
+<link rel="stylesheet" href="studio.css?v=11">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -94,7 +94,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
           <label class="field"><span>BPM</span><input type="number" id="bpm" min="20" max="300" value="60" style="width:90px"></label>
           <div class="field"><span>Subdivision</span><div class="chips" id="subs"></div></div>
         </div>
-        <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label></div>
+        <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label>
+          <label class="field"><span>Daily practice (minutes)</span><input type="number" id="daily" min="0.5" max="120" step="0.5" value="1" style="width:110px"></label></div>
       </div>
       <div class="sec">
         <div class="notes-head"><h3>Notes</h3><button type="button" class="linkbtn" id="regen">Rewrite from the settings</button></div>
@@ -123,8 +124,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=10"></script>
-<script src="studio.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="studio.js?v=11"></script>
 <script>
 var S=Studio, P=S.defaults(), notesEdited=false, pass='';
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -169,6 +170,7 @@ function renderControls(){
   var ar=$('artic'); S.ARTICULATIONS.forEach(function(a){ var o=document.createElement('option'); o.value=a; o.textContent=a; ar.appendChild(o); });
   ar.value=P.artic; ar.onchange=function(){ P.artic=this.value; render(); };
   $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
+  $('daily').oninput=function(){ P.daily=Math.max(0.5,Math.min(120,+this.value||1)); render(); };
   $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
   $('end').oninput=function(){ P.end=Math.max(0,Math.min(20,+this.value||0)); render(); };
   $('loop').onclick=function(){ P.loop=(P.loop===false); render(); };

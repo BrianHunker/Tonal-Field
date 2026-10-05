@@ -56,7 +56,7 @@ var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'T
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
 
 var FRAMES=[ {id:'half',name:'Half steps together'}, {id:'three',name:'Three per string'} ];   /* chromatic drills always take four per string */
-function defaults(){ return { anchor:'E>', position:5, start:1, end:5, loop:true, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
+function defaults(){ return { anchor:'E>', position:5, start:1, end:5, loop:true, daily:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
 /* ── one frame: the anchor placed with its box starting at fret w, and every tone of the key between (and around) its
@@ -229,7 +229,8 @@ function title(P){
 }
 function summary(P){
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
-  return R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic;
+  var dm=+P.daily||1;
+  return R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic+' · '+dm+' min a day';
 }
 
 /* ── the notes the designer writes for the student (a starting point: edit before submitting) ── */
@@ -300,6 +301,19 @@ function demo(p){
   return {ok:false,error:'unknown action'};
 }
 
+/* ── a day's star: empty, or filled from the bottom up by a fraction (0–1, in tenths) ── */
+var _starN=0;
+function starSVG(frac,size,label){
+  size=size||28; frac=Math.max(0,Math.min(1,frac||0)); var id='st'+(++_starN), pc=(100*frac).toFixed(0);
+  var path='M12 2.2l2.95 6.3 6.85.8-5.08 4.68 1.38 6.77L12 17.3l-6.1 3.45 1.38-6.77L2.2 9.3l6.85-.8z';
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" role="img" aria-label="'+(label||(pc+'%'))+'"><defs><linearGradient id="'+id+'" x1="0" y1="1" x2="0" y2="0">'
+    +'<stop offset="'+pc+'%" stop-color="#e2c46a"/><stop offset="'+pc+'%" stop-color="#e2c46a" stop-opacity="0"/></linearGradient></defs>'
+    +'<path d="'+path+'" fill="url(#'+id+')" stroke="'+(frac>=1?'#e2c46a':'#6f6c65')+'" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+}
+/* the share of a day's assigned time a tracked student played, to the nearest tenth */
+function dayFrac(opens,did,date,daily){ var s=0; (opens||[]).forEach(function(o){ if(o.did===did&&o.date===date)s+=(+o.play||0); });
+  return { secs:s, frac:Math.min(1,Math.round(10*s/(60*Math.max(0.25,+daily||1)))/10) }; }
+
 /* ── weeks: Monday's date, local time ── */
 function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function mondayOf(d){ d=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var k=(d.getDay()+6)%7; d.setDate(d.getDate()-k); return d; }
@@ -311,6 +325,6 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ OPEN:OPEN, ANCHORS:ANCHORS, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
-  title:title, summary:summary, isShift:isShift, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
+  title:title, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
