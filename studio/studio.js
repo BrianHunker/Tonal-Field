@@ -263,16 +263,13 @@ function ordered(cells,dir,per){
 
 /* ── the drill as notes for the tool's sequencer (voice = string − 1) ── */
 function sequence(P){
-  var B=boxes(P), notes=[], modes=[], col=0;
+  var B=boxes(P), notes=[], modes=[], col=0, per=+P.sub||8;
   B.forEach(function(b){
     if(b.mode!=='Chromatic'){ var F=fnByName(b.mode); modes.push({col:col,anchor:b.rootPc,val:F.v}); }
-    ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
+    var c0=col; ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
+    var pad=(per-(col-c0)%per)%per; if(pad&&notes.length){ notes[notes.length-1].dur+=pad; col+=pad; }   /* each box fills whole bars: its last tone holds to the bar line, so the next box (or the loop) starts on a downbeat */
   });
-  var per=+P.sub||8, loop=!(isShift(P)&&P.loop===false);
-  /* the loop restarts on a downbeat: as many full laps as it takes to fill whole bars (up to eight) */
-  if(loop&&col%per){ var k=1; while(k<8&&(k*col)%per)k++; if((k*col)%per===0&&k>1){ var n0=notes.slice(), m0=modes.slice();
-      for(var j=1;j<k;j++){ n0.forEach(function(x){ var y=Object.assign({},x); y.start+=j*col; notes.push(y); }); m0.forEach(function(x){ var y=Object.assign({},x); y.col+=j*col; modes.push(y); }); }
-      col*=k; } }
+  var loop=!(isShift(P)&&P.loop===false);
   var bars=Math.max(1,Math.ceil(col/per));
   return { notes:notes, modes:modes, length:col, per:per, bars:bars, boxes:B, loop:loop };
 }
