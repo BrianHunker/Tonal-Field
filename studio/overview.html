@@ -8,12 +8,18 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=17">
+<link rel="stylesheet" href="studio.css?v=18">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
 .weeknav{display:flex;align-items:center;gap:10px}
 .tools .grow{flex:1}
+.filters{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin:10px 0 2px}
+.filters .grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filters .grp > span{font-size:13px;color:var(--dim)}
+.filters .chip{padding:4px 11px;font-size:13px}
+.count-line{font-size:13px;color:var(--dim);margin-top:8px}
+tr.former td.name .who a{color:var(--dim)}
 .weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:32px;height:32px;cursor:pointer;color:var(--ink)}
 .weeknav button[disabled]{opacity:.35;cursor:default}
 table{width:100%;border-collapse:collapse;margin-top:14px}
@@ -69,6 +75,12 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
     <span class="grow"></span><button type="button" class="btn" id="addstu">Add a student</button>
     <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span id="wk" style="font-weight:600;color:var(--ink)"></span><button type="button" id="next" aria-label="Next week">›</button></div>
   </div>
+  <div class="filters">
+    <div class="grp" role="group" aria-label="Show"><span>Show</span><div class="chips" id="fstatus"></div></div>
+    <div class="grp" role="group" aria-label="Lesson day"><span>Lesson day</span><div class="chips" id="fday"></div></div>
+    <div class="grp" role="group" aria-label="Sort"><span>Sort</span><div class="chips" id="fsort"></div></div>
+  </div>
+  <p class="count-line" id="countline"></p>
   <div class="passrow" id="passrow" hidden style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
     <label class="field"><span>Passphrase</span><input type="password" id="pass" autocomplete="current-password"></label>
     <button class="btn" id="passgo" type="button">Unlock</button><span id="passerr" style="color:#ff8a7a;font-size:14px"></span>
@@ -90,15 +102,22 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
       <label class="field"><span>Email</span><input type="email" id="pemail" maxlength="120" placeholder="for sending their page"></label>
       <label class="field"><span>Mobile</span><input type="tel" id="pphone" maxlength="40" placeholder="for Text it"></label>
     </div>
-    <label class="field" style="max-width:220px"><span>Lessons began</span><input type="date" id="psince"></label>
+    <div class="row">
+      <label class="field"><span>Lesson day</span><select id="pday"><option value="">None (less often)</option><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></label>
+      <label class="field"><span>Time</span><input type="time" id="ptime" step="300"></label>
+    </div>
+    <div class="row">
+      <label class="field"><span>Lessons began</span><input type="date" id="psince"></label>
+      <label class="field"><span>Status</span><select id="pstatus"><option value="current">Current</option><option value="former">Former</option></select></label>
+    </div>
     <p class="hint">The student’s page shows only the first name. Last name, email and mobile stay here. A left-handed student’s drills and lessons open mirrored.</p>
     <div class="foot"><button class="btn primary" type="submit" value="save" id="psave">Save</button><button class="btn" type="button" id="pcancel">Cancel</button><span class="err" id="perr" style="color:#ff8a7a;font-size:14px"></span></div>
   </form>
 </dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=17"></script>
-<script src="../lessons.js?v=17"></script>
-<script src="studio.js?v=17"></script>
+<script src="config.js?v=18"></script>
+<script src="../lessons.js?v=18"></script>
+<script src="studio.js?v=18"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -106,10 +125,32 @@ if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: showing what was 
 function fmt(key){ var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]), e=new Date(d); e.setDate(e.getDate()+6);
   var o={month:'short',day:'numeric'}; return d.toLocaleDateString(undefined,o)+' – '+e.toLocaleDateString(undefined,o); }
 function mins(sec){ var m=Math.round(sec/60); return m<1?'under a minute':m+' min'; }
+/* the filters (kept in this browser): current or former, the lesson day, and the order */
+var F={status:'current',day:'any',sort:'name'}; try{ Object.assign(F,JSON.parse(localStorage.getItem('studio-ov-filters')||'{}')); }catch(e){}
+function setF(k,v){ F[k]=v; try{ localStorage.setItem('studio-ov-filters',JSON.stringify(F)); }catch(e){} render(); }
+function chipRow(host,items,k){ host.innerHTML=items.map(function(it){ return '<button type="button" class="chip" aria-pressed="'+(F[k]===it[0])+'" data-v="'+it[0]+'">'+it[1]+'</button>'; }).join('');
+  [].forEach.call(host.children,function(b){ b.onclick=function(){ setF(k,b.getAttribute('data-v')); }; }); }
+function renderFilters(){
+  chipRow($('fstatus'),[['current','Current'],['former','Former'],['all','All']],'status');
+  chipRow($('fday'),[['any','Any']].concat(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(d,i){ return [String(i),d]; })).concat([['none','None']]),'day');
+  chipRow($('fsort'),[['name','Name'],['time','Lesson time'],['routine','Routine updated']],'sort');
+}
+function ago(t){ var p=t.split(/[-T:]/), d=new Date(+p[0],+p[1]-1,+p[2]), n=new Date(); n=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  var k=Math.round((n-d)/864e5), ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  return ds+' · '+(k<=0?'today':k===1?'yesterday':k<14?k+' days ago':Math.round(k/7)+' weeks ago'); }
 function render(){
   $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week); $('next').disabled=(week>=thisWeek);
   var q=$('q').value.trim().toLowerCase();
-  var studs=data.students.filter(function(s){ return !q||String(s.name).toLowerCase().indexOf(q)>=0; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  renderFilters();
+  var studs=data.students.filter(function(s){ return (!q||String(s.name).toLowerCase().indexOf(q)>=0)&&(F.status==='all'||(s.status||'current')===F.status)
+      &&(F.day==='any'||(F.day==='none'?(s.day===''||s.day==null):String(s.day)===F.day)); });
+  var byName=function(a,b){ return String(a.name).localeCompare(String(b.name)); };
+  var slot=function(s){ return (s.day===''||s.day==null?'9':String(s.day))+'|'+(s.time?String(s.time).padStart(5,'0'):'99:99'); };
+  studs.sort(F.sort==='time'?function(a,b){ return slot(a)<slot(b)?-1:slot(a)>slot(b)?1:byName(a,b); }
+           :F.sort==='routine'?function(a,b){ var x=a.routineAt||'', y=b.routineAt||''; return x<y?-1:x>y?1:byName(a,b); }   /* the longest unchanged first */
+           :byName);
+  var nCur=data.students.filter(function(s){ return (s.status||'current')==='current'; }).length;
+  $('countline').textContent=studs.length+' shown · '+nCur+' current, '+(data.students.length-nCur)+' former'+(F.sort==='routine'?' · routines changed longest ago first':'');
   if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Add one, or assign something in the Drill Designer.')+'</p>'; return; }
   var h='<table><thead><tr><th>Student</th><th>Routine, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
   studs.forEach(function(s){
@@ -129,8 +170,10 @@ function render(){
       return '<div class="dl'+(ret?' retired':'')+'"><span class="t"><span class="lbl">'+S.esc(S.itemLabel(d))+'</span>'+(opens?'<a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+name+'</a>':name)+'</span><span class="mini">'+mini+'</span>'
         +'<span class="act"><a href="designer.html?edit='+encodeURIComponent(d.did)+'">Edit</a><button type="button" class="rt" data-rt="'+S.esc(d.did)+'" data-to="'+(ret?'':'retired')+'">'+(ret?'Restore':'Retire')+'</button><button type="button" class="del" data-did="'+S.esc(d.did)+'" data-lbl="'+S.esc(d.ex+'. '+ttl)+'" data-who="'+S.esc(s.name)+'">Delete</button></span></div>'; }).join('')||'<span class="none">Nothing assigned yet.</span>';
     var link=S.base()+'student.html?s='+s.sid, M=S.message(s,link,all,songs), I=S.INSTRUMENTS[s.inst]||S.INSTRUMENTS.guitar;
-    h+='<tr><td class="name"><div class="who"><span class="avatar" style="width:34px;height:34px;font-size:14px" aria-hidden="true">'+S.esc(S.initials(s.name))+'</span><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a></div>'
-      +'<div class="meta">'+I.name+(s.hand==='left'?' · left-handed':'')+'</div>'
+    h+='<tr'+(s.status==='former'?' class="former"':'')+'><td class="name"><div class="who"><span class="avatar" style="width:34px;height:34px;font-size:14px" aria-hidden="true">'+S.esc(S.initials(s.name))+'</span><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a></div>'
+      +'<div class="meta">'+I.name+(s.hand==='left'?' · left-handed':'')+(s.status==='former'?' · former':'')+'</div>'
+      +'<div class="meta">'+(S.lessonSlot(s)?S.esc(S.lessonSlot(s)):'No set lesson day')+'</div>'
+      +'<div class="meta" title="When you last assigned, changed, retired or removed one of their items">'+(s.routineAt?'Routine updated '+ago(s.routineAt):'No routine yet')+'</div>'
       +'<div class="links"><button type="button" data-prof="'+S.esc(s.sid)+'">Profile</button><button type="button" class="copy" data-c="'+S.esc(link)+'">Copy page link</button>'
       +(s.email?'<button type="button" data-mail="'+S.esc(s.sid)+'">Email</button>':'')+(s.phone?'<a href="'+S.esc(S.smsHref(s.phone,M.text))+'">Text it</a>':'')+'</div></td>'
       +'<td>'+rows+'</td><td class="tot">'+(s.track?'<span title="records practice time">⏱ </span>':'')+Object.keys(days).length+' / 7<div class="last">'+(playW?mins(playW)+' played':'')+'</div></td><td class="last">'+(last||'—')+'</td></tr>';
@@ -154,12 +197,13 @@ function render(){
 var editingSid=null;
 function openProfile(st){ editingSid=st?st.sid:null; $('prof-h').textContent=st?st.name:'Add a student'; $('perr').textContent='';
   $('pname').value=st?(st.first||st.name):''; $('plast').value=st?(st.last||''):''; $('pinst').value=st?st.inst:'guitar'; $('phand').value=st?st.hand:'right'; $('pemail').value=st?(st.email||''):''; $('pphone').value=st?(st.phone||''):'';
-  $('psince').value=st?(st.since||''):S.ymd(new Date()); $('prof').showModal(); $('pname').focus(); }
+  $('psince').value=st?(st.since||''):S.ymd(new Date());
+  $('pday').value=st&&st.day!==''&&st.day!=null?String(st.day):''; $('ptime').value=st?(st.time||''):''; $('pstatus').value=st?(st.status||'current'):'current'; $('prof').showModal(); $('pname').focus(); }
 $('addstu').onclick=function(){ openProfile(null); };
 $('pcancel').onclick=function(){ $('prof').close(); };
 $('profform').onsubmit=function(e){ e.preventDefault(); var nm=$('pname').value.trim(); if(!nm){ $('pname').focus(); return; }
   $('psave').disabled=true; $('perr').textContent='';
-  S.api('profile',{pass:pass,sid:editingSid||'',first:nm,last:$('plast').value.trim(),inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value}).then(function(r){
+  S.api('profile',{pass:pass,sid:editingSid||'',first:nm,last:$('plast').value.trim(),inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value,day:$('pday').value,time:$('ptime').value,status:$('pstatus').value}).then(function(r){
     $('psave').disabled=false; if(!r.ok){ $('perr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':r.error; return; } $('prof').close(); load(); })
   .catch(function(){ $('psave').disabled=false; $('perr').textContent='Could not reach the sheet.'; }); };
 function load(){ S.api('overview',{pass:pass}).then(function(r){

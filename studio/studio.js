@@ -319,7 +319,10 @@ function demo(p){
   function full(s){ return ((s.first||s.name||'')+' '+(s.last||'')).trim(); }
   function split(n){ n=String(n||'').trim().replace(/\s+/g,' '); var i=n.indexOf(' '); return i<0?[n,'']:[n.slice(0,i),n.slice(i+1)]; }
   function prof(s,teacher){ var o={sid:s.sid,name:(s.first||s.name||'').trim(),track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today};
-    if(teacher){ o.first=o.name; o.last=s.last||''; o.name=full(s); o.email=s.email||''; o.phone=s.phone||''; } return o; }
+    if(teacher){ o.status=s.status==='former'?'former':'current'; o.day=(s.day===''||s.day==null)?'':+s.day; o.time=s.time||''; o.routineAt=s.routineAt||'';
+      if(!o.routineAt) db.drills.forEach(function(d){ if(d.sid===s.sid&&d.at&&d.at>o.routineAt)o.routineAt=d.at; });
+      o.first=o.name; o.last=s.last||''; o.name=full(s); o.email=s.email||''; o.phone=s.phone||''; } return o; }
+  function touch(sid){ var t=stu(sid); if(t){ var n=new Date(); t.routineAt=ymd(n)+'T'+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); } }
   function songs(sid){ return db.songs.filter(function(x){ return !sid||x.sid===sid; }); }
   function dr(d){ var o=JSON.parse(JSON.stringify(d)); o.status=o.status||''; return o; }
   if(a==='student'){ var s=stu(p.sid); if(!s)return {ok:false,error:'no such student'};
@@ -349,18 +352,19 @@ function demo(p){
     var st=db.students.filter(function(x){ return p.sid?x.sid===p.sid:full(x).toLowerCase()===nm.toLowerCase(); })[0]; if(p.sid&&!st)return {ok:false,error:'no such student'};
     if(!st){ var sp0=split(nm); st={sid:rid(10),first:sp0[0],last:sp0[1],inst:INSTRUMENTS[p.inst]?p.inst:'guitar',hand:p.hand==='left'?'left':'right',since:today}; db.students.push(st); }
     var ex=p.ex?+p.ex:db.drills.filter(function(d){return d.sid===st.sid;}).length+1, did=rid(8);
-    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes,status:''}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:full(st),inst:st.inst||'guitar'}; }
+    db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes,status:''}); touch(st.sid); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:full(st),inst:st.inst||'guitar'}; }
   if(a==='overview') return {ok:true,students:db.students.map(function(s){ return prof(s,true); }),drills:db.drills.map(dr),checks:db.checks,opens:[],songs:songs(null)};
   if(a==='update'){ var du=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!du)return {ok:false,error:'no such drill'};
     ['date','title','params','notes'].forEach(function(k){ if(p[k]!==undefined)du[k]=p[k]; }); if(p.ex)du.ex=+p.ex; if(p.status!==undefined)du.status=p.status==='retired'?'retired':'';
-    demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
-  if(a==='remove'){ var n0=db.drills.length; db.drills=db.drills.filter(function(x){return x.did!==p.did;}); db.checks=db.checks.filter(function(c){return c.did!==p.did;}); demoSave(db); return n0>db.drills.length?{ok:true}:{ok:false,error:'no such drill'}; }
+    touch(du.sid); demoSave(db); return {ok:true,did:du.did,sid:du.sid}; }
+  if(a==='remove'){ var dx=db.drills.filter(function(x){return x.did===p.did;})[0]; if(dx)touch(dx.sid); var n0=db.drills.length; db.drills=db.drills.filter(function(x){return x.did!==p.did;}); db.checks=db.checks.filter(function(c){return c.did!==p.did;}); demoSave(db); return n0>db.drills.length?{ok:true}:{ok:false,error:'no such drill'}; }
   if(a==='profile'){ var pf=String(p.first||'').trim().slice(0,60), pl=String(p.last||'').trim().slice(0,60), pn=(pf+' '+pl).trim(); if(!pf)return {ok:false,error:'no first name'};
     if(db.students.some(function(x){ return x.sid!==p.sid&&full(x).toLowerCase()===pn.toLowerCase(); }))return {ok:false,error:'another student already has that first and last name'};
     var sp=p.sid?stu(p.sid):null; if(p.sid&&!sp)return {ok:false,error:'no such student'};
     if(!sp){ sp={sid:rid(10),since:today}; db.students.push(sp); }
     sp.first=pf; sp.last=pl; delete sp.name; sp.inst=INSTRUMENTS[p.inst]?p.inst:'guitar'; sp.hand=p.hand==='left'?'left':'right'; sp.email=String(p.email||'').trim(); sp.phone=String(p.phone||'').trim();
-    if(/^\d{4}-\d{2}-\d{2}$/.test(String(p.since||'')))sp.since=p.since; demoSave(db); return {ok:true,sid:sp.sid}; }
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(p.since||'')))sp.since=p.since;
+    sp.status=p.status==='former'?'former':'current'; sp.day=/^[0-6]$/.test(String(p.day))?+p.day:''; sp.time=/^\d{1,2}:\d{2}$/.test(String(p.time||''))?p.time:''; demoSave(db); return {ok:true,sid:sp.sid}; }
   if(a==='notify'){ var sn=stu(p.sid); if(!sn)return {ok:false,error:'no such student'}; if(!sn.email)return {ok:false,error:'no email on this student’s profile'};
     try{ console.log('[demo] email to '+sn.email+': '+p.subject+'\n'+p.body); }catch(e){} return {ok:true,to:sn.email,left:99,demo:true}; }
   return {ok:false,error:'unknown action'};
@@ -390,6 +394,9 @@ function message(student,link,drills,songs){
            body:hi+',\n\nYour practice routine is ready'+(R.length?':\n\n'+lines.join('\n')+'\n\nAbout '+Math.round(tot)+' minutes a day.':'.')+'\n\nOpen your page to start: '+link+'\n\n— Brian\nGables Guitar Studio',
            text:hi+'! Your practice for this week is ready: '+link }; }
 function smsHref(phone,text){ return 'sms:'+String(phone||'').replace(/[^\d+]/g,'')+'?&body='+encodeURIComponent(text); }   /* ?& works on iPhone and Android */
+var WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function clock12(t){ var m=/^(\d{1,2}):(\d{2})$/.exec(t||''); if(!m)return ''; var h=+m[1], ap=h<12?'am':'pm'; h=h%12||12; return h+(m[2]==='00'?'':':'+m[2])+' '+ap; }
+function lessonSlot(st){ if(st.day===''||st.day==null)return ''; return WEEKDAYS[+st.day]+'s'+(st.time?' at '+clock12(st.time):''); }
 function songTitle(s){ return s?(s.title+(s.artist?' — '+s.artist:'')):'A removed song'; }
 
 /* ── a day's star: empty, or filled from the bottom up by a fraction (0–1, in tenths) ── */
@@ -416,7 +423,7 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
-  ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
+  ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, WEEKDAYS:WEEKDAYS, clock12:clock12, lessonSlot:lessonSlot, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
   title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);

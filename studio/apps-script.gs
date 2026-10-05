@@ -15,8 +15,10 @@
 
    The sheet's tabs, made automatically on first use (new columns are added to old tabs by themselves):
      Students   — one row per student: id (the private link), first name, date added, tracking, instrument, hand, email,
-                  phone, about (the student's own words), since (the date lessons began), last name. The student's
-                  own page shows only the first name; the Designer and the Overview show both.
+                  phone, about (the student's own words), since (the date lessons began), last name, status ('current'
+                  or 'former'), lesson day (0–6, Mon–Sun, or blank), lesson time (HH:MM, or blank), routineAt (when the
+                  teacher last assigned, changed, retired or removed one of their items). The student's own page shows
+                  only the first name; the Designer and the Overview show both.
      Drills     — one row per item of a student's routine: id, student id, date, number, title, settings, notes, added,
                   status (blank while it is in the routine, 'retired' once it is not). The settings say what the item is:
                   a drill (built in the Designer), a song from the student's repertoire, or any other assignment.
@@ -66,7 +68,7 @@ function handle_(p) {
 
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-var HEAD = { Students: ['sid', 'first', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since', 'last'],
+var HEAD = { Students: ['sid', 'first', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since', 'last', 'status', 'day', 'time', 'routineAt'],
              Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added', 'status'],
              Checks: ['sid', 'did', 'week', 'day', 'at'],
              Opens: ['sid', 'did', 'date', 'week', 'day', 'opens', 'playSecs', 'openSecs', 'last'],
@@ -86,12 +88,17 @@ function rowOf_(name, col, val) { var v = sheet_(name).getDataRange().getValues(
 var INST = ['guitar', 'bass', 'keyboard'];
 
 /* a student row as an object: the student sees their first name; the teacher, the full name and contact details */
+function hhmm_(v) { if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm'); v = String(v || ''); return /^\d{1,2}:\d{2}$/.test(v) ? v : ''; }
+function stamp_(d) { return Utilities.formatDate(new Date(d), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm"); }
+/* the routine changed: the Overview can sort students by when the teacher last touched their routine */
+function touch_(sid) { var i = rowOf_('Students', 0, sid); if (i) sheet_('Students').getRange(i, 15).setValue(new Date()); }
 function full_(r) { return (String(r[1] || '').trim() + ' ' + String(r[10] || '').trim()).trim(); }
 function split_(n) { n = String(n || '').trim().replace(/\s+/g, ' '); var i = n.indexOf(' '); return i < 0 ? [n, ''] : [n.slice(0, i), n.slice(i + 1)]; }
 function profile_(r, teacher) {
   var o = { sid: r[0], name: String(r[1] || '').trim(), track: r[3] === true, inst: INST.indexOf(r[4]) >= 0 ? r[4] : 'guitar', hand: r[5] === 'left' ? 'left' : 'right',
             about: String(r[8] || ''), since: ds_(r[9]) || ds_(r[2]) };
-  if (teacher) { o.first = o.name; o.last = String(r[10] || '').trim(); o.name = full_(r); o.email = String(r[6] || ''); o.phone = String(r[7] || ''); }
+  if (teacher) { o.status = r[11] === 'former' ? 'former' : 'current'; o.day = (r[12] === '' || r[12] == null) ? '' : Number(r[12]); o.time = hhmm_(r[13]);
+    o.routineAt = r[14] instanceof Date ? stamp_(r[14]) : String(r[14] || ''); o.first = o.name; o.last = String(r[10] || '').trim(); o.name = full_(r); o.email = String(r[6] || ''); o.phone = String(r[7] || ''); }
   return o;
 }
 
@@ -102,12 +109,13 @@ function assign_(p) {
   if (p.sid && !sid) return { ok: false, error: 'no such student' };
   if (!sid) {   /* a new student, "First Last": their instrument and hand come with the first assignment */
     var nm = split_(name); sid = id_(10); inst = INST.indexOf(p.inst) >= 0 ? p.inst : 'guitar';
-    sheet_('Students').appendRow([sid, nm[0], new Date(), false, inst, p.hand === 'left' ? 'left' : 'right', '', '', '', "'" + day_(new Date()), nm[1]]);
+    sheet_('Students').appendRow([sid, nm[0], new Date(), false, inst, p.hand === 'left' ? 'left' : 'right', '', '', '', "'" + day_(new Date()), nm[1], 'current', '', '', '']);
   }
   var mine = rows_('Drills').filter(function (r) { return r[1] === sid; });
   var ex = p.ex ? Number(p.ex) : mine.length + 1;
   var did = id_(8);
   sheet_('Drills').appendRow([did, sid, p.date || day_(new Date()), ex, p.title || '', JSON.stringify(p.params || {}), p.notes || '', new Date(), '']);
+  touch_(sid);
   return { ok: true, sid: sid, did: did, ex: ex, name: name, inst: inst };
 }
 
@@ -203,10 +211,11 @@ function update_(p) {
   if (p.params) sh.getRange(i, 6).setValue(JSON.stringify(p.params));
   if (p.notes !== undefined) sh.getRange(i, 7).setValue(p.notes);
   if (p.status !== undefined) sh.getRange(i, 9).setValue(p.status === 'retired' ? 'retired' : '');
-  return { ok: true, did: p.did, sid: sh.getRange(i, 2).getValue() };
+  var sid = sh.getRange(i, 2).getValue(); touch_(sid);
+  return { ok: true, did: p.did, sid: sid };
 }
 function remove_(p) {
-  var found = false;
+  var found = false, dr = rows_('Drills').filter(function (r) { return r[0] === p.did; })[0]; if (dr) touch_(dr[1]);
   ['Drills', 'Checks', 'Opens'].forEach(function (name) {
     var sh = sheet_(name), v = sh.getDataRange().getValues(), col = (name === 'Drills') ? 0 : 1;
     for (var i = v.length - 1; i >= 1; i--) if (v[i][col] === p.did) { sh.deleteRow(i + 1); if (name === 'Drills') found = true; }
@@ -217,13 +226,15 @@ function remove_(p) {
 function setProfile_(p) {
   var first = str_(p.first, 60).trim(), last = str_(p.last, 60).trim(), name = (first + ' ' + last).trim(); if (!first) return { ok: false, error: 'no first name' };
   var inst = INST.indexOf(p.inst) >= 0 ? p.inst : 'guitar', hand = p.hand === 'left' ? 'left' : 'right';
+  var status = p.status === 'former' ? 'former' : 'current', day = /^[0-6]$/.test(String(p.day)) ? Number(p.day) : '', time = /^\d{1,2}:\d{2}$/.test(String(p.time || '')) ? "'" + p.time : '';
   var email = str_(p.email, 120).trim(), phone = str_(p.phone, 40).trim(), since = /^\d{4}-\d{2}-\d{2}$/.test(String(p.since || '')) ? "'" + p.since : '';
   var clash = rows_('Students').filter(function (r) { return r[0] !== p.sid && full_(r).toLowerCase() === name.toLowerCase(); })[0];
   if (clash) return { ok: false, error: 'another student already has that first and last name' };
   var sh = sheet_('Students');
-  if (!p.sid) { var sid = id_(10); sh.appendRow([sid, first, new Date(), false, inst, hand, email, phone, '', since || "'" + day_(new Date()), last]); return { ok: true, sid: sid }; }
+  if (!p.sid) { var sid = id_(10); sh.appendRow([sid, first, new Date(), false, inst, hand, email, phone, '', since || "'" + day_(new Date()), last, status, day, time, '']); return { ok: true, sid: sid }; }
   var i = rowOf_('Students', 0, p.sid); if (!i) return { ok: false, error: 'no such student' };
   sh.getRange(i, 2).setValue(first); sh.getRange(i, 11).setValue(last); sh.getRange(i, 5, 1, 4).setValues([[inst, hand, email, phone]]); if (since) sh.getRange(i, 10).setValue(since);
+  sh.getRange(i, 12, 1, 3).setValues([[status, day, time]]);
   return { ok: true, sid: p.sid };
 }
 /* email the student (the page writes the message; it only ever goes to the address on their profile) */
@@ -235,8 +246,10 @@ function notify_(p) {
 }
 
 function overview_() {
-  var students = rows_('Students').map(function (r) { return profile_(r, true); });
-  return { ok: true, students: students, drills: rows_('Drills').map(drillObj_), checks: checksFor_(null), opens: opensFor_(null), songs: songsFor_(null) };
+  var students = rows_('Students').map(function (r) { return profile_(r, true); }), D = rows_('Drills');
+  students.forEach(function (s) { if (s.routineAt) return;   /* before routineAt was kept: the newest item's assignment */
+    D.forEach(function (r) { if (r[1] === s.sid && r[7] instanceof Date) { var t = stamp_(r[7]); if (t > s.routineAt) s.routineAt = t; } }); });
+  return { ok: true, students: students, drills: D.map(drillObj_), checks: checksFor_(null), opens: opensFor_(null), songs: songsFor_(null) };
 }
 
 /* a page opened on a student's device reports itself: once on opening (first), then the seconds played and open since its
