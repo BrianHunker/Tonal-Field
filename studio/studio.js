@@ -64,7 +64,7 @@ function fitRange(P){ use(P); var ok=rangesFor(P.anchor).some(function(r){ retur
   return anchorOf(P.anchor).tones.length===3?({central:'lower',basement:'lower',attic:'upper'}[P.range]||'all'):({lower:'central',upper:'central'}[P.range]||'all'); }
 var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad'}, {id:'tetrachord',name:'Tetrachord shape'},
                  {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'} ];
-var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'up',name:'Up'}, {id:'down',name:'Down'} ];
+var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'downup',name:'Down & up'}, {id:'up',name:'Up'}, {id:'down',name:'Down'} ];
 var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'Triplets'}, {id:16,name:'Sixteenths'} ];
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
 
@@ -218,6 +218,8 @@ function ordered(cells,dir){
   if(dir==='up')return up;
   if(dir==='down')return up.slice().reverse();
   if(up.length<2)return up;
+  var dn=up.slice().reverse();
+  if(dir==='downup')return dn.concat(dn.slice(1,-1).reverse());   /* down, then back up to just below the start */
   return up.concat(up.slice(1,-1).reverse());   /* up, then back down to just above the start: it loops seamlessly */
 }
 
@@ -234,18 +236,23 @@ function sequence(P){
 
 /* ── names ── */
 function rootName(b){ return LETTERS[b.rootPc]; }
+/* the name: what is played and where it is anchored — the tonality, the structure, the root string and the lean.
+   "Do modal scale anchored on the A string leaning back". Everything else (key, position, range, direction, timing) is the
+   description's. */
+var NOUN={octave:'octaves',mode:'modal scale',triad:'triad',tetrachord:'tetrachord','do-pent':'pentatonic','la-pent':'pentatonic',chromatic:'chromatic scale',custom:'custom set'};
 function title(P){
-  use(P); var A=anchorOf(P.anchor), B=boxes(P), b=B[0], st=STRUCTURES.filter(function(s){return s.id===P.structure;})[0];
-  var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
-  var where=P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:'root at fret '+b.root.fret));
-  var modeTxt=P.mode==='Chromatic'?rootName(b)+' chromatic':(rootName(b)+' as '+P.mode);
-  /* it opens with the tonality, never with the anchor's name */
-  return modeTxt+' · '+(P.mode==='Chromatic'&&P.structure==='chromatic'?'':st.name+' · ')+A.word+' · '+where;
+  use(P); var A=anchorOf(P.anchor), noun=NOUN[P.structure]||'modal scale';
+  var head=P.mode==='Chromatic'?(noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun):(P.mode+' '+noun);
+  return head+' anchored on the '+STRING_NAME[A.root]+' string leaning '+(/>$/.test(A.id)?'forward':'back');
 }
+/* the description: the key and where on the neck, then range, direction, timing, articulation and daily minutes */
+function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(LETTERS[b.rootPc]+' as '+P.mode);
+  var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
+  return key+' · '+(P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:'root at fret '+b.root.fret))); }
 function summary(P){
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   var dm=+P.daily||1;
-  return R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic+' · '+dm+' min a day';
+  return where(P)+' · '+R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic+' · '+dm+' min a day';
 }
 
 /* ── the notes the designer writes for the student (a starting point: edit before submitting) ── */
@@ -410,6 +417,6 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
-  title:title, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
+  title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
