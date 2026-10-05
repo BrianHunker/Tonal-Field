@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=12">
+<link rel="stylesheet" href="studio.css?v=13">
 <style>
 .weeknav{display:flex;align-items:center;gap:12px;margin:22px 0 4px;flex-wrap:wrap}
 .weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:34px;height:34px;cursor:pointer;color:var(--ink)}
@@ -64,7 +64,7 @@ span.star{cursor:default}
     <a class="home" href="../index.html"><img src="../images/gables-guitar-studio.png" alt="" width="36" height="36"><span>Gables Guitar Studio</span></a>
   </div>
   <h1 id="who">Your practice</h1>
-  <p class="sub">Your drills, newest first. Open one to hear and see it; earn a star each day you practice it.</p>
+  <p class="sub">Your drills, in the order they were assigned. Open one to hear and see it; earn a star each day you practice it.</p>
   <div id="demo"></div>
   <div class="weeknav"><button type="button" id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button type="button" id="next" aria-label="Next week">›</button></div>
   <div class="drills" id="drills"><p class="muted">Loading…</p></div>
@@ -84,8 +84,8 @@ span.star{cursor:default}
   </section>
 </div>
 <footer><div class="wrap">Gables Guitar Studio · Coral Gables · <a href="https://gablesguitar.com/lessons">gablesguitar.com/lessons</a></div></footer>
-<script src="config.js?v=12"></script>
-<script src="studio.js?v=12"></script>
+<script src="config.js?v=13"></script>
+<script src="studio.js?v=13"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); };
 var sid=(/[?&]s=([\w]+)/.exec(location.search)||[])[1], data=null, week=S.weekKey(), thisWeek=week;
@@ -98,7 +98,7 @@ function render(){
   $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week);
   $('next').disabled=(week>=thisWeek);
   var today=(new Date().getDay()+6)%7, host=$('drills');
-  var list=data.drills.slice().sort(function(a,b){ return (b.date+'|'+String(b.ex).padStart(4,'0'))<(a.date+'|'+String(a.ex).padStart(4,'0'))?-1:1; });
+  var list=data.drills.slice().sort(function(a,b){ return (a.date+'|'+String(a.ex).padStart(4,'0'))<(b.date+'|'+String(b.ex).padStart(4,'0'))?-1:1; });   /* in the order they were assigned */
   if(!list.length){ host.innerHTML='<p class="empty muted">No drills yet.</p>'; return; }
   host.innerHTML='';
   list.forEach(function(d){
