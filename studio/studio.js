@@ -257,18 +257,26 @@ function autoNotes(P){
 
 /* ── the fretboard glyph: six strings (high E on top), the box's four frets, the nut at the left when it is in view ── */
 function glyphSVG(P,opts){
-  opts=opts||{}; var A=anchorOf(P.anchor), size=opts.size||1, cw=22*size, sh=13*size, padL=18*size, padT=8*size, padR=8*size, padB=(opts.frets?16:8)*size;
-  var b=opts.box||null, w=b?b.w:0, g=b?b.gw:0, nf=b?b.gn:4, W=padL+nf*cw+padR, H=padT+5*sh+padB;   /* the drawn frets: the frame's, at least the anchor's four */
+  /* Frets are the spaces between the wires: fret f sits between wire f−1 and wire f, and the nut is wire 0. An open string
+     (fret 0) is drawn just left of the nut. So a frame that starts at fret 1 has the nut as its left edge, and one that holds
+     open strings has a narrow open column, then the nut. */
+  opts=opts||{}; var A=anchorOf(P.anchor), size=opts.size||1, cw=22*size, sh=13*size, padL=14*size, padT=8*size, padR=8*size, padB=(opts.frets?16:8)*size;
+  var b=opts.box||null, w=b?b.w:0, lo=b?b.gw:1, hi=b?b.gw+b.gn-1:4;   /* the frets shown: the frame's, at least the anchor's four */
+  var openCol=(lo===0), first=Math.max(1,lo), ow=openCol?cw*0.75:0, nCells=hi-first+1;
+  var x0=padL+ow, W=x0+nCells*cw+padR, H=padT+5*sh+padB;
+  function fx(f){ return f===0?padL+ow/2:x0+(f-first+0.5)*cw; }
   var s='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+A.word+'">';
-  for(var i=0;i<6;i++) s+='<line x1="'+padL+'" x2="'+(padL+nf*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
-  for(var j=0;j<=nf;j++){ var nut=(j===0&&b&&g===0); s+='<line x1="'+(padL+j*cw)+'" x2="'+(padL+j*cw)+'" y1="'+padT+'" y2="'+(padT+5*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3:1)+'"/>'; }
-  if(opts.frets&&b){ for(var k=0;k<nf;k++) s+='<text x="'+(padL+(k+0.5)*cw)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+(g+k)+'</text>'; }
-  function xy(st,off){ return [padL+(off+0.5)*cw, padT+(st-1)*sh]; }
-  if(b&&opts.tones){ b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret-g); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; }); }
-  if(b&&opts.tones){ b.cells.forEach(function(c){ if(!c.anchor)return; var p=xy(c.string,c.fret-g);
-      s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+c.color+'" stroke="#fff" stroke-width="'+(1.2*size)+'"/>'; }); return s+'</svg>'; }
-  A.tones.forEach(function(t){ var p=xy(t[0],t[1]+w-g), col=(b&&opts.tones)?(b.cells.filter(function(c){return c.string===t[0]&&c.fret===w+t[1];})[0]||{color:'#22BB22'}).color:'#3ddc4a';
-    s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+col+'" stroke="'+(opts.tones?'#fff':'#000')+'" stroke-width="'+(1.2*size)+'"/>'; });
+  for(var i=0;i<6;i++) s+='<line x1="'+padL+'" x2="'+(x0+nCells*cw)+'" y1="'+(padT+i*sh)+'" y2="'+(padT+i*sh)+'" stroke="currentColor" stroke-opacity=".55" stroke-width="'+(1+0.2*i)+'"/>';
+  for(var j=0;j<=nCells;j++){ var nut=(b&&j===0&&first===1); s+='<line x1="'+(x0+j*cw)+'" x2="'+(x0+j*cw)+'" y1="'+padT+'" y2="'+(padT+5*sh)+'" stroke="currentColor" stroke-opacity="'+(nut?'.95':'.35')+'" stroke-width="'+(nut?3.5*size:1)+'"/>'; }
+  if(opts.frets&&b){ for(var f=lo;f<=hi;f++) s+='<text x="'+fx(f)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+f+'</text>'; }
+  function xy(st,fret){ return [fx(fret), padT+(st-1)*sh]; }
+  if(b&&opts.tones){
+    b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; });
+    b.cells.forEach(function(c){ if(!c.anchor)return; var p=xy(c.string,c.fret); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+c.color+'" stroke="#fff" stroke-width="'+(1.2*size)+'"/>'; });
+    return s+'</svg>';
+  }
+  A.tones.forEach(function(t){ var p=xy(t[0],(b?w:1)+t[1]);   /* the bare shape (the anchor picker): drawn from fret 1 */
+    s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="#3ddc4a" stroke="#000" stroke-width="'+(1.2*size)+'"/>'; });
   return s+'</svg>';
 }
 
