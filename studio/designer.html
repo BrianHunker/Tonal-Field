@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=3">
+<link rel="stylesheet" href="studio.css?v=4">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -121,8 +121,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=3"></script>
-<script src="studio.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="studio.js?v=4"></script>
 <script>
 var S=Studio, P=S.defaults(), notesEdited=false, pass='';
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -146,7 +146,8 @@ function renderControls(){
     function(m){ var f=S.FN.filter(function(x){return x.n===m;})[0]; return '<span style="color:'+(f?f.c:'#c9c5ba')+'">'+m+'</span>'; });
   [].forEach.call($('modes').children,function(b){ b.classList.add('fn'); });
   chips($('frames'),S.FRAMES,function(){return P.frame||'half';},function(v){P.frame=v;});
-  $('framerow').hidden=(P.mode==='Chromatic'||P.structure==='chromatic'||P.structure==='custom');
+  var chromF=(P.mode==='Chromatic'||P.structure==='chromatic'||P.structure==='custom');
+  if(chromF) $('frames').innerHTML='<button type="button" class="chip" aria-pressed="true">Four per string</button>';
   chips($('ranges'),S.RANGES,function(){return P.range;},function(v){P.range=v;});
   chips($('dirs'),S.DIRECTIONS,function(){return P.dir;},function(v){P.dir=v;});
   chips($('structs'),S.STRUCTURES,function(){return P.structure;},function(v){ P.structure=v; if(v==='do-pent')P.mode='Do'; if(v==='la-pent')P.mode='La';

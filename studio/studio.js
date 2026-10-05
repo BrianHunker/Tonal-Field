@@ -48,7 +48,7 @@ var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'up',name:'Up'}, {id:'down'
 var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'Triplets'}, {id:16,name:'Sixteenths'} ];
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
 
-var FRAMES=[ {id:'half',name:'Half steps together'}, {id:'three',name:'Three per string'} ];
+var FRAMES=[ {id:'half',name:'Half steps together'}, {id:'three',name:'Three per string'} ];   /* chromatic drills always take four per string */
 function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
@@ -56,8 +56,9 @@ function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', frame
       octaves given a string. The frame flexes with the fingering rule:
         'half'  — keep the half steps (Mi–Fa, Ti–Do) together on one string; a tone may lean a fret outside the anchor's box
         'three' — three tones on every string between the anchor's strings
+        'four'  — chromatic drills: four tones (semitones) on every string, so the frame leans back a fret per string in fourths
       The anchors never move. Among all the ways to string the tones from the root up to the top anchor, the one with the
-      fewest broken rules wins, then the narrowest span of frets. A chromatic drill keeps the plain four-fret box. ── */
+      fewest broken rules wins, then the narrowest span of frets. ── */
 var STRIDX={6:0,5:1,4:2,3:3,2:4,1:5}, IDXSTR=[6,5,4,3,2,1];
 function placeScale(pitches,fixed,w,rule){
   /* pitches ascending; fixed[pitch]=string for the anchor tones. Returns [{pitch,string,fret}] or null. */
@@ -68,9 +69,10 @@ function placeScale(pitches,fixed,w,rule){
     for(var i=0;i<n;i++){ per[cur[i].string]=(per[cur[i].string]||0)+1;
       if(i>0&&pitches[i]-pitches[i-1]===1&&cur[i].string!==cur[i-1].string)split++; }
     var dev=0, s0=STRIDX[cur[0].string], s1=STRIDX[cur[n-1].string];
-    for(var k=s0;k<s1;k++) dev+=Math.abs((per[IDXSTR[k]]||0)-3)*(rule==='three'?(6-(k-s0)):1);   /* every string from the root's up to (not) the top anchor's, empty ones too; three per string fills from the root string up */
+    var T=(rule==='four')?4:3;
+    for(var k=s0;k<s1;k++) dev+=Math.abs((per[IDXSTR[k]]||0)-T)*(rule!=='half'?(6-(k-s0)):1);   /* every string from the root's up to (not) the top anchor's, empty ones too; three per string fills from the root string up */
     var lean=0; for(var j=0;j<n;j++){ if(cur[j].fret<w)lean+=w-cur[j].fret; if(cur[j].fret>w+3)lean+=cur[j].fret-(w+3); }
-    if(rule==='three') c=1000*dev+100*split;
+    if(rule!=='half') c=1000*dev+100*split;
     else c=1000*split+100*dev;
     return c+20*(hi-lo)+5*lean;
   }
@@ -107,11 +109,12 @@ function boxAt(P,w,modeName){
   var lo=Math.min.apply(null,anchorCells.map(function(c){return c.pitch;})), hi=Math.max.apply(null,anchorCells.map(function(c){return c.pitch;}));
   /* the frame: every cell the drill may use, one per pitch */
   var frame=[], fMin=w, fMax=w+3;
-  var keyRel=chromatic||P.structure==='chromatic'||P.structure==='custom'?null:modeRel;
-  if(keyRel){
-    var pitches=[]; for(var p=lo;p<=hi;p++) if(keyRel.indexOf(((p-rootPc)%12+12)%12)>=0) pitches.push(p);
+  var chromFrame=chromatic||P.structure==='chromatic'||P.structure==='custom';   /* chromatic: four tones on every string, each string leaning a fret back as the fourths climb */
+  var keyRel=chromFrame?null:modeRel, frameRel=chromFrame?[0,1,2,3,4,5,6,7,8,9,10,11]:modeRel;
+  if(frameRel){
+    var pitches=[]; for(var p=lo;p<=hi;p++) if(frameRel.indexOf(((p-rootPc)%12+12)%12)>=0) pitches.push(p);
     var fixed={}; anchorCells.forEach(function(c){ fixed[c.pitch]=c.string; });
-    var placed=placeScale(pitches,fixed,w,P.frame==='three'?'three':'half');
+    var placed=placeScale(pitches,fixed,w,chromFrame?'four':(P.frame==='three'?'three':'half'));
     if(placed){ frame=placed; fMin=Math.min.apply(null,placed.map(function(c){return c.fret;})); fMax=Math.max.apply(null,placed.map(function(c){return c.fret;})); }
   }
   if(!frame.length){ for(var s0=1;s0<=6;s0++) for(var f0=w;f0<=w+3;f0++){ var p0=OPEN[s0]+f0; if(p0>=lo&&p0<=hi) frame.push({pitch:p0,string:s0,fret:f0}); } }
@@ -199,6 +202,7 @@ function autoNotes(P){
   var R=RANGES.filter(function(r){return r.id===P.range;})[0];
   L.push('Range: '+R.name+' — '+R.hint+'.');
   if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: three tones on every string.':'Fingering: the half steps (Mi–Fa, Ti–Do) stay together on one string.');
+  else L.push('Fingering: four tones on every string; each string up starts a fret further back.');
   if(P.position==='chromatic') L.push('When the box feels even, move the whole drill up one fret and play it again, through the octave.');
   if(P.position==='modal') L.push('When the box feels even, walk the root up its string to the next tone of the key and play the drill again from there: the box is the same shape, but the root takes a new function each time.');
   var S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
