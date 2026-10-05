@@ -56,7 +56,7 @@ var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'T
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
 
 var FRAMES=[ {id:'half',name:'Half steps together'}, {id:'three',name:'Three per string'} ];   /* chromatic drills always take four per string */
-function defaults(){ return { anchor:'E>', position:5, start:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
+function defaults(){ return { anchor:'E>', position:5, start:1, end:5, loop:true, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
 /* ── one frame: the anchor placed with its box starting at fret w, and every tone of the key between (and around) its
@@ -175,25 +175,29 @@ function boxAt(P,w,modeName){
   return { w:w, gw:gw, gn:gn, cells:cells, anchorCells:anchorCells, root:root, rootPc:rootPc, mode:modeName, doPc:doPc };
 }
 
-/* ── the boxes a drill visits: one, or a run of them (chromatic shift: up one fret at a time through the octave;
-      modal shift: the root walks up its string through the key, each box in the mode of its new root) ── */
+/* ── the boxes a drill visits: one, or a run of them from position P.start to position P.end (either way).
+      chromatic shift: the box moves a fret at a time; modal shift: the root walks along its string through the tones of the
+      key, each box in the mode of its new root. With P.loop (the default) the run comes back to its start and repeats. ── */
 function boxes(P){
-  var A=anchorOf(P.anchor), ro=rootOffset(A);
-  if(P.position==='chromatic'){ var out=[]; for(var k=0;k<=12;k++) out.push(boxAt(P,P.start+k,P.mode)); return out; }
-  if(P.position==='modal'){
-    if(P.mode==='Chromatic') return [boxAt(P,P.start,P.mode)];
-    var b0=boxAt(P,P.start,P.mode), doPc=b0.doPc, out2=[b0], w=P.start, rootFret=P.start+ro;
-    var start=FN.indexOf(fnByName(P.mode));
-    for(var j=1;j<=7;j++){
-      var F=FN[(start+j)%7], target=(doPc+F.s)%12, f=rootFret+1;
-      while(((OPEN[A.root]+f)%12)!==target) f++;
-      rootFret=f; w=rootFret-ro; out2.push(boxAt(P,w,F.n));
+  var A=anchorOf(P.anchor), ro=rootOffset(A), a=Math.max(0,+P.start||0), e=Math.max(0,(P.end===undefined||P.end==='')?a:+P.end), d=e>=a?1:-1, out=[];
+  if(P.position==='chromatic'){ for(var w=a;d>0?w<=e:w>=e;w+=d) out.push(boxAt(P,w,P.mode)); }
+  else if(P.position==='modal'){
+    var b0=boxAt(P,a,P.mode); out.push(b0);
+    if(P.mode!=='Chromatic'){
+      var doPc=b0.doPc, rootFret=a+ro, k=FN.indexOf(fnByName(P.mode));
+      for(var guard=0;guard<40;guard++){
+        var f=rootFret, F=null;
+        do{ f+=d; var pc=(OPEN[A.root]+f)%12; F=FN.filter(function(x){ return (doPc+x.s)%12===pc; })[0]; }while(!F&&f>=0&&f<=40);
+        var w2=f-ro; if(!F||w2<0||(d>0?w2>e:w2<e))break;
+        rootFret=f; out.push(boxAt(P,w2,F.n));
+      }
     }
-    return out2;
   }
-  var w0=P.position==='open'?0:+P.position;
-  return [boxAt(P,w0,P.mode)];
+  else return [boxAt(P,P.position==='open'?0:+P.position,P.mode)];
+  if(P.loop!==false&&out.length>2) out=out.concat(out.slice(1,-1).reverse());   /* there and back; the loop closes on the start */
+  return out;
 }
+function isShift(P){ return P.position==='chromatic'||P.position==='modal'; }
 
 function ordered(cells,dir){
   var up=cells.slice();
@@ -211,14 +215,15 @@ function sequence(P){
     ordered(b.cells,P.dir).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
   });
   var per=+P.sub||8, bars=Math.max(1,Math.ceil(col/per));
-  return { notes:notes, modes:modes, length:col, per:per, bars:bars, boxes:B };
+  return { notes:notes, modes:modes, length:col, per:per, bars:bars, boxes:B, loop:!(isShift(P)&&P.loop===false) };
 }
 
 /* ── names ── */
 function rootName(b){ return LETTERS[b.rootPc]; }
 function title(P){
   var A=anchorOf(P.anchor), B=boxes(P), b=B[0], st=STRUCTURES.filter(function(s){return s.id===P.structure;})[0];
-  var where=P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift from fret '+P.start:(P.position==='modal'?'modal shift from fret '+P.start:'root at fret '+b.root.fret));
+  var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
+  var where=P.position==='open'?'open position':(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:'root at fret '+b.root.fret));
   var modeTxt=P.mode==='Chromatic'?rootName(b):(rootName(b)+' as '+P.mode);
   return A.word+' · '+st.name+' · '+modeTxt+' · '+where;
 }
@@ -240,8 +245,9 @@ function autoNotes(P){
   L.push('Range: '+R.name+' — '+R.hint+'.');
   if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: three tones on every string.':'Fingering: the half steps (Mi–Fa, Ti–Do) stay together on one string.');
   else L.push('Fingering: four tones on every string; each string up starts a fret further back.');
-  if(P.position==='chromatic') L.push('When the box feels even, move the whole drill up one fret and play it again, through the octave.');
-  if(P.position==='modal') L.push('When the box feels even, walk the root up its string to the next tone of the key and play the drill again from there: the box is the same shape, but the root takes a new function each time.');
+  var way=(+P.end>=+P.start)?'up':'down', back=(P.loop!==false)?' Then come back the same way to position '+P.start+', and repeat.':'';
+  if(P.position==='chromatic') L.push('Play the drill at position '+P.start+', then move the whole drill '+way+' one fret at a time to position '+P.end+'.'+back);
+  if(P.position==='modal') L.push('Play the drill at position '+P.start+', then walk the root '+way+' its string to the next tone of the key and play it again, to position '+P.end+': the shape stays, the root takes a new function each time.'+back);
   var S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   L.push('Timing: '+S.name.toLowerCase()+' at '+P.bpm+' bpm, '+P.artic.toLowerCase()+'. Keep the pulse steady before adding speed.');
   L.push('Listen to your own tone on every note.');
@@ -303,6 +309,6 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ OPEN:OPEN, ANCHORS:ANCHORS, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
-  title:title, summary:summary, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
+  title:title, summary:summary, isShift:isShift, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);

@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=7">
+<link rel="stylesheet" href="studio.css?v=8">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -74,7 +74,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <h3>Tonality</h3>
         <div class="row">
           <label class="field"><span>Position</span><select id="position"></select></label>
-          <label class="field" id="startwrap" hidden><span>Starting fret</span><input type="number" id="start" min="0" max="20" value="1" style="width:90px"></label>
+          <label class="field" id="startwrap" hidden><span>From position</span><input type="number" id="start" min="0" max="20" value="1" style="width:90px"></label>
+          <label class="field" id="endwrap" hidden><span>To position</span><input type="number" id="end" min="0" max="20" value="5" style="width:90px"></label>
+          <div class="field" id="loopwrap" hidden><span>Repeat</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
         </div>
         <div class="row"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
         <div class="row" id="framerow"><div class="field"><span>Fingering</span><div class="chips" id="frames"></div></div></div>
@@ -121,8 +123,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=7"></script>
-<script src="studio.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="studio.js?v=8"></script>
 <script>
 var S=Studio, P=S.defaults(), notesEdited=false, pass='';
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -158,7 +160,7 @@ function renderControls(){
   for(var i=0;i<=12;i++){ (function(i){ var d=document.createElement('div'); d.className='dot'; var on=(i===0||i===12)?true:!!P.custom[i];
     d.innerHTML='<button type="button" aria-pressed="'+on+'" aria-label="'+i+' semitones"'+((i===0||i===12)?' disabled':'')+'></button><span>'+i+'</span>';
     d.querySelector('button').onclick=function(){ P.custom[i]=P.custom[i]?0:1; render(); }; cu.appendChild(d); })(i); }
-  $('startwrap').hidden=!(P.position==='chromatic'||P.position==='modal');
+  var sh=S.isShift(P); $('startwrap').hidden=!sh; $('endwrap').hidden=!sh; $('loopwrap').hidden=!sh; $('loop').setAttribute('aria-pressed',String(P.loop!==false));
 }
 (function(){
   var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
@@ -168,6 +170,8 @@ function renderControls(){
   ar.value=P.artic; ar.onchange=function(){ P.artic=this.value; render(); };
   $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
   $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
+  $('end').oninput=function(){ P.end=Math.max(0,Math.min(20,+this.value||0)); render(); };
+  $('loop').onclick=function(){ P.loop=(P.loop===false); render(); };
   $('date').value=S.ymd(new Date());
   $('notes').oninput=function(){ notesEdited=true; };
   $('regen').onclick=function(){ notesEdited=false; render(); };

@@ -9,8 +9,8 @@
 </head>
 <body>
 <p id="msg">Loading the drill…</p>
-<script src="config.js?v=7"></script>
-<script src="studio.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="studio.js?v=8"></script>
 <script>
 /* A drill page: the drill's settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as #p=…)
    become a sequence, written into the guitar template's boot file, and the full Tonal Field tool opens on it. */
@@ -33,7 +33,7 @@
       var snap=JSON.parse(JSON.stringify(cfg.sequence));
       snap.notes=sq.notes; snap.modes=sq.modes; snap.chords=[]; snap.ring=[]; snap.accomp=[]; snap.title=title;
       snap.tsNum=4; snap.tsDen=4; snap.div=sq.per; snap.bars=sq.bars; snap.divs=sq.bars*sq.per; snap.bpm=+P.bpm||60;
-      snap.loop=true; snap.loopA=0; snap.loopB=sq.length;
+      snap.loop=sq.loop; snap.loopA=0; snap.loopB=sq.length;   /* a shift set to play once stops at its end */
       cfg.sequence=snap;
       var v=cfg.views['1']; v.state.seq.snap=JSON.parse(JSON.stringify(snap)); v.state.seq.pos=0;
       var lines=Math.min(4,Math.ceil(sq.bars/2));
