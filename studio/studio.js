@@ -294,7 +294,8 @@ function demo(p){
     var st=db.students.filter(function(x){return x.name.toLowerCase()===nm.toLowerCase();})[0]; if(!st){ st={sid:rid(10),name:nm}; db.students.push(st); }
     var ex=p.ex?+p.ex:db.drills.filter(function(d){return d.sid===st.sid;}).length+1, did=rid(8);
     db.drills.push({did:did,sid:st.sid,date:p.date,ex:ex,title:p.title,params:p.params,notes:p.notes}); demoSave(db); return {ok:true,sid:st.sid,did:did,ex:ex,name:st.name}; }
-  if(a==='overview') return {ok:true,students:db.students,drills:db.drills,checks:db.checks};
+  if(a==='open') return {ok:true};
+  if(a==='overview') return {ok:true,students:db.students,drills:db.drills,checks:db.checks,opens:[]};
   return {ok:false,error:'unknown action'};
 }
 

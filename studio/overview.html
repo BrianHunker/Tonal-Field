@@ -8,7 +8,7 @@
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=8">
+<link rel="stylesheet" href="studio.css?v=9">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -27,6 +27,9 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
 .mini{display:flex;gap:3px}
 .mini i{width:13px;height:13px;border-radius:3px;border:1px solid #4a4842;display:block}
 .mini i.on{background:var(--green);border-color:var(--green)}
+.mini i.op{border-color:var(--gold);box-shadow:inset 0 0 0 1.5px var(--gold)}
+.mini i.on.op{box-shadow:none}
+.key{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin-top:10px}.key .mini{display:inline-flex;vertical-align:-2px;margin-right:6px}
 .tot{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);white-space:nowrap}
 .last{font-size:13px;color:var(--dim);white-space:nowrap}
 .none{color:var(--dim);font-size:14px}
@@ -53,14 +56,15 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
   <div id="out"><p class="muted" style="margin-top:20px">Loading…</p></div>
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=8"></script>
-<script src="studio.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="studio.js?v=9"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
 if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: showing what was saved in this browser.</p>';
 function fmt(key){ var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]), e=new Date(d); e.setDate(e.getDate()+6);
   var o={month:'short',day:'numeric'}; return d.toLocaleDateString(undefined,o)+' – '+e.toLocaleDateString(undefined,o); }
+function mins(sec){ var m=Math.round(sec/60); return m<1?'under a minute':m+' min'; }
 function render(){
   $('wk').textContent=(week===thisWeek?'This week · ':'')+fmt(week); $('next').disabled=(week>=thisWeek);
   var q=$('q').value.trim().toLowerCase();
@@ -71,13 +75,17 @@ function render(){
     var ds=data.drills.filter(function(d){ return d.sid===s.sid; }).sort(function(a,b){ return (b.date+'|'+String(b.ex).padStart(4,'0'))<(a.date+'|'+String(a.ex).padStart(4,'0'))?-1:1; });
     var cs=data.checks.filter(function(c){ return c.sid===s.sid; }), days={}, last='';
     cs.forEach(function(c){ var dk=S.addDays(c.week,+c.day); if(dk>last)last=dk; if(c.week===week)days[c.day]=1; });
-    var rows=ds.map(function(d){ var mini=''; for(var k=0;k<7;k++){ var on=cs.some(function(c){ return c.did===d.did&&c.week===week&&+c.day===k; }); mini+='<i'+(on?' class="on"':'')+' title="'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][k]+'"></i>'; }
+    var os=(data.opens||[]).filter(function(o){ return o.sid===s.sid&&o.week===week; }), playW=os.reduce(function(a,o){ return a+(+o.play||0); },0);
+    var rows=ds.map(function(d){ var mini=''; for(var k=0;k<7;k++){ var on=cs.some(function(c){ return c.did===d.did&&c.week===week&&+c.day===k; });
+        var op=os.filter(function(o){ return o.did===d.did&&+o.day===k; })[0];
+        var tip=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][k]+(on?': ticked':'')+(op?(on?', ':': ')+'opened'+(op.opens>1?' '+op.opens+'×':'')+(op.play?', played '+mins(op.play):', not played'):'');
+        mini+='<i class="'+(on?'on ':'')+(op?'op':'')+'" title="'+tip+'"></i>'; }
       return '<div class="dl"><span class="t"><a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+S.esc(d.ex)+'. '+S.esc(d.title)+'</a></span><span class="mini">'+mini+'</span></div>'; }).join('')||'<span class="none">No drills.</span>';
     var link=S.base()+'student.html?s='+s.sid;
     h+='<tr><td class="name"><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a><button class="copy" data-c="'+S.esc(link)+'">Copy page link</button></td>'
-      +'<td>'+rows+'</td><td class="tot">'+Object.keys(days).length+' / 7</td><td class="last">'+(last||'—')+'</td></tr>';
+      +'<td>'+rows+'</td><td class="tot">'+Object.keys(days).length+' / 7<div class="last">'+(playW?mins(playW)+' played':'')+'</div></td><td class="last">'+(last||'—')+'</td></tr>';
   });
-  $('out').innerHTML=h+'</tbody></table>';
+  $('out').innerHTML=h+'</tbody></table><div class="key"><span><span class="mini"><i class="on"></i></span>ticked by the student</span><span><span class="mini"><i class="op"></i></span>drill opened that day (hover for time played)</span></div>';
   [].forEach.call(document.querySelectorAll('[data-c]'),function(b){ b.onclick=function(){ var t=b.getAttribute('data-c'); if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){ b.textContent='Copied'; setTimeout(function(){ b.textContent='Copy page link'; },1500); }); }; });
 }
 function load(){ S.api('overview',{pass:pass}).then(function(r){
