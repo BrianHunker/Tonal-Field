@@ -283,7 +283,10 @@ var NOUN={octave:'octaves',mode:'modal scale',triad:'triad',tetrachord:'tetracho
 function title(P){
   use(P); var A=anchorOf(P.anchor), noun=NOUN[P.structure]||'modal scale';
   var head=P.mode==='Chromatic'?(noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun):(P.mode+' '+noun);
-  return head+' anchored on the '+STRING_NAME[A.root]+' string leaning '+(/>$/.test(A.id)?'forward':'back');
+  /* the anchor as played: the lowest anchor tone in the range, leaning toward its octave — so the upper octave of an E anchor
+     is named from its own pair (E forward → D string leaning back, E back → G string leaning forward) */
+  var T=A.tones.slice().sort(function(p,q){ return (OPEN[p[0]]+p[1])-(OPEN[q[0]]+q[1]); }), i=(fitRange(P)==='upper'&&T.length===3)?1:0;
+  return head+' anchored on the '+STRING_NAME[T[i][0]]+' string leaning '+(T[i+1][1]>T[i][1]?'forward':'back');
 }
 /* the description: the key and where on the neck, then range, direction, timing, articulation and daily minutes */
 function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(LETTERS[b.rootPc]+' as '+P.mode);
