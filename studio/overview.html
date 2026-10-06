@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=36">
+<link rel="stylesheet" href="studio.css?v=37">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -142,9 +142,9 @@ td.who2{font-size:14px} td.who2 .done{color:var(--dim)} td.dt{font-size:13px;col
   </form>
 </dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=36"></script>
-<script src="../lessons.js?v=36"></script>
-<script src="studio.js?v=36"></script>
+<script src="config.js?v=37"></script>
+<script src="../lessons.js?v=37"></script>
+<script src="studio.js?v=37"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -174,10 +174,10 @@ function render(){
   var byName=function(a,b){ return String(a.name).localeCompare(String(b.name)); };
   var slot=function(s){ return (s.day===''||s.day==null?'9':String(s.day))+'|'+(s.time?String(s.time).padStart(5,'0'):'99:99'); };
   studs.sort(F.sort==='time'?function(a,b){ return slot(a)<slot(b)?-1:slot(a)>slot(b)?1:byName(a,b); }
-           :F.sort==='routine'?function(a,b){ var x=a.routineAt||'', y=b.routineAt||''; return x<y?-1:x>y?1:byName(a,b); }   /* the longest unchanged first */
+           :F.sort==='routine'?function(a,b){ var x=a.routineAt||'', y=b.routineAt||''; return x>y?-1:x<y?1:byName(a,b); }   /* the most recently changed first; never changed last */
            :byName);
   var nCur=data.students.filter(function(s){ return (s.status||'current')==='current'; }).length;
-  $('countline').textContent=studs.length+' shown · '+nCur+' current, '+(data.students.length-nCur)+' former'+(F.sort==='routine'?' · routines changed longest ago first':'');
+  $('countline').textContent=studs.length+' shown · '+nCur+' current, '+(data.students.length-nCur)+' former'+(F.sort==='routine'?' · most recently changed routines first':'');
   if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Add one, or assign something in the Drill Designer.')+'</p>'; return; }
   var h='<table><thead><tr><th>Student</th><th>Routine, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
   studs.forEach(function(s){
