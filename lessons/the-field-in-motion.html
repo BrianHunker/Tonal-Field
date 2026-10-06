@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v425 · lesson: The Field in Motion -->
+<!-- Tonal Field — Ring — v426 · lesson: The Field in Motion -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v425</span></h1>
+  <h1>Tonal Field <span>Ring v426</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11269,7 +11269,11 @@ function tabRender(){
       var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
       var first=(cc===nn.start), barStart=(cc%cpb===0), lineStart=(cc===((tabFirstLine+R.line)*tabMPL*cpb));
       var colc=(nn.bend&&nn.bend.length)?tabColorAt(nn,seqSemi(nn.pitch)+seqBendAt(nn,cc+0.5),nn.start,sounding):col;   /* v316: a bent cell wears the colour of the tone it is bent to */
-      c.fillStyle=rgba(lift(colc,0.28),(sounding?0.85:0.55)*(alpha)); c.fillRect(first?tabOnX(R):R.x,R.y-bw,R.w-(first?tabOnX(R)-R.x:0),2*bw);
+      var _x0=first?tabOnX(R):R.x, _x1=R.x+R.w;
+      if(sounding){   /* v426: a sounding span lights only up to the playhead, filling behind it; the rest waits at rest */
+        c.fillStyle=rgba(lift(colc,0.28),0.55*(playing?0.55:0.9)); c.fillRect(_x0,R.y-bw,_x1-_x0,2*bw);
+        var _xm=Math.max(_x0,Math.min(_x1,R.x+(pos-cc)*R.w)); if(_xm>_x0){ c.fillStyle=rgba(lift(colc,0.28),0.85*alpha); c.fillRect(_x0,R.y-bw,_xm-_x0,2*bw); } }
+      else { c.fillStyle=rgba(lift(colc,0.28),0.55*alpha); c.fillRect(_x0,R.y-bw,_x1-_x0,2*bw); }
       if(!first&&(barStart||lineStart))_ties.push([R.x,R.y,lineStart]);   /* v352: drawn after the bar, so the bar cannot cover them */
     }
     _ties.forEach(function(T){
