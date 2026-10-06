@@ -354,7 +354,7 @@ function api(action,payload){
   if(!URL) return Promise.resolve(demo(payload));
   return fetch(URL,{method:'POST',body:JSON.stringify(payload)}).then(function(r){ return r.json(); });
 }
-function demoDB(){ var e={students:[],drills:[],checks:[],songs:[]}; try{ var d=JSON.parse(localStorage.getItem('studio-demo')||'')||e; d.songs=d.songs||[]; return d; }catch(x){ return e; } }
+function demoDB(){ var e={students:[],drills:[],checks:[],songs:[],routines:[]}; try{ var d=JSON.parse(localStorage.getItem('studio-demo')||'')||e; d.songs=d.songs||[]; d.routines=d.routines||[]; return d; }catch(x){ return e; } }
 function demoSave(db){ try{ localStorage.setItem('studio-demo',JSON.stringify(db)); }catch(e){} }
 function rid(n){ var c='abcdefghjkmnpqrstuvwxyz23456789',s=''; for(var i=0;i<n;i++)s+=c.charAt(Math.floor(Math.random()*c.length)); return s; }
 /* the same answers the Google Sheet gives (apps-script.gs), kept in this browser */
@@ -363,7 +363,7 @@ function demo(p){
   function stu(sid){ return db.students.filter(function(x){return x.sid===sid;})[0]; }
   function full(s){ return ((s.first||s.name||'')+' '+(s.last||'')).trim(); }
   function split(n){ n=String(n||'').trim().replace(/\s+/g,' '); var i=n.indexOf(' '); return i<0?[n,'']:[n.slice(0,i),n.slice(i+1)]; }
-  function prof(s,teacher){ var o={sid:s.sid,name:(s.first||s.name||'').trim(),track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today};
+  function prof(s,teacher){ var o={sid:s.sid,name:(s.first||s.name||'').trim(),track:!!s.track,inst:s.inst||'guitar',hand:s.hand==='left'?'left':'right',about:s.about||'',since:s.since||today,routine:s.routine||''};
     if(teacher){ o.status=s.status==='former'?'former':'current'; o.day=(s.day===''||s.day==null)?'':+s.day; o.time=s.time||''; o.routineAt=s.routineAt||'';
       if(!o.routineAt) db.drills.forEach(function(d){ if(d.sid===s.sid&&d.at&&d.at>o.routineAt)o.routineAt=d.at; });
       o.first=o.name; o.last=s.last||''; o.name=full(s); o.email=s.email||''; o.phone=s.phone||''; } return o; }
@@ -371,7 +371,7 @@ function demo(p){
   function songs(sid){ return db.songs.filter(function(x){ return !sid||x.sid===sid; }); }
   function dr(d){ var o=JSON.parse(JSON.stringify(d)); o.status=o.status||''; return o; }
   if(a==='student'){ var s=stu(p.sid); if(!s)return {ok:false,error:'no such student'};
-    return {ok:true,student:prof(s),drills:db.drills.filter(function(d){return d.sid===p.sid;}).map(dr),checks:db.checks.filter(function(c){return c.sid===p.sid;}),opens:[],songs:songs(p.sid)}; }
+    return {ok:true,student:prof(s),drills:db.drills.filter(function(d){return d.sid===p.sid;}).map(dr),checks:db.checks.filter(function(c){return c.sid===p.sid;}),opens:[],songs:songs(p.sid),routines:db.routines.filter(function(r){ return r.sid===p.sid; })}; }
   if(a==='optin'){ var so=stu(p.sid); if(!so)return {ok:false,error:'no such student'}; so.track=!!p.on; demoSave(db); return {ok:true,track:so.track}; }
   if(a==='about'){ var sa=stu(p.sid); if(!sa)return {ok:false,error:'no such student'}; sa.about=String(p.text||'').slice(0,2000); demoSave(db); return {ok:true,about:sa.about}; }
   if(a==='song'){ if(!stu(p.sid))return {ok:false,error:'no such student'}; var les=/^lessons\/[\w-]+\.html$/.test(String(p.lesson||''))?p.lesson:'';
@@ -383,6 +383,14 @@ function demo(p){
     var t=String(p.title||'').trim(); if(!t)return {ok:false,error:'no title'};
     var ns={rid:rid(8),sid:p.sid,title:t.slice(0,120),artist:String(p.artist||'').slice(0,120),lesson:les,status:p.status==='done'?'done':'learning',started:today,finished:p.status==='done'?today:''};
     db.songs.push(ns); demoSave(db); return {ok:true,songs:songs(p.sid),rid:ns.rid}; }
+  if(a==='routine'){ var sr=stu(p.sid); if(!sr)return {ok:false,error:'no such student'}; var nm2=String(p.name||'').trim().slice(0,80), mine=db.drills.filter(function(x){ return x.sid===p.sid; });
+    if(p.op==='name') sr.routine=nm2;
+    else if(p.op==='save'){ if(!nm2)return {ok:false,error:'give the routine a name'}; var its=mine.filter(function(x){ return x.status!=='retired'; }).map(function(x){ return x.did; }); if(!its.length)return {ok:false,error:'the routine is empty'};
+      var ex0=db.routines.filter(function(r){ return r.sid===p.sid&&r.name.toLowerCase()===nm2.toLowerCase(); })[0]; if(ex0){ ex0.name=nm2; ex0.items=its; ex0.saved=today; } else db.routines.push({rtid:rid(8),sid:p.sid,name:nm2,items:its,saved:today}); sr.routine=nm2; }
+    else if(p.op==='recall'){ var rt=db.routines.filter(function(r){ return r.rtid===p.rtid&&r.sid===p.sid; })[0]; if(!rt)return {ok:false,error:'no such routine'}; mine.forEach(function(x){ x.status=rt.items.indexOf(x.did)>=0?'':'retired'; }); sr.routine=rt.name; }
+    else if(p.op==='delete') db.routines=db.routines.filter(function(r){ return !(r.rtid===p.rtid&&r.sid===p.sid); });
+    else return {ok:false,error:'unknown routine action'};
+    demoSave(db); return {ok:true,routine:sr.routine||'',routines:db.routines.filter(function(r){ return r.sid===p.sid; }),drills:mine.map(dr)}; }
   if(a==='drill'){ var d=db.drills.filter(function(x){return x.did===p.did;})[0]; if(!d)return {ok:false,error:'no such drill'};
     var o=dr(d), sd=stu(d.sid)||{}; o.track=!!sd.track; o.hand=sd.hand==='left'?'left':'right'; o.inst=sd.inst||'guitar';
     if(o.params&&o.params.kind==='song'){ var so2=db.songs.filter(function(x){ return x.rid===o.params.rid; })[0]; if(so2)o.song=so2; }

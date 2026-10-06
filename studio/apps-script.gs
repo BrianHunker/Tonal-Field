@@ -25,6 +25,7 @@
      Checks     — one row per starred practice day: student id, item id, week (Monday's date), day 0–6 (Mon–Sun)
      Opens      — one row per item per day it was played on a student's device: times opened, seconds played, seconds open
                   (only for students who switched practice tracking on, from their own page — the Students tab's 'tracking')
+     Routines   — one row per saved routine: id, student id, name, its items (ids), date saved
      Repertoire — one row per song: id, student id, title, artist, lesson (a Tonal Field page, if it has one), status
                   ('learning' or 'done'), started, finished, added
    Rows can be read, sorted or deleted by hand. Email, phone and last name are never sent to the student pages. */
@@ -52,6 +53,7 @@ function handle_(p) {
     if (a === 'optin')   return out_(optin_(p));
     if (a === 'about')   return out_(about_(p));
     if (a === 'song')    return out_(song_(p));
+    if (a === 'routine') return out_(routine_(p));
     /* everything below is the teacher's */
     if (p.pass !== PASSPHRASE) return out_({ ok: false, error: 'wrong passphrase' });
     if (a === 'ping')     return out_({ ok: true });
@@ -68,11 +70,12 @@ function handle_(p) {
 
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-var HEAD = { Students: ['sid', 'first', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since', 'last', 'status', 'day', 'time', 'routineAt'],
+var HEAD = { Students: ['sid', 'first', 'added', 'tracking', 'instrument', 'hand', 'email', 'phone', 'about', 'since', 'last', 'status', 'day', 'time', 'routineAt', 'routine'],
              Drills: ['did', 'sid', 'date', 'ex', 'title', 'params', 'notes', 'added', 'status'],
              Checks: ['sid', 'did', 'week', 'day', 'at'],
              Opens: ['sid', 'did', 'date', 'week', 'day', 'opens', 'playSecs', 'openSecs', 'last'],
-             Repertoire: ['rid', 'sid', 'title', 'artist', 'lesson', 'status', 'started', 'finished', 'added'] };
+             Repertoire: ['rid', 'sid', 'title', 'artist', 'lesson', 'status', 'started', 'finished', 'added'],
+             Routines: ['rtid', 'sid', 'name', 'items', 'saved'] };
 function sheet_(name) {
   var ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(name);
   if (!sh) { sh = ss.insertSheet(name); sh.appendRow(HEAD[name]); sh.setFrozenRows(1); }
@@ -96,7 +99,7 @@ function full_(r) { return (String(r[1] || '').trim() + ' ' + String(r[10] || ''
 function split_(n) { n = String(n || '').trim().replace(/\s+/g, ' '); var i = n.indexOf(' '); return i < 0 ? [n, ''] : [n.slice(0, i), n.slice(i + 1)]; }
 function profile_(r, teacher) {
   var o = { sid: r[0], name: String(r[1] || '').trim(), track: r[3] === true, inst: INST.indexOf(r[4]) >= 0 ? r[4] : 'guitar', hand: r[5] === 'left' ? 'left' : 'right',
-            about: String(r[8] || ''), since: ds_(r[9]) || ds_(r[2]) };
+            about: String(r[8] || ''), since: ds_(r[9]) || ds_(r[2]), routine: String(r[15] || '') };
   if (teacher) { o.status = r[11] === 'former' ? 'former' : 'current'; o.day = (r[12] === '' || r[12] == null) ? '' : Number(r[12]); o.time = hhmm_(r[13]);
     o.routineAt = r[14] instanceof Date ? stamp_(r[14]) : String(r[14] || ''); o.first = o.name; o.last = String(r[10] || '').trim(); o.name = full_(r); o.email = String(r[6] || ''); o.phone = String(r[7] || ''); }
   return o;
@@ -149,7 +152,7 @@ function student_(sid) {
   var s = rows_('Students').filter(function (r) { return r[0] === sid; })[0];
   if (!s) return { ok: false, error: 'no such student' };
   var drills = rows_('Drills').filter(function (r) { return r[1] === sid; }).map(drillObj_);
-  return { ok: true, student: profile_(s), drills: drills, checks: checksFor_(sid), opens: opensFor_(sid), songs: songsFor_(sid) };
+  return { ok: true, student: profile_(s), drills: drills, checks: checksFor_(sid), opens: opensFor_(sid), songs: songsFor_(sid), routines: routinesFor_(sid) };
 }
 
 function check_(p) {
@@ -178,6 +181,44 @@ function optin_(p) {
 function about_(p) {
   var i = rowOf_('Students', 0, p.sid); if (!i) return { ok: false, error: 'no such student' };
   var t = str_(p.text, 2000); sheet_('Students').getRange(i, 9).setValue(t); return { ok: true, about: t };
+}
+/* routines: the items in the routine now have a name (the student's or the teacher's); a routine can be saved under its name
+   and recalled later — recalling brings its items back into the routine and moves the others to Earlier items (nothing is
+   deleted: stars and practice time stay with each item) */
+function routinesFor_(sid) {
+  return rows_('Routines').filter(function (r) { return !sid || r[1] === sid; }).map(function (r) {
+    var items = []; try { items = JSON.parse(r[3]); } catch (e) {}
+    return { rtid: r[0], sid: r[1], name: String(r[2] || ''), items: items, saved: ds_(r[4]) };
+  });
+}
+function routine_(p) {
+  var si = rowOf_('Students', 0, p.sid); if (!si) return { ok: false, error: 'no such student' };
+  var st = sheet_('Students'), name = str_(p.name, 80).trim(), today = "'" + day_(new Date());
+  var mine = rows_('Drills').filter(function (r) { return r[1] === p.sid; });
+  if (p.op === 'name') { st.getRange(si, 16).setValue(name); }
+  else if (p.op === 'save') {
+    if (!name) return { ok: false, error: 'give the routine a name' };
+    var items = mine.filter(function (r) { return String(r[8] || '') !== 'retired'; }).map(function (r) { return r[0]; });
+    if (!items.length) return { ok: false, error: 'the routine is empty' };
+    var sh = sheet_('Routines'), v = sh.getDataRange().getValues(), done = false;
+    for (var i = 1; i < v.length; i++) if (v[i][1] === p.sid && String(v[i][2]).toLowerCase() === name.toLowerCase()) { sh.getRange(i + 1, 3, 1, 3).setValues([[name, JSON.stringify(items), today]]); done = true; break; }
+    if (!done) sh.appendRow([id_(8), p.sid, name, JSON.stringify(items), today]);
+    st.getRange(si, 16).setValue(name);
+  }
+  else if (p.op === 'recall') {
+    var rt = routinesFor_(p.sid).filter(function (r) { return r.rtid === p.rtid; })[0]; if (!rt) return { ok: false, error: 'no such routine' };
+    var keep = {}; rt.items.forEach(function (d) { keep[d] = 1; });
+    var dsh = sheet_('Drills'), dv = dsh.getDataRange().getValues();
+    for (var j = 1; j < dv.length; j++) if (dv[j][1] === p.sid) { var want = keep[dv[j][0]] ? '' : 'retired'; if (String(dv[j][8] || '') !== want) dsh.getRange(j + 1, 9).setValue(want); }
+    st.getRange(si, 16).setValue(rt.name);
+  }
+  else if (p.op === 'delete') {
+    var rsh = sheet_('Routines'), rv = rsh.getDataRange().getValues();
+    for (var k = rv.length - 1; k >= 1; k--) if (rv[k][0] === p.rtid && rv[k][1] === p.sid) rsh.deleteRow(k + 1);
+  }
+  else return { ok: false, error: 'unknown routine action' };
+  var r2 = rows_('Students').filter(function (x) { return x[0] === p.sid; })[0];
+  return { ok: true, routine: String(r2[15] || ''), routines: routinesFor_(p.sid), drills: rows_('Drills').filter(function (r) { return r[1] === p.sid; }).map(drillObj_) };
 }
 function song_(p) {
   if (!rowOf_('Students', 0, p.sid)) return { ok: false, error: 'no such student' };
@@ -249,7 +290,7 @@ function overview_() {
   var students = rows_('Students').map(function (r) { return profile_(r, true); }), D = rows_('Drills');
   students.forEach(function (s) { if (s.routineAt) return;   /* before routineAt was kept: the newest item's assignment */
     D.forEach(function (r) { if (r[1] === s.sid && r[7] instanceof Date) { var t = stamp_(r[7]); if (t > s.routineAt) s.routineAt = t; } }); });
-  return { ok: true, students: students, drills: D.map(drillObj_), checks: checksFor_(null), opens: opensFor_(null), songs: songsFor_(null) };
+  return { ok: true, students: students, drills: D.map(drillObj_), checks: checksFor_(null), opens: opensFor_(null), songs: songsFor_(null), routines: routinesFor_(null) };
 }
 
 /* a page opened on a student's device reports itself: once on opening (first), then the seconds played and open since its
