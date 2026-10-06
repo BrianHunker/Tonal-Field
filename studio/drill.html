@@ -13,9 +13,9 @@
 </head>
 <body>
 <p id="msg">Loading the drill…</p>
-<script src="config.js?v=33"></script>
-<script src="../lessons.js?v=33"></script>
-<script src="studio.js?v=33"></script>
+<script src="config.js?v=34"></script>
+<script src="../lessons.js?v=34"></script>
+<script src="studio.js?v=34"></script>
 <script>
 /* A routine item's page. A drill: its settings (from the sheet by ?d=id, or straight from the designer's "Try the drill" as
    #p=…) become a sequence, written into the instrument's template (guitar or bass), and the full Tonal Field tool opens on
@@ -79,7 +79,7 @@
       var lines=Math.min(4,Math.ceil(sq.bars/2));
       v.tab_.lines=lines; cfg.tab.lines=lines;
       if(cfg.misc)cfg.misc.degLight=[0.5,0,0,0,0,0,0];                 /* mode lighting: the root at half, every other degree off */
-      cfg.field.valence=(P.mode!=='Chromatic');                      /* g(x) off for a chromatic drill, as in the chromatic lessons */
+      cfg.field.valence=sq.modes.length>0;                        /* g(x) off for a chromatic drill, as in the chromatic lessons */
       if(left) lefty(cfg);
       var notes=(D.notes!=null?D.notes:S.autoNotes(P));
       cfg.notepad={'1':'<h3>'+S.esc(title)+'</h3><p class="np-sum">'+S.esc(S.summary(P))+'</p>'+htmlNotes(notes)};

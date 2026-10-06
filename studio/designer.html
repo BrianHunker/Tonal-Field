@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=33">
+<link rel="stylesheet" href="studio.css?v=34">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -29,18 +29,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 .dot button{width:22px;height:22px;border-radius:50%;border:1.5px solid #5a574f;background:none;cursor:pointer}
 .dot button[aria-pressed="true"]{background:var(--green);border-color:var(--green)}
 .dot button[disabled]{cursor:default}
-.pstep{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 8px}
-.pstep .label{margin:0 6px 0 0;display:inline}
-.seqwrap{margin:4px 0 12px;overflow-x:auto}
-.seqt{border-collapse:collapse;font-size:14px}
-.seqt th{font-size:12px;font-weight:600;color:var(--dim);text-align:left;padding:2px 8px 4px 0}
-.seqt td{padding:3px 6px 3px 0;white-space:nowrap}
-.seqt td.land{font-family:var(--mono);font-size:12px;color:var(--dim)}
-.seqt input{width:52px}
-.seqt select{max-width:108px}
-.seqt select[data-f="mode"]{max-width:86px}
-.seqt select[data-f="range"]{max-width:none}
-.seqt .x{border:none;background:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 6px}
+.shiftbar #shiftchips .chip{min-width:40px;font-family:var(--mono);font-weight:700}
 .preview{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
 .preview .glyphbox{display:flex;justify-content:center;padding:6px 0}
 .tones{display:flex;flex-wrap:wrap;gap:4px 8px;font-family:var(--mono);font-weight:700;font-size:14px}
@@ -114,6 +103,16 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <p class="hint" style="margin-top:8px">The student’s page gives it a stopwatch, and a button for the link.</p>
       </div>
 
+      <div class="sec k-drill shiftbar">
+        <h3>Shift</h3>
+        <div class="chips" id="shiftchips" role="group" aria-label="Shift"></div>
+        <div class="row" style="margin-top:10px;align-items:flex-end">
+          <label class="field"><span>Beats <span class="hint">(0 = one pass, to the bar line)</span></span><input type="number" id="beats" min="0" max="64" step="1" value="0" style="width:90px"></label>
+          <div class="field" id="loopwrap" hidden><span>The shifts</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
+          <button type="button" class="linkbtn" id="shiftdel" hidden>Remove this shift</button>
+        </div>
+        <p class="hint" style="margin-top:8px">Every setting below belongs to the shift selected here. + adds a shift, copied from this one. Tempo and minutes a day are the whole drill’s.</p>
+      </div>
       <div class="sec k-drill" id="anchorsec">
         <h3>Anchor</h3>
         <div class="anchors" id="anchors" role="group" aria-label="Anchor"></div>
@@ -122,17 +121,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <h3>Tonality</h3>
         <div class="row">
           <label class="field"><span>Position</span><select id="position"></select></label>
-          <label class="field" id="startwrap" hidden><span>From position</span><input type="number" id="start" min="0" max="20" value="1" style="width:90px"></label>
-          <label class="field" id="endwrap" hidden><span>To position</span><input type="number" id="end" min="0" max="20" value="5" style="width:90px"></label>
-          <label class="field" id="mrootwrap" hidden><span>Starting root</span><select id="mroot"></select></label>
-          <label class="field" id="mstepswrap" hidden><span>Degree steps (+ up, − down)</span><input type="number" id="msteps" step="1" value="3" style="width:110px"></label>
-          <div class="field" id="minposwrap" hidden><span>Shift by</span><div class="chips"><button type="button" class="chip" id="mby-string" aria-pressed="true">Along the string</button><button type="button" class="chip" id="minpos" aria-pressed="false">Stay in position</button></div></div>
-          <div class="field" id="loopwrap" hidden><span>Repeat</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
-        </div>
-        <div class="seqwrap" id="seqwrap" hidden>
-          <table class="seqt"><thead><tr><th>#</th><th>Root</th><th>Mode</th><th>Anchor</th><th>Hand</th><th class="rgcol">Range</th><th>Beats</th><th></th></tr></thead><tbody id="seqbody"></tbody></table>
-          <div class="row" style="margin-top:8px;align-items:center"><button type="button" class="chip" id="seqadd">+ Add a step</button>
-            <span class="hint">Each step: a root, the function it takes, and the anchor that holds it. Hand: a position, or Nearest (that anchor closest to the last hand position). For chords, pick the step under Shift in the preview and tap its voicing. Beats 0 = one pass, held to the bar line; otherwise the tones cycle to fill the beats.</span></div>
+          <label class="field"><span>Root</span><select id="root"></select></label>
         </div>
         <div class="row" id="moderow"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
         <div class="row" id="framerow"><div class="field"><span>Where the key doesn’t fit four frets</span><div class="chips" id="frames"></div><span class="hint" id="framehint"></span></div></div>
@@ -149,7 +138,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
       <div class="sec k-drill">
         <h3>Timing</h3>
         <div class="row">
-          <label class="field"><span>BPM</span><input type="number" id="bpm" min="20" max="300" value="60" style="width:90px"></label>
+          <label class="field"><span>BPM <span class="hint">(whole drill)</span></span><input type="number" id="bpm" min="20" max="300" value="60" style="width:90px"></label>
           <div class="field"><span>Subdivision</span><div class="chips" id="subs"></div></div>
         </div>
         <div class="row"><label class="field"><span>Articulation</span><select id="artic"></select></label></div>
@@ -171,7 +160,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <p class="label">Preview · <span id="pkind"></span></p>
         <p class="ptitle" id="ptitle"></p>
         <div class="k-drill">
-          <div class="pstep" id="pstepwrap" hidden><label><span class="label">Shift</span> <select id="pstep"></select></label> <span class="hint" id="pstephint"></span></div>
+          <p class="label" id="pshift"></p>
           <div class="glyphbox glyph" id="pglyph"></div>
           <p class="label">Tones, low to high</p>
           <div class="tones" id="ptones"></div>
@@ -184,13 +173,18 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=33"></script>
-<script src="../lessons.js?v=33"></script>
-<script src="studio.js?v=33"></script>
+<script src="config.js?v=34"></script>
+<script src="../lessons.js?v=34"></script>
+<script src="studio.js?v=34"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
-var PSTEP=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
+var D=null, CUR=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
 P.inst='guitar'; P.pv=2;   /* new drills count positions by the index finger */
+/* the drill: its shifts, each a whole configuration; P is the shift being edited (its settings with the drill's) */
+var GLOBAL_KEYS=['inst','bpm','daily','loop','pv'];
+function commit(){ if(!D)D={kind:'drill',shifts:[]}; D.shifts[CUR]=S.shiftOf(P); GLOBAL_KEYS.forEach(function(k){ if(P[k]!==undefined)D[k]=P[k]; }); D.kind='drill'; return D; }
+function view(i){ commit(); CUR=Math.max(0,Math.min(D.shifts.length-1,i)); P=Object.assign(S.defaults(),S.shiftP(D,CUR)); }
+function drillD(){ commit(); return JSON.parse(JSON.stringify(D)); }
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
 var $=function(id){ return document.getElementById(id); };
 if(S.isDemo()) $('demo').innerHTML='<p class="demo">Demo mode: drills and students are saved only in this browser until the Google Sheet is connected.</p>';
@@ -204,7 +198,6 @@ function chips(host,items,get,set,label,off){
 }
 function canDrill(){ return !!S.INSTRUMENTS[P.inst].drills; }
 function renderControls(){
-  if(P.position==='custom'){ var s0=S.csteps(P)[0]; P.anchor=s0.anchor; P.mode=s0.mode; }   /* the drill is named, lit and ranged from its first step */
   var locked=!!cur;   /* an existing student's instrument and hand come from their profile */
   chips($('insts'),['guitar','bass','keyboard'].map(function(k){ return {id:k,name:S.INSTRUMENTS[k].name}; }),function(){return P.inst;},function(v){ P.inst=v; },null,function(){ return locked; });
   chips($('hands'),[{id:'right',name:'Right'},{id:'left',name:'Left'}],function(){return HAND;},function(v){ HAND=v; },null,function(){ return locked; });
@@ -247,41 +240,16 @@ function renderControls(){
   for(var i=0;i<=12;i++){ (function(i){ var d=document.createElement('div'); d.className='dot'; var on=(i===0||i===12)?true:!!P.custom[i];
     d.innerHTML='<button type="button" aria-pressed="'+on+'" aria-label="'+i+' semitones"'+((i===0||i===12)?' disabled':'')+'></button><span>'+i+'</span>';
     d.querySelector('button').onclick=function(){ P.custom[i]=P.custom[i]?0:1; render(); }; cu.appendChild(d); })(i); }
-  var sh=S.isShift(P), modal=(P.position==='modal'), cust=(P.position==='custom'), chromS=(P.position==='chromatic');
-  $('startwrap').hidden=!chromS; $('endwrap').hidden=!chromS; $('loopwrap').hidden=!sh;
-  $('mrootwrap').hidden=!modal; $('mstepswrap').hidden=!modal; $('minposwrap').hidden=!modal||P.mode==='Chromatic'; $('seqwrap').hidden=!cust;
-  $('anchorsec').hidden=cust; $('moderow').hidden=cust; $('rangerow').hidden=cust||chord;   /* a custom shift: every step names its own mode and anchor */
-  $('mby-string').setAttribute('aria-pressed',String(!P.minpos)); $('minpos').setAttribute('aria-pressed',String(!!P.minpos));
-  if(cust)renderCustom();
-  if(modal){   /* a modal shift moves by degree: a chromatic root on the root string, then ± steps through the key, as far as the neck allows */
-    if(P.mroot==null||P.mroot===''){ var b0=S.boxes(Object.assign({},P,{position:5}))[0]; P.mroot=b0.root.fret; if(P.msteps==null)P.msteps=3; }
-    var roots=S.modalRoots(P), mr=$('mroot'), key=roots.map(function(r){ return r.fret+r.name; }).join('|');
-    if(mr.getAttribute('data-k')!==key){ mr.innerHTML=roots.map(function(r){ return '<option value="'+r.fret+'">'+S.esc(r.name)+' · fret '+r.fret+'</option>'; }).join(''); mr.setAttribute('data-k',key); }
-    if(!roots.some(function(r){ return r.fret===+P.mroot; }))P.mroot=roots[0].fret;
-    mr.value=String(P.mroot);
-    var lim=S.modalLimits(P), ms=$('msteps'); P.msteps=Math.max(-lim.down,Math.min(lim.up,Math.round(+P.msteps||0)));
-    ms.min=-lim.down; ms.max=lim.up; if(document.activeElement!==ms)ms.value=P.msteps;
-    ms.title='From here: up to +'+lim.up+', down to −'+lim.down;
-    $('mstepswrap').querySelector('span').textContent='Degree steps (up to +'+lim.up+', down to −'+lim.down+')';
-  } $('loop').setAttribute('aria-pressed',String(P.loop!==false));
-}
-/* a custom shift: one row per step — root, mode, anchor, hand, beats — in no key */
-function renderCustom(){
-  var st=S.csteps(P), key=JSON.stringify([P.csteps,P.inst,P.structure,P.range,P.frame,P.artic]), tb=$('seqbody');
-  if(tb.getAttribute('data-k')===key)return; tb.setAttribute('data-k',key);
-  var A=S.anchorsFor(P.inst);
-  function opt(v,t,cur){ return '<option value="'+S.esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+S.esc(t)+'</option>'; }
-  var scale=(P.structure!=='chord'); document.querySelector('.seqt th.rgcol').hidden=!scale;   /* a chord takes its whole frame */
-  tb.innerHTML=st.map(function(x,i){
-    var sp=function(pc){ return x.mode==='Chromatic'?S.LETTERS[pc]:S.spellRoot(pc,x.mode); };
-    return '<tr><td>'+(i+1)+'</td>'
-      +'<td><select data-i="'+i+'" data-f="root">'+[0,1,2,3,4,5,6,7,8,9,10,11].map(function(pc){ return opt(pc,sp(pc),x.root); }).join('')+'</select></td>'
-      +'<td><select data-i="'+i+'" data-f="mode">'+S.MODES.map(function(m){ return opt(m,m,x.mode); }).join('')+'</select></td>'
-      +'<td><select data-i="'+i+'" data-f="anchor">'+A.map(function(a){ return opt(a.id,a.word,x.anchor); }).join('')+'</select></td>'
-      +'<td><select data-i="'+i+'" data-f="pos">'+(i?opt('near','Nearest',x.pos):'')+Array.apply(null,{length:21}).map(function(_,n){ return opt(n,n===0?'Open (0)':'Pos. '+n,x.pos); }).join('')+'</select></td>'
-      +(scale?'<td><select data-i="'+i+'" data-f="range">'+S.rangesFor(x.anchor,P.inst).map(function(r){ return opt(r.id,r.name,x.range); }).join('')+'</select></td>':'')
-      +'<td><input type="number" min="0" max="64" step="1" data-i="'+i+'" data-f="beats" value="'+x.beats+'"></td>'
-      +'<td>'+(st.length>1?'<button type="button" class="x" data-del="'+i+'" aria-label="Remove step '+(i+1)+'">×</button>':'')+'</td></tr>'; }).join('');
+  var rs=$('root'), rk=P.mode+'|'+P.inst;   /* the root, spelled for its mode */
+  if(rs.getAttribute('data-k')!==rk){ rs.innerHTML=[0,1,2,3,4,5,6,7,8,9,10,11].map(function(pc){ return '<option value="'+pc+'">'+S.esc(P.mode==='Chromatic'?S.LETTERS[pc]:S.spellRoot(pc,P.mode))+'</option>'; }).join(''); rs.setAttribute('data-k',rk); }
+  rs.value=String(((+P.root||0)%12+12)%12);
+  var n=D?D.shifts.length:1, sc=$('shiftchips');
+  if(sc.getAttribute('data-k')!==n+'|'+CUR){ sc.setAttribute('data-k',n+'|'+CUR); sc.innerHTML='';   /* rebuilt only when the shifts change, so a click is never lost to a redraw */
+  for(var k=0;k<n;k++){ (function(k){ var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=String(k+1); b.setAttribute('aria-pressed',String(k===CUR)); b.onclick=function(){ view(k); render(); }; sc.appendChild(b); })(k); }
+  var add=document.createElement('button'); add.type='button'; add.className='chip'; add.textContent='+'; add.title='Add a shift, copied from this one';
+  add.onclick=function(){ commit(); D.shifts.splice(CUR+1,0,S.shiftOf(P)); view(CUR+1); render(); }; sc.appendChild(add); }
+  if(document.activeElement!==$('beats'))$('beats').value=String(+P.beats||0); $('loopwrap').hidden=n<2; $('shiftdel').hidden=n<2;
+  $('loop').setAttribute('aria-pressed',String(P.loop!==false)); $('position').value=String(P.position);
 }
 /* the song: one of the student's, or a new one that joins their repertoire on Submit */
 function lessonOptions(sel,val){ var L=(window.LESSONS||[]).filter(function(x){ return x.kind==='music'; }).sort(function(a,b){ return a.title<b.title?-1:1; });
@@ -297,7 +265,7 @@ function renderSong(){
 }
 function song(){ return songs.filter(function(x){ return x.rid===SONG.rid; })[0]||(SONG.title?{title:SONG.title,artist:SONG.artist}:null); }
 function autoTitle(){
-  if(KIND==='drill') return S.title(P);
+  if(KIND==='drill') return S.title(drillD());
   if(KIND==='song'){ var s=song(); var t=s?s.title:'A song'; return SONG.part?t+' · '+SONG.part:t; }
   return TASK.label;
 }
@@ -305,48 +273,26 @@ function params(){
   var daily=Math.max(0.5,Math.min(120,+$('daily').value||1));
   if(KIND==='song') return {kind:'song',rid:SONG.rid,part:SONG.part,daily:daily};
   if(KIND==='task') return {kind:'task',label:TASK.label,link:TASK.link,daily:daily};
-  var o=JSON.parse(JSON.stringify(P)); o.kind='drill'; o.daily=daily; return o;
+  var o=drillD(); o.daily=daily; return o;
 }
 (function(){
   var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
-    o.textContent=p===0?'Position 0 (open)':(p==='chromatic'?'Chromatic shift':(p==='modal'?'Modal shift':(p==='custom'?'Custom shift':'Position '+p))); ps.appendChild(o); });
-  ps.value=String(P.position); ps.onchange=function(){ var v=this.value;
-    if(v==='custom'&&!(P.csteps&&P.csteps.length)) P.csteps=S.toCustom(P);   /* starts from the drill as it stands */
-    P.position=(/^\d+$/.test(v)?+v:v); PSTEP=0; render(); };
+    o.textContent=p===0?'Position 0 (open)':'Position '+p; ps.appendChild(o); });
+  ps.onchange=function(){ P.position=+this.value; P.chord=null; render(); };   /* a voicing belongs to its place on the neck */
+  $('root').onchange=function(){ P.root=+this.value; render(); };
+  $('beats').oninput=function(){ P.beats=Math.max(0,Math.min(64,Math.round(+this.value||0))); render(); };
+  $('shiftdel').onclick=function(){ commit(); if(D.shifts.length<2)return; D.shifts.splice(CUR,1); CUR=Math.min(CUR,D.shifts.length-1); P=Object.assign(S.defaults(),S.shiftP(D,CUR)); render(); };
   var ar=$('artic');
   ar.onchange=function(){ var was=S.isStrum(P); P.artic=this.value;
     if(P.structure==='chord'&&!was&&S.isStrum(P)&&P.chord){ var keep={}; P.chord.forEach(function(t){ keep[t[0]]=t; }); P.chord=Object.keys(keep).map(function(k){ return keep[k]; }); }   /* a strum keeps one tone per string: the last chosen */
-    var one=function(c){ var kp={}; c.forEach(function(t){ kp[t[0]]=t; }); return Object.keys(kp).map(function(q){ return kp[q]; }); };
-    if(P.structure==='chord'&&!was&&S.isStrum(P)){ if(P.csteps)P.csteps=P.csteps.map(function(x){ return x.chord?Object.assign({},x,{chord:one(x.chord)}):x; });
-      if(P.mvoice){ var mv={}; Object.keys(P.mvoice).forEach(function(q){ mv[q]=one(P.mvoice[q]); }); P.mvoice=mv; } }
     render(); };
   $('ring').onchange=function(){ P.ring=this.checked; render(); };
   /* a tap on the preview's fretboard: a chord tone on or off */
   $('pglyph').addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('.cand'); if(!t||P.structure!=='chord')return;
-    var k=PSTEP, sf=+t.getAttribute('data-s'), ff=+t.getAttribute('data-f'), sel=S.chordToggle(P,sf,ff,k);
-    if(P.position==='custom'){ P.csteps=S.csteps(P); P.csteps[k].chord=sel; }
-    else if(!k) P.chord=sel;
-    else if(P.position==='modal'){ P.mvoice=Object.assign({},P.mvoice||{}); P.mvoice[k]=sel; }   /* a step of the walk, voiced on its own */
-    render(); });
-  $('pstep').onchange=function(){ PSTEP=+this.value; render(); };
+    P.chord=S.chordToggle(P,+t.getAttribute('data-s'),+t.getAttribute('data-f')); render(); });
   $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
   $('daily').oninput=function(){ P.daily=Math.max(0.5,Math.min(120,+this.value||1)); render(); };
-  $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
-  $('mroot').onchange=function(){ P.mroot=+this.value; render(); };
-  $('msteps').oninput=function(){ P.msteps=Math.round(+this.value||0); render(); };
-  $('msteps').onchange=function(){ render(); this.value=P.msteps; };   /* shows the step count the neck allows */
-  $('end').oninput=function(){ P.end=Math.max(0,Math.min(20,+this.value||0)); render(); };
   $('loop').onclick=function(){ P.loop=(P.loop===false); render(); };
-  $('mby-string').onclick=function(){ P.minpos=false; P.mvoice=null; render(); };
-  $('minpos').onclick=function(){ P.minpos=true; P.mvoice=null; render(); };   /* the walk's steps change: their voicings go */
-  $('seqadd').onclick=function(){ var st=S.csteps(P), last=st[st.length-1];
-    P.csteps=st.concat([{root:last.root,mode:last.mode,anchor:last.anchor,range:last.range,pos:'near',beats:last.beats}]); render(); };
-  $('seqbody').addEventListener('change',function(e){ var t=e.target, i=+t.getAttribute('data-i'), f=t.getAttribute('data-f'); if(!f)return;
-    P.csteps=S.csteps(P);
-    if(f==='anchor'||f==='pos')P.csteps[i].chord=null;   /* a voicing belongs to its strings and its place on the neck */
-    P.csteps[i][f]=(f==='beats'||f==='root')?Math.max(0,Math.min(64,Math.round(+t.value||0))):(f==='pos'&&/^\d+$/.test(t.value)?+t.value:t.value); render(); });
-  $('seqbody').addEventListener('click',function(e){ var d=e.target.getAttribute&&e.target.getAttribute('data-del'); if(d==null)return;
-    P.csteps=S.csteps(P).filter(function(_,i){ return i!==+d; }); if(PSTEP>=P.csteps.length)PSTEP=0; render(); });
   $('date').value=S.ymd(new Date());
   $('notes').oninput=function(){ notesEdited=true; };
   $('title').oninput=function(){ titleEdited=true; $('ptitle').textContent=$('title').value||autoTitle(); };
@@ -386,21 +332,15 @@ function render(){
     $('psum').textContent=daily+' min a day · '+(KIND==='song'?(les?'opens its Tonal Field lesson':'with a stopwatch'):(TASK.link?'with a stopwatch and a link':'with a stopwatch'));
     return;
   }
-  var B=S.boxes(P), V=S.isShift(P)?S.boxes(Object.assign({},P,{loop:false})):B;   /* the steps, once through */
-  if(PSTEP>=V.length)PSTEP=0;
-  var b=V[PSTEP], canEdit=P.structure==='chord'&&(PSTEP===0||P.position!=='chromatic');
-  $('pstepwrap').hidden=V.length<2;
-  if(V.length>1){ var psk=V.map(function(x,i){ return (i+1)+' · '+(x.mode==='Chromatic'?S.LETTERS[x.rootPc]:S.rootLabel(x)); }).join('|'), pe=$('pstep');
-    if(pe.getAttribute('data-k')!==psk){ pe.innerHTML=psk.split('|').map(function(t,i){ return '<option value="'+i+'">'+S.esc(t)+'</option>'; }).join(''); pe.setAttribute('data-k',psk); }
-    pe.value=String(PSTEP);
-    $('pstephint').textContent=P.structure!=='chord'?'':(PSTEP===0?'the drill’s own voicing':(P.position==='chromatic'?'a chromatic shift slides shift 1’s voicing':(((P.position==='custom'&&S.csteps(P)[PSTEP].chord)||(P.position==='modal'&&P.mvoice&&P.mvoice[PSTEP]))?'its own voicing':'tap to give this shift its own voicing'))); }
-  $('pglyph').innerHTML=S.glyphSVG(Object.assign({},P,b.step?{anchor:b.step.anchor,mode:b.step.mode}:{}),{box:b,tones:true,frets:true,size:2.1,edit:canEdit});
+  var DD=drillD(), b=S.boxes(P)[0], n=DD.shifts.length;
+  $('pshift').textContent=n>1?'Shift '+(CUR+1)+' of '+n+' · '+S.rootLabel(b):'';
+  $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1,edit:P.structure==='chord'});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
-  var sq=S.sequence(P), got=S.posOf(P,b), want=P.position==='open'?0:+P.position;
-  var miss=(!S.isShift(P)&&got!==want)?' · Position '+want+' can’t hold this shape so near the nut; this is the nearest, position '+got+'.':'';
-  $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(P)+miss+' · '+sq.length+' notes'+(B.length>1?' over '+B.length+' boxes':'')+', '+sq.bars+' bar'+(sq.bars===1?'':'s');
-  if(!notesEdited)$('notes').value=S.autoNotes(P);
-  $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(Object.assign({},P,{hand:HAND})));
+  var sq=S.sequence(DD), got=S.handPos(P,b), want=+P.position;
+  var miss=got!==want?' · Shift '+(CUR+1)+': '+S.rootLabel(b)+' with this anchor can’t sit at position '+want+'; the nearest is position '+got+'.':'';
+  $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(DD)+miss+' · '+sq.length/(sq.per/8)+' eighths long, '+sq.bars+' bar'+(sq.bars===1?'':'s');
+  if(!notesEdited)$('notes').value=S.autoNotes(DD);
+  $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(Object.assign({},DD,{hand:HAND})));
 }
 
 /* ── the passphrase (kept in this browser), students for the name list ── */
@@ -469,28 +409,24 @@ $('form').onsubmit=function(e){
 /* ── designer.html?edit=<item id>: open an assigned item to correct it ── */
 (function(){ var m=/[?&]edit=([\w]+)/.exec(location.search); if(!m)return;
   S.api('drill',{did:m[1]}).then(function(r){ if(!r.ok){ $('suberr').textContent='That item was not found.'; return; }
-    var D=r.drill, pr=D.params||{}; KIND=S.kindOf(D);
-    if(KIND==='drill'){ P=Object.assign(S.defaults(),pr); if(!pr.inst)P.inst='guitar';
-      if(P.position==='modal'&&(P.mroot==null||P.mroot==='')){   /* a modal shift saved by positions: the same walk, by root and degree steps */
-        var bx=S.boxes(Object.assign({},P,{loop:false})); P.mroot=bx[0].root.fret; P.msteps=(+P.end>=+P.start?1:-1)*(bx.length-1); }
-      if(!(pr.pv>=2)){   /* saved before index positions: keep the same boxes, renumbered by the index finger */
-        var old=Object.assign({},P,{pv:0}), at=function(w){ var q=Object.assign({},old,{position:w}); return S.handPos(Object.assign({},P,{pv:2}),S.boxes(q)[0]); };
-        if(S.isShift(P)){ P.start=at(+P.start||0); P.end=at(+P.end||0); } else P.position=at(P.position==='open'?0:+P.position);
-        P.pv=2; } }
+    var IT=r.drill, pr=IT.params||{}; KIND=S.kindOf(IT);
+    if(KIND==='drill'){   /* a drill saved before shifts: its boxes, as shifts */
+      D=pr.shifts?JSON.parse(JSON.stringify(pr)):S.toShifts(Object.assign(S.defaults(),pr,{inst:pr.inst||'guitar'})); D.kind='drill'; D.pv=2;
+      CUR=0; P=Object.assign(S.defaults(),S.shiftP(D,0)); }
     else { P.inst=D.inst||'guitar'; P.daily=pr.daily||1; }
     if(KIND==='song'){ SONG={rid:pr.rid||'',title:'',artist:'',lesson:'',part:pr.part||''}; $('spart').value=SONG.part; }
     if(KIND==='task'){ TASK={label:pr.label||'Other',link:pr.link||''}; $('tlink').value=TASK.link; }
-    HAND=D.hand||'right';
-    $('title').value=D.title||''; titleEdited=!!D.title; $('notes').value=D.notes||''; notesEdited=true;
-    $('date').value=D.date||''; $('ex').value=D.ex||'';
-    $('position').value=String(P.position); $('artic').value=P.artic; $('bpm').value=P.bpm; $('daily').value=P.daily||1; $('start').value=P.start; $('end').value=P.end;
-    return S.api('students',{pass:pass}).then(function(q){ students=q.students||[]; var st=students.filter(function(x){ return x.sid===D.sid; })[0];
-      editing={did:D.did,ex:D.ex,name:st?st.name:'this student'}; cur=st||null;
+    HAND=IT.hand||'right';
+    $('title').value=IT.title||''; titleEdited=!!IT.title; $('notes').value=IT.notes||''; notesEdited=true;
+    $('date').value=IT.date||''; $('ex').value=IT.ex||'';
+    $('artic').value=P.artic; $('bpm').value=P.bpm; $('daily').value=P.daily||1;
+    return S.api('students',{pass:pass}).then(function(q){ students=q.students||[]; var st=students.filter(function(x){ return x.sid===IT.sid; })[0];
+      editing={did:IT.did,ex:IT.ex,name:st?st.name:'this student'}; cur=st||null;
       $('student').value=editing.name; $('student').readOnly=true;
       document.querySelector('h1').textContent='Edit item';
-      $('lede').innerHTML='Item '+S.esc(D.ex)+' for '+S.esc(editing.name)+'. Saving changes it on their page; their stars and practice time stay. <a href="overview.html">Cancel</a>';
+      $('lede').innerHTML='Item '+S.esc(IT.ex)+' for '+S.esc(editing.name)+'. Saving changes it on their page; their stars and practice time stay. <a href="overview.html">Cancel</a>';
       $('submit').textContent='Save changes';
-      return S.api('student',{sid:D.sid}).then(function(x){ songs=(x&&x.songs)||[]; render(); }); });
+      return S.api('student',{sid:IT.sid}).then(function(x){ songs=(x&&x.songs)||[]; render(); }); });
   });
 })();
 render();
