@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=37">
+<link rel="stylesheet" href="studio.css?v=39">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -108,7 +108,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <div class="chips" id="shiftchips" role="group" aria-label="Shift"></div>
         <div class="row" style="margin-top:10px;align-items:flex-end">
           <label class="field"><span>Beats <span class="hint">(0 = one pass, to the bar line)</span></span><input type="number" id="beats" min="0" max="64" step="1" value="0" style="width:90px"></label>
-          <div class="field" id="loopwrap" hidden><span>The shifts</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
+          <div class="field" id="loopwrap"><span>Repeat</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
           <button type="button" class="linkbtn" id="shiftdel" hidden>Remove this shift</button>
         </div>
         <p class="hint" style="margin-top:8px">Every setting below belongs to the shift selected here. + adds a shift, copied from this one. Tempo and minutes a day are the whole drill’s.</p>
@@ -172,13 +172,13 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=37"></script>
-<script src="../lessons.js?v=37"></script>
-<script src="studio.js?v=37"></script>
+<script src="config.js?v=39"></script>
+<script src="../lessons.js?v=39"></script>
+<script src="studio.js?v=39"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var D=null, CUR=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
-P.inst='guitar'; P.pv=2;   /* new drills count positions by the index finger */
+P.inst='guitar'; P.pv=2; P.note=19;   /* new drills count positions by the index finger; a new shift's root: G2 */
 /* the drill: its shifts, each a whole configuration; P is the shift being edited (its settings with the drill's) */
 var GLOBAL_KEYS=['inst','bpm','daily','loop','pv'];
 function commit(){ if(!D)D={kind:'drill',shifts:[]}; D.shifts[CUR]=S.shiftOf(P); GLOBAL_KEYS.forEach(function(k){ if(P[k]!==undefined)D[k]=P[k]; }); D.kind='drill'; return D; }
@@ -248,7 +248,7 @@ function renderControls(){
   for(var k=0;k<n;k++){ (function(k){ var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=String(k+1); b.setAttribute('aria-pressed',String(k===CUR)); b.onclick=function(){ view(k); render(); }; sc.appendChild(b); })(k); }
   var add=document.createElement('button'); add.type='button'; add.className='chip'; add.textContent='+'; add.title='Add a shift, copied from this one';
   add.onclick=function(){ commit(); D.shifts.splice(CUR+1,0,S.shiftOf(P)); view(CUR+1); render(); }; sc.appendChild(add); }
-  if(document.activeElement!==$('beats'))$('beats').value=String(+P.beats||0); $('loopwrap').hidden=n<2; $('shiftdel').hidden=n<2;
+  if(document.activeElement!==$('beats'))$('beats').value=String(+P.beats||0); $('shiftdel').hidden=n<2;   /* Loop: repeat the drill, or play it once (one shift or many) */
   $('loop').setAttribute('aria-pressed',String(P.loop!==false));
 }
 /* the song: one of the student's, or a new one that joins their repertoire on Submit */

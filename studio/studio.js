@@ -82,7 +82,7 @@ function isStrum(P){ return P.structure==='chord'&&/^Strumming/.test(fitArtic(P)
    three tones per string (major frames), and the position drifts with the B–G tuning and the Fa–Ti mismatch. Chromatic drills
    take the four-tone frame on every string. Ids kept from before: 'half' is Shift, 'three' is Stretch. */
 var FRAMES=[ {id:'half',name:'Shift'}, {id:'three',name:'Stretch'} ];
-function defaults(){ return { anchor:'E>', note:19, beats:0, start:1, end:5, loop:true, daily:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
+function defaults(){ return { anchor:'E>', beats:0, start:1, end:5, loop:true, daily:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
 /* ── one frame: the anchor placed with its box starting at fret w, and every tone of the key between (and around) its
@@ -376,9 +376,9 @@ function shiftBox(P){
   if(P.note!=null&&P.note!==''){ use(P); var A=anchorOf(P.anchor), Q=Object.assign({},P,{pv:2,chord:P.structure==='chord'?P.chord:null}); return boxAt(Q,fitNote(P)-OPEN[A.root]-rootOffset(A),P.mode); }
   return placeRoot(P,P.anchor,((+P.root||0)%12+12)%12,P.mode,+P.position||0,P.structure==='chord'?P.chord:null,P.range); }
 function nShifts(P){ return P.shifts?P.shifts.length:1; }
-/* a drill saved before shifts, as shifts: its boxes, once through */
-function toShifts(P){ use(P); var B=boxes(Object.assign({},P,{loop:false})), mv=P.mvoice||{};
-  var D={inst:P.inst||'guitar',bpm:P.bpm,daily:P.daily,loop:P.loop,kind:'drill',pv:2};
+/* a drill saved before shifts, as shifts: its boxes, as it plays them */
+function toShifts(P){ use(P); var B=boxes(P), mv=P.mvoice||{};   /* as it plays: a looping run there and back keeps its way back */
+  var D={inst:P.inst||'guitar',bpm:P.bpm,daily:P.daily,loop:!(isShift(P)&&P.loop===false),kind:'drill',pv:2};
   D.shifts=B.map(function(b,i){ var Q=Object.assign({},P,{mode:b.mode}), o=shiftOf(P); o.note=b.root.pitch; o.mode=b.mode; o.beats=0;
     o.chord=(P.structure==='chord')?(i?(mv[i]||b.chordSel):(P.chord||null)):null; return o; });
   return D; }
@@ -426,7 +426,7 @@ function sequence(P){
     if(b.mode!=='Chromatic'){ var F=fnByName(b.mode); modes.push({col:col,anchor:b.rootPc,val:F.v}); }
     r.notes.forEach(function(n){ notes.push({start:col+n.start*k,dur:n.dur*k,pitch:n.pitch,vel:n.vel,voice:n.voice}); });
     col+=r.len*k; });
-  var loop=P.shifts?(P.loop!==false):!(isShift(P)&&P.loop===false);
+  var loop=P.shifts?(P.loop!==false):!(isShift(P)&&P.loop===false);   /* shifts: the drill's Loop; saved before shifts: one box always looped */
   return { notes:notes, modes:modes, length:col, per:G, bars:Math.max(1,Math.ceil(col/G)), boxes:items.map(function(x){ return x[1]; }), loop:loop };
 }
 
