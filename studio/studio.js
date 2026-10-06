@@ -271,6 +271,7 @@ function boxes(P){
   var A=anchorOf(P.anchor), ro=rootOffset(A), a=Math.max(0,+P.start||0), e=Math.max(0,(P.end===undefined||P.end==='')?a:+P.end), d=e>=a?1:-1, out=[], v2=P.pv>=2;
   var at=function(N,mode){ return v2?boxFor(P,N,mode):boxAt(P,N,mode); };
   if(P.position==='chromatic'){ for(var w=a;d>0?w<=e:w>=e;w+=d){ var bx=at(w,P.mode); if(!out.length||out[out.length-1].w!==bx.w)out.push(bx); } }
+  else if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''&&P.mseq&&P.mode!=='Chromatic') return seqBoxes(P);   /* a written sequence plays as written, and loops from its start */
   else if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){   /* by degree: from a chromatic root on the root string, n steps through the key */
     var M=modalWalk(P);
     if(P.minpos&&P.mode!=='Chromatic'){   /* in position: the hand stays; each step re-reads the same frets from the next degree */
@@ -340,6 +341,34 @@ function inPosBox(P,b0,full0,rootPc,modeName){
   return { w:b0.w, gw:b0.gw, gn:b0.gn, cells:cells, anchorCells:cells.filter(function(c){ return c.anchor; }), root:rc, rootPc:rootPc, mode:modeName, doPc:doPc,
            cand:[], muted:b0.muted||[], chordSel:b0.chordSel, inpos:true };
 }
+/* ── a written modal sequence: P.shifts = [{beats}, {deg, anchor, pos, beats}, …]. The first step is the drill itself (its mode,
+      anchor and starting root); each later step names the degree of the key its root lands on, the anchor that holds it, and
+      where the hand goes: an index-finger position, 'near' (the placement of that anchor closest to the last hand position), or
+      'same' (the same frets as the step before, re-read from the new root, as in Stay in position). beats: how long the step
+      lasts (its tones cycle to fill it); 0 = one pass, held to the bar line. ── */
+function keyDo(P){ use(P); var A=anchorOf(P.anchor); return (((OPEN[A.root]+(+P.mroot))%12-fnByName(P.mode).s)%12+12)%12; }
+function placeStep(P,anchor,deg,N){   /* the anchor's placement whose root takes degree deg, the hand nearest position N */
+  use(P); var A=anchorOf(anchor), ro=rootOffset(A), pc=(keyDo(P)+fnByName(deg).s)%12, Q=Object.assign({},P,{anchor:anchor,pv:2}), best=null, bd=1e9;
+  if(anchor!==P.anchor)Q.chord=null;   /* a chord voiced on the drill's anchor: another anchor takes its own modal triad */
+  for(var f=ro;f<=MAXW+ro;f++){ if(((OPEN[A.root]+f)%12+12)%12!==pc)continue; var b=boxAt(Q,f-ro,deg), d=Math.abs(handPos(Q,b)-N); if(d<bd){ bd=d; best=b; } }
+  return best; }
+function seqSteps(P){ var L=(P.shifts&&P.shifts.length)?P.shifts:[{beats:0}];
+  return L.map(function(x,i){ return i?{deg:fnByName(x.deg)?x.deg:'Do',anchor:anchorOf(x.anchor).id,pos:(x.pos==='same'||x.pos==='near')?x.pos:Math.max(0,Math.min(20,+x.pos||0)),beats:Math.max(0,+x.beats||0)}
+                                     :{deg:P.mode,anchor:P.anchor,pos:'start',beats:Math.max(0,+x.beats||0)}; }); }
+function seqBoxes(P){
+  use(P); var S=seqSteps(P), out=[], real=null, prev=null, hand=0;
+  S.forEach(function(st,i){ var b;
+    if(i===0){ var A=anchorOf(P.anchor); b=boxAt(P,+P.mroot-rootOffset(A),P.mode); }
+    else if(st.pos==='same'){ var pc=(keyDo(P)+fnByName(st.deg).s)%12; b=inPosBox(P,real.b,real.full,pc,st.deg); }
+    else b=placeStep(P,st.anchor,st.deg,st.pos==='near'?hand:st.pos);
+    if(!b)return;
+    if(!b.inpos){ var Q=Object.assign({},P,{anchor:st.anchor}), chromF=(P.structure==='chromatic'||P.structure==='custom');
+      real={b:b,full:boxAt(Object.assign({},Q,{structure:chromF?'chromatic':'mode',range:'all'}),b.w,b.mode)}; hand=handPos(Q,b); }
+    b.beats=st.beats; b.step=st; out.push(b); prev=b; });
+  return out; }
+/* the generated walk, written out as a sequence to edit: same degrees, the hand where the walk puts it */
+function walkSteps(P){ use(P); var M=modalWalk(P), Q=Object.assign({},P,{pv:2});
+  return M.map(function(x,i){ return i?{deg:x.mode,anchor:P.anchor,pos:P.minpos?'same':handPos(Q,boxAt(P,x.w,x.mode)),beats:0}:{beats:0}; }); }
 /* for the designer: the roots the drill can start on, and how far it can walk from one */
 function modalRoots(P){ use(P); var A=anchorOf(P.anchor), ro=rootOffset(A), L=[];
   for(var f=ro;f<=MAXW+ro;f++){ var pc=(OPEN[A.root]+f)%12; L.push({fret:f,name:P.mode==='Chromatic'?LETTERS[pc]:spellRoot(pc,P.mode)}); } return L; }
@@ -367,10 +396,13 @@ function sequence(P){
   var B=boxes(P), notes=[], modes=[], col=0, per=+P.sub||8;
   B.forEach(function(b){
     if(b.mode!=='Chromatic'){ var F=fnByName(b.mode); modes.push({col:col,anchor:b.rootPc,val:F.v}); }
-    var c0=col;
-    if(isStrum(P)){ for(var h=0;h<per;h++){ b.cells.forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); }); col++; } }   /* a strum on every cell of the bar */
+    var c0=col, len=b.beats?Math.round(b.beats*per/4):0;
+    if(len){ var cyc=isStrum(P)?null:ordered(b.cells,P.dir,len);   /* a step of set length: its tones cycle to fill it */
+      for(var h2=0;h2<len;h2++){ if(cyc){ if(cyc.length){ var c2=cyc[h2%cyc.length]; notes.push({start:col,dur:1,pitch:c2.pitch,vel:96,voice:c2.string-1}); } }
+        else b.cells.forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); }); col++; } }
+    else if(isStrum(P)){ for(var h=0;h<per;h++){ b.cells.forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); }); col++; } }   /* a strum on every cell of the bar */
     else ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
-    var pad=(per-(col-c0)%per)%per; if(pad&&notes.length){ notes[notes.length-1].dur+=pad; col+=pad; }   /* each box fills whole bars: its last tone holds to the bar line, so the next box (or the loop) starts on a downbeat */
+    var pad=len?0:(per-(col-c0)%per)%per; if(pad&&notes.length){ notes[notes.length-1].dur+=pad; col+=pad; }   /* each box fills whole bars: its last tone holds to the bar line, so the next box (or the loop) starts on a downbeat */
     if(P.structure==='chord'&&!isStrum(P)&&P.ring!==false){   /* a ringing arpeggio: each tone sounds until its string plays again, or the box ends */
       var mine=notes.filter(function(x){ return x.start>=c0; });
       mine.forEach(function(x){ var nx=mine.filter(function(y){ return y.voice===x.voice&&y.start>x.start; }).reduce(function(m,y){ return Math.min(m,y.start); },col); x.dur=Math.max(x.dur,nx-x.start); }); }
@@ -414,6 +446,8 @@ function anchorPhrase(P){ var a=playedAnchor(P); return 'anchored on the '+STRIN
 function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(rootName(b)+' as '+P.mode);
   var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
   if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){ var ms=Math.round(+P.msteps||0); span=' '+(ms>=0?'up ':'down ')+Math.abs(ms)+' degree'+(Math.abs(ms)===1?'':'s')+(P.minpos?' in position':'')+' from fret '+P.mroot+(P.loop!==false?', looping':', once'); }
+  if(P.position==='modal'&&P.mseq&&P.mode!=='Chromatic'&&P.mroot!=null&&P.mroot!==''){ var Bq=boxes(P);
+    span=' '+Bq.map(function(x){ return x.mode; }).join(' → ')+(P.loop!==false?', looping':', once'); return key+' · modal sequence'+span; }
   var pn=handPos(P,b), here=pn===0?'open position':'position '+pn, rc=playedRoot(P,b).cell;
   return key+' · '+(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:here+' · root at fret '+rc.fret+(rc.string!==anchorOf(P.anchor).root?' ('+STRING_NAME[rc.string]+' string)':''))); }
 function summary(P){
@@ -446,7 +480,13 @@ function autoNotes(P){
   else L.push('Fingering: four tones on every string; each string up starts a fret further back.');
   var way=(+P.end>=+P.start)?'up':'down', back=(P.loop!==false)?' Then come back the same way to position '+P.start+', and repeat.':'';
   if(P.position==='chromatic') L.push('Play the drill at position '+P.start+', then move the whole drill '+way+' one fret at a time to position '+P.end+'.'+back);
-  if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){ var ms2=Math.round(+P.msteps||0), wk=modalWalk(P);
+  if(P.position==='modal'&&P.mseq&&P.mode!=='Chromatic'&&P.mroot!=null&&P.mroot!==''){
+    L.push('The sequence, in the key of '+rootName(b)+' as '+P.mode+':');
+    B.forEach(function(x,i){ var st=x.step||{}, Q=Object.assign({},P,{anchor:st.anchor||P.anchor}), rt=x.cells.filter(function(c){ return c.pitch%12===x.rootPc; })[0]||x.root;
+      var at=x.inpos?'same frets as before':(STRING_NAME[anchorOf(st.anchor||P.anchor).root]+' string root at fret '+x.root.fret+', '+(handPos(Q,x)===0?'open position':'position '+handPos(Q,x)));
+      L.push((i+1)+'. '+spellRoot(x.rootPc,x.mode)+' as '+x.mode+' — '+at+(x.beats?', '+x.beats+' beat'+(x.beats===1?'':'s'):'')+'.'); });
+    L.push(P.loop!==false?'Then start over from the top.':'Once through.'); }
+  else if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){ var ms2=Math.round(+P.msteps||0), wk=modalWalk(P);
     L.push('Start with '+rootName(b)+' as '+P.mode+' at fret '+P.mroot+' on the '+STRING_NAME[anchorOf(P.anchor).root]+' string. '+(P.minpos?'Then stay in position: the hand doesn’t move, and the root steps '+(ms2>=0?'up':'down')+' to the next degree of the key within the same frets, '+(wk.length-1)+' step'+(wk.length===2?'':'s')+' ('+wk.map(function(x){ return x.mode; }).join(' → ')+')'+(P.structure==='chord'?': each voice moves to the nearest tone of the new chord on its own string.':': the same frets, heard from each new root.'):'Then walk the root '+(ms2>=0?'up':'down')+' its string through the key, one degree at a time, '+(wk.length-1)+' step'+(wk.length===2?'':'s')+' ('+wk.map(function(x){ return x.mode; }).join(' → ')+'): the shape stays, the root takes a new function each time.')+(P.loop!==false?' Then come back the same way, and repeat.':'')); }
   else if(P.position==='modal') L.push('Play the drill at position '+P.start+', then walk the root '+way+' its string to the next tone of the key and play it again, to position '+P.end+': the shape stays, the root takes a new function each time.'+back);
   var S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
@@ -615,6 +655,6 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, articsFor:articsFor, fitArtic:fitArtic, isStrum:isStrum, chordToggle:chordToggle, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, WEEKDAYS:WEEKDAYS, clock12:clock12, lessonSlot:lessonSlot, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
-  handPos:handPos, posOf:posOf, modalWalk:modalWalk, modalRoots:modalRoots, modalLimits:modalLimits, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
+  handPos:handPos, posOf:posOf, modalWalk:modalWalk, rootLabel:function(b){ return spellRoot(b.rootPc,b.mode)+' as '+b.mode; }, seqSteps:seqSteps, walkSteps:walkSteps, seqBoxes:seqBoxes, modalRoots:modalRoots, modalLimits:modalLimits, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
