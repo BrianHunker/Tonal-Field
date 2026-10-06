@@ -62,13 +62,20 @@ var RANGES=[ {id:'central',name:'Central',hint:'between the anchor’s octaves',
              {id:'lower',name:'Lower Octave',hint:'from the root on the low E to its octave',three:true}, {id:'upper',name:'Upper Octave',hint:'from the octave up to the high E',three:true},
              {id:'all',name:'All',hint:'the whole frame',two:true,three:true} ];
 function rangesFor(anchorId,inst){ if(inst!==undefined)use(inst); var three=anchorOf(anchorId).tones.length===3; return RANGES.filter(function(r){ return three?r.three:r.two; }); }
-function fitRange(P){ use(P); var ok=rangesFor(P.anchor).some(function(r){ return r.id===P.range; }); if(ok)return P.range;
+function fitRange(P){ use(P); if(P.structure==='chord')return 'all'; var ok=rangesFor(P.anchor).some(function(r){ return r.id===P.range; }); if(ok)return P.range;
   return anchorOf(P.anchor).tones.length===3?({central:'lower',basement:'lower',attic:'upper'}[P.range]||'all'):({lower:'central',upper:'central'}[P.range]||'all'); }
-var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad'}, {id:'tetrachord',name:'Tetrachord shape'},
-                 {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'} ];
+/* triad and tetrachord stay for drills saved before Chord; the designer offers Chord instead */
+var STRUCTURES=[ {id:'octave',name:'Octave'}, {id:'mode',name:'Mode'}, {id:'triad',name:'Triad',old:true}, {id:'tetrachord',name:'Tetrachord shape',old:true},
+                 {id:'do-pent',name:'Do Pentatonic'}, {id:'la-pent',name:'La Pentatonic'}, {id:'chromatic',name:'Chromatic'}, {id:'custom',name:'Custom'}, {id:'chord',name:'Chord'} ];
 var DIRECTIONS=[ {id:'updown',name:'Up & down'}, {id:'downup',name:'Down & up'}, {id:'up',name:'Up'}, {id:'down',name:'Down'} ];
 var SUBDIVISIONS=[ {id:4,name:'Quarters'}, {id:8,name:'Eighths'}, {id:12,name:'Triplets'}, {id:16,name:'Sixteenths'} ];
 var ARTICULATIONS=['Down strokes','Up strokes','Alternate','Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
+/* the articulation belongs to the structure: a scale (or octaves) is picked, a chord is either arpeggiated (cross picking,
+   sweeping) or strummed */
+var ARTIC_SCALE=['Down strokes','Up strokes','Alternate'], ARTIC_CHORD=['Cross picking','Sweep picking','Strumming 1:1','Strumming 2:1'];
+function articsFor(P){ return P.structure==='chord'?ARTIC_CHORD:(P.structure==='triad'||P.structure==='tetrachord'?ARTICULATIONS:ARTIC_SCALE); }
+function fitArtic(P){ var L=articsFor(P); return L.indexOf(P.artic)>=0?P.artic:(P.structure==='chord'?'Strumming 1:1':'Alternate'); }
+function isStrum(P){ return P.structure==='chord'&&/^Strumming/.test(fitArtic(P)); }
 
 /* the fingering preference, where the key does not fit one four-fret window: SHIFT never stretches (no major frames; a two-tone
    frame and a shift keep the coming half steps together, and the shifted string does not change the position); STRETCH takes
@@ -116,6 +123,7 @@ function placeScale(pitches,fixed,w,rule){
 }
 function boxAt(P,w,modeName){
   use(P);
+  if(P.structure==='chord') return chordBox(P,w,modeName);
   var A=anchorOf(P.anchor);
   var anchorCells=A.tones.map(function(t){ return {string:t[0],fret:w+t[1],pitch:OPEN[t[0]]+w+t[1]}; });
   var root=anchorCells.filter(function(c){ return c.string===A.root; })[0], rootPc=root.pitch%12;
@@ -218,6 +226,43 @@ function boxFor(P,N,mode){
 }
 function posOf(P,b){ return P.pv>=2?handPos(P,b):b.w; }
 
+/* ── a chord: tones chosen per string, each kept as a scale step from the root plus a chromatic alteration (P.chord =
+      [[string, step, alt], …]), so a change of mode re-voices it in the key and a modal shift walks it through the key, while a
+      chromatic shift slides the same shape. With no choice made, the modal triad from the scale's own fingering — for a strum,
+      one tone per string, preferring the anchor's four frets. Every fret of the frame is a candidate, colour tones included. ── */
+function chordSteps(modeName,rootPc,doPc){ var chromatic=(modeName==='Chromatic'), F=chromatic?null:fnByName(modeName);
+  var rel=chromatic?[0,1,2,3,4,5,6,7,8,9,10,11]:FN.map(function(f){ return ((f.s-F.s)%12+12)%12; }).sort(function(a,b){return a-b;}), n=rel.length;
+  return { stepOf:function(d){ var o=Math.floor(d/12), r=d-12*o, i=0; for(var j=0;j<n;j++) if(rel[j]<=r)i=j; return [i+n*o, r-rel[i]]; },
+           semis:function(k,alt){ var o=Math.floor(k/n), i=k-n*o; return rel[i]+12*o+(alt||0); }, triad:chromatic?[0,4,7]:null, n:n }; }
+function chordBox(P,w,modeName){
+  var full=boxAt(Object.assign({},P,{structure:modeName==='Chromatic'?'chromatic':'mode',range:'all'}),w,modeName);
+  var root=full.root, C=chordSteps(modeName,full.rootPc,full.doPc), strum=isStrum(P), sel=P.chord;
+  if(!sel){   /* the modal triad, from the scale's fingering */
+    /* the root is the bass: nothing below it */
+    var tri=full.cells.filter(function(c){ var d=c.pitch-root.pitch, st=C.stepOf(d); return d>=0&&st[1]===0&&(C.triad?C.triad.indexOf(((d%12)+12)%12)>=0:[0,2,4].indexOf(((st[0]%7)+7)%7)>=0); });
+    if(strum){ var by={}, rank=function(x){ return (x.anchor?4:0)+(x.fret>=w&&x.fret<=w+3?2:0); };   /* per string: the anchor's own tones, then the anchor's four frets, then the higher */
+      tri.forEach(function(c){ var o=by[c.string]; if(!o||rank(c)>rank(o)||(rank(c)===rank(o)&&c.pitch>o.pitch)) by[c.string]=c; }); tri=Object.keys(by).map(function(k){ return by[k]; }); }
+    sel=tri.map(function(c){ var st=C.stepOf(c.pitch-root.pitch); return [c.string,st[0],st[1]]; });
+  }
+  var nameOf=function(p){ return modeName==='Chromatic'?{n:LETTERS[p%12],c:'#c9c5ba'}:nameOfRel(p%12-full.doPc); };
+  var cells=[]; sel.forEach(function(t){ var s=t[0]; if(!OPEN[s])return; var p=root.pitch+C.semis(t[1],t[2]), f=p-OPEN[s]; if(f<0||f>24)return;
+    if(cells.some(function(c){ return c.string===s&&c.fret===f; }))return; var nm=nameOf(p);
+    cells.push({string:s,fret:f,pitch:p,anchor:full.anchorCells.some(function(a){ return a.pitch===p; }),name:nm.n,color:nm.c}); });
+  cells.sort(function(a,b){ return a.pitch-b.pitch; });
+  var lo=full.gw, hi=full.gw+full.gn-1; cells.forEach(function(c){ lo=Math.min(lo,c.fret); hi=Math.max(hi,c.fret); });
+  var cand=[]; for(var s=1;s<=NS;s++) for(var f=Math.max(0,lo);f<=hi;f++){ var p=OPEN[s]+f, nm=nameOf(p);
+    cand.push({string:s,fret:f,pitch:p,on:cells.some(function(c){ return c.string===s&&c.fret===f; }),name:nm.n,color:nm.c}); }
+  var muted=[]; for(var s2=1;s2<=NS;s2++) if(!cells.some(function(c){ return c.string===s2; }))muted.push(s2);
+  return { w:w, gw:Math.max(0,lo), gn:hi-Math.max(0,lo)+1, cells:cells, anchorCells:full.anchorCells, root:root, rootPc:full.rootPc, mode:modeName, doPc:full.doPc,
+           cand:cand, muted:muted, chordSel:sel };
+}
+/* a tap on a candidate: on or off; a strum keeps one tone per string */
+function chordToggle(P,string,fret){ use(P); var b=boxes(P)[0], C=chordSteps(b.mode,b.rootPc,b.doPc), st=C.stepOf(OPEN[string]+fret-b.root.pitch);
+  var sel=b.chordSel.map(function(t){ return t.slice(); }), same=function(t){ return t[0]===string&&t[1]===st[0]&&t[2]===st[1]; };
+  if(sel.some(same)) return sel.filter(function(t){ return !same(t); });
+  if(isStrum(P)) sel=sel.filter(function(t){ return t[0]!==string; });
+  sel.push([string,st[0],st[1]]); return sel; }
+
 /* ── the boxes a drill visits: one, or a run of them from position P.start to position P.end (either way).
       chromatic shift: the box moves a fret at a time; modal shift: the root walks along its string through the tones of the
       key, each box in the mode of its new root. With P.loop (the default) the run comes back to its start and repeats. ── */
@@ -266,8 +311,13 @@ function sequence(P){
   var B=boxes(P), notes=[], modes=[], col=0, per=+P.sub||8;
   B.forEach(function(b){
     if(b.mode!=='Chromatic'){ var F=fnByName(b.mode); modes.push({col:col,anchor:b.rootPc,val:F.v}); }
-    var c0=col; ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
+    var c0=col;
+    if(isStrum(P)){ for(var h=0;h<per;h++){ b.cells.forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); }); col++; } }   /* a strum on every cell of the bar */
+    else ordered(b.cells,P.dir,+P.sub||8).forEach(function(c){ notes.push({start:col,dur:1,pitch:c.pitch,vel:96,voice:c.string-1}); col++; });
     var pad=(per-(col-c0)%per)%per; if(pad&&notes.length){ notes[notes.length-1].dur+=pad; col+=pad; }   /* each box fills whole bars: its last tone holds to the bar line, so the next box (or the loop) starts on a downbeat */
+    if(P.structure==='chord'&&!isStrum(P)&&P.ring!==false){   /* a ringing arpeggio: each tone sounds until its string plays again, or the box ends */
+      var mine=notes.filter(function(x){ return x.start>=c0; });
+      mine.forEach(function(x){ var nx=mine.filter(function(y){ return y.voice===x.voice&&y.start>x.start; }).reduce(function(m,y){ return Math.min(m,y.start); },col); x.dur=Math.max(x.dur,nx-x.start); }); }
   });
   var loop=!(isShift(P)&&P.loop===false);
   var bars=Math.max(1,Math.ceil(col/per));
@@ -292,9 +342,9 @@ function rootName(b){ return spellRoot(b.rootPc,b.mode); }
 /* the name: what is played and where it is anchored — the tonality, the structure, the root string and the lean.
    "Do modal scale anchored on the A string leaning back". Everything else (key, position, range, direction, timing) is the
    description's. */
-var NOUN={octave:'octaves',mode:'modal scale',triad:'triad',tetrachord:'tetrachord','do-pent':'pentatonic','la-pent':'pentatonic',chromatic:'chromatic scale',custom:'custom set'};
+var NOUN={chord:'chord',octave:'octaves',mode:'modal scale',triad:'triad',tetrachord:'tetrachord','do-pent':'pentatonic','la-pent':'pentatonic',chromatic:'chromatic scale',custom:'custom set'};
 function title(P){
-  use(P); var A=anchorOf(P.anchor), noun=NOUN[P.structure]||'modal scale';
+  use(P); var A=anchorOf(P.anchor), noun=P.structure==='chord'?(isStrum(P)?'chord':'arpeggio'):(NOUN[P.structure]||'modal scale');
   var head=P.mode==='Chromatic'?(noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun):(P.mode+' '+noun);
   /* the anchor as played: the lowest anchor tone in the range, leaning toward its octave — so the upper octave of an E anchor
      is named from its own pair (E forward → D string leaning back, E back → G string leaning forward) */
@@ -312,32 +362,36 @@ function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]
 function summary(P){
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   var dm=+P.daily||1;
-  return where(P)+' · '+R.name+' range · '+D.name+' · '+P.bpm+' bpm '+S.name.toLowerCase()+' · '+P.artic+' · '+dm+' min a day';
+  var how=P.structure==='chord'?(isStrum(P)?'':(D.name+' · '+(P.ring!==false?'ringing':'linear')+' · ')):(R.name+' range · '+D.name+' · ');
+  return where(P)+' · '+how+P.bpm+' bpm '+S.name.toLowerCase()+' · '+fitArtic(P)+' · '+dm+' min a day';
 }
 
 /* ── the notes the designer writes for the student (a starting point: edit before submitting) ── */
 function autoNotes(P){
   /* in the order of the name: what is played (the tonality and the structure), its tones, then where it is anchored, then
      the rest — range, position, fingering, shifts, timing */
-  var B=boxes(P), b=B[0], L=[], noun=NOUN[P.structure]||'modal scale';
+  var B=boxes(P), b=B[0], L=[], noun=P.structure==='chord'?(isStrum(P)?'chord':'arpeggio'):(NOUN[P.structure]||'modal scale');
   if(P.mode==='Chromatic') L.push((noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun)+' from '+LETTERS[b.rootPc]+'.');
   else L.push(P.mode+' '+noun+', '+(isShift(P)?'starting with ':'with ')+rootName(b)+' as '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
   var names=ordered(b.cells,'up').map(function(c){ return c.name; });
-  if(names.length) L.push('Tones, low to high: '+names.join(' ')+'.');
+  if(names.length) L.push((P.structure==='chord'?'Chord tones':'Tones')+', low to high: '+names.join(' ')+'.');
+  if(b.muted&&b.muted.length&&b.muted.length<NS) L.push('Not played: the '+b.muted.map(function(s){ return STRING_NAME[s]; }).join(', ')+' string'+(b.muted.length>1?'s':'')+' (X).');
+  if(P.structure==='chord') L.push(isStrum(P)?'Strum every '+SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0].name.toLowerCase().replace(/s$/,'')+'; let the chord sound full and even.':(P.ring!==false?'Let every tone ring until its string plays again.':'Play each tone short and separate: stop it as the next one sounds.'));
   var pa=playedAnchor(P), pr=playedRoot(P,b), rc=pr.cell;
   var octs=pr.above.map(function(c){ return STRING_NAME[c.string]+' string, fret '+c.fret; });
   L.push('Anchor: '+STRING_NAME[pa.string]+' string, leaning '+pa.lean+' — the root, '+(P.mode==='Chromatic'?LETTERS[rc.pitch%12]:spellRoot(rc.pitch%12,b.mode))+', '+(rc.fret===0?'open':'at fret '+rc.fret)
     +(octs.length?'; its octave'+(octs.length>1?'s':'')+': '+octs.join(' and '):'')+'.');
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0];
-  L.push('Range: '+R.name+' — '+R.hint+'.');
+  if(P.structure!=='chord') L.push('Range: '+R.name+' — '+R.hint+'.');
   var pn=handPos(P,b); L.push(pn===0?'Open position: the open strings stand in for the index finger.':'Position '+pn+': the index finger starts at fret '+pn+'.');
-  if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: stretch — three tones on every string; the hand drifts as it climbs.':'Fingering: shift — no stretches; where the key doesn’t fit the four frets, a string shifts to keep its half step together, and the position stays.');
+  if(P.structure==='chord'){}
+  else if(P.mode!=='Chromatic'&&P.structure!=='chromatic'&&P.structure!=='custom') L.push(P.frame==='three'?'Fingering: stretch — three tones on every string; the hand drifts as it climbs.':'Fingering: shift — no stretches; where the key doesn’t fit the four frets, a string shifts to keep its half step together, and the position stays.');
   else L.push('Fingering: four tones on every string; each string up starts a fret further back.');
   var way=(+P.end>=+P.start)?'up':'down', back=(P.loop!==false)?' Then come back the same way to position '+P.start+', and repeat.':'';
   if(P.position==='chromatic') L.push('Play the drill at position '+P.start+', then move the whole drill '+way+' one fret at a time to position '+P.end+'.'+back);
   if(P.position==='modal') L.push('Play the drill at position '+P.start+', then walk the root '+way+' its string to the next tone of the key and play it again, to position '+P.end+': the shape stays, the root takes a new function each time.'+back);
   var S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
-  L.push('Timing: '+S.name.toLowerCase()+' at '+P.bpm+' bpm, '+P.artic.toLowerCase()+'. Keep the pulse steady before adding speed.');
+  L.push('Timing: '+S.name.toLowerCase()+' at '+P.bpm+' bpm, '+fitArtic(P).toLowerCase()+'. Keep the pulse steady before adding speed.');
   L.push('Listen to your own tone on every note.');
   return L.join('\n');
 }
@@ -358,8 +412,13 @@ function glyphSVG(P,opts){
   if(opts.frets&&b){ for(var f=lo;f<=hi;f++) s+='<text x="'+fx(f)+'" y="'+(H-3*size)+'" font-size="'+(9*size)+'" text-anchor="middle" fill="currentColor" fill-opacity=".6" font-family="IBM Plex Mono,monospace">'+f+'</text>'; }
   function xy(st,fret){ return [fx(fret), padT+(st-1)*sh]; }
   if(b&&opts.tones){
-    b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; });
-    b.cells.forEach(function(c){ if(!c.anchor)return; var p=xy(c.string,c.fret); s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+c.color+'" stroke="#fff" stroke-width="'+(1.2*size)+'"/>'; });
+    if(b.muted&&b.muted.length<NS) b.muted.forEach(function(st){ var y=padT+(st-1)*sh, xx=padL-8*size, r=3.2*size;   /* a string not played */
+      s+='<path d="M'+(xx-r)+' '+(y-r)+'L'+(xx+r)+' '+(y+r)+'M'+(xx+r)+' '+(y-r)+'L'+(xx-r)+' '+(y+r)+'" stroke="#ff8a7a" stroke-width="'+(1.4*size)+'" stroke-linecap="round"/>'; });
+    if(opts.edit&&b.cand) b.cand.forEach(function(c){ if(c.on)return; var p=xy(c.string,c.fret);   /* the designer's candidates: tap to turn on */
+      s+='<circle class="cand" data-s="'+c.string+'" data-f="'+c.fret+'" cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.6*size)+'" fill="#000" fill-opacity=".001" stroke="'+c.color+'" stroke-opacity=".55" stroke-width="'+(1.1*size)+'" style="cursor:pointer"><title>'+c.name+' — tap to add</title></circle>'; });
+    var tapOn=function(c){ return opts.edit&&b.cand?' class="cand on" data-s="'+c.string+'" data-f="'+c.fret+'" style="cursor:pointer"':''; };
+    b.cells.forEach(function(c){ if(c.anchor)return; var p=xy(c.string,c.fret); s+='<circle'+tapOn(c)+' cx="'+p[0]+'" cy="'+p[1]+'" r="'+(4.2*size)+'" fill="'+c.color+'" stroke="#000" stroke-width="'+(0.8*size)+'"/>'; });
+    b.cells.forEach(function(c){ if(!c.anchor)return; var p=xy(c.string,c.fret); s+='<circle'+tapOn(c)+' cx="'+p[0]+'" cy="'+p[1]+'" r="'+(5.6*size)+'" fill="'+c.color+'" stroke="#fff" stroke-width="'+(1.2*size)+'"/>'; });
     return s+'</svg>';
   }
   A.tones.forEach(function(t){ var p=xy(t[0],(b?w:1)+t[1]);   /* the bare shape (the anchor picker): drawn from fret 1 */
@@ -495,7 +554,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
 G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
-  DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
+  DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, articsFor:articsFor, fitArtic:fitArtic, isStrum:isStrum, chordToggle:chordToggle, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, WEEKDAYS:WEEKDAYS, clock12:clock12, lessonSlot:lessonSlot, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
   handPos:handPos, posOf:posOf, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };

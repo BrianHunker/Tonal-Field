@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=25">
+<link rel="stylesheet" href="studio.css?v=26">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -123,6 +123,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <h3>Harmonic structure</h3>
         <div class="chips" id="structs"></div>
         <div class="dots" id="custom" hidden></div>
+        <div class="row" id="ringrow" hidden style="margin-top:12px"><label style="display:flex;gap:8px;align-items:center;font-size:15px;cursor:pointer"><input type="checkbox" id="ring" checked> Let the tones ring <span class="hint">(off: each tone short and separate)</span></label></div>
+        <p class="hint" id="chordhint" hidden style="margin-top:10px">Tap the dots in the preview to choose the chord’s tones — any fret, colour tones too. A strum takes one tone per string; arpeggios can take several. A string with nothing chosen shows an X.</p>
       </div>
       <div class="sec k-drill">
         <h3>Timing</h3>
@@ -161,9 +163,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=25"></script>
-<script src="../lessons.js?v=25"></script>
-<script src="studio.js?v=25"></script>
+<script src="config.js?v=26"></script>
+<script src="../lessons.js?v=26"></script>
+<script src="studio.js?v=26"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
@@ -196,7 +198,7 @@ function renderControls(){
   var AS=S.anchorsFor(P.inst); if(!AS.some(function(A){ return A.id===P.anchor; }))P.anchor=AS[0].id;
   var an=$('anchors'); an.innerHTML=''; an.style.gridTemplateColumns='repeat('+Math.max(3,AS.length)+',minmax(0,1fr))';
   AS.forEach(function(A){ var b=document.createElement('button'); b.type='button'; b.className='anchor'; b.setAttribute('aria-pressed',String(P.anchor===A.id));
-    b.innerHTML=S.glyphSVG({anchor:A.id,inst:P.inst})+'<span class="w">'+A.word+'</span>'; b.onclick=function(){ P.anchor=A.id; render(); }; an.appendChild(b); });
+    b.innerHTML=S.glyphSVG({anchor:A.id,inst:P.inst})+'<span class="w">'+A.word+'</span>'; b.onclick=function(){ if(P.anchor!==A.id)P.chord=null; P.anchor=A.id; render(); }; an.appendChild(b); });
   chips($('modes'),S.MODES,function(){return P.mode;},function(v){ P.mode=v;
       if(v==='Chromatic'&&['mode','triad','tetrachord','do-pent','la-pent'].indexOf(P.structure)>=0)P.structure='chromatic';
       if(P.structure==='do-pent'&&v!=='Do')P.structure='mode'; if(P.structure==='la-pent'&&v!=='La')P.structure='mode'; },
@@ -207,10 +209,17 @@ function renderControls(){
   $('framehint').textContent=chromF?'The four-tone frame on every string.':((P.frame||'half')==='three'?'Three tones per string, major frames included; the position drifts as the hand climbs.':'No stretches: a string shifts to keep its half step together, and the position stays.');
   if(chromF) $('frames').innerHTML='<button type="button" class="chip" aria-pressed="true">Four per string</button>';
   P.range=S.fitRange(P);
-  chips($('ranges'),S.rangesFor(P.anchor,P.inst),function(){return P.range;},function(v){P.range=v;});
+  var chord=(P.structure==='chord'), strum=S.isStrum(P);
+  chips($('ranges'),chord?[{id:'all',name:'All'}]:S.rangesFor(P.anchor,P.inst),function(){return P.range;},function(v){P.range=v;});   /* a chord takes the whole frame */
   chips($('dirs'),S.DIRECTIONS,function(){return P.dir;},function(v){P.dir=v;});
-  chips($('structs'),S.STRUCTURES,function(){return P.structure;},function(v){ P.structure=v; if(v==='do-pent')P.mode='Do'; if(v==='la-pent')P.mode='La';
+  $('dirs').closest('.row').hidden=strum;   /* a strum has no direction */
+  $('ringrow').hidden=!(chord&&!strum); $('ring').checked=(P.ring!==false); $('chordhint').hidden=!chord;
+  chips($('structs'),S.STRUCTURES.filter(function(x){ return !x.old||x.id===P.structure; }),function(){return P.structure;},function(v){ if(v!==P.structure)P.chord=null; P.structure=v; if(v==='do-pent')P.mode='Do'; if(v==='la-pent')P.mode='La';
       if(P.mode==='Chromatic'&&['mode','triad','tetrachord'].indexOf(v)>=0)P.mode='Do'; });
+  /* the articulations that belong to the structure */
+  P.artic=S.fitArtic(P); var ar=$('artic'), al=S.articsFor(P);
+  if(ar.getAttribute('data-for')!==al.join('|')){ ar.innerHTML=al.map(function(a){ return '<option>'+S.esc(a)+'</option>'; }).join(''); ar.setAttribute('data-for',al.join('|')); }
+  ar.value=P.artic;
   chips($('subs'),S.SUBDIVISIONS,function(){return +P.sub;},function(v){P.sub=v;});
   var cu=$('custom'); cu.hidden=(P.structure!=='custom'); cu.innerHTML='';
   for(var i=0;i<=12;i++){ (function(i){ var d=document.createElement('div'); d.className='dot'; var on=(i===0||i===12)?true:!!P.custom[i];
@@ -246,8 +255,14 @@ function params(){
   var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
     o.textContent=p===0?'Position 0 (open)':(p==='chromatic'?'Chromatic shift':(p==='modal'?'Modal shift':'Position '+p)); ps.appendChild(o); });
   ps.value=String(P.position); ps.onchange=function(){ var v=this.value; P.position=(/^\d+$/.test(v)?+v:v); render(); };
-  var ar=$('artic'); S.ARTICULATIONS.forEach(function(a){ var o=document.createElement('option'); o.value=a; o.textContent=a; ar.appendChild(o); });
-  ar.value=P.artic; ar.onchange=function(){ P.artic=this.value; render(); };
+  var ar=$('artic');
+  ar.onchange=function(){ var was=S.isStrum(P); P.artic=this.value;
+    if(P.structure==='chord'&&!was&&S.isStrum(P)&&P.chord){ var keep={}; P.chord.forEach(function(t){ keep[t[0]]=t; }); P.chord=Object.keys(keep).map(function(k){ return keep[k]; }); }   /* a strum keeps one tone per string: the last chosen */
+    render(); };
+  $('ring').onchange=function(){ P.ring=this.checked; render(); };
+  /* a tap on the preview's fretboard: a chord tone on or off */
+  $('pglyph').addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('.cand'); if(!t||P.structure!=='chord')return;
+    P.chord=S.chordToggle(P,+t.getAttribute('data-s'),+t.getAttribute('data-f')); if(!notesEdited){} render(); });
   $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
   $('daily').oninput=function(){ P.daily=Math.max(0.5,Math.min(120,+this.value||1)); render(); };
   $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
@@ -293,7 +308,7 @@ function render(){
     return;
   }
   var B=S.boxes(P), b=B[0];
-  $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1});
+  $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1,edit:P.structure==='chord'});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
   var sq=S.sequence(P), got=S.posOf(P,b), want=P.position==='open'?0:+P.position;
   var miss=(!S.isShift(P)&&got!==want)?' · Position '+want+' can’t hold this shape so near the nut; this is the nearest, position '+got+'.':'';
