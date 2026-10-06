@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=39">
+<link rel="stylesheet" href="studio.css?v=40">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -172,9 +172,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=39"></script>
-<script src="../lessons.js?v=39"></script>
-<script src="studio.js?v=39"></script>
+<script src="config.js?v=40"></script>
+<script src="../lessons.js?v=40"></script>
+<script src="studio.js?v=40"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var D=null, CUR=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
@@ -402,6 +402,16 @@ $('form').onsubmit=function(e){
     });
   }).catch(fail);
 };
+/* ── designer.html#p=<settings>&t=<name>&n=<notes>: a new item prefilled (a drill's settings, its name and notes), to assign ── */
+(function(){ var h=location.hash, m=/[#&]p=([^&]+)/.exec(h); if(!m||/[?&]edit=/.test(location.search))return;
+  try{ var pr=JSON.parse(decodeURIComponent(m[1])), t=/[#&]t=([^&]+)/.exec(h), n=/[#&]n=([^&]+)/.exec(h);
+    D=pr.shifts?JSON.parse(JSON.stringify(pr)):S.toShifts(Object.assign(S.defaults(),pr,{inst:pr.inst||'guitar'})); D.kind='drill'; D.pv=2;
+    CUR=0; P=Object.assign(S.defaults(),S.shiftP(D,0)); KIND='drill';
+    if(t){ $('title').value=decodeURIComponent(t[1]); titleEdited=true; }
+    if(n){ $('notes').value=decodeURIComponent(n[1]); notesEdited=true; }
+    $('bpm').value=P.bpm; $('daily').value=P.daily||1; $('artic').value=P.artic; render();
+  }catch(e){ $('suberr').textContent='That link’s settings could not be read.'; }
+})();
 /* ── designer.html?edit=<item id>: open an assigned item to correct it ── */
 (function(){ var m=/[?&]edit=([\w]+)/.exec(location.search); if(!m)return;
   S.api('drill',{did:m[1]}).then(function(r){ if(!r.ok){ $('suberr').textContent='That item was not found.'; return; }
