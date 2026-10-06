@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v424 · lesson: Moore Modes with Fable Memory Access -->
+<!-- Tonal Field — Ring — v425 · lesson: Moore Modes with Fable Memory Access -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v424</span></h1>
+  <h1>Tonal Field <span>Ring v425</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -11013,6 +11013,10 @@ function tabBars(){ return Math.max(1,Math.ceil(seq.divs/tabCPB())); }
 function tabNLines(){ return Math.max(1,Math.ceil(tabBars()/tabMPL)); }
 function tabLineH(){ return TAB_TOP+TAB_ROW*(tabNStr()-1)+TAB_BOT; }
 function tabCellW(){ var cv=tabEl(); var W=cv?cv.clientWidth:600; return Math.max(96/Math.max(1,seq.div),(W-TAB_GUT-8)/(tabMPL*tabCPB())); }   /* v370: the floor is 6 px a sixteenth, whatever the grid — a /48 grid had been held to 6 px a cell, three times too wide on a phone */
+/* v425: a note's mark stands at its onset — the x of its chord name, its bar line and the playhead's arrival — set in from the
+   cell's left edge by about half a number's width. In a fine grid (cells narrower than a number) that is the cell's centre, as
+   before; in a coarse one the number no longer drifts to the middle of a long cell. Everything tied to the onset reads it here. */
+function tabOnX(R){ return R.x+Math.min(R.w/2,9*TAB_S); }
 function tabCellRect(col,row){
   var cpb=tabCPB(), bar=Math.floor(col/cpb), line=Math.floor(bar/tabMPL)-tabFirstLine;
   var cw=tabCellW(), x=TAB_GUT+((bar%tabMPL)*cpb+(col%cpb))*cw, y=line*tabLineH()+TAB_TOP+row*TAB_ROW;
@@ -11265,7 +11269,7 @@ function tabRender(){
       var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
       var first=(cc===nn.start), barStart=(cc%cpb===0), lineStart=(cc===((tabFirstLine+R.line)*tabMPL*cpb));
       var colc=(nn.bend&&nn.bend.length)?tabColorAt(nn,seqSemi(nn.pitch)+seqBendAt(nn,cc+0.5),nn.start,sounding):col;   /* v316: a bent cell wears the colour of the tone it is bent to */
-      c.fillStyle=rgba(lift(colc,0.28),(sounding?0.85:0.55)*(alpha)); c.fillRect(R.x+(first?R.w*0.5:0),R.y-bw,R.w-(first?R.w*0.5:0),2*bw);
+      c.fillStyle=rgba(lift(colc,0.28),(sounding?0.85:0.55)*(alpha)); c.fillRect(first?tabOnX(R):R.x,R.y-bw,R.w-(first?tabOnX(R)-R.x:0),2*bw);
       if(!first&&(barStart||lineStart))_ties.push([R.x,R.y,lineStart]);   /* v352: drawn after the bar, so the bar cannot cover them */
     }
     _ties.forEach(function(T){
@@ -11277,9 +11281,9 @@ function tabRender(){
     });
     var R0=tabCellRect(nn.start,row);
     if(nn.start>=lo&&R0.line>=0&&R0.line<tabLines){
-      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=R0.x+R0.w/2;
+      var txt=String(fret), tw=c.measureText(txt).width+6*TAB_S, nx=tabOnX(R0);
       /* v347: in the phone's narrow cells a strum arrow sits where the number would; the number steps right of it */
-      if(nn.strum){ var sxN=Math.max(R0.x+6*TAB_S,R0.x+R0.w/2-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
+      if(nn.strum){ var sxN=Math.max(R0.x+6*TAB_S,tabOnX(R0)-13*TAB_S); nx=Math.max(nx,sxN+6*TAB_S+(tw-6*TAB_S)/2); }
       tabPlate(c,nx-tw/2,R0.y-bh,tw,2*bh);
       if(selSet[nn.id]){ c.strokeStyle=gold; c.lineWidth=1.2*TAB_S; c.strokeRect(nx-tw/2-1,R0.y-bh-1,tw+2,2*bh+2); c.lineWidth=1; }
       c.fillStyle=tabDigitRing?rgba(sounding?col:[Math.round(col[0]*0.32),Math.round(col[1]*0.32),Math.round(col[2]*0.32)],1):rgba(col,alpha); c.textAlign='center';   /* v414: ring style — dark at rest, lit as it sounds */
@@ -11296,11 +11300,11 @@ function tabRender(){
         /* the contour, in short pieces, each in the colour of the tone at that moment */
         var tEnd=nn.dur-0.5, step=0.25, tPrev=0, bPrev=0;
         for(var tt=step;tt<=tEnd+1e-9;tt+=step){ var bNow=seqBendAt(nn,nn.start+tt); var cseg=tabColorAt(nn,seqSemi(nn.pitch)+(bPrev+bNow)/2,nn.start,sounding);
-          c.strokeStyle=rgba(cseg,0.95*alpha); c.beginPath(); c.moveTo(Rb.x+Rb.w/2+tPrev*Rb.w,y0b-bPrev*sc); c.lineTo(Rb.x+Rb.w/2+tt*Rb.w,y0b-bNow*sc); c.stroke(); tPrev=tt; bPrev=bNow; }
+          c.strokeStyle=rgba(cseg,0.95*alpha); c.beginPath(); c.moveTo(tabOnX(Rb)+tPrev*Rb.w,y0b-bPrev*sc); c.lineTo(tabOnX(Rb)+tt*Rb.w,y0b-bNow*sc); c.stroke(); tPrev=tt; bPrev=bNow; }
         c.lineWidth=1;
         var colTop=tabColorAt(nn,seqSemi(nn.pitch)+top,nn.start,sounding);
         if(top>0){ var lab=(Math.abs(top-1)<0.01)?'½':(Math.abs(top-2)<0.01?'full':(Math.abs(top-3)<0.01?'1½':(Math.abs(top-0.5)<0.01?'¼':(top/2).toFixed(2))));   /* TAB's names: ½ = a semitone, full = a tone */ c.fillStyle=rgba(colTop,alpha); c.textAlign='center'; c.font='600 '+(TAB_FONT-4*TAB_S)+'px "IBM Plex Mono", monospace';
-          outlined(lab,Rb.x+Rb.w/2+topT*Rb.w,y0b-top*sc-9*TAB_S); c.font=FONT; }
+          outlined(lab,tabOnX(Rb)+topT*Rb.w,y0b-top*sc-9*TAB_S); c.font=FONT; }
       }
     }
     if(fretA<(fbHasNeck()?fbCapo:0)||fretA>=fbFrets){ var Rf=tabCellRect(nn.start,row); if(Rf.line>=0&&Rf.line<tabLines){ c.strokeStyle='#ee0000'; c.globalAlpha=0.7; c.lineWidth=TAB_S; c.strokeRect(Rf.x+2,Rf.y-bh-1,Rf.w-4,2*bh+2); c.globalAlpha=1; c.lineWidth=1; } }
@@ -11308,7 +11312,7 @@ function tabRender(){
   /* v315: strummed chords — a wavy arrow up the column beside the numbers, low string to high */
   var strumCols={}; for(var si=0;si<seq.notes.length;si++){ var sn=seq.notes[si]; if(!sn.strum||sn.voice>=n||sn.start<lo||sn.start>=hi)continue; var kk=sn.start; if(!strumCols[kk])strumCols[kk]={lo:sn.voice,hi:sn.voice,col:seqNoteEventColor(sn),roll:sn.strum==='r',up:!!sn.sup}; else { if(sn.strum==='r')strumCols[kk].roll=true; if(sn.sup)strumCols[kk].up=true; strumCols[kk].lo=Math.max(strumCols[kk].lo,sn.voice); strumCols[kk].hi=Math.min(strumCols[kk].hi,sn.voice); } }
   for(var sk in strumCols){ var S=strumCols[sk], Rlo=tabCellRect(+sk,tabRowOfVoice(S.lo)), Rhi=tabCellRect(+sk,tabRowOfVoice(S.hi)); if(Rlo.line<0||Rlo.line>=tabLines)continue;
-    var sx=Math.max(Rlo.x+6*TAB_S,Rlo.x+Rlo.w/2-13*TAB_S), yTop=Rhi.y-TAB_ROW*0.45, yBot=Rlo.y+TAB_ROW*0.45, hd=6*TAB_S;
+    var sx=Math.max(Rlo.x+6*TAB_S,tabOnX(Rlo)-13*TAB_S), yTop=Rhi.y-TAB_ROW*0.45, yBot=Rlo.y+TAB_ROW*0.45, hd=6*TAB_S;
     c.strokeStyle='rgba(220,220,214,0.85)'; c.fillStyle='rgba(220,220,214,0.85)'; c.lineWidth=1.4*TAB_S; c.lineJoin='round'; c.lineCap='round';
     var yA=S.up?yTop:yBot, yB=S.up?yBot:yTop, dir=S.up?1:-1;           /* the shaft runs from yA toward yB; the head sits at yB */
     c.beginPath();
@@ -11320,7 +11324,7 @@ function tabRender(){
     c.lineWidth=1; c.lineCap='butt'; }
   if(tabCur){ var Rc=tabCellRect(tabCur.col,tabCur.row);
     if(Rc.line>=0&&Rc.line<tabLines){ c.strokeStyle=gold; c.globalAlpha=0.9; c.lineWidth=TAB_S; c.strokeRect(Rc.x+1,Rc.y-bh-1,Rc.w-2,2*bh+2); c.globalAlpha=1; c.lineWidth=1;
-      if(tabBuf){ c.fillStyle=gold; c.textAlign='center'; outlined(tabBuf,Rc.x+Rc.w/2,Rc.y); } } }
+      if(tabBuf){ c.fillStyle=gold; c.textAlign='center'; outlined(tabBuf,tabOnX(Rc),Rc.y); } } }
   if(tabDrag&&tabDrag.mode==='band'&&tabDrag.on){ var bx=Math.min(tabDrag.x0,tabDrag.x1), by=Math.min(tabDrag.y0,tabDrag.y1);
     c.strokeStyle=gold; c.setLineDash([3,3]); c.strokeRect(bx,by,Math.abs(tabDrag.x1-tabDrag.x0),Math.abs(tabDrag.y1-tabDrag.y0)); c.setLineDash([]); }
 }
@@ -11417,7 +11421,7 @@ function tabWire(){
       var row=tabRowOfVoice(nn.voice), e=nn.start+nn.dur;
       for(var cc=nn.start;cc<e;cc++){ var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
         if(Math.abs(p.y-R.y)>8*TAB_S)continue;
-        var x0=(cc===nn.start)?(nn.dur===1?R.x+R.w*0.6:R.x+R.w*0.5):R.x;
+        var x0=(cc===nn.start)?(nn.dur===1?tabOnX(R)+R.w*0.1:tabOnX(R)):R.x;
         if(p.x>=x0&&p.x<=R.x+R.w)return nn; }
     }
     return null;
@@ -11442,7 +11446,7 @@ function tabWire(){
     var g=gripHit(p);
     if(g){ var Rg=tabCellRect(g.start,tabRowOfVoice(g.voice));
       /* v311: a press on a span is undecided until it moves — sideways lengthens, upward bends */
-      tabDrag={mode:'span',n:g,x0:p.x,y0:p.y,d0:g.dur,bend0:g.bend?g.bend.map(function(q){return [q[0],q[1]];}):null,t0:(p.x-(Rg.x+Rg.w/2))/Rg.w,cw:Rg.w,yline:Rg.y,on:false};
+      tabDrag={mode:'span',n:g,x0:p.x,y0:p.y,d0:g.dur,bend0:g.bend?g.bend.map(function(q){return [q[0],q[1]];}):null,t0:(p.x-tabOnX(Rg))/Rg.w,cw:Rg.w,yline:Rg.y,on:false};
       cv.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     var h=tabHit(p.x,p.y);
     if(!h){ tabCur=null; if(!e.shiftKey)tabSel=[]; tabRequest(); return; }
@@ -11487,7 +11491,7 @@ function tabWire(){
     if(D.mode==='band'){ D.x1=p.x; D.y1=p.y; if(Math.abs(p.x-D.x0)>3||Math.abs(p.y-D.y0)>3)D.on=true;
       if(D.on){ var n2=tabNStr(), bx0=Math.min(D.x0,D.x1), bx1=Math.max(D.x0,D.x1), by0=Math.min(D.y0,D.y1), by1=Math.max(D.y0,D.y1), ids=D.add?D.base.slice():[];
         for(var i=0;i<seq.notes.length;i++){ var nn=seq.notes[i]; if(nn.voice>=n2)continue; var R=tabCellRect(nn.start,tabRowOfVoice(nn.voice)); if(R.line<0||R.line>=tabLines)continue;
-          var cx=R.x+R.w/2, cy=R.y; if(cx>=bx0&&cx<=bx1&&cy>=by0&&cy<=by1&&ids.indexOf(nn.id)<0)ids.push(nn.id); }
+          var cx=tabOnX(R), cy=R.y; if(cx>=bx0&&cx<=bx1&&cy>=by0&&cy<=by1&&ids.indexOf(nn.id)<0)ids.push(nn.id); }
         tabSel=ids; }
       tabRequest(); return;
     }
