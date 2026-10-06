@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=32">
+<link rel="stylesheet" href="studio.css?v=33">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -38,6 +38,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 .seqt td.land{font-family:var(--mono);font-size:12px;color:var(--dim)}
 .seqt input{width:52px}
 .seqt select{max-width:108px}
+.seqt select[data-f="mode"]{max-width:86px}
+.seqt select[data-f="range"]{max-width:none}
 .seqt .x{border:none;background:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 6px}
 .preview{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
 .preview .glyphbox{display:flex;justify-content:center;padding:6px 0}
@@ -128,13 +130,13 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
           <div class="field" id="loopwrap" hidden><span>Repeat</span><div class="chips"><button type="button" class="chip" id="loop" aria-pressed="true">Loop</button></div></div>
         </div>
         <div class="seqwrap" id="seqwrap" hidden>
-          <table class="seqt"><thead><tr><th>#</th><th>Root</th><th>Mode</th><th>Anchor</th><th>Hand</th><th>Beats</th><th>Lands on</th><th></th></tr></thead><tbody id="seqbody"></tbody></table>
+          <table class="seqt"><thead><tr><th>#</th><th>Root</th><th>Mode</th><th>Anchor</th><th>Hand</th><th class="rgcol">Range</th><th>Beats</th><th></th></tr></thead><tbody id="seqbody"></tbody></table>
           <div class="row" style="margin-top:8px;align-items:center"><button type="button" class="chip" id="seqadd">+ Add a step</button>
             <span class="hint">Each step: a root, the function it takes, and the anchor that holds it. Hand: a position, or Nearest (that anchor closest to the last hand position). For chords, pick the step under Shift in the preview and tap its voicing. Beats 0 = one pass, held to the bar line; otherwise the tones cycle to fill the beats.</span></div>
         </div>
         <div class="row" id="moderow"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
         <div class="row" id="framerow"><div class="field"><span>Where the key doesn’t fit four frets</span><div class="chips" id="frames"></div><span class="hint" id="framehint"></span></div></div>
-        <div class="row"><div class="field"><span>Range</span><div class="chips" id="ranges"></div></div></div>
+        <div class="row" id="rangerow"><div class="field"><span>Range</span><div class="chips" id="ranges"></div></div></div>
         <div class="row"><div class="field"><span>Direction</span><div class="chips" id="dirs"></div></div></div>
       </div>
       <div class="sec k-drill">
@@ -182,9 +184,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=32"></script>
-<script src="../lessons.js?v=32"></script>
-<script src="studio.js?v=32"></script>
+<script src="config.js?v=33"></script>
+<script src="../lessons.js?v=33"></script>
+<script src="studio.js?v=33"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var PSTEP=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
@@ -248,7 +250,7 @@ function renderControls(){
   var sh=S.isShift(P), modal=(P.position==='modal'), cust=(P.position==='custom'), chromS=(P.position==='chromatic');
   $('startwrap').hidden=!chromS; $('endwrap').hidden=!chromS; $('loopwrap').hidden=!sh;
   $('mrootwrap').hidden=!modal; $('mstepswrap').hidden=!modal; $('minposwrap').hidden=!modal||P.mode==='Chromatic'; $('seqwrap').hidden=!cust;
-  $('anchorsec').hidden=cust; $('moderow').hidden=cust;   /* a custom shift: every step names its own mode and anchor */
+  $('anchorsec').hidden=cust; $('moderow').hidden=cust; $('rangerow').hidden=cust||chord;   /* a custom shift: every step names its own mode and anchor */
   $('mby-string').setAttribute('aria-pressed',String(!P.minpos)); $('minpos').setAttribute('aria-pressed',String(!!P.minpos));
   if(cust)renderCustom();
   if(modal){   /* a modal shift moves by degree: a chromatic root on the root string, then ± steps through the key, as far as the neck allows */
@@ -265,19 +267,21 @@ function renderControls(){
 }
 /* a custom shift: one row per step — root, mode, anchor, hand, beats — in no key */
 function renderCustom(){
-  var st=S.csteps(P), B=S.boxes(Object.assign({},P,{loop:false})), key=JSON.stringify([P.csteps,P.inst,P.structure,P.range,P.frame,P.artic]), tb=$('seqbody');
+  var st=S.csteps(P), key=JSON.stringify([P.csteps,P.inst,P.structure,P.range,P.frame,P.artic]), tb=$('seqbody');
   if(tb.getAttribute('data-k')===key)return; tb.setAttribute('data-k',key);
   var A=S.anchorsFor(P.inst);
   function opt(v,t,cur){ return '<option value="'+S.esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+S.esc(t)+'</option>'; }
-  tb.innerHTML=st.map(function(x,i){ var b=B[i], land=b?('fret '+b.root.fret+', '+(S.handPos(Object.assign({},P,{anchor:x.anchor,mode:x.mode}),b)===0?'open':'p.'+S.handPos(Object.assign({},P,{anchor:x.anchor,mode:x.mode}),b))):'—';
+  var scale=(P.structure!=='chord'); document.querySelector('.seqt th.rgcol').hidden=!scale;   /* a chord takes its whole frame */
+  tb.innerHTML=st.map(function(x,i){
     var sp=function(pc){ return x.mode==='Chromatic'?S.LETTERS[pc]:S.spellRoot(pc,x.mode); };
     return '<tr><td>'+(i+1)+'</td>'
       +'<td><select data-i="'+i+'" data-f="root">'+[0,1,2,3,4,5,6,7,8,9,10,11].map(function(pc){ return opt(pc,sp(pc),x.root); }).join('')+'</select></td>'
       +'<td><select data-i="'+i+'" data-f="mode">'+S.MODES.map(function(m){ return opt(m,m,x.mode); }).join('')+'</select></td>'
       +'<td><select data-i="'+i+'" data-f="anchor">'+A.map(function(a){ return opt(a.id,a.word,x.anchor); }).join('')+'</select></td>'
       +'<td><select data-i="'+i+'" data-f="pos">'+(i?opt('near','Nearest',x.pos):'')+Array.apply(null,{length:21}).map(function(_,n){ return opt(n,n===0?'Open (0)':'Pos. '+n,x.pos); }).join('')+'</select></td>'
+      +(scale?'<td><select data-i="'+i+'" data-f="range">'+S.rangesFor(x.anchor,P.inst).map(function(r){ return opt(r.id,r.name,x.range); }).join('')+'</select></td>':'')
       +'<td><input type="number" min="0" max="64" step="1" data-i="'+i+'" data-f="beats" value="'+x.beats+'"></td>'
-      +'<td class="land">'+S.esc(land)+'</td><td>'+(st.length>1?'<button type="button" class="x" data-del="'+i+'" aria-label="Remove step '+(i+1)+'">×</button>':'')+'</td></tr>'; }).join('');
+      +'<td>'+(st.length>1?'<button type="button" class="x" data-del="'+i+'" aria-label="Remove step '+(i+1)+'">×</button>':'')+'</td></tr>'; }).join('');
 }
 /* the song: one of the student's, or a new one that joins their repertoire on Submit */
 function lessonOptions(sel,val){ var L=(window.LESSONS||[]).filter(function(x){ return x.kind==='music'; }).sort(function(a,b){ return a.title<b.title?-1:1; });
@@ -336,7 +340,7 @@ function params(){
   $('mby-string').onclick=function(){ P.minpos=false; P.mvoice=null; render(); };
   $('minpos').onclick=function(){ P.minpos=true; P.mvoice=null; render(); };   /* the walk's steps change: their voicings go */
   $('seqadd').onclick=function(){ var st=S.csteps(P), last=st[st.length-1];
-    P.csteps=st.concat([{root:last.root,mode:last.mode,anchor:last.anchor,pos:'near',beats:last.beats}]); render(); };
+    P.csteps=st.concat([{root:last.root,mode:last.mode,anchor:last.anchor,range:last.range,pos:'near',beats:last.beats}]); render(); };
   $('seqbody').addEventListener('change',function(e){ var t=e.target, i=+t.getAttribute('data-i'), f=t.getAttribute('data-f'); if(!f)return;
     P.csteps=S.csteps(P);
     if(f==='anchor'||f==='pos')P.csteps[i].chord=null;   /* a voicing belongs to its strings and its place on the neck */

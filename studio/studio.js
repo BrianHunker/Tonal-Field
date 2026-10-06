@@ -356,8 +356,8 @@ function inPosBox(P,b0,full0,rootPc,modeName,chord){
       (a pitch class), the function that root takes, the anchor that holds it, and where the hand goes — an index-finger
       position, or 'near' (that anchor's placement closest to the last hand position). beats: how long the step lasts (its tones
       cycle to fill it); 0 = one pass, held to the bar line. chord: the step's own voicing (scale steps from its root, by string). ── */
-function placeRoot(P,anchor,pc,mode,N,chord){   /* the anchor's placement with its root on pitch class pc, the hand nearest position N */
-  use(P); var A=anchorOf(anchor), ro=rootOffset(A), Q=Object.assign({},P,{anchor:anchor,mode:mode,pv:2,chord:chord||null}), best=null, bd=1e9;
+function placeRoot(P,anchor,pc,mode,N,chord,range){   /* the anchor's placement with its root on pitch class pc, the hand nearest position N */
+  use(P); var A=anchorOf(anchor), ro=rootOffset(A), Q=Object.assign({},P,{anchor:anchor,mode:mode,pv:2,chord:chord||null,range:range||P.range}), best=null, bd=1e9;
   for(var f=ro;f<=MAXW+ro;f++){ if(((OPEN[A.root]+f)%12+12)%12!==pc)continue; var b=boxAt(Q,f-ro,mode), d=Math.abs(handPos(Q,b)-N); if(d<bd){ bd=d; best=b; } }
   return best; }
 function legacySteps(P){   /* a modal sequence written before custom shifts: its degrees, as roots */
@@ -367,17 +367,17 @@ function legacySteps(P){   /* a modal sequence written before custom shifts: its
 function csteps(P){ use(P); var L=(P.position==='modal'&&P.mseq&&P.shifts)?legacySteps(P):(P.csteps||[]);
   if(!L.length){ var b=boxes(Object.assign({},P,{position:5}))[0]; L=[{root:b.rootPc,mode:P.mode,anchor:P.anchor,pos:5,beats:0}]; }
   return L.map(function(x,i){ return {root:((+x.root||0)%12+12)%12, mode:MODES.indexOf(x.mode)>=0?x.mode:'Do', anchor:anchorOf(x.anchor).id,
-    pos:(x.pos==='near'&&i)?'near':Math.max(0,Math.min(20,x.pos==='near'?5:(+x.pos||0))), beats:Math.max(0,+x.beats||0), chord:Array.isArray(x.chord)?x.chord:null}; }); }
+    pos:(x.pos==='near'&&i)?'near':Math.max(0,Math.min(20,x.pos==='near'?5:(+x.pos||0))), beats:Math.max(0,+x.beats||0), chord:Array.isArray(x.chord)?x.chord:null, range:fitRange({inst:P.inst,anchor:anchorOf(x.anchor).id,structure:'mode',range:x.range||P.range})}; }); }
 function customBoxes(P){
   use(P); var out=[], hand=5;
-  csteps(P).forEach(function(st){ var b=placeRoot(P,st.anchor,st.root,st.mode,st.pos==='near'?hand:st.pos,P.structure==='chord'?st.chord:null); if(!b)return;
-    hand=handPos(Object.assign({},P,{anchor:st.anchor,mode:st.mode}),b); b.beats=st.beats; b.step=st; out.push(b); });
+  csteps(P).forEach(function(st){ var b=placeRoot(P,st.anchor,st.root,st.mode,st.pos==='near'?hand:st.pos,P.structure==='chord'?st.chord:null,st.range); if(!b)return;
+    hand=handPos(Object.assign({},P,{anchor:st.anchor,mode:st.mode,range:st.range}),b); b.beats=st.beats; b.step=st; out.push(b); });
   return out; }
 /* a custom shift seeded from the drill as it stands: its boxes, once through, as steps */
 function toCustom(P){ use(P); var B=boxes(Object.assign({},P,{loop:false})), mv=P.mvoice||{};
-  return B.map(function(b,i){ var Q=Object.assign({},P,{mode:b.mode}); return {root:b.rootPc,mode:b.mode,anchor:P.anchor,pos:b.inpos?'near':handPos(Q,b),beats:0,chord:i?(mv[i]||null):(P.chord||null)}; }); }
+  return B.map(function(b,i){ var Q=Object.assign({},P,{mode:b.mode}); return {root:b.rootPc,mode:b.mode,anchor:P.anchor,range:fitRange(P),pos:b.inpos?'near':handPos(Q,b),beats:0,chord:i?(mv[i]||null):(P.chord||null)}; }); }
 /* the drill as named and described: a custom shift is named from its first step */
-function lead(P){ if(P.position!=='custom')return P; var s0=csteps(P)[0]; return Object.assign({},P,{anchor:s0.anchor,mode:s0.mode}); }
+function lead(P){ if(P.position!=='custom')return P; var s0=csteps(P)[0]; return Object.assign({},P,{anchor:s0.anchor,mode:s0.mode,range:s0.range}); }
 /* for the designer: the roots the drill can start on, and how far it can walk from one */
 function modalRoots(P){ use(P); var A=anchorOf(P.anchor), ro=rootOffset(A), L=[];
   for(var f=ro;f<=MAXW+ro;f++){ var pc=(OPEN[A.root]+f)%12; L.push({fret:f,name:P.mode==='Chromatic'?LETTERS[pc]:spellRoot(pc,P.mode)}); } return L; }
@@ -499,7 +499,7 @@ function autoNotes(P){
   if(P.position==='custom'){
     L.push('The shifts:');
     B.forEach(function(x,i){ var st=x.step, Q=Object.assign({},P,{anchor:st.anchor,mode:st.mode}), hp=handPos(Q,x), A2=anchorOf(st.anchor), a2=playedAnchor(Q);
-      L.push((i+1)+'. '+(x.mode==='Chromatic'?LETTERS[x.rootPc]+' root':spellRoot(x.rootPc,x.mode)+' as '+x.mode)+' — '+STRING_NAME[A2.root]+' string root at fret '+x.root.fret+', leaning '+a2.lean+', '+(hp===0?'open position':'position '+hp)+(x.beats?', '+x.beats+' beat'+(x.beats===1?'':'s'):'')+'.'); });
+      L.push((i+1)+'. '+(x.mode==='Chromatic'?LETTERS[x.rootPc]+' root':spellRoot(x.rootPc,x.mode)+' as '+x.mode)+' — '+STRING_NAME[A2.root]+' string root at fret '+x.root.fret+', leaning '+a2.lean+', '+(hp===0?'open position':'position '+hp)+(P.structure!=='chord'?', '+RANGES.filter(function(r){ return r.id===st.range; })[0].name+' range':'')+(x.beats?', '+x.beats+' beat'+(x.beats===1?'':'s'):'')+'.'); });
     L.push(P.loop!==false?'Then start over from the top.':'Once through.'); }
   else if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){ var ms2=Math.round(+P.msteps||0), wk=modalWalk(P);
     L.push('Start with '+rootName(b)+' as '+P.mode+' at fret '+P.mroot+' on the '+STRING_NAME[anchorOf(P.anchor).root]+' string. '+(P.minpos?'Then stay in position: the hand doesn’t move, and the root steps '+(ms2>=0?'up':'down')+' to the next degree of the key within the same frets, '+(wk.length-1)+' step'+(wk.length===2?'':'s')+' ('+wk.map(function(x){ return x.mode; }).join(' → ')+')'+(P.structure==='chord'?': each voice moves to the nearest tone of the new chord on its own string.':': the same frets, heard from each new root.'):'Then walk the root '+(ms2>=0?'up':'down')+' its string through the key, one degree at a time, '+(wk.length-1)+' step'+(wk.length===2?'':'s')+' ('+wk.map(function(x){ return x.mode; }).join(' → ')+'): the shape stays, the root takes a new function each time.')+(P.loop!==false?' Then come back the same way, and repeat.':'')); }
