@@ -321,7 +321,7 @@ function autoNotes(P){
      the rest — range, position, fingering, shifts, timing */
   var B=boxes(P), b=B[0], L=[], noun=NOUN[P.structure]||'modal scale';
   if(P.mode==='Chromatic') L.push((noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun)+' from '+LETTERS[b.rootPc]+'.');
-  else L.push(P.mode+' '+noun+', with '+rootName(b)+' as '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
+  else L.push(P.mode+' '+noun+', '+(isShift(P)?'starting with ':'with ')+rootName(b)+' as '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
   var names=ordered(b.cells,'up').map(function(c){ return c.name; });
   if(names.length) L.push('Tones, low to high: '+names.join(' ')+'.');
   var pa=playedAnchor(P), pr=playedRoot(P,b), rc=pr.cell;
