@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=34">
+<link rel="stylesheet" href="studio.css?v=35">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -120,8 +120,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
       <div class="sec k-drill">
         <h3>Tonality</h3>
         <div class="row">
-          <label class="field"><span>Position</span><select id="position"></select></label>
-          <label class="field"><span>Root</span><select id="root"></select></label>
+          <label class="field"><span>Root <span class="hint">(on the anchor’s root string)</span></span><select id="root"></select></label>
         </div>
         <div class="row" id="moderow"><div class="field"><span>Mode (the root is…)</span><div class="chips" id="modes"></div></div></div>
         <div class="row" id="framerow"><div class="field"><span>Where the key doesn’t fit four frets</span><div class="chips" id="frames"></div><span class="hint" id="framehint"></span></div></div>
@@ -173,9 +172,9 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=34"></script>
-<script src="../lessons.js?v=34"></script>
-<script src="studio.js?v=34"></script>
+<script src="config.js?v=35"></script>
+<script src="../lessons.js?v=35"></script>
+<script src="studio.js?v=35"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
 var D=null, CUR=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
@@ -240,16 +239,17 @@ function renderControls(){
   for(var i=0;i<=12;i++){ (function(i){ var d=document.createElement('div'); d.className='dot'; var on=(i===0||i===12)?true:!!P.custom[i];
     d.innerHTML='<button type="button" aria-pressed="'+on+'" aria-label="'+i+' semitones"'+((i===0||i===12)?' disabled':'')+'></button><span>'+i+'</span>';
     d.querySelector('button').onclick=function(){ P.custom[i]=P.custom[i]?0:1; render(); }; cu.appendChild(d); })(i); }
-  var rs=$('root'), rk=P.mode+'|'+P.inst;   /* the root, spelled for its mode */
-  if(rs.getAttribute('data-k')!==rk){ rs.innerHTML=[0,1,2,3,4,5,6,7,8,9,10,11].map(function(pc){ return '<option value="'+pc+'">'+S.esc(P.mode==='Chromatic'?S.LETTERS[pc]:S.spellRoot(pc,P.mode))+'</option>'; }).join(''); rs.setAttribute('data-k',rk); }
-  rs.value=String(((+P.root||0)%12+12)%12);
+  P.note=S.fitNote(P);   /* the root with its octave: the notes this anchor's root string can take, spelled for the mode */
+  var rs=$('root'), NL=S.notesFor(P), rk=P.mode+'|'+NL.join(',');
+  if(rs.getAttribute('data-k')!==rk){ rs.innerHTML=NL.slice().reverse().map(function(n){ return '<option value="'+n+'">'+S.esc(S.noteName(n,P.mode))+'</option>'; }).join(''); rs.setAttribute('data-k',rk); }
+  rs.value=String(P.note);
   var n=D?D.shifts.length:1, sc=$('shiftchips');
   if(sc.getAttribute('data-k')!==n+'|'+CUR){ sc.setAttribute('data-k',n+'|'+CUR); sc.innerHTML='';   /* rebuilt only when the shifts change, so a click is never lost to a redraw */
   for(var k=0;k<n;k++){ (function(k){ var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=String(k+1); b.setAttribute('aria-pressed',String(k===CUR)); b.onclick=function(){ view(k); render(); }; sc.appendChild(b); })(k); }
   var add=document.createElement('button'); add.type='button'; add.className='chip'; add.textContent='+'; add.title='Add a shift, copied from this one';
   add.onclick=function(){ commit(); D.shifts.splice(CUR+1,0,S.shiftOf(P)); view(CUR+1); render(); }; sc.appendChild(add); }
   if(document.activeElement!==$('beats'))$('beats').value=String(+P.beats||0); $('loopwrap').hidden=n<2; $('shiftdel').hidden=n<2;
-  $('loop').setAttribute('aria-pressed',String(P.loop!==false)); $('position').value=String(P.position);
+  $('loop').setAttribute('aria-pressed',String(P.loop!==false));
 }
 /* the song: one of the student's, or a new one that joins their repertoire on Submit */
 function lessonOptions(sel,val){ var L=(window.LESSONS||[]).filter(function(x){ return x.kind==='music'; }).sort(function(a,b){ return a.title<b.title?-1:1; });
@@ -276,10 +276,7 @@ function params(){
   var o=drillD(); o.daily=daily; return o;
 }
 (function(){
-  var ps=$('position'); S.POSITIONS.forEach(function(p){ var o=document.createElement('option'); o.value=String(p);
-    o.textContent=p===0?'Position 0 (open)':'Position '+p; ps.appendChild(o); });
-  ps.onchange=function(){ P.position=+this.value; P.chord=null; render(); };   /* a voicing belongs to its place on the neck */
-  $('root').onchange=function(){ P.root=+this.value; render(); };
+  $('root').onchange=function(){ P.note=+this.value; render(); };
   $('beats').oninput=function(){ P.beats=Math.max(0,Math.min(64,Math.round(+this.value||0))); render(); };
   $('shiftdel').onclick=function(){ commit(); if(D.shifts.length<2)return; D.shifts.splice(CUR,1); CUR=Math.min(CUR,D.shifts.length-1); P=Object.assign(S.defaults(),S.shiftP(D,CUR)); render(); };
   var ar=$('artic');
@@ -333,11 +330,10 @@ function render(){
     return;
   }
   var DD=drillD(), b=S.boxes(P)[0], n=DD.shifts.length;
-  $('pshift').textContent=n>1?'Shift '+(CUR+1)+' of '+n+' · '+S.rootLabel(b):'';
+  $('pshift').textContent=n>1?'Shift '+(CUR+1)+' of '+n+' · '+S.noteName(b.root.pitch,b.mode)+(b.mode==='Chromatic'?' root':' as '+b.mode):'';
   $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1,edit:P.structure==='chord'});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
-  var sq=S.sequence(DD), got=S.handPos(P,b), want=+P.position;
-  var miss=got!==want?' · Shift '+(CUR+1)+': '+S.rootLabel(b)+' with this anchor can’t sit at position '+want+'; the nearest is position '+got+'.':'';
+  var sq=S.sequence(DD), miss='';
   $('psum').textContent=S.INSTRUMENTS[P.inst].name+' · '+S.summary(DD)+miss+' · '+sq.length/(sq.per/8)+' eighths long, '+sq.bars+' bar'+(sq.bars===1?'':'s');
   if(!notesEdited)$('notes').value=S.autoNotes(DD);
   $('try').href='drill.html#p='+encodeURIComponent(JSON.stringify(Object.assign({},DD,{hand:HAND})));

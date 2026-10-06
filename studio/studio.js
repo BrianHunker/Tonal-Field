@@ -82,7 +82,7 @@ function isStrum(P){ return P.structure==='chord'&&/^Strumming/.test(fitArtic(P)
    three tones per string (major frames), and the position drifts with the B–G tuning and the Fa–Ti mismatch. Chromatic drills
    take the four-tone frame on every string. Ids kept from before: 'half' is Shift, 'three' is Stretch. */
 var FRAMES=[ {id:'half',name:'Shift'}, {id:'three',name:'Stretch'} ];
-function defaults(){ return { anchor:'E>', root:7, position:2, beats:0, start:1, end:5, loop:true, daily:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
+function defaults(){ return { anchor:'E>', note:19, beats:0, start:1, end:5, loop:true, daily:1, mode:'Do', frame:'half', range:'central', structure:'mode', custom:[1,0,0,0,0,0,0,0,0,0,0,0],
                                dir:'updown', bpm:60, sub:8, artic:'Alternate' }; }
 
 /* ── one frame: the anchor placed with its box starting at fret w, and every tone of the key between (and around) its
@@ -269,7 +269,7 @@ function chordToggle(P,string,fret,i){ use(P); var b=(isShift(P)?boxes(Object.as
 function boxes(P){
   use(P);
   if(P.shifts) return P.shifts.map(function(_,i){ return shiftBox(shiftP(P,i)); }).filter(Boolean);
-  if(P.root!=null&&P.root!=='') return [shiftBox(P)].filter(Boolean);
+  if((P.note!=null&&P.note!=='')||(P.root!=null&&P.root!=='')) return [shiftBox(P)].filter(Boolean);
   var A=anchorOf(P.anchor), ro=rootOffset(A), a=Math.max(0,+P.start||0), e=Math.max(0,(P.end===undefined||P.end==='')?a:+P.end), d=e>=a?1:-1, out=[], v2=P.pv>=2;
   var at=function(N,mode){ return v2?boxFor(P,N,mode):boxAt(P,N,mode); };
   if(P.position==='chromatic'){ for(var w=a;d>0?w<=e:w>=e;w+=d){ var bx=at(w,P.mode); if(!out.length||out[out.length-1].w!==bx.w)out.push(bx); } }
@@ -361,15 +361,25 @@ function placeRoot(P,anchor,pc,mode,N,chord,range){   /* the anchor's placement 
       voicing, range, fingering, direction, subdivision, articulation and length in beats (0 = one pass, held to the bar line).
       Tempo, daily minutes, the instrument and the loop belong to the drill. A shift's box: its anchor placed with the root on
       its pitch class, the hand nearest its position. Drills saved before shifts (no root) keep their own boxes, below. ── */
-var SHIFT_KEYS=['root','position','anchor','mode','structure','custom','chord','ring','range','frame','dir','sub','artic','beats'];
+var SHIFT_KEYS=['note','anchor','mode','structure','custom','chord','ring','range','frame','dir','sub','artic','beats'];
 function shiftP(D,i){ var o={}; for(var k in D) if(k!=='shifts')o[k]=D[k]; return Object.assign(o,D.shifts[i]||{}); }
 function shiftOf(P){ var o={}; SHIFT_KEYS.forEach(function(k){ if(P[k]!==undefined)o[k]=JSON.parse(JSON.stringify(P[k])); }); return o; }
-function shiftBox(P){ return placeRoot(P,P.anchor,((+P.root||0)%12+12)%12,P.mode,+P.position||0,P.structure==='chord'?P.chord:null,P.range); }
+/* a shift's root is a note — pitch class and octave (the tool's numbering: the low E open is 16, E2). With the anchor it fixes the
+   box: the anchor's root string plays it. notesFor: the notes the anchor's root string can take (box from the nut to MAXW). */
+function notesFor(P){ use(P); var A=anchorOf(P.anchor), ro=rootOffset(A), L=[]; for(var f=ro;f<=MAXW+ro;f++)L.push(OPEN[A.root]+f); return L; }
+function fitNote(P){ var L=notesFor(P), n=+P.note; if(L.indexOf(n)>=0)return n;   /* another anchor: the same pitch class, nearest; else the nearest note */
+  var same=L.filter(function(x){ return ((x-n)%12+12)%12===0; }), C=same.length?same:L;
+  return C.reduce(function(m,x){ return Math.abs(x-n)<Math.abs(m-n)?x:m; },C[0]); }
+function octaveOf(p,name){ var o=Math.floor((p+24)/12)-1; if(/^C♭|^C𝄫/.test(name))o++; if(/^B♯|^B𝄪/.test(name))o--; return o; }
+function noteName(p,modeName){ var nm=modeName==='Chromatic'?LETTERS[((p%12)+12)%12]:spellRoot(p%12,modeName); return nm+octaveOf(p,nm); }
+function shiftBox(P){
+  if(P.note!=null&&P.note!==''){ use(P); var A=anchorOf(P.anchor), Q=Object.assign({},P,{pv:2,chord:P.structure==='chord'?P.chord:null}); return boxAt(Q,fitNote(P)-OPEN[A.root]-rootOffset(A),P.mode); }
+  return placeRoot(P,P.anchor,((+P.root||0)%12+12)%12,P.mode,+P.position||0,P.structure==='chord'?P.chord:null,P.range); }
 function nShifts(P){ return P.shifts?P.shifts.length:1; }
 /* a drill saved before shifts, as shifts: its boxes, once through */
 function toShifts(P){ use(P); var B=boxes(Object.assign({},P,{loop:false})), mv=P.mvoice||{};
   var D={inst:P.inst||'guitar',bpm:P.bpm,daily:P.daily,loop:P.loop,kind:'drill',pv:2};
-  D.shifts=B.map(function(b,i){ var Q=Object.assign({},P,{mode:b.mode}), o=shiftOf(P); o.root=b.rootPc; o.mode=b.mode; o.position=handPos(Q,b); o.beats=0;
+  D.shifts=B.map(function(b,i){ var Q=Object.assign({},P,{mode:b.mode}), o=shiftOf(P); o.note=b.root.pitch; o.mode=b.mode; o.beats=0;
     o.chord=(P.structure==='chord')?(i?(mv[i]||b.chordSel):(P.chord||null)):null; return o; });
   return D; }
 /* for the designer: the roots the drill can start on, and how far it can walk from one */
@@ -439,7 +449,7 @@ function rootName(b){ return spellRoot(b.rootPc,b.mode); }
    "Do modal scale anchored on the A string leaning back". Everything else (key, position, range, direction, timing) is the
    description's. */
 var NOUN={chord:'chord',octave:'octaves',mode:'modal scale',triad:'triad',tetrachord:'tetrachord','do-pent':'pentatonic','la-pent':'pentatonic',chromatic:'chromatic scale',custom:'custom set'};
-function stepName(b){ return b.mode==='Chromatic'?LETTERS[b.rootPc]:spellRoot(b.rootPc,b.mode)+' '+b.mode; }
+function stepName(b){ return noteName(b.root.pitch,b.mode)+(b.mode==='Chromatic'?'':' '+b.mode); }
 function nounOf(P){ return P.structure==='chord'?(isStrum(P)?'chord':'arpeggio'):(NOUN[P.structure]||'modal scale'); }
 /* a drill of several shifts is named by them: "Modal scale shifts: C Do → D Re → E Mi" (each with its noun when they differ) */
 function title(P){
@@ -460,14 +470,14 @@ function playedRoot(P,b){ var cells=b.anchorCells.slice().sort(function(x,y){ re
 function anchorPhrase(P){ var a=playedAnchor(P); return 'anchored on the '+STRING_NAME[a.string]+' string leaning '+a.lean; }
 /* the description: the key and where on the neck, then range, direction, timing, articulation and daily minutes */
 function where(P){
-  var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(rootName(b)+' as '+P.mode);
+  var b=boxes(P)[0], rn=(P.note!=null&&P.note!=='')?noteName(b.root.pitch,b.mode):(P.mode==='Chromatic'?LETTERS[b.rootPc]:rootName(b)), key=P.mode==='Chromatic'?rn+' root':(rn+' as '+P.mode);
   var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
   if(P.position==='modal'&&P.mroot!=null&&P.mroot!==''){ var ms=Math.round(+P.msteps||0); span=' '+(ms>=0?'up ':'down ')+Math.abs(ms)+' degree'+(Math.abs(ms)===1?'':'s')+(P.minpos?' in position':'')+' from fret '+P.mroot+(P.loop!==false?', looping':', once'); }
   var pn=handPos(P,b), here=pn===0?'open position':'position '+pn, rc=playedRoot(P,b).cell;
   return key+' · '+(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:here+' · root at fret '+rc.fret+(rc.string!==anchorOf(P.anchor).root?' ('+STRING_NAME[rc.string]+' string)':''))); }
 function summary(P){
   if(P.shifts&&P.shifts.length===1) return summary(shiftP(P,0));
-  if(P.shifts){ var Bs=boxes(P); return P.shifts.length+' shifts · '+Bs.map(function(x){ return x.mode==='Chromatic'?LETTERS[x.rootPc]+' root':spellRoot(x.rootPc,x.mode)+' as '+x.mode; }).join(' → ')
+  if(P.shifts){ var Bs=boxes(P); return P.shifts.length+' shifts · '+Bs.map(function(x){ return noteName(x.root.pitch,x.mode)+(x.mode==='Chromatic'?' root':' as '+x.mode); }).join(' → ')
     +(P.loop!==false?', looping':', once')+' · '+P.bpm+' bpm · '+(+P.daily||1)+' min a day'; }
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   var dm=+P.daily||1;
@@ -673,6 +683,6 @@ function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 G.Studio={ INSTRUMENTS:INSTRUMENTS, LETTERS:LETTERS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, articsFor:articsFor, fitArtic:fitArtic, isStrum:isStrum, chordToggle:chordToggle, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, WEEKDAYS:WEEKDAYS, clock12:clock12, lessonSlot:lessonSlot, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
-  handPos:handPos, posOf:posOf, modalWalk:modalWalk, rootLabel:function(b){ return b.mode==='Chromatic'?LETTERS[b.rootPc]+' root':spellRoot(b.rootPc,b.mode)+' as '+b.mode; }, spellRoot:spellRoot, shiftP:shiftP, shiftOf:shiftOf, shiftBox:shiftBox, toShifts:toShifts, nShifts:nShifts, SHIFT_KEYS:SHIFT_KEYS, modalRoots:modalRoots, modalLimits:modalLimits, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
+  handPos:handPos, posOf:posOf, modalWalk:modalWalk, rootLabel:function(b){ return b.mode==='Chromatic'?LETTERS[b.rootPc]+' root':spellRoot(b.rootPc,b.mode)+' as '+b.mode; }, spellRoot:spellRoot, noteName:noteName, notesFor:notesFor, fitNote:fitNote, shiftP:shiftP, shiftOf:shiftOf, shiftBox:shiftBox, toShifts:toShifts, nShifts:nShifts, SHIFT_KEYS:SHIFT_KEYS, modalRoots:modalRoots, modalLimits:modalLimits, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,
   isDemo:function(){ return !G.STUDIO_API; } };
 })(window);
