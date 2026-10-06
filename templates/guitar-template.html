@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v426 · template: guitar, one view, one bar -->
+<!-- Tonal Field — Ring — v427 · template: guitar, one view, one bar -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v426</span></h1>
+  <h1>Tonal Field <span>Ring v427</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -5605,10 +5605,15 @@ function _schedule(){
     _schedId=null;
     var d=_needsDraw,p=_needsPanels,l=_needsLight,f=_needsFret;
     _needsDraw=_needsPanels=_needsLight=_needsFret=false;
-    if(d){
-      var full=p||l;
-      draw(!full);
-      if(!full&&f&&showFret)fretDraw();
+    if(d&&p){ draw(false); }
+    else if(d){
+      /* v427: the ring with the lights (a tone's level moved: every frame of a phrase), without the panels' recolour.
+         The recolour — the roll's note colours, its background, the TAB in full — follows the field, not the sound; it
+         ran on every one of these frames and was the greater part of the work of playing. requestDraw (a note's
+         on or off, a turn of the field) still redraws everything. */
+      draw(true);
+      if(l){ var A0=activeSemisKb(); kbLitClasses(A0); colorKeyboard(A0); if(showStrip)drawStrip(); if(showFret)fretDraw(); if(typeof seqPaintKeys==='function'&&seqVisible())seqPaintKeys(A0); }
+      else if(f&&showFret)fretDraw();
     }
     else if(l){
       var A=activeSemis();
@@ -7766,7 +7771,7 @@ function sizeFret(){
   fbLow.height=Math.max(120,Math.round(fbStrings*16));
   if(fretH>0&&w>0){ fbSized=true; fbFitPending=false; }   /* v291: a pending fit has now been taken against this view */
 }
-var fbLow=null;
+var fbLow=null, fbTiny=null, fbLabCache=null;   /* v427: fbTiny — a pixel per cell; fbLabCache — the label layer, kept while it reads the same */
 var fretViewH=398;                     /* surface viewport height, set by layout/divider */
 var fbCellW=null, fbCellH=null;        /* zoom: px per cell; null = fit the full matrix to the view */
 var fbPanX=0, fbPanY=0;
@@ -7867,34 +7872,23 @@ function fretDraw(){
     var rc=Math.max(0,Math.min(fbStrings-1,r)), fc=Math.max(0,Math.min(fbFrets-1,f));
     return (inR&&inF)?cols[rc][fc]:dark[rc][fc];
   }
-  var img=lx.createImageData(lw,lh);
-  var d=img.data;
-  for(var py=0;py<lh;py++){
-    var rr=py/lh*fbStrings-0.5;
-    var r0=Math.floor(rr), r1=r0+1, tr=rr-r0;
-    for(var px=0;px<lw;px++){
-      var ff=px/lw*fbFrets-0.5;
-      var f0=Math.floor(ff), f1=f0+1, tf=ff-f0;
-      var c00=cellCol(r0,f0),c01=cellCol(r0,f1),c10=cellCol(r1,f0),c11=cellCol(r1,f1);
-      var i=(py*lw+px)*4;
-      for(var k2=0;k2<3;k2++){
-        var top=c00[k2]+(c01[k2]-c00[k2])*tf;
-        var bot=c10[k2]+(c11[k2]-c10[k2])*tf;
-        d[i+k2]=top+(bot-top)*tr;
-      }
-      d[i+3]=255;
-    }
-  }
-  lx.putImageData(img,0,0);
+  /* v427: the same bilinear glow, drawn by the browser — one pixel per cell, ringed by the virtual edge cells, and
+     scaled with bilinear smoothing onto the board. The per-pixel loop and the 'high'-quality resample it fed cost
+     more than every other surface together while a phrase played, and starved the sequencer's clock. */
+  var tw_=fbFrets+2, th_=fbStrings+2;
+  if(!fbTiny||fbTiny.width!==tw_||fbTiny.height!==th_){ fbTiny=document.createElement('canvas'); fbTiny.width=tw_; fbTiny.height=th_; }
+  var tx_=fbTiny.getContext('2d'), img=tx_.createImageData(tw_,th_), d=img.data;
+  for(var py=0;py<th_;py++)for(var px=0;px<tw_;px++){ var cc_=cellCol(py-1,px-1), i=(py*tw_+px)*4; d[i]=cc_[0]; d[i+1]=cc_[1]; d[i+2]=cc_[2]; d[i+3]=255; }
+  tx_.putImageData(img,0,0);
   fx.setTransform(dpr,0,0,dpr,0,0);
   var w=fretCv.width/dpr, hh=fretCv.height/dpr;
   var D=fbDims(w-FB_BAND);
   fbClampPan(w-FB_BAND,hh-FB_BAND-fbFootH());
   fx.imageSmoothingEnabled=true;
-  if('imageSmoothingQuality' in fx)fx.imageSmoothingQuality='high';
+  if('imageSmoothingQuality' in fx)fx.imageSmoothingQuality='low';   /* v427: bilinear — the interpolation the loop did */
   fx.clearRect(0,0,w,hh);
   fx.save(); fx.translate(FB_BAND-fbPanX,FB_BAND-fbPanY);
-  fx.drawImage(fbLow,0,0,D.CW,D.CH);
+  fx.save(); fx.beginPath(); fx.rect(0,0,D.CW,D.CH); fx.clip(); fx.drawImage(fbTiny,-D.cw,-D.ch,D.CW+2*D.cw,D.CH+2*D.ch); fx.restore();
   var rowH=D.ch, fw=D.cw;
   /* v395: a dead note's string flashes grey along its whole length, beneath the labels */
   for(var _dr in fbDeadFlash){ var _ag=(performance.now()-fbDeadFlash[_dr])/FB_DEAD_MS; if(!(_ag<1))continue; fx.fillStyle='rgba(214,214,208,'+(0.95*(1-_ag)).toFixed(3)+')'; fx.fillRect(0,(fbStrings-1-(+_dr)+0.45)*rowH,D.CW,Math.max(1.5,0.1*rowH)); }   /* v396: a thin grey line along the middle of the row — the string itself */   /* string index counts from the low string; the board's rows from the top */
@@ -7940,6 +7934,7 @@ function fretDraw(){
     if(fbHz)lines.push([(261.626*Math.pow(2,semi/12)).toFixed(0), lc(colorLetters?letterHue(ch,v,[188,186,178]):[188,186,178])]);
     return lines;
   }
+  var _labs=[];
   for(var r=0;r<fbStrings;r++){
     var yc=(r+0.5)*rowH;
     if(yc-fbPanY<-rowH||yc-fbPanY>hh+rowH)continue;
@@ -7969,8 +7964,24 @@ function fretDraw(){
           }
         }
       }
-      if(anyLabels)badge(xc,yc,labelFor(semi),cellSel(r,_fr2)?fbBadgeIn:fbBadgeOut);
+      if(anyLabels)_labs.push([xc,yc,labelFor(semi),cellSel(r,_fr2)?fbBadgeIn:fbBadgeOut]);
     }
+  }
+  /* v427: the labels change only with the field, the view or the options — never with what is sounding — so they are
+     drawn once into a layer of their own and stamped on each frame. The key is the drawing itself: every label's
+     place, text, colour and alpha, with the view's pan, cell size and pixel ratio. A change to any of them redraws. */
+  if(_labs.length){
+    var _sig=[w,hh,dpr,fbPanX,fbPanY,D.cw,D.ch,fbLabelScale].join(',')+'|'+_labs.map(function(L){ return L[0].toFixed(2)+','+L[1].toFixed(2)+','+L[3]+':'+L[2].map(function(q){ return q[0]+'/'+q[1].join('.'); }).join(';'); }).join('|');
+    if(!fbLabCache||fbLabCache.sig!==_sig){
+      var _lc=(fbLabCache&&fbLabCache.cv)||document.createElement('canvas');
+      if(_lc.width!==fretCv.width||_lc.height!==fretCv.height){ _lc.width=fretCv.width; _lc.height=fretCv.height; }
+      var _lx=_lc.getContext('2d'); _lx.setTransform(1,0,0,1,0,0); _lx.clearRect(0,0,_lc.width,_lc.height);
+      _lx.setTransform(dpr,0,0,dpr,0,0); _lx.translate(FB_BAND-fbPanX,FB_BAND-fbPanY); _lx.textAlign='center'; _lx.textBaseline='middle';
+      var _fx0=fx; fx=_lx;
+      try{ for(var _li=0;_li<_labs.length;_li++)badge(_labs[_li][0],_labs[_li][1],_labs[_li][2],_labs[_li][3]); } finally{ fx=_fx0; }
+      fbLabCache={sig:_sig,cv:_lc};
+    }
+    fx.save(); fx.setTransform(1,0,0,1,0,0); fx.drawImage(fbLabCache.cv,0,0); fx.restore();
   }
   var _numH=fbFretNums?FB_NUMH:0;
   if(fbFretNums){
@@ -11148,7 +11159,10 @@ function tabBarWire(){
   var tt=document.getElementById('tabTitleIn'); if(tt){ tt.addEventListener('input',function(){ seq.title=this.value.slice(0,80); var s=document.getElementById('seqTitleIn'); if(s)s.value=seq.title; }); tt.addEventListener('keydown',function(e){ if(e.key==='Enter')this.blur(); e.stopPropagation(); }); }
 }
 /* ---- render ---- */
-function tabRequest(){ if(tabRAF||!showTab)return; tabRAF=requestAnimationFrame(function(){ tabRAF=null; tabRender(); }); }
+/* v427: head — the request comes from the playhead alone, so only the lines it touches need redrawing (tabRender
+   decides); any other request redraws the whole TAB */
+var tabRAFFull=false, tabLast=null;
+function tabRequest(head){ if(!head)tabRAFFull=true; if(tabRAF||!showTab)return; tabRAF=requestAnimationFrame(function(){ tabRAF=null; var full=tabRAFFull; tabRAFFull=false; tabRender(full?undefined:'head'); }); }
 /* v352: the TAB is text, so it is drawn at the screen's full sharpness (3x on an iPhone) */
 function tabDpr(){ return Math.min(window.devicePixelRatio||1,3); }
 /* v352: a fret number sits on a small dark plate, as a fretboard label sits on its dark cell — the bar behind it is
@@ -11171,14 +11185,29 @@ function tabBigDpr(W,H){ var d=tabDpr(); return Math.max(0.5,Math.min(d,30000/Ma
 /* v373: keep a line in view, the way the sequencer keeps its head */
 function tabScrollToLine(line,always){ var sc=tabScrollEl(); if(!sc)return; var lh=tabLineH(), y0=line*lh, y1=y0+lh;
   if(always||y0<sc.scrollTop||y1>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); }
-function tabRender(){
+function tabRender(mode){
   var cv=tabEl(); if(!cv||!showTab)return;
   var n=tabNStr(); if(n<1)return;
   if(tabFirstLine>tabNLines()-1)tabFirstLine=Math.max(0,tabNLines()-1);
   tabSize(); tabBarSync();
   var c=cv.getContext('2d'), _d=cv._dpr||tabDpr(); c.setTransform(_d,0,0,_d,0,0);
-  var W=cv.clientWidth, H=cv.clientHeight; c.clearRect(0,0,W,H);
+  var W=cv.clientWidth, H=cv.clientHeight;
   var cpb=tabCPB(), cw=tabCellW(), lh=tabLineH(), bars=tabBars(), nl=tabNLines();
+  /* v427: while a phrase plays, the playhead asks for a redraw every frame; between two of them only the lines holding the
+     head, or a tone that sounds now or sounded then, can have changed. Those lines are cleared and redrawn, the rest kept
+     — the whole TAB (a tall canvas, at the screen's pixel ratio) was being cleared and repainted sixty times a second.
+     The canvas, its layout and the window of lines must read as they did; otherwise, and on any other request, everything. */
+  var _lineOf=function(col){ return Math.floor(Math.floor(col)/cpb/tabMPL)-tabFirstLine; };
+  var _soundLines=function(at){ var L={}; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(at>=q.start&&at<q.start+q.dur)L[_lineOf(q.start)]=1; } return L; };
+  var _dirty=null, _geo=[cv.width,cv.height,W,H,tabFirstLine,tabLines,cpb,cw,lh,nl,n,seq.notes.length].join(',');
+  if(mode==='head'&&tabLast&&tabLast.geo===_geo){
+    _dirty={}; _dirty[_lineOf(seqPos)]=1; _dirty[_lineOf(tabLast.pos)]=1;
+    var _sl=_soundLines(seqPos); for(var k in _sl)_dirty[k]=1; for(k in tabLast.sound)_dirty[k]=1;
+    var _all=true; for(var L_=0;L_<tabLines&&tabFirstLine+L_<nl;L_++)if(!_dirty[L_]){ _all=false; break; }
+    if(_all)_dirty=null; }
+  tabLast={geo:_geo,pos:seqPos,sound:_soundLines(seqPos)};
+  if(_dirty){ c.save(); c.beginPath(); for(var Ld in _dirty){ var y_=(+Ld)*lh; if(+Ld<0||+Ld>=tabLines)continue; c.clearRect(0,y_,W,lh); c.rect(0,y_,W,lh); } c.clip(); }
+  else c.clearRect(0,0,W,H);
   var ti=document.getElementById('tabInfo'); if(ti){ var t=bars+' bars · '+nl+' line'+(nl===1?'':'s'); if(ti.textContent!==t)ti.textContent=t; }
   var ink='#c9c9c4', dim='#6a6a68', bg='#000', gold='#ffd27a';   /* v306: black again */
   function lift(col,k){ return [Math.round(col[0]+(255-col[0])*k),Math.round(col[1]+(255-col[1])*k),Math.round(col[2]+(255-col[2])*k)]; }
@@ -11188,6 +11217,7 @@ function tabRender(){
   var pos=seqPos, playing=seq.playing;
   for(var L=0;L<tabLines;L++){
     var line=tabFirstLine+L; if(line>=nl)break;
+    if(_dirty&&!_dirty[L])continue;   /* v427: kept as drawn */
     var y0=L*lh+TAB_TOP, b0=line*tabMPL, b1=Math.min(bars,b0+tabMPL);
     for(var r=0;r<n;r++){
       var wgt=(0.5+(n>1?(r/(n-1)):0)*1.75)*TAB_S;
@@ -11325,6 +11355,7 @@ function tabRender(){
       if(tabBuf){ c.fillStyle=gold; c.textAlign='center'; outlined(tabBuf,tabOnX(Rc),Rc.y); } } }
   if(tabDrag&&tabDrag.mode==='band'&&tabDrag.on){ var bx=Math.min(tabDrag.x0,tabDrag.x1), by=Math.min(tabDrag.y0,tabDrag.y1);
     c.strokeStyle=gold; c.setLineDash([3,3]); c.strokeRect(bx,by,Math.abs(tabDrag.x1-tabDrag.x0),Math.abs(tabDrag.y1-tabDrag.y0)); c.setLineDash([]); }
+  if(_dirty)c.restore();
 }
 function tabHeadTick(){
   if(!showTab)return;
@@ -11332,7 +11363,7 @@ function tabHeadTick(){
   /* v373: no pages — while playing, the window scrolls so the head's line is in view */
   if(seq.playing||phoneMode()){ var sc=tabScrollEl(); if(sc){ var lh=tabLineH(), L=line-tabFirstLine, y0=L*lh, y1=y0+lh, top=sc.scrollTop, bot=top+sc.clientHeight;
     if(y0<top||y1>bot)sc.scrollTop=Math.max(0,Math.min(sc.scrollHeight-sc.clientHeight,y0)); } }
-  tabRequest();
+  tabRequest(true);
 }
 /* ---- editing ---- */
 function tabTruncate(v,start,end,keepId){
