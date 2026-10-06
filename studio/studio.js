@@ -275,7 +275,20 @@ function sequence(P){
 }
 
 /* ── names ── */
-function rootName(b){ return LETTERS[b.rootPc]; }
+/* the root's letter: a natural stays natural; otherwise it is spelled as in its own key — the signature (of the key whose Do
+   it implies) with fewer accidentals, so D♭ as Do or Fa, C♯ as Re, Mi or La, B♭ minor rather than A♯. At six sharps or six
+   flats (Do on F♯/G♭) the modes with a major third take the flat spelling, the others the sharp. Chromatic drills have no key. */
+var SEQ='CDEFGAB', NATPC={C:0,D:2,E:4,F:5,G:7,A:9,B:11}, ACCS={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
+function spellRoot(pc,modeName){
+  pc=((pc%12)+12)%12; var nat=SEQ.split('').filter(function(L){ return NATPC[L]===pc; })[0]; if(nat) return nat;
+  var F=fnByName(modeName); if(!F) return LETTERS[pc];
+  var d=((pc-F.s)%12+12)%12, sh=(7*d)%12, fl=(12-sh)%12;
+  var useFlat=fl<sh||(fl===sh&&['Do','Fa','Sol'].indexOf(modeName)>=0);
+  var doL=(useFlat?['C','F','B','E','A','D','G','C']:['C','G','D','A','E','B','F','C'])[useFlat?fl:sh];
+  var deg=FN.indexOf(F), letter=SEQ.charAt((SEQ.indexOf(doL)+deg)%7), a=((pc-NATPC[letter]+18)%12)-6;
+  return letter+(ACCS[String(a)]||'');
+}
+function rootName(b){ return spellRoot(b.rootPc,b.mode); }
 /* the name: what is played and where it is anchored — the tonality, the structure, the root string and the lean.
    "Do modal scale anchored on the A string leaning back". Everything else (key, position, range, direction, timing) is the
    description's. */
@@ -285,14 +298,17 @@ function title(P){
   var head=P.mode==='Chromatic'?(noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun):(P.mode+' '+noun);
   /* the anchor as played: the lowest anchor tone in the range, leaning toward its octave — so the upper octave of an E anchor
      is named from its own pair (E forward → D string leaning back, E back → G string leaning forward) */
-  var T=A.tones.slice().sort(function(p,q){ return (OPEN[p[0]]+p[1])-(OPEN[q[0]]+q[1]); }), i=(fitRange(P)==='upper'&&T.length===3)?1:0;
-  return head+' anchored on the '+STRING_NAME[T[i][0]]+' string leaning '+(T[i+1][1]>T[i][1]?'forward':'back');
+  return head+' '+anchorPhrase(P);
 }
+function playedAnchor(P){ var A=anchorOf(P.anchor), T=A.tones.slice().sort(function(p,q){ return (OPEN[p[0]]+p[1])-(OPEN[q[0]]+q[1]); });
+  var i=(fitRange(P)==='upper'&&T.length===3)?1:0; return {string:T[i][0], lean:(T[i+1][1]>T[i][1]?'forward':'back'), i:i, T:T}; }
+function playedRoot(P,b){ var cells=b.anchorCells.slice().sort(function(x,y){ return x.pitch-y.pitch; }); return {cell:cells[playedAnchor(P).i], above:cells.slice(playedAnchor(P).i+1)}; }
+function anchorPhrase(P){ var a=playedAnchor(P); return 'anchored on the '+STRING_NAME[a.string]+' string leaning '+a.lean; }
 /* the description: the key and where on the neck, then range, direction, timing, articulation and daily minutes */
-function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(LETTERS[b.rootPc]+' as '+P.mode);
+function where(P){ var b=boxes(P)[0], key=P.mode==='Chromatic'?LETTERS[b.rootPc]+' root':(rootName(b)+' as '+P.mode);
   var span=' from position '+P.start+' to '+P.end+(P.loop!==false?', looping':', once');
-  var pn=handPos(P,b), here=pn===0?'open position':'position '+pn;
-  return key+' · '+(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:here+' · root at fret '+b.root.fret)); }
+  var pn=handPos(P,b), here=pn===0?'open position':'position '+pn, rc=playedRoot(P,b).cell;
+  return key+' · '+(P.position==='chromatic'?'chromatic shift'+span:(P.position==='modal'?'modal shift'+span:here+' · root at fret '+rc.fret+(rc.string!==anchorOf(P.anchor).root?' ('+STRING_NAME[rc.string]+' string)':''))); }
 function summary(P){
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0], D=DIRECTIONS.filter(function(d){return d.id===P.dir;})[0], S=SUBDIVISIONS.filter(function(s){return s.id===+P.sub;})[0];
   var dm=+P.daily||1;
@@ -301,13 +317,17 @@ function summary(P){
 
 /* ── the notes the designer writes for the student (a starting point: edit before submitting) ── */
 function autoNotes(P){
-  var B=boxes(P), A=anchorOf(P.anchor), b=B[0], L=[];
-  var place=b.root.fret===0?'open':'at fret '+b.root.fret;
-  var octs=b.anchorCells.filter(function(c){ return c.string!==A.root; }).map(function(c){ return STRING_NAME[c.string]+' string, fret '+c.fret; });
-  L.push('Anchor: '+A.word+'. The root, '+rootName(b)+', is on the '+STRING_NAME[A.root]+' string '+place+'; its octave'+(octs.length>1?'s':'')+': '+octs.join(' and ')+'.');
-  if(P.mode!=='Chromatic') L.push('The root is '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
+  /* in the order of the name: what is played (the tonality and the structure), its tones, then where it is anchored, then
+     the rest — range, position, fingering, shifts, timing */
+  var B=boxes(P), b=B[0], L=[], noun=NOUN[P.structure]||'modal scale';
+  if(P.mode==='Chromatic') L.push((noun==='chromatic scale'?'Chromatic scale':'Chromatic '+noun)+' from '+LETTERS[b.rootPc]+'.');
+  else L.push(P.mode+' '+noun+', with '+rootName(b)+' as '+P.mode+'. Every tone in this drill is named by its function in that orientation.');
   var names=ordered(b.cells,'up').map(function(c){ return c.name; });
   if(names.length) L.push('Tones, low to high: '+names.join(' ')+'.');
+  var pa=playedAnchor(P), pr=playedRoot(P,b), rc=pr.cell;
+  var octs=pr.above.map(function(c){ return STRING_NAME[c.string]+' string, fret '+c.fret; });
+  L.push('Anchor: '+STRING_NAME[pa.string]+' string, leaning '+pa.lean+' — the root, '+(P.mode==='Chromatic'?LETTERS[rc.pitch%12]:spellRoot(rc.pitch%12,b.mode))+', '+(rc.fret===0?'open':'at fret '+rc.fret)
+    +(octs.length?'; its octave'+(octs.length>1?'s':'')+': '+octs.join(' and '):'')+'.');
   var R=RANGES.filter(function(r){return r.id===fitRange(P);})[0];
   L.push('Range: '+R.name+' — '+R.hint+'.');
   var pn=handPos(P,b); L.push(pn===0?'Open position: the open strings stand in for the index finger.':'Position '+pn+': the index finger starts at fret '+pn+'.');
