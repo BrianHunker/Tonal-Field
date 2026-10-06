@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=40">
+<link rel="stylesheet" href="studio.css?v=41">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -23,6 +23,7 @@
 .filters .chip{padding:4px 11px;font-size:13px}
 .count-line{font-size:13px;color:var(--dim);margin-top:8px}
 tr.former td.name .who a{color:var(--dim)}
+tr.det td .dl{padding:4px 0}
 .weeknav button{background:none;border:1px solid var(--rule);border-radius:999px;width:32px;height:32px;cursor:pointer;color:var(--ink)}
 .weeknav button[disabled]{opacity:.35;cursor:default}
 table{width:100%;border-collapse:collapse;margin-top:14px}
@@ -53,9 +54,9 @@ td.name .copy{display:block;margin-top:4px;background:none;border:0;padding:0;co
 .act .rt{background:none;border:0;padding:0;color:var(--dim);font:inherit;cursor:pointer} .act .rt:hover{text-decoration:underline;color:var(--ink)}
 td.name .who{display:flex;gap:10px;align-items:center}
 td.name .meta{font-size:13px;color:var(--dim);margin-top:4px}
-td.name .links{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
-td.name .links a,td.name .links button{background:none;border:0;padding:0;color:var(--gold);font-family:var(--sans);font-style:normal;font-size:13px;cursor:pointer;text-decoration:none}
-td.name .links a:hover,td.name .links button:hover{text-decoration:underline}
+.links{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
+.links a,.links button{background:none;border:0;padding:0;color:var(--gold);font-family:var(--sans);font-style:normal;font-size:13px;cursor:pointer;text-decoration:none}
+.links a:hover,.links button:hover{text-decoration:underline}
 dialog{background:var(--raise);color:var(--body);border:1px solid var(--rule);border-radius:14px;padding:22px;width:min(520px,calc(100vw - 32px))}
 dialog::backdrop{background:rgba(0,0,0,.7)}
 dialog form{display:flex;flex-direction:column;gap:12px}
@@ -73,7 +74,15 @@ td.ck,th.ck{width:28px} td.ck input{width:16px;height:16px}
 td.it .t{font-size:15px;color:var(--ink)} td.it .m{font-size:13px;color:var(--dim);margin-top:3px}
 td.it a{color:var(--gold);font-size:13px;text-decoration:none;margin-right:10px} td.it a:hover{text-decoration:underline}
 td.who2{font-size:14px} td.who2 .done{color:var(--dim)} td.dt{font-size:13px;color:var(--dim);white-space:nowrap}
-@media (max-width:700px){ th.h-last,td.last{display:none} .dl .t{white-space:normal} }
+/* each student is a line; the routine and the links open under it */
+tr.sum{cursor:pointer} tr.sum:hover td{background:rgba(255,255,255,.025)}
+tr.sum td{border-bottom:0} tr.sum.open td{border-bottom:0}
+tr.det td{padding-top:0;padding-left:54px} tr.det[hidden]{display:none}
+tr.sum .caret{display:inline-block;width:12px;color:var(--dim);font-size:11px;margin-right:6px;transition:transform .15s} tr.sum.open .caret{transform:rotate(90deg)}
+tr.sum td.name .who{align-items:center} tr.sum .sum{font-size:13px;color:var(--dim)} tr.sum .sum b{color:var(--body);font-weight:500}
+tr.closed-last td{border-bottom:1px solid var(--rule)}
+.count-line button{background:none;border:0;padding:0;color:var(--gold);font:inherit;font-size:13px;cursor:pointer;margin-left:8px} .count-line button:hover{text-decoration:underline}
+@media (max-width:700px){ th.h-last,td.last{display:none} .dl .t{white-space:normal} tr.det td{padding-left:10px} }
 </style>
 </head>
 <body>
@@ -142,9 +151,9 @@ td.who2{font-size:14px} td.who2 .done{color:var(--dim)} td.dt{font-size:13px;col
   </form>
 </dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=40"></script>
-<script src="../lessons.js?v=40"></script>
-<script src="studio.js?v=40"></script>
+<script src="config.js?v=41"></script>
+<script src="../lessons.js?v=41"></script>
+<script src="studio.js?v=41"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -154,6 +163,11 @@ function fmt(key){ var p=key.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]), e=new 
 function mins(sec){ var m=Math.round(sec/60); return m<1?'under a minute':m+' min'; }
 /* the filters (kept in this browser): current or former, the lesson day, and the order */
 var F={status:'current',day:'any',sort:'name'}; try{ Object.assign(F,JSON.parse(localStorage.getItem('studio-ov-filters')||'{}')); }catch(e){}
+/* which students are open — the list starts collapsed to one line each; the ones opened stay open on this device */
+var OPEN={}; try{ OPEN=JSON.parse(localStorage.getItem('studio-ov-open')||'{}')||{}; }catch(e){}
+function openSave(){ try{ localStorage.setItem('studio-ov-open',JSON.stringify(OPEN)); }catch(e){} }
+function setOpen(sid,on){ var tr=document.querySelector('tr.sum[data-sid="'+sid+'"]'), det=document.querySelector('tr.det[data-sid="'+sid+'"]'); if(!tr||!det)return;
+  if(on)OPEN[sid]=1; else delete OPEN[sid]; tr.classList.toggle('open',!!on); tr.classList.toggle('closed-last',!on); det.hidden=!on; tr.setAttribute('aria-expanded',on?'true':'false'); openSave(); }
 function setF(k,v){ F[k]=v; try{ localStorage.setItem('studio-ov-filters',JSON.stringify(F)); }catch(e){} render(); }
 function chipRow(host,items,k){ host.innerHTML=items.map(function(it){ return '<button type="button" class="chip" aria-pressed="'+(F[k]===it[0])+'" data-v="'+it[0]+'">'+it[1]+'</button>'; }).join('');
   [].forEach.call(host.children,function(b){ b.onclick=function(){ setF(k,b.getAttribute('data-v')); }; }); }
@@ -177,9 +191,11 @@ function render(){
            :F.sort==='routine'?function(a,b){ var x=a.routineAt||'', y=b.routineAt||''; return x>y?-1:x<y?1:byName(a,b); }   /* the most recently changed first; never changed last */
            :byName);
   var nCur=data.students.filter(function(s){ return (s.status||'current')==='current'; }).length;
-  $('countline').textContent=studs.length+' shown · '+nCur+' current, '+(data.students.length-nCur)+' former'+(F.sort==='routine'?' · most recently changed routines first':'');
+  $('countline').innerHTML=S.esc(studs.length+' shown · '+nCur+' current, '+(data.students.length-nCur)+' former'+(F.sort==='routine'?' · most recently changed routines first':''))
+    +'<button type="button" id="openall">Expand all</button><button type="button" id="closeall">Collapse all</button>';
+  $('openall').onclick=function(){ studs.forEach(function(s){ setOpen(s.sid,true); }); }; $('closeall').onclick=function(){ studs.forEach(function(s){ setOpen(s.sid,false); }); };
   if(!studs.length){ $('out').innerHTML='<p class="none" style="margin-top:20px">'+(data.students.length?'No student matches.':'No students yet. Add one, or assign something in the Drill Designer.')+'</p>'; return; }
-  var h='<table><thead><tr><th>Student</th><th>Routine, and the days practiced</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
+  var h='<table><thead><tr><th>Student</th><th>Routine</th><th>Days</th><th class="h-last">Last practiced</th></tr></thead><tbody>';
   studs.forEach(function(s){
     var all=data.drills.filter(function(d){ return d.sid===s.sid; }), ds=S.routine(all).concat(all.filter(function(d){ return d.status==='retired'; }).sort(S.byAssigned));
     var songs=(data.songs||[]).filter(function(x){ return x.sid===s.sid; });
@@ -197,15 +213,20 @@ function render(){
       return '<div class="dl'+(ret?' retired':'')+'"><span class="t"><span class="lbl">'+S.esc(S.itemLabel(d))+'</span>'+(opens?'<a href="drill.html?d='+encodeURIComponent(d.did)+'" target="_blank" rel="noopener">'+name+'</a>':name)+'</span><span class="mini">'+mini+'</span>'
         +'<span class="act"><a href="designer.html?edit='+encodeURIComponent(d.did)+'">Edit</a><button type="button" class="rt" data-rt="'+S.esc(d.did)+'" data-to="'+(ret?'':'retired')+'">'+(ret?'Restore':'Retire')+'</button><button type="button" class="del" data-did="'+S.esc(d.did)+'" data-lbl="'+S.esc(d.ex+'. '+ttl)+'" data-who="'+S.esc(s.name)+'">Delete</button></span></div>'; }).join('')||'<span class="none">Nothing assigned yet.</span>';
     var link=S.base()+'student.html?s='+s.sid, M=S.message(s,link,all,songs), I=S.INSTRUMENTS[s.inst]||S.INSTRUMENTS.guitar;
-    h+='<tr'+(s.status==='former'?' class="former"':'')+'><td class="name"><div class="who"><span class="avatar" style="width:34px;height:34px;font-size:14px" aria-hidden="true">'+S.esc(S.initials(s.name))+'</span><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a></div>'
-      +'<div class="meta">'+I.name+(s.hand==='left'?' · left-handed':'')+(s.status==='former'?' · former':'')+'</div>'
-      +'<div class="meta">'+(S.lessonSlot(s)?S.esc(S.lessonSlot(s)):'No set lesson day')+'</div>'
-      +'<div class="meta" title="When you last assigned, changed, retired or removed one of their items">'+(s.routineAt?'Routine updated '+ago(s.routineAt):'No routine yet')+'</div>'
-      +'<div class="links"><button type="button" data-prof="'+S.esc(s.sid)+'">Profile</button><button type="button" class="copy" data-c="'+S.esc(link)+'">Copy page link</button>'
-      +(s.email?'<button type="button" data-mail="'+S.esc(s.sid)+'">Email</button>':'')+(s.phone?'<a href="'+S.esc(S.smsHref(s.phone,M.text))+'">Text it</a>':'')+'</div></td>'
-      +'<td>'+rows+'</td><td class="tot">'+(s.track?'<span title="records practice time">⏱ </span>':'')+Object.keys(days).length+' / 7<div class="last">'+(playW?mins(playW)+' played':'')+'</div></td><td class="last">'+(last||'—')+'</td></tr>';
+    var live=S.routine(all).length, isOpen=!!OPEN[s.sid], cls=(s.status==='former'?' former':'')+(isOpen?' open':' closed-last');
+    var nRet=all.filter(function(d){ return d.status==='retired'; }).length;
+    var summary=(live?'<b>'+live+' item'+(live===1?'':'s')+'</b>':'Nothing assigned')+(nRet?' · '+nRet+' retired':'')+(s.routineAt?' · updated '+S.esc(ago(s.routineAt)):'');
+    h+='<tr class="sum'+cls+'" data-sid="'+S.esc(s.sid)+'" aria-expanded="'+(isOpen?'true':'false')+'"><td class="name"><div class="who"><span class="caret" aria-hidden="true">▶</span><span class="avatar" style="width:34px;height:34px;font-size:14px" aria-hidden="true">'+S.esc(S.initials(s.name))+'</span><a href="student.html?s='+encodeURIComponent(s.sid)+'" target="_blank" rel="noopener">'+S.esc(s.name)+'</a></div>'
+      +'<div class="meta">'+I.name+(s.hand==='left'?' · left-handed':'')+(s.status==='former'?' · former':'')+' · '+(S.lessonSlot(s)?S.esc(S.lessonSlot(s)):'no set lesson day')+'</div></td>'
+      +'<td><div class="sum" title="When you last assigned, changed, retired or removed one of their items">'+summary+'</div></td>'
+      +'<td class="tot">'+(s.track?'<span title="records practice time">⏱ </span>':'')+Object.keys(days).length+' / 7<div class="last">'+(playW?mins(playW)+' played':'')+'</div></td><td class="last">'+(last||'—')+'</td></tr>';
+    h+='<tr class="det'+(s.status==='former'?' former':'')+'" data-sid="'+S.esc(s.sid)+'"'+(isOpen?'':' hidden')+'><td colspan="4">'+rows
+      +'<div class="links" style="margin-top:10px"><button type="button" data-prof="'+S.esc(s.sid)+'">Profile</button><button type="button" class="copy" data-c="'+S.esc(link)+'">Copy page link</button>'
+      +(s.email?'<button type="button" data-mail="'+S.esc(s.sid)+'">Email</button>':'')+(s.phone?'<a href="'+S.esc(S.smsHref(s.phone,M.text))+'">Text it</a>':'')+'</div></td></tr>';
   });
   $('out').innerHTML=h+'</tbody></table><p class="key">Stars: a student who records practice time fills them by playing, a tenth at a time toward each item’s daily minutes; anyone else stars their own days. Hover a star for the time. Retired items leave the student’s routine but keep their history.</p>';
+  [].forEach.call(document.querySelectorAll('tr.sum'),function(tr){ tr.onclick=function(e){ if(e.target.closest('a,button'))return; setOpen(tr.getAttribute('data-sid'),!tr.classList.contains('open')); };
+    tr.tabIndex=0; tr.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); setOpen(tr.getAttribute('data-sid'),!tr.classList.contains('open')); } }; });
   [].forEach.call(document.querySelectorAll('.del'),function(b){ b.onclick=function(){
     if(!confirm('Delete “'+b.getAttribute('data-lbl')+'” for '+b.getAttribute('data-who')+'?\nIts stars and practice time go with it. (Retire keeps them.)'))return;
     b.disabled=true; b.textContent='Deleting…';
