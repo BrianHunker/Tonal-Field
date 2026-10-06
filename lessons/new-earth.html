@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Ring — v427 · lesson: A Whole New World -->
+<!-- Tonal Field — Ring — v428 · lesson: A Whole New World -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -836,7 +836,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body data-version="ring-189">
 
 <div class="header">
-  <h1>Tonal Field <span>Ring v427</span></h1>
+  <h1>Tonal Field <span>Ring v428</span></h1>
   <span class="tagline">ici bas, et retour</span>
   <a class="lessons-link" href="../index.html" title="back to the list of lessons">&larr; all lessons</a>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
@@ -10774,6 +10774,7 @@ function fitHeights(){ winFitAll(); }
    the top carries the transport and the meter — the sequencer's own controls, mirrored.
    Everything writes the sequencer, so the global undo covers it. */
 var tabFollowOnly=false;   /* v416 */
+var tabOffY=0;   /* v428: the content y at the top of the TAB canvas — the scroll position, when the canvas is the window */
 var showTab=false, tabLines=1, tabMPL=2, tabFirstLine=0, tabView=1, tabTopLine=0, tabScrollPend=true;   /* v373: tabLines/tabFirstLine are now the drawn lines (all of them, from 0); tabView = lines the window shows, tabTopLine = the line at its top */
 var TAB_S=1.5;                                             /* v301: everything 50% larger */
 var TAB_FONT=14*TAB_S, TAB_ROW=20*TAB_S, TAB_GUT=34*TAB_S, TAB_TOP=56*TAB_S, TAB_BOT=50*TAB_S;   /* v316: the top band holds the bar numbers, a chord row, and room for bend labels */
@@ -11176,7 +11177,19 @@ function tabSize(){
   if(tabFollowOnly){   /* v416: only the lines in view are drawn, following the playhead — a long phrase at one bar a line was 50 lines a frame */
     var _ln=Math.floor(Math.floor(Math.max(0,seqPos)/tabCPB())/tabMPL); tabLines=Math.max(1,tabView||1); tabFirstLine=Math.max(0,Math.min(_ln,tabNLines()-tabLines)); }
   else { tabLines=Math.max(1,tabNLines()); tabFirstLine=0; }   /* v373: every line drawn; the window scrolls */
-  var W=Math.max(200,sc.clientWidth-(sc.scrollHeight>sc.clientHeight?0:2)), H=tabLines*tabLineH(), d=tabBigDpr(W,H);
+  var W=Math.max(200,sc.clientWidth-(sc.scrollHeight>sc.clientHeight?0:2)), H=tabLines*tabLineH();
+  /* v428: the canvas is only ever the size of its window. It sits pinned (sticky) at the top of the scroll box over a
+     spacer that carries the phrase's full height, and draws the lines in view from tabOffY, the scroll position. A long
+     phrase used to be drawn whole into one canvas — a 96-bar quarter-note shift drill came to 139 million device
+     pixels, past what a GPU will take, so the browser painted it in software at a frame every second or two. */
+  var sp=document.getElementById('tabSpace');
+  if(!tabFollowOnly){
+    if(!sp){ sp=document.createElement('div'); sp.id='tabSpace'; sp.style.cssText='width:1px;pointer-events:none'; cv.parentNode.insertBefore(sp,cv.nextSibling); }
+    var Hv=Math.max(1,Math.min(H,sc.clientHeight||H)); if(cv.style.position!=='sticky'){ cv.style.position='sticky'; cv.style.top='0px'; cv.style.display='block'; }
+    var spH=Math.max(0,H-Hv); if(sp.style.height!==spH+'px')sp.style.height=spH+'px';
+    tabOffY=Math.max(0,Math.min(sc.scrollTop,Math.max(0,H-Hv))); H=Hv; }
+  else { if(sp)sp.style.height='0px'; if(cv.style.position){ cv.style.position=''; cv.style.top=''; } tabOffY=0; }
+  var d=tabBigDpr(W,H);
   if(cv.style.width!==W+'px')cv.style.width=W+'px'; if(cv.style.height!==H+'px')cv.style.height=H+'px';
   var pw=Math.round(W*d), ph=Math.round(H*d); if(cv.width!==pw)cv.width=pw; if(cv.height!==ph)cv.height=ph; cv._dpr=d;
   if(tabFollowOnly){ if(sc.scrollTop)sc.scrollTop=0; }
@@ -11192,24 +11205,25 @@ function tabRender(mode){
   var n=tabNStr(); if(n<1)return;
   if(tabFirstLine>tabNLines()-1)tabFirstLine=Math.max(0,tabNLines()-1);
   tabSize(); tabBarSync();
-  var c=cv.getContext('2d'), _d=cv._dpr||tabDpr(); c.setTransform(_d,0,0,_d,0,0);
+  var c=cv.getContext('2d'), _d=cv._dpr||tabDpr(); c.setTransform(_d,0,0,_d,0,-tabOffY*_d);   /* v428: content coordinates, the window at tabOffY */
   var W=cv.clientWidth, H=cv.clientHeight;
   var cpb=tabCPB(), cw=tabCellW(), lh=tabLineH(), bars=tabBars(), nl=tabNLines();
+  var _vis=function(L){ return (L+1)*lh>tabOffY&&L*lh<tabOffY+H; };   /* v428: the line shows in the window */
   /* v427: while a phrase plays, the playhead asks for a redraw every frame; between two of them only the lines holding the
      head, or a tone that sounds now or sounded then, can have changed. Those lines are cleared and redrawn, the rest kept
      — the whole TAB (a tall canvas, at the screen's pixel ratio) was being cleared and repainted sixty times a second.
      The canvas, its layout and the window of lines must read as they did; otherwise, and on any other request, everything. */
   var _lineOf=function(col){ return Math.floor(Math.floor(col)/cpb/tabMPL)-tabFirstLine; };
   var _soundLines=function(at){ var L={}; for(var i=0;i<seq.notes.length;i++){ var q=seq.notes[i]; if(at>=q.start&&at<q.start+q.dur)L[_lineOf(q.start)]=1; } return L; };
-  var _dirty=null, _geo=[cv.width,cv.height,W,H,tabFirstLine,tabLines,cpb,cw,lh,nl,n,seq.notes.length].join(',');
+  var _dirty=null, _geo=[cv.width,cv.height,W,H,tabOffY,tabFirstLine,tabLines,cpb,cw,lh,nl,n,seq.notes.length].join(',');
   if(mode==='head'&&tabLast&&tabLast.geo===_geo){
     _dirty={}; _dirty[_lineOf(seqPos)]=1; _dirty[_lineOf(tabLast.pos)]=1;
     var _sl=_soundLines(seqPos); for(var k in _sl)_dirty[k]=1; for(k in tabLast.sound)_dirty[k]=1;
-    var _all=true; for(var L_=0;L_<tabLines&&tabFirstLine+L_<nl;L_++)if(!_dirty[L_]){ _all=false; break; }
+    var _all=true; for(var L_=0;L_<tabLines&&tabFirstLine+L_<nl;L_++)if(_vis(L_)&&!_dirty[L_]){ _all=false; break; }
     if(_all)_dirty=null; }
   tabLast={geo:_geo,pos:seqPos,sound:_soundLines(seqPos)};
-  if(_dirty){ c.save(); c.beginPath(); for(var Ld in _dirty){ var y_=(+Ld)*lh; if(+Ld<0||+Ld>=tabLines)continue; c.clearRect(0,y_,W,lh); c.rect(0,y_,W,lh); } c.clip(); }
-  else c.clearRect(0,0,W,H);
+  if(_dirty){ c.save(); c.beginPath(); for(var Ld in _dirty){ var y_=(+Ld)*lh; if(+Ld<0||+Ld>=tabLines||!_vis(+Ld))continue; c.clearRect(0,y_,W,lh); c.rect(0,y_,W,lh); } c.clip(); }
+  else c.clearRect(0,tabOffY,W,H);
   var ti=document.getElementById('tabInfo'); if(ti){ var t=bars+' bars · '+nl+' line'+(nl===1?'':'s'); if(ti.textContent!==t)ti.textContent=t; }
   var ink='#c9c9c4', dim='#6a6a68', bg='#000', gold='#ffd27a';   /* v306: black again */
   function lift(col,k){ return [Math.round(col[0]+(255-col[0])*k),Math.round(col[1]+(255-col[1])*k),Math.round(col[2]+(255-col[2])*k)]; }
@@ -11219,7 +11233,7 @@ function tabRender(mode){
   var pos=seqPos, playing=seq.playing;
   for(var L=0;L<tabLines;L++){
     var line=tabFirstLine+L; if(line>=nl)break;
-    if(_dirty&&!_dirty[L])continue;   /* v427: kept as drawn */
+    if(!_vis(L)||(_dirty&&!_dirty[L]))continue;   /* v427: kept as drawn; v428: or out of the window */
     var y0=L*lh+TAB_TOP, b0=line*tabMPL, b1=Math.min(bars,b0+tabMPL);
     for(var r=0;r<n;r++){
       var wgt=(0.5+(n>1?(r/(n-1)):0)*1.75)*TAB_S;
@@ -11292,7 +11306,7 @@ function tabRender(mode){
     if(nn.x)col=[176,176,170];   /* v394: a dead note has no function to colour */
     var alpha=sounding?1:(playing?0.55:0.9), _ties=[];
     for(var cc=Math.max(nn.start,lo);cc<Math.min(e,hi);cc++){
-      var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines)continue;
+      var R=tabCellRect(cc,row); if(R.line<0||R.line>=tabLines||!_vis(R.line))continue;   /* v428: out of the window */
       var first=(cc===nn.start), barStart=(cc%cpb===0), lineStart=(cc===((tabFirstLine+R.line)*tabMPL*cpb));
       var colc=(nn.bend&&nn.bend.length)?tabColorAt(nn,seqSemi(nn.pitch)+seqBendAt(nn,cc+0.5),nn.start,sounding):col;   /* v316: a bent cell wears the colour of the tone it is bent to */
       var _x0=first?tabOnX(R):R.x, _x1=R.x+R.w;
@@ -11444,7 +11458,7 @@ function tabWire(){
   var cv=tabEl(), sc=tabScrollEl(); if(!cv||cv.dataset.wired)return; cv.dataset.wired='1';
   touchCalm(cv);   /* v423 */
   tabBarWire();
-  function pt(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+  function pt(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top+tabOffY}; }   /* v428: content y */
   function gripHit(p){                       /* the handle: a tone's span past the middle of its first cell — and for a
                                                 one-cell tone, the right 40% of that cell, so it is never out of reach */
     var n=tabNStr();
@@ -11587,7 +11601,8 @@ function tabWire(){
   });
   sc.addEventListener('blur',function(){ tabCommitBuf(); });
   /* v373: the wheel scrolls the window natively; the line at its top is shown in 'from' */
-  (function(){ var sc=tabScrollEl(); if(sc)sc.addEventListener('scroll',function(){ var t=Math.floor((sc.scrollTop+2)/tabLineH()); if(t!==tabTopLine){ tabTopLine=t; var tl=document.getElementById('tabLineIn'); if(tl&&document.activeElement!==tl)tl.value=t+1; } },{passive:true}); })();
+  (function(){ var sc=tabScrollEl(); if(sc)sc.addEventListener('scroll',function(){ var t=Math.floor((sc.scrollTop+2)/tabLineH()); if(t!==tabTopLine){ tabTopLine=t; var tl=document.getElementById('tabLineIn'); if(tl&&document.activeElement!==tl)tl.value=t+1; }
+    if(!tabFollowOnly&&showTab){ tabRAFFull=true; tabRender(); } },{passive:true}); })();   /* v428: the window moved — draw it now */
   var li=document.getElementById('tabLinesIn'), mi=document.getElementById('tabMPLIn'), fi=document.getElementById('tabLineIn');
   if(li)li.addEventListener('change',function(){ tabView=seqClamp(Math.round(+this.value)||1,1,24); this.value=tabView; tabFitWindow(); tabSize(); tabRequest(); });
   if(mi)mi.addEventListener('change',function(){ tabMPL=seqClamp(Math.round(+this.value)||1,1,16); this.value=tabMPL; tabTopLine=0; tabScrollPend=true; if(fi)fi.value=1; tabSize(); tabRequest(); });
