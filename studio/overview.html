@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=35">
+<link rel="stylesheet" href="studio.css?v=36">
 <style>
 .tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:22px 0 6px}
 .tools input[type=text]{width:220px}
@@ -61,6 +61,18 @@ dialog::backdrop{background:rgba(0,0,0,.7)}
 dialog form{display:flex;flex-direction:column;gap:12px}
 dialog .row{display:flex;gap:12px;flex-wrap:wrap} dialog .row .field{flex:1 1 180px}
 dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule);margin:18px 0 4px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 16px;font:inherit;font-size:15px;font-weight:600;color:var(--dim);cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.abar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:6px 0 4px;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--raise)}
+.abar .grow{flex:1} .abar #asel{font-size:14px;color:var(--dim);align-self:center}
+.abar .addr{display:flex;gap:6px;align-items:center;font-size:14px;align-self:center}
+th.sort{cursor:pointer;user-select:none} th.sort:hover{color:var(--ink)} th.sort[aria-sort]{color:var(--ink)}
+th.sort[aria-sort="ascending"]::after{content:" ▲";font-size:10px} th.sort[aria-sort="descending"]::after{content:" ▼";font-size:10px}
+td.ck,th.ck{width:28px} td.ck input{width:16px;height:16px}
+td.it .t{font-size:15px;color:var(--ink)} td.it .m{font-size:13px;color:var(--dim);margin-top:3px}
+td.it a{color:var(--gold);font-size:13px;text-decoration:none;margin-right:10px} td.it a:hover{text-decoration:underline}
+td.who2{font-size:14px} td.who2 .done{color:var(--dim)} td.dt{font-size:13px;color:var(--dim);white-space:nowrap}
 @media (max-width:700px){ th.h-last,td.last{display:none} .dl .t{white-space:normal} }
 </style>
 </head>
@@ -71,8 +83,10 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
     <nav class="nav"><a href="designer.html">Drill Designer</a><a href="overview.html" aria-current="page">Studio Overview</a></nav>
   </div>
   <h1>Studio Overview</h1>
-  <p class="sub">Each student’s routine, in the order assigned, and the days they practiced it.</p>
+  <p class="sub" id="tabsub">Each student’s routine, in the order assigned, and the days they practiced it.</p>
   <div id="demo"></div>
+  <div class="tabs" role="tablist" aria-label="View"><button type="button" role="tab" data-tab="students">Students</button><button type="button" role="tab" data-tab="ex">Exercises</button><button type="button" role="tab" data-tab="rep">Repertoire</button></div>
+  <div id="tab-students">
   <div class="tools">
     <input type="text" id="q" placeholder="Find a student" aria-label="Find a student">
     <span class="grow"></span><button type="button" class="btn" id="addstu">Add a student</button>
@@ -84,6 +98,16 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
     <div class="grp" role="group" aria-label="Sort"><span>Sort</span><div class="chips" id="fsort"></div></div>
   </div>
   <p class="count-line" id="countline"></p>
+  </div>
+  <div id="tab-lib" hidden>
+    <div class="tools"><input type="text" id="lq" placeholder="Find" aria-label="Find" style="width:320px"></div>
+    <div class="abar" id="abar"><span id="asel">Tick items to assign them to another student.</span><span class="grow"></span>
+      <label class="field"><span>Assign to</span><select id="astu"></select></label>
+      <label class="addr" id="addrw"><input type="checkbox" id="addr" checked> and add to their routine</label>
+      <button type="button" class="btn primary" id="ago" disabled>Assign</button></div>
+    <p class="count-line" id="amsg"></p>
+    <div id="lout"></div>
+  </div>
   <div class="passrow" id="passrow" hidden style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
     <label class="field"><span>Passphrase</span><input type="password" id="pass" autocomplete="current-password"></label>
     <button class="btn" id="passgo" type="button">Unlock</button><span id="passerr" style="color:#ff8a7a;font-size:14px"></span>
@@ -118,9 +142,9 @@ dialog .foot{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:w
   </form>
 </dialog>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
-<script src="config.js?v=35"></script>
-<script src="../lessons.js?v=35"></script>
-<script src="studio.js?v=35"></script>
+<script src="config.js?v=36"></script>
+<script src="../lessons.js?v=36"></script>
+<script src="studio.js?v=36"></script>
 <script>
 var S=Studio, $=function(id){ return document.getElementById(id); }, pass='', data=null, week=S.weekKey(), thisWeek=week;
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
@@ -209,12 +233,87 @@ $('profform').onsubmit=function(e){ e.preventDefault(); var nm=$('pname').value.
   S.api('profile',{pass:pass,sid:editingSid||'',first:nm,last:$('plast').value.trim(),inst:$('pinst').value,hand:$('phand').value,email:$('pemail').value,phone:$('pphone').value,since:$('psince').value,day:$('pday').value,time:$('ptime').value,status:$('pstatus').value}).then(function(r){
     $('psave').disabled=false; if(!r.ok){ $('perr').textContent=r.error==='wrong passphrase'?'The passphrase is missing or wrong.':r.error; return; } $('prof').close(); load(); })
   .catch(function(){ $('psave').disabled=false; $('perr').textContent='Could not reach the sheet.'; }); };
-function load(){ S.api('overview',{pass:pass}).then(function(r){
+/* ── the tabs: students; every exercise made so far; every song in anyone's repertoire. An exercise or a song can be ticked and
+      assigned to another student: a copy goes on their page (an exercise with the same settings, title and notes; a song into
+      their repertoire, and, if asked, their routine). ── */
+var TAB='students'; try{ TAB=localStorage.getItem('studio-ov-tab')||'students'; }catch(e){}
+var SUBS={students:'Each student’s routine, in the order assigned, and the days they practiced it.',ex:'Every exercise made so far: drills and other practice items, each listed once with everyone who has it.',rep:'Every song in a student’s repertoire, listed once with everyone learning it.'};
+var SORT={ex:{k:'new',d:-1},rep:{k:'title',d:1}}, SEL={ex:{},rep:{}};
+function setTab(t){ TAB=t; try{ localStorage.setItem('studio-ov-tab',t); }catch(e){} $('amsg').textContent=''; show(); }
+function show(){ [].forEach.call(document.querySelectorAll('.tabs button'),function(b){ b.setAttribute('aria-selected',String(b.getAttribute('data-tab')===TAB)); });
+  $('tabsub').textContent=SUBS[TAB]; $('tab-students').hidden=TAB!=='students'; $('out').hidden=TAB!=='students'; $('tab-lib').hidden=TAB==='students';
+  if(!data)return; if(TAB==='students')render(); else renderLib(); }
+[].forEach.call(document.querySelectorAll('.tabs button'),function(b){ b.onclick=function(){ setTab(b.getAttribute('data-tab')); }; });
+function nameOf(sid){ var s=data.students.filter(function(x){ return x.sid===sid; })[0]; return s?s.name:'?'; }
+function songKey(x){ return (String(x.title||'').trim()+'|'+String(x.artist||'').trim()).toLowerCase(); }
+/* exercises: the drill and practice items, grouped where the settings and the title are the same */
+function exGroups(){ var G={}, L=[];
+  data.drills.forEach(function(d){ var k=S.kindOf(d); if(k==='song')return; var pr=Object.assign({},d.params||{}); delete pr.daily;
+    var key=k+'|'+(d.title||'')+'|'+JSON.stringify(pr), g=G[key];
+    if(!g){ g=G[key]={key:key,kind:k,items:[],title:S.itemTitle(d,[]),inst:k==='drill'?(d.params.inst||'guitar'):'',first:d.date,last:d.date}; L.push(g); }
+    g.items.push(d); if(d.date<g.first)g.first=d.date; if(d.date>g.last)g.last=d.date; });
+  L.forEach(function(g){ g.items.sort(function(a,b){ return a.date<b.date?1:-1; }); g.lead=g.items[0];
+    g.who=g.items.map(function(d){ return {sid:d.sid,name:nameOf(d.sid),off:d.status==='retired'}; }); g.n=g.items.length;
+    g.shifts=g.kind==='drill'&&g.lead.params.shifts?g.lead.params.shifts.length:1; });
+  return L; }
+function repGroups(){ var G={}, L=[];
+  (data.songs||[]).forEach(function(x){ var key=songKey(x), g=G[key];
+    if(!g){ g=G[key]={key:key,title:x.title,artist:x.artist||'',lesson:'',items:[],first:x.started||'',last:x.started||''}; L.push(g); }
+    g.items.push(x); if(x.lesson&&!g.lesson)g.lesson=x.lesson; if(x.started&&(!g.first||x.started<g.first))g.first=x.started; if(x.started>g.last)g.last=x.started; });
+  L.forEach(function(g){ g.who=g.items.map(function(x){ return {sid:x.sid,name:nameOf(x.sid),off:x.status==='done'}; }); g.n=g.items.length; });
+  return L; }
+function renderLib(){
+  var ex=TAB==='ex', L=ex?exGroups():repGroups(), q=$('lq').value.trim().toLowerCase(), so=SORT[TAB], sel=SEL[TAB];
+  $('lq').placeholder=ex?'Find an exercise or a student':'Find a song, an artist or a student';
+  if(q) L=L.filter(function(g){ return (g.title+' '+(g.artist||'')+' '+g.who.map(function(w){ return w.name; }).join(' ')).toLowerCase().indexOf(q)>=0; });
+  var val={title:function(g){ return String(g.title).toLowerCase(); },inst:function(g){ return g.inst||g.kind||''; },n:function(g){ return g.n; },'new':function(g){ return g.last; },first:function(g){ return g.first; },artist:function(g){ return String(g.artist).toLowerCase(); }}[so.k];
+  L.sort(function(a,b){ var x=val(a), y=val(b); return (x<y?-1:x>y?1:String(a.title).localeCompare(String(b.title)))*so.d; });
+  Object.keys(sel).forEach(function(k){ if(!L.some(function(g){ return g.key===k; }))delete sel[k]; });
+  var th=function(k,t){ return '<th class="sort" data-k="'+k+'"'+(so.k===k?' aria-sort="'+(so.d>0?'ascending':'descending')+'"':'')+'>'+t+'</th>'; };
+  var h='<table><thead><tr><th class="ck"></th>'+(ex?th('title','Exercise')+th('inst','Kind')+th('n','Students')+th('first','First assigned')+th('new','Last assigned')
+                                                     :th('title','Song')+th('artist','Artist')+th('n','Students')+th('first','First added'))+'</tr></thead><tbody>';
+  L.forEach(function(g){ var who=g.who.map(function(w){ return '<span'+(w.off?' class="done" title="'+(ex?'retired':'completed')+'"':'')+'>'+S.esc(w.name)+'</span>'; }).join(', ');
+    var ck='<td class="ck"><input type="checkbox" data-key="'+S.esc(g.key)+'"'+(sel[g.key]?' checked':'')+' aria-label="Select '+S.esc(g.title)+'"></td>';
+    if(ex){ var opens=g.kind==='drill';
+      h+='<tr>'+ck+'<td class="it"><div class="t">'+S.esc(g.title)+'</div><div class="m">'+(opens?'<a href="drill.html?d='+encodeURIComponent(g.lead.did)+'" target="_blank" rel="noopener">Try</a>':'')+'<a href="designer.html?edit='+encodeURIComponent(g.lead.did)+'">Edit '+S.esc(g.who[0].name)+'’s copy</a></div></td>'
+        +'<td class="dt">'+(g.kind==='drill'?S.esc((S.INSTRUMENTS[g.inst]||S.INSTRUMENTS.guitar).name)+' drill'+(g.shifts>1?' · '+g.shifts+' shifts':''):S.esc(S.itemLabel(g.lead)))+'</td>'
+        +'<td class="who2">'+who+'</td><td class="dt">'+S.esc(g.first)+'</td><td class="dt">'+S.esc(g.last)+'</td></tr>'; }
+    else h+='<tr>'+ck+'<td class="it"><div class="t">'+S.esc(g.title)+'</div>'+(g.lesson?'<div class="m">Lesson: '+S.esc((S.lessonOf(g.lesson)||{}).title||g.lesson)+'</div>':'')+'</td><td class="dt">'+S.esc(g.artist)+'</td><td class="who2">'+who+'</td><td class="dt">'+S.esc(g.first)+'</td></tr>'; });
+  $('lout').innerHTML=L.length?h+'</tbody></table>':'<p class="none" style="margin-top:20px">'+(q?'Nothing matches.':(ex?'No exercises yet. Make one in the Drill Designer.':'No songs in anyone’s repertoire yet.'))+'</p>';
+  [].forEach.call(document.querySelectorAll('#lout th.sort'),function(t){ t.onclick=function(){ var k=t.getAttribute('data-k'); if(so.k===k)so.d=-so.d; else { so.k=k; so.d=(k==='n'||k==='new'||k==='first')?-1:1; } renderLib(); }; });
+  [].forEach.call(document.querySelectorAll('#lout input[data-key]'),function(c){ c.onchange=function(){ if(c.checked)sel[c.getAttribute('data-key')]=1; else delete sel[c.getAttribute('data-key')]; abar(); }; });
+  var cur=$('astu').value, st=data.students.filter(function(x){ return (x.status||'current')==='current'; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  $('astu').innerHTML='<option value="">A student…</option>'+st.map(function(x){ return '<option value="'+S.esc(x.sid)+'">'+S.esc(x.name)+' · '+S.esc((S.INSTRUMENTS[x.inst]||S.INSTRUMENTS.guitar).name)+'</option>'; }).join('');
+  $('astu').value=cur; $('addrw').hidden=ex; abar();
+}
+function abar(){ var n=Object.keys(SEL[TAB]).length; $('asel').textContent=n?n+' selected':(TAB==='ex'?'Tick exercises to assign them to another student.':'Tick songs to add them to another student’s repertoire.');
+  $('ago').disabled=!(n&&$('astu').value); }
+$('astu').onchange=abar;
+$('lq').oninput=function(){ if(data)renderLib(); };
+$('ago').onclick=function(){
+  var ex=TAB==='ex', st=data.students.filter(function(x){ return x.sid===$('astu').value; })[0]; if(!st)return;
+  var keys=SEL[TAB], G=(ex?exGroups():repGroups()).filter(function(g){ return keys[g.key]; }), done=[], skip=[], today=S.ymd(new Date());
+  $('ago').disabled=true; $('amsg').textContent='Assigning…';
+  var chain=Promise.resolve();
+  G.forEach(function(g){ chain=chain.then(function(){
+    if(g.items.some(function(x){ return x.sid===st.sid&&(ex?x.status!=='retired':true); })){ skip.push(g.title+' (already '+(ex?'in their routine':'in their repertoire')+')'); return; }
+    if(ex){ var d=g.lead, k=g.kind;
+      if(k==='drill'&&!S.INSTRUMENTS[st.inst||'guitar'].drills){ skip.push(g.title+' (a fretboard drill; '+st.name+' plays keyboard)'); return; }
+      if(k==='drill'&&(d.params.inst||'guitar')!==(st.inst||'guitar')){ skip.push(g.title+' ('+(S.INSTRUMENTS[d.params.inst||'guitar'].name.toLowerCase())+'; '+st.name+' plays '+S.INSTRUMENTS[st.inst||'guitar'].name.toLowerCase()+')'); return; }
+      return S.api('assign',{pass:pass,sid:st.sid,student:st.name,date:today,ex:'',title:d.title||'',params:d.params,notes:d.notes||''}).then(function(r){ if(r.ok)done.push(g.title); else skip.push(g.title+' ('+r.error+')'); }); }
+    return S.api('song',{sid:st.sid,title:g.title,artist:g.artist,lesson:g.lesson}).then(function(r){ if(!r.ok){ skip.push(g.title+' ('+r.error+')'); return; }
+      if(!$('addr').checked){ done.push(g.title); return; }
+      return S.api('assign',{pass:pass,sid:st.sid,student:st.name,date:today,ex:'',title:g.title,params:{kind:'song',rid:r.rid,part:'',daily:1},notes:''}).then(function(q){ if(q.ok)done.push(g.title); else skip.push(g.title+' ('+q.error+')'); }); }); }); });
+  chain.then(function(){ SEL[TAB]={}; load(function(){ $('amsg').textContent=(done.length?(ex?'Assigned to ':'Added to ')+st.name+': '+done.join(', ')+'.':'Nothing assigned.')+(skip.length?' Skipped: '+skip.join('; ')+'.':''); }); })
+    .catch(function(){ $('amsg').textContent='Could not reach the sheet.'; load(); });
+};
+function load(then){ S.api('overview',{pass:pass}).then(function(r){
     if(!r.ok){ $('out').innerHTML=''; $('passrow').hidden=false; $('passerr').textContent=pass?'That passphrase did not work.':''; return; }
-    $('passrow').hidden=true; data=r; render(); })
+    $('passrow').hidden=true; data=r; show(); if(then)then(); })
   .catch(function(){ $('out').innerHTML='<p class="none" style="margin-top:20px">Could not reach the sheet.</p>'; }); }
 $('passgo').onclick=function(){ pass=$('pass').value; try{ localStorage.setItem('studio-pass',pass); }catch(e){} load(); };
 $('q').oninput=function(){ if(data)render(); };
+show();
 $('prev').onclick=function(){ week=S.addDays(week,-7); if(data)render(); };
 $('next').onclick=function(){ if(week<thisWeek){ week=S.addDays(week,7); if(data)render(); } };
 load();
