@@ -257,7 +257,7 @@ function chordBox(P,w,modeName){
            cand:cand, muted:muted, chordSel:sel };
 }
 /* a tap on a candidate: on or off; a strum keeps one tone per string */
-function chordToggle(P,string,fret){ use(P); var b=boxes(P)[0], C=chordSteps(b.mode,b.rootPc,b.doPc), st=C.stepOf(OPEN[string]+fret-b.root.pitch);
+function chordToggle(P,string,fret,i){ use(P); var b=i?seqBoxes(P)[i]:boxes(P)[0], C=chordSteps(b.mode,b.rootPc,b.doPc), st=C.stepOf(OPEN[string]+fret-b.root.pitch);
   var sel=b.chordSel.map(function(t){ return t.slice(); }), same=function(t){ return t[0]===string&&t[1]===st[0]&&t[2]===st[1]; };
   if(sel.some(same)) return sel.filter(function(t){ return !same(t); });
   if(isStrum(P)) sel=sel.filter(function(t){ return t[0]!==string; });
@@ -313,12 +313,17 @@ function modalWalk(P,steps){ use(P); var A=anchorOf(P.anchor), ro=rootOffset(A),
 /* a box in position: the frets of the first box, re-read from a new root. A scale takes the key's tones there that its structure
    asks for, its range measured from the new root's lowest place in the window; a chord moves each voice, on its own string, to
    the nearest tone of the new chord. */
-function inPosBox(P,b0,full0,rootPc,modeName){
+function inPosBox(P,b0,full0,rootPc,modeName,chord){
   var doPc=b0.doPc, lo=b0.gw, hi=b0.gw+b0.gn-1, name=function(p){ return nameOfRel(p%12-doPc); };
   var mk=function(c){ var nm=name(c.pitch); return {string:c.string,fret:c.fret,pitch:c.pitch,anchor:(c.pitch%12)===rootPc,name:nm.n,color:nm.c}; };
-  var cells=[];
-  if(P.structure==='chord'){
-    var C=chordSteps(modeName,rootPc,doPc), pcs=b0.chordSel.map(function(t){ return ((rootPc+C.semis(t[1],t[2]))%12+12)%12; });
+  var cells=[], C=chordSteps(modeName,rootPc,doPc);
+  /* the step's root: the lowest place of its pitch class in the key's frame here (fixed, whatever the voicing) */
+  var rootCell=full0.cells.filter(function(c){ return c.pitch%12===rootPc; })[0]||b0.root;
+  if(P.structure==='chord'&&chord){   /* a voicing written for this step: scale steps from its root, string by string */
+    chord.forEach(function(t){ var s=t[0]; if(!OPEN[s])return; var p=rootCell.pitch+C.semis(t[1],t[2]), f=p-OPEN[s]; if(f<0||f>24)return;
+      if(!cells.some(function(c){ return c.string===s&&c.fret===f; }))cells.push(mk({string:s,fret:f,pitch:p})); });
+  } else if(P.structure==='chord'){
+    var pcs=b0.chordSel.map(function(t){ return ((rootPc+C.semis(t[1],t[2]))%12+12)%12; });
     b0.cells.forEach(function(c0){ var best=null; for(var f=Math.max(0,lo-1);f<=hi+1;f++){ var p=OPEN[c0.string]+f; if(pcs.indexOf(p%12)<0)continue;
         if(!best||Math.abs(f-c0.fret)<Math.abs(best.fret-c0.fret)||(Math.abs(f-c0.fret)===Math.abs(best.fret-c0.fret)&&f<best.fret)) best={string:c0.string,fret:f,pitch:p}; }
       if(best&&!cells.some(function(c){ return c.string===best.string&&c.fret===best.fret; }))cells.push(mk(best)); });
@@ -337,9 +342,15 @@ function inPosBox(P,b0,full0,rootPc,modeName){
       if(ok)cells.push(mk(c)); });
   }
   cells.sort(function(a,b){ return a.pitch-b.pitch; });
-  var rc=cells.filter(function(c){ return c.anchor; })[0]||cells[0]||b0.root;
-  return { w:b0.w, gw:b0.gw, gn:b0.gn, cells:cells, anchorCells:cells.filter(function(c){ return c.anchor; }), root:rc, rootPc:rootPc, mode:modeName, doPc:doPc,
-           cand:[], muted:b0.muted||[], chordSel:b0.chordSel, inpos:true };
+  var gw=b0.gw, ge=b0.gw+b0.gn-1; cells.forEach(function(c){ gw=Math.min(gw,c.fret); ge=Math.max(ge,c.fret); });
+  var cand=[], muted=[], sel=null;
+  if(P.structure==='chord'){
+    for(var s=1;s<=NS;s++){ for(var f=Math.max(0,gw);f<=ge;f++){ var p=OPEN[s]+f, nm=name(p); cand.push({string:s,fret:f,pitch:p,on:cells.some(function(c){ return c.string===s&&c.fret===f; }),name:nm.n,color:nm.c}); }
+      if(!cells.some(function(c){ return c.string===s; }))muted.push(s); }
+    sel=cells.map(function(c){ var st=C.stepOf(c.pitch-rootCell.pitch); return [c.string,st[0],st[1]]; });
+  }
+  return { w:b0.w, gw:Math.max(0,gw), gn:ge-Math.max(0,gw)+1, cells:cells, anchorCells:cells.filter(function(c){ return c.anchor; }), root:{string:rootCell.string,fret:rootCell.fret,pitch:rootCell.pitch}, rootPc:rootPc, mode:modeName, doPc:doPc,
+           cand:cand, muted:muted, chordSel:sel||b0.chordSel, inpos:true };
 }
 /* ── a written modal sequence: P.shifts = [{beats}, {deg, anchor, pos, beats}, …]. The first step is the drill itself (its mode,
       anchor and starting root); each later step names the degree of the key its root lands on, the anchor that holds it, and
@@ -347,20 +358,20 @@ function inPosBox(P,b0,full0,rootPc,modeName){
       'same' (the same frets as the step before, re-read from the new root, as in Stay in position). beats: how long the step
       lasts (its tones cycle to fill it); 0 = one pass, held to the bar line. ── */
 function keyDo(P){ use(P); var A=anchorOf(P.anchor); return (((OPEN[A.root]+(+P.mroot))%12-fnByName(P.mode).s)%12+12)%12; }
-function placeStep(P,anchor,deg,N){   /* the anchor's placement whose root takes degree deg, the hand nearest position N */
+function placeStep(P,anchor,deg,N,chord){   /* the anchor's placement whose root takes degree deg, the hand nearest position N */
   use(P); var A=anchorOf(anchor), ro=rootOffset(A), pc=(keyDo(P)+fnByName(deg).s)%12, Q=Object.assign({},P,{anchor:anchor,pv:2}), best=null, bd=1e9;
-  if(anchor!==P.anchor)Q.chord=null;   /* a chord voiced on the drill's anchor: another anchor takes its own modal triad */
+  if(chord)Q.chord=chord; else if(anchor!==P.anchor)Q.chord=null;   /* the step's own voicing; else the drill's, on its own anchor; else the modal triad */
   for(var f=ro;f<=MAXW+ro;f++){ if(((OPEN[A.root]+f)%12+12)%12!==pc)continue; var b=boxAt(Q,f-ro,deg), d=Math.abs(handPos(Q,b)-N); if(d<bd){ bd=d; best=b; } }
   return best; }
 function seqSteps(P){ var L=(P.shifts&&P.shifts.length)?P.shifts:[{beats:0}];
-  return L.map(function(x,i){ return i?{deg:fnByName(x.deg)?x.deg:'Do',anchor:anchorOf(x.anchor).id,pos:(x.pos==='same'||x.pos==='near')?x.pos:Math.max(0,Math.min(20,+x.pos||0)),beats:Math.max(0,+x.beats||0)}
+  return L.map(function(x,i){ return i?{deg:fnByName(x.deg)?x.deg:'Do',anchor:anchorOf(x.anchor).id,pos:(x.pos==='same'||x.pos==='near')?x.pos:Math.max(0,Math.min(20,+x.pos||0)),beats:Math.max(0,+x.beats||0),chord:Array.isArray(x.chord)?x.chord:null}
                                      :{deg:P.mode,anchor:P.anchor,pos:'start',beats:Math.max(0,+x.beats||0)}; }); }
 function seqBoxes(P){
   use(P); var S=seqSteps(P), out=[], real=null, prev=null, hand=0;
   S.forEach(function(st,i){ var b;
     if(i===0){ var A=anchorOf(P.anchor); b=boxAt(P,+P.mroot-rootOffset(A),P.mode); }
-    else if(st.pos==='same'){ var pc=(keyDo(P)+fnByName(st.deg).s)%12; b=inPosBox(P,real.b,real.full,pc,st.deg); }
-    else b=placeStep(P,st.anchor,st.deg,st.pos==='near'?hand:st.pos);
+    else if(st.pos==='same'){ var pc=(keyDo(P)+fnByName(st.deg).s)%12; b=inPosBox(P,real.b,real.full,pc,st.deg,st.chord); }
+    else b=placeStep(P,st.anchor,st.deg,st.pos==='near'?hand:st.pos,st.chord);
     if(!b)return;
     if(!b.inpos){ var Q=Object.assign({},P,{anchor:st.anchor}), chromF=(P.structure==='chromatic'||P.structure==='custom');
       real={b:b,full:boxAt(Object.assign({},Q,{structure:chromF?'chromatic':'mode',range:'all'}),b.w,b.mode)}; hand=handPos(Q,b); }
@@ -368,7 +379,9 @@ function seqBoxes(P){
   return out; }
 /* the generated walk, written out as a sequence to edit: same degrees, the hand where the walk puts it */
 function walkSteps(P){ use(P); var M=modalWalk(P), Q=Object.assign({},P,{pv:2});
-  return M.map(function(x,i){ return i?{deg:x.mode,anchor:P.anchor,pos:P.minpos?'same':handPos(Q,boxAt(P,x.w,x.mode)),beats:0}:{beats:0}; }); }
+  var L=M.map(function(x,i){ return i?{deg:x.mode,anchor:P.anchor,pos:P.minpos?'same':handPos(Q,boxAt(P,x.w,x.mode)),beats:0}:{beats:0}; });
+  if(P.loop!==false&&L.length>2) L=L.concat(L.slice(1,-1).reverse().map(function(x){ return Object.assign({},x); }));   /* a looping walk comes back the way it went */
+  return L; }
 /* for the designer: the roots the drill can start on, and how far it can walk from one */
 function modalRoots(P){ use(P); var A=anchorOf(P.anchor), ro=rootOffset(A), L=[];
   for(var f=ro;f<=MAXW+ro;f++){ var pc=(OPEN[A.root]+f)%12; L.push({fret:f,name:P.mode==='Chromatic'?LETTERS[pc]:spellRoot(pc,P.mode)}); } return L; }
@@ -652,7 +665,7 @@ function addDays(key,n){ var p=key.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function base(){ return location.href.replace(/[^\/]*([?#].*)?$/,''); }
 
-G.Studio={ INSTRUMENTS:INSTRUMENTS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
+G.Studio={ INSTRUMENTS:INSTRUMENTS, LETTERS:LETTERS, instOf:instOf, anchorsFor:function(inst){ return instOf(inst).anchors||[]; }, anchorOf:anchorOf, FN:FN, POSITIONS:POSITIONS, MODES:MODES, RANGES:RANGES, STRUCTURES:STRUCTURES,
   DIRECTIONS:DIRECTIONS, FRAMES:FRAMES, rangesFor:rangesFor, fitRange:fitRange, SUBDIVISIONS:SUBDIVISIONS, ARTICULATIONS:ARTICULATIONS, articsFor:articsFor, fitArtic:fitArtic, isStrum:isStrum, chordToggle:chordToggle, defaults:defaults, boxes:boxes, ordered:ordered, sequence:sequence,
   ITEM_KINDS:ITEM_KINDS, TASK_LABELS:TASK_LABELS, kindOf:kindOf, itemLabel:itemLabel, minutesOf:minutesOf, lessonOf:lessonOf, initials:initials, songTitle:songTitle, WEEKDAYS:WEEKDAYS, clock12:clock12, lessonSlot:lessonSlot, routine:routine, byAssigned:byAssigned, itemTitle:itemTitle, firstName:firstName, message:message, smsHref:smsHref,
   handPos:handPos, posOf:posOf, modalWalk:modalWalk, rootLabel:function(b){ return spellRoot(b.rootPc,b.mode)+' as '+b.mode; }, seqSteps:seqSteps, walkSteps:walkSteps, seqBoxes:seqBoxes, modalRoots:modalRoots, modalLimits:modalLimits, title:title, where:where, summary:summary, isShift:isShift, starSVG:starSVG, dayFrac:dayFrac, autoNotes:autoNotes, glyphSVG:glyphSVG, api:api, weekKey:weekKey, addDays:addDays, ymd:ymd, esc:esc, base:base,

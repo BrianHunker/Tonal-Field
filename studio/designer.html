@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../icons/gg-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,500;1,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="studio.css?v=30">
+<link rel="stylesheet" href="studio.css?v=31">
 <style>
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start;margin-top:22px}
 form.card{display:flex;flex-direction:column;gap:0;padding:0}
@@ -29,6 +29,8 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 .dot button{width:22px;height:22px;border-radius:50%;border:1.5px solid #5a574f;background:none;cursor:pointer}
 .dot button[aria-pressed="true"]{background:var(--green);border-color:var(--green)}
 .dot button[disabled]{cursor:default}
+.pstep{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 8px}
+.pstep .label{margin:0 6px 0 0;display:inline}
 .seqwrap{margin:4px 0 12px;overflow-x:auto}
 .seqt{border-collapse:collapse;font-size:14px}
 .seqt th{font-size:12px;font-weight:600;color:var(--dim);text-align:left;padding:2px 8px 4px 0}
@@ -166,6 +168,7 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
         <p class="label">Preview · <span id="pkind"></span></p>
         <p class="ptitle" id="ptitle"></p>
         <div class="k-drill">
+          <div class="pstep" id="pstepwrap" hidden><label><span class="label">Shift</span> <select id="pstep"></select></label> <span class="hint" id="pstephint"></span></div>
           <div class="glyphbox glyph" id="pglyph"></div>
           <p class="label">Tones, low to high</p>
           <div class="tones" id="ptones"></div>
@@ -178,12 +181,12 @@ form.card{display:flex;flex-direction:column;gap:0;padding:0}
 </div>
 <footer><div class="wrap">Gables Guitar Studio · the drill book</div></footer>
 
-<script src="config.js?v=30"></script>
-<script src="../lessons.js?v=30"></script>
-<script src="studio.js?v=30"></script>
+<script src="config.js?v=31"></script>
+<script src="../lessons.js?v=31"></script>
+<script src="studio.js?v=31"></script>
 <script>
 var S=Studio, P=S.defaults(), KIND='drill', HAND='right', SONG={rid:'',title:'',artist:'',lesson:'',part:''}, TASK={label:'Improvisation',link:''};
-var notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
+var PSTEP=0, notesEdited=false, titleEdited=false, pass='', editing=null, students=[], cur=null, songs=[];
 P.inst='guitar'; P.pv=2;   /* new drills count positions by the index finger */
 try{ pass=localStorage.getItem('studio-pass')||''; }catch(e){}
 var $=function(id){ return document.getElementById(id); };
@@ -304,11 +307,17 @@ function params(){
   var ar=$('artic');
   ar.onchange=function(){ var was=S.isStrum(P); P.artic=this.value;
     if(P.structure==='chord'&&!was&&S.isStrum(P)&&P.chord){ var keep={}; P.chord.forEach(function(t){ keep[t[0]]=t; }); P.chord=Object.keys(keep).map(function(k){ return keep[k]; }); }   /* a strum keeps one tone per string: the last chosen */
+    if(P.structure==='chord'&&!was&&S.isStrum(P)&&P.shifts) P.shifts=P.shifts.map(function(x){ if(!x.chord)return x; var kp={}; x.chord.forEach(function(t){ kp[t[0]]=t; }); return Object.assign({},x,{chord:Object.keys(kp).map(function(q){ return kp[q]; })}); });
     render(); };
   $('ring').onchange=function(){ P.ring=this.checked; render(); };
   /* a tap on the preview's fretboard: a chord tone on or off */
   $('pglyph').addEventListener('click',function(e){ var t=e.target.closest&&e.target.closest('.cand'); if(!t||P.structure!=='chord')return;
-    P.chord=S.chordToggle(P,+t.getAttribute('data-s'),+t.getAttribute('data-f')); if(!notesEdited){} render(); });
+    var k=PSTEP, sf=+t.getAttribute('data-s'), ff=+t.getAttribute('data-f');
+    if(!k){ P.chord=S.chordToggle(P,sf,ff); render(); return; }
+    if(P.position!=='modal')return;   /* a chromatic shift slides the first box's voicing */
+    if(!P.mseq){ P.shifts=S.walkSteps(P); P.mseq=true; }   /* the walk, written out: plays the same, and each step can take its own voicing */
+    var sel=S.chordToggle(P,sf,ff,k); P.shifts=P.shifts.map(function(x){ return Object.assign({},x); }); P.shifts[k].chord=sel; render(); });
+  $('pstep').onchange=function(){ PSTEP=+this.value; render(); };
   $('bpm').oninput=function(){ P.bpm=Math.max(20,Math.min(300,+this.value||60)); render(); };
   $('daily').oninput=function(){ P.daily=Math.max(0.5,Math.min(120,+this.value||1)); render(); };
   $('start').oninput=function(){ P.start=Math.max(0,Math.min(20,+this.value||0)); render(); };
@@ -324,6 +333,7 @@ function params(){
     P.shifts=P.shifts.concat([{deg:nx,anchor:last.anchor,pos:'near',beats:last.beats}]); render(); };
   $('seqbody').addEventListener('change',function(e){ var t=e.target, i=+t.getAttribute('data-i'), f=t.getAttribute('data-f'); if(!f)return;
     P.shifts=P.shifts.map(function(x){ return Object.assign({},x); });
+    if(f==='anchor'||f==='pos')delete P.shifts[i].chord;   /* a voicing belongs to its place on the neck */
     P.shifts[i][f]=(f==='beats')?Math.max(0,Math.min(64,Math.round(+t.value||0))):(f==='pos'&&/^\d+$/.test(t.value)?+t.value:t.value); render(); });
   $('seqbody').addEventListener('click',function(e){ var d=e.target.getAttribute&&e.target.getAttribute('data-del'); if(d==null)return;
     P.shifts=P.shifts.filter(function(_,i){ return i!==+d; }); render(); });
@@ -366,8 +376,15 @@ function render(){
     $('psum').textContent=daily+' min a day · '+(KIND==='song'?(les?'opens its Tonal Field lesson':'with a stopwatch'):(TASK.link?'with a stopwatch and a link':'with a stopwatch'));
     return;
   }
-  var B=S.boxes(P), b=B[0];
-  $('pglyph').innerHTML=S.glyphSVG(P,{box:b,tones:true,frets:true,size:2.1,edit:P.structure==='chord'});
+  var B=S.boxes(P), V=S.isShift(P)?S.boxes(Object.assign({},P,{loop:false})):B;   /* the steps, once through */
+  if(PSTEP>=V.length)PSTEP=0;
+  var b=V[PSTEP], canEdit=P.structure==='chord'&&(PSTEP===0||P.position==='modal');
+  $('pstepwrap').hidden=V.length<2;
+  if(V.length>1){ var psk=V.map(function(x,i){ return (i+1)+' · '+(x.mode==='Chromatic'?S.LETTERS[x.rootPc]:S.rootLabel(x)); }).join('|'), pe=$('pstep');
+    if(pe.getAttribute('data-k')!==psk){ pe.innerHTML=psk.split('|').map(function(t,i){ return '<option value="'+i+'">'+S.esc(t)+'</option>'; }).join(''); pe.setAttribute('data-k',psk); }
+    pe.value=String(PSTEP);
+    $('pstephint').textContent=P.structure!=='chord'?'':(PSTEP===0?'the drill’s own voicing':(P.position!=='modal'?'a chromatic shift slides shift 1’s voicing':((P.mseq&&P.shifts&&P.shifts[PSTEP]&&P.shifts[PSTEP].chord)?'its own voicing':'tap to give this shift its own voicing'))); }
+  $('pglyph').innerHTML=S.glyphSVG(Object.assign({},P,b.step?{anchor:b.step.anchor}:{}),{box:b,tones:true,frets:true,size:2.1,edit:canEdit});
   $('ptones').innerHTML=S.ordered(b.cells,'up').map(function(c){ return '<span style="color:'+c.color+'">'+S.esc(c.name)+'</span>'; }).join('')||'<span class="muted">No tones in this box with these settings.</span>';
   var sq=S.sequence(P), got=S.posOf(P,b), want=P.position==='open'?0:+P.position;
   var miss=(!S.isShift(P)&&got!==want)?' · Position '+want+' can’t hold this shape so near the nut; this is the nearest, position '+got+'.':'';
