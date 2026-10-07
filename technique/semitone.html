@@ -73,6 +73,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 .guide{ stroke:var(--faint); stroke-dasharray:2 3 }
 .fretn{ fill:var(--mid); font-size:10px; text-anchor:middle }
 .lbl{ fill:var(--mid); font-size:11px } .lbl.sel{ fill:var(--ink); font-weight:700 }
+.clef{ fill:var(--ink); font-size:24px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .row{ stroke:var(--mid) } .row.sel{ stroke:var(--ink) }
 .hit{ fill:transparent; cursor:pointer }
 .num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .num.on{ fill:var(--bg) }
@@ -125,6 +126,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
     <h2>Sound</h2>
     <div class="mixRow"><span class="name">Global</span><input type="range" id="volMaster" min="0" max="100" value="80"><b id="volMasterV">80</b><label><input type="checkbox" id="muteMaster"> Mute</label></div>
     <div class="mixRow"><span class="name">Fretboard</span><input type="range" id="volString" min="0" max="100" value="50"><b id="volStringV">−20 dB</b><label><input type="checkbox" id="muteString"> Mute</label></div>
+    <div class="mixRow sub"><span class="name">Body</span><input type="range" id="volBody" min="0" max="100" value="60"><b id="volBodyV">60</b><span></span></div>
     <div class="mixRow"><span class="name">Click</span><input type="range" id="volClick" min="0" max="100" value="80"><b id="volClickV">80</b><label><input type="checkbox" id="muteClick"> Mute</label></div>
     <div class="mixRow sub"><span class="name">Click sound</span>
       <div class="seg" id="segClick" role="group" aria-label="Click sound">
@@ -239,10 +241,11 @@ function setHand(pcFloat,litPc){
 }
 
 /* ---------- TAB: strings × eighth-note cells, numbers with duration bars ---------- */
-const TB={x0:56,cw:52,cells:16,rowY:[34,51,68,85,102,119],dotY:14};
+const TB={x0:86,cw:50,cells:16,rowY:[34,51,68,85,102,119],dotY:14};
 TB.x1=TB.x0+TB.cells*TB.cw;
 const xBeat=b=>TB.x0+b*2*TB.cw;
 const tab=document.getElementById('tab');
+['T','A','B'].forEach((ch,i)=>{ const t=el('text',{x:22,y:TB.rowY[0]+(TB.rowY[5]-TB.rowY[0])*(2*i+1)/6,class:'clef'},tab); t.textContent=ch; });   // the TAB clef
 const rows=[], rowLbls=[];
 STRINGS.forEach((s,i)=>{
   rows.push(el('line',{x1:TB.x0,y1:TB.rowY[i],x2:TB.x1,y2:TB.rowY[i],class:'row','stroke-width':1},tab));
@@ -278,15 +281,25 @@ const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-12,x2:TB.x0,y2:TB.rowY[5]+12,class:
 STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
 
 /* ---------- sound: a plucked string (Karplus–Strong), fractional delay so each fret is in tune ---------- */
-const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},click:{vol:80,mute:false,sound:'click'}};
+const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},body:{vol:60},click:{vol:80,mute:false,sound:'click'}};
 const stringGain=v=>v<=0?0:Math.pow(10,-40*(1-v/100)/20);         // log taper: 40 dB of travel, silent at the bottom
 const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-0.5?'−'+Math.abs(db).toFixed(0):'0')+' dB'; };
-let ctx=null, master=null, stringBus=null, clickBus=null, noiseBuf=null; const bufs={};
+// The body: the string drives a bank of resonators, each a mode of a steel-string guitar's box — the air resonance near 100 Hz,
+// the top plate near 200, and weaker, broader modes above — summed with the string itself. [frequency Hz, Q, weight]
+/*BODY-BEGIN*/
+const BODY_MODES=[[97,9,1.0],[196,12,0.9],[290,10,0.5],[410,8,0.45],[560,8,0.35],[790,7,0.3],[1120,6,0.25],[1600,5,0.2],[2300,4,0.15]];
+const BODY_WET=1.8;                                                // wet gain at Body = 100
+/*BODY-END*/
+let ctx=null, master=null, stringBus=null, clickBus=null, stringIn=null, bodyWet=null, noiseBuf=null; const bufs={};
 function ensureCtx(){
   if(!ctx){
     const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC();
     master=ctx.createGain(); stringBus=ctx.createGain(); clickBus=ctx.createGain();
     stringBus.connect(master); clickBus.connect(master); master.connect(ctx.destination);
+    stringIn=ctx.createGain(); stringIn.gain.value=0.8;             // the bare string, before the box
+    const dry=ctx.createGain(); dry.gain.value=1; stringIn.connect(dry); dry.connect(stringBus);
+    bodyWet=ctx.createGain(); bodyWet.connect(stringBus);
+    BODY_MODES.forEach(([f,q,w])=>{ const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q; const g=ctx.createGain(); g.gain.value=w; stringIn.connect(bp); bp.connect(g); g.connect(bodyWet); });
     applyMix(true);
   }
   return ctx.resume();
@@ -297,6 +310,7 @@ function applyMix(now0){
   const set=(node,v)=>{ if(now0) node.gain.setValueAtTime(v,t); else node.gain.setTargetAtTime(v,t,0.015); };
   set(master,mix.master.mute?0:mix.master.vol/100);
   set(stringBus,mix.string.mute?0:stringGain(mix.string.vol));
+  set(bodyWet,BODY_WET*mix.body.vol/100);
   set(clickBus,mix.click.mute?0:mix.click.vol/100);
 }
 /*KS-BEGIN*/
@@ -359,7 +373,7 @@ function tick(){
 function track(src,g,extra){ const rec=Object.assign({src,g},extra||{}); T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
 function strike(fret,t,level){                                     // a new vibration on the string at this fret
   const src=ctx.createBufferSource(); src.buffer=pluck(T.string,fret);
-  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(stringBus); src.start(t);
+  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(stringIn); src.start(t);
   return track(src,g,{fret,level});
 }
 function note(t,i){
@@ -524,14 +538,14 @@ window.addEventListener('keydown',e=>{
 const gear=document.getElementById('gear'), mixer=document.getElementById('mixer');
 gear.addEventListener('click',()=>{ const open=mixer.hidden; mixer.hidden=!open; gear.setAttribute('aria-expanded',open); });
 const MIX_KEY='semitone-drills-mix-3';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
-try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; } }catch(err){}
-function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,click:mix.click.vol,sound:mix.click.sound})); }catch(err){} }
-[['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
-  const vol=document.getElementById(volId), val=document.getElementById(volId+'V'), mute=document.getElementById(muteId);
-  vol.value=mix[k].vol; val.textContent=show(mix[k].vol); mute.checked=false;
+try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','body','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; } }catch(err){}
+function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,body:mix.body.vol,click:mix.click.vol,sound:mix.click.sound})); }catch(err){} }
+[['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['body','volBody',null,v=>v],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
+  const vol=document.getElementById(volId), val=document.getElementById(volId+'V'), mute=muteId&&document.getElementById(muteId);
+  vol.value=mix[k].vol; val.textContent=show(mix[k].vol);
   vol.addEventListener('input',()=>{ mix[k].vol=+vol.value; val.textContent=show(mix[k].vol); applyMix(); });
   vol.addEventListener('change',saveMix);
-  mute.addEventListener('change',()=>{ mix[k].mute=mute.checked; applyMix(); });
+  if(mute){ mute.checked=false; mute.addEventListener('change',()=>{ mix[k].mute=mute.checked; applyMix(); }); }
 });
 const segClick=document.getElementById('segClick');
 function syncClickSound(){ for(const b of segClick.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===mix.click.sound); }
