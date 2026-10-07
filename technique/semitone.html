@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Semitone Drills</title>
+<link rel="icon" href="../favicon.ico">
+<style>
+/* Layout: the header row holds the name and spec on the left and the chromatic ring (the compass) on the right; below it a
+   control bar with a gear that opens the mixer, the fretboard with the floating hand above the high e and the thumb below
+   the low E, then the two-bar TAB as a subdivision grid. Grayscale only: g(x) is off. */
+:root{
+  color-scheme:light;
+  --bg:#ffffff;
+  --ink:#121212;
+  --mid:#6e6e6e;
+  --faint:#d4d4d4;
+  --board:#f2f2f2;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; color-scheme:dark }
+}
+:root[data-theme="dark"]{ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; color-scheme:dark }
+
+*{ box-sizing:border-box }
+[hidden]{ display:none !important }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.4; font-variant-numeric:tabular-nums }
+.wrap{ max-width:980px; margin:0 auto; padding-inline:16px; padding-block:22px 44px; display:grid; gap:18px }
+.head{ display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 32px }
+.headText{ flex:1 1 320px; min-width:0; display:grid; gap:2px }
+.eyebrow{ margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid) }
+h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1; text-wrap:balance }
+.spec{ margin:4px 0 0; color:var(--mid) }
+.ringBox{ flex:0 0 232px; margin:0; display:grid; gap:4px; justify-items:center }
+.ringBox svg{ width:232px; height:232px }
+.ringBox figcaption{ font-size:12px; color:var(--mid); text-align:center; max-width:232px; text-wrap:balance }
+.bar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding-block:12px; border-top:1px solid var(--faint); border-bottom:1px solid var(--faint) }
+.play{ font:inherit; font-weight:700; min-width:92px; padding:8px 18px; border:2px solid var(--ink); background:var(--ink); color:var(--bg); border-radius:999px; cursor:pointer }
+.play.on{ background:var(--bg); color:var(--ink) }
+.gear{ font:inherit; font-size:18px; line-height:1; width:36px; height:36px; margin-left:auto; border:1px solid var(--mid); border-radius:50%; background:var(--bg); color:var(--ink); cursor:pointer }
+.gear[aria-expanded="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink) }
+button:focus-visible, input:focus-visible{ outline:2px solid var(--ink); outline-offset:2px }
+.ctl{ display:flex; align-items:center; gap:8px; color:var(--mid); font-size:13px; margin:0 }
+.ctl b{ color:var(--ink); font-weight:600; min-width:2.2em; text-align:right }
+.ctl.off{ color:var(--faint) }
+.seg{ display:inline-flex; border:1px solid var(--mid); border-radius:6px; overflow:hidden }
+.seg button{ font:inherit; font-size:13px; padding:5px 11px; border:0; border-left:1px solid var(--mid); background:var(--bg); color:var(--ink); cursor:pointer }
+.seg button:first-child{ border-left:0 }
+.seg button[aria-pressed="true"]{ background:var(--ink); color:var(--bg) }
+.seg button:disabled{ color:var(--faint); cursor:default }
+.seg button:disabled[aria-pressed="true"]{ background:var(--faint); color:var(--bg) }
+input[type=range]{ accent-color:var(--ink); width:130px }
+input[type=checkbox]{ accent-color:var(--ink) }
+.mixer{ display:grid; gap:10px; padding:14px 16px; border:1px solid var(--mid); border-radius:8px; max-width:540px; margin-top:-6px }
+.mixer h2{ margin:0 0 2px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid); font-weight:600 }
+.mixRow{ display:grid; grid-template-columns:7em 1fr 3.8em auto; align-items:center; gap:12px; font-size:13px }
+.mixRow .name{ color:var(--ink); font-weight:600 }
+.mixRow input[type=range]{ width:100%; min-width:0 }
+.mixRow b{ text-align:right; font-weight:600; white-space:nowrap }
+.mixRow label{ display:flex; align-items:center; gap:6px; color:var(--mid) }
+.mixRow.sub .name{ color:var(--mid); font-weight:400 }
+.mixRow.sub .seg{ grid-column:2 / -1; justify-self:start }
+@media (max-width:480px){ .mixRow{ grid-template-columns:5.5em 1fr 3.8em auto; gap:8px } }
+.panel{ width:100%; min-width:0; overflow:hidden }
+svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--sans) }
+.cue{ margin:0; max-width:64ch }
+.cue span{ color:var(--mid) }
+
+/* SVG parts, all through the tokens */
+.ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
+.inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
+.fingerC{ fill:var(--bg); stroke:var(--ink); stroke-width:1.6 } .fingerC.down{ fill:var(--ink) }
+.fingerN{ fill:var(--ink); font-weight:700; font-size:15px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .fingerN.down{ fill:var(--bg) }
+.guide{ stroke:var(--faint); stroke-dasharray:2 3 }
+.fretn{ fill:var(--mid); font-size:10px; text-anchor:middle }
+.lbl{ fill:var(--mid); font-size:11px } .lbl.sel{ fill:var(--ink); font-weight:700 }
+.row{ stroke:var(--mid) } .row.sel{ stroke:var(--ink) }
+.hit{ fill:transparent; cursor:pointer }
+.num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .num.on{ fill:var(--bg) }
+.dur{ fill:var(--faint) } .dur.on{ fill:var(--ink) }
+.dot{ fill:var(--bg); stroke:var(--ink); stroke-width:1.4 } .dot.on{ fill:var(--ink) }
+.rl{ fill:var(--mid); text-anchor:middle; dominant-baseline:central } .rl.pair{ fill:var(--ink) } .rl.on{ fill:var(--ink); font-weight:700 }
+.rd{ fill:var(--mid) } .rd.on{ fill:var(--ink) }
+.hand{ stroke:var(--ink); stroke-width:1.5; stroke-dasharray:4 3; stroke-linecap:round }
+.wedge{ fill:none; stroke:var(--ink); stroke-width:2 }
+.pi{ fill:var(--ink); font-size:12px; text-anchor:middle; dominant-baseline:central }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="head">
+    <div class="headText">
+      <p class="eyebrow">Harmonic structure · 1 of 7</p>
+      <h1>Semitone</h1>
+      <p class="spec" id="spec"></p>
+    </div>
+    <figure class="ringBox">
+      <svg id="ring" viewBox="0 0 240 240" aria-label="Chromatic ring: the twelve pitch names around a circle, A at the top, with a dashed hand on the sounding pitch"></svg>
+      <figcaption>One turn of the ring is an octave, 2π. Each semitone is π/6 of the turn.</figcaption>
+    </figure>
+  </header>
+
+  <div class="bar">
+    <button id="play" class="play" type="button">Play</button>
+    <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
+    <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
+    <div class="ctl">String
+      <div class="seg" id="segString" role="group" aria-label="String">
+        <button type="button" data-v="0">e</button><button type="button" data-v="1">B</button><button type="button" data-v="2">G</button><button type="button" data-v="3">D</button><button type="button" data-v="4">A</button><button type="button" data-v="5">E</button>
+      </div>
+    </div>
+    <div class="ctl">Starting finger
+      <div class="seg" id="segStart" role="group" aria-label="Starting finger">
+        <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
+      </div>
+    </div>
+    <div class="ctl">Direction
+      <div class="seg" id="segDir" role="group" aria-label="Direction">
+        <button type="button" data-v="up">Up</button><button type="button" data-v="down">Down</button>
+      </div>
+    </div>
+    <div class="ctl" id="plantCtl">Lower finger
+      <div class="seg" id="segPlant" role="group" aria-label="Lower finger">
+        <button type="button" data-v="1">Stays down</button><button type="button" data-v="0">Lifts</button>
+      </div>
+    </div>
+    <label class="ctl" for="slide"><input type="checkbox" id="slide"> Slide</label>
+    <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound">&#x2699;&#xFE0E;</button>
+  </div>
+
+  <div class="mixer" id="mixer" hidden>
+    <h2>Sound</h2>
+    <div class="mixRow"><span class="name">Global</span><input type="range" id="volMaster" min="0" max="100" value="80"><b id="volMasterV">80</b><label><input type="checkbox" id="muteMaster"> Mute</label></div>
+    <div class="mixRow"><span class="name">Fretboard</span><input type="range" id="volString" min="0" max="100" value="50"><b id="volStringV">−20 dB</b><label><input type="checkbox" id="muteString"> Mute</label></div>
+    <div class="mixRow"><span class="name">Click</span><input type="range" id="volClick" min="0" max="100" value="80"><b id="volClickV">80</b><label><input type="checkbox" id="muteClick"> Mute</label></div>
+    <div class="mixRow sub"><span class="name">Click sound</span>
+      <div class="seg" id="segClick" role="group" aria-label="Click sound">
+        <button type="button" data-v="click">Click</button><button type="button" data-v="hat">Hi-hat</button><button type="button" data-v="kick">Kick drum</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel"><svg id="fb" viewBox="0 0 900 304" aria-label="Fretboard, position 5, with the fret-hand's four fingers floating above the high e and the thumb behind the neck"></svg></div>
+  <div class="panel"><svg id="tab" viewBox="0 0 900 140" aria-label="Two bars of TAB on an eighth-note grid"></svg></div>
+
+  <p class="cue" id="cue"></p>
+</div>
+
+<script>
+(function(){
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;};
+const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ---------- the drill ----------
+   Hand: position 5 (the index finger's fret), one finger per fret, so finger f sits at fret POSITION+f-1.
+   A semitone drill is a pair of adjacent frets on one string: the starting finger's fret and its neighbour in the chosen direction.
+   Fingers: the two frets belong to two adjacent fingers.  Slide: the starting finger holds both frets, the whole hand moving with it.
+   Figure: bar 1 eight straight eighths, bar 2 two halves; the two frets alternate through all ten notes, and the figure loops. */
+const POSITION=5;
+const STRINGS=[{lbl:'e',name:'high e',hz:329.6276,pc:7},{lbl:'B',name:'B',hz:246.9417,pc:2},{lbl:'G',name:'G',hz:195.9977,pc:10},{lbl:'D',name:'D',hz:146.8324,pc:5},{lbl:'A',name:'A',hz:110.0,pc:0},{lbl:'E',name:'low E',hz:82.4069,pc:7}]; // pc = semitones above A
+const NAMES=['A','A♯/B♭','B','C','C♯/D♭','D','D♯/E♭','E','F','F♯/G♭','G','G♯/A♭'];
+const fretHz=(s,n)=>STRINGS[s].hz*Math.pow(2,n/12);
+const pcOf=(s,fret)=>((STRINGS[s].pc+fret)%12+12)%12;   // fret may be fractional, mid-slide
+const FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}]; // start, duration in beats
+const BAR_START=i=>i===0||i===8;
+const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09;          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
+const drill={string:0,start:1,dir:'up',plant:true,slide:false,bpm:70,click:true};
+const pairOf=()=>{const a=drill.start,b=drill.dir==='up'?a+1:a-1;return [a,b].map(f=>({finger:f,fret:POSITION+f-1}));};
+const validStart=s=>{const b=drill.dir==='up'?s+1:s-1;return b>=1&&b<=4;};
+
+/* ---------- fretboard ---------- */
+const FB={x0:40,nut:96,cw:66,n:12,top:80,bot:240,hover:36,strY:[98,122,146,170,194,218],gauge:[1,1.2,1.5,1.9,2.4,3]};
+FB.right=FB.nut+FB.n*FB.cw;
+const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;
+const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;
+const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
+const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };   // mid-slide, between two fretted cells
+const cellM=n=>(cellL(n)+cellR(n))/2;
+const fb=document.getElementById('fb');
+el('rect',{x:FB.x0,y:FB.top,width:FB.right-FB.x0,height:FB.bot-FB.top,class:'board'},fb);
+for(let k=1;k<=FB.n;k++) el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,class:'midS','stroke-width':1.5},fb);
+el('line',{x1:FB.nut,y1:FB.top-8,x2:FB.nut,y2:FB.bot+8,class:'inkS','stroke-width':4},fb);   // nut line, past both edges
+for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'},fb); t.textContent=k; }
+FB.strY.forEach((y,i)=>el('line',{x1:FB.x0,y1:y,x2:FB.right,y2:y,class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round'},fb));
+[3,5,7,9].forEach(k=>el('circle',{cx:cellM(k),cy:FB.bot+14,r:4,class:'mid'},fb));            // neck dots below the low E
+el('circle',{cx:cellM(12)-7,cy:FB.bot+14,r:4,class:'mid'},fb);
+el('circle',{cx:cellM(12)+7,cy:FB.bot+14,r:4,class:'mid'},fb);
+const ringLine=el('line',{x1:0,y1:FB.strY[0],x2:FB.right,y2:FB.strY[0],class:'inkS','stroke-width':4,'stroke-linecap':'round',visibility:'hidden'},fb); // written note-on: fret to bridge
+
+// the hand: four numbered fingers float above the high e in their positions
+const fingers=[];
+for(let f=1;f<=4;f++){
+  const fret=POSITION+f-1, x=tipX(fret);
+  const guide=el('line',{x1:x,y1:FB.hover+17,x2:x,y2:FB.strY[0]-6,class:'guide'},fb);
+  const c=el('circle',{cx:x,cy:FB.hover,r:14,class:'fingerC'},fb);
+  const t=el('text',{x:x,y:FB.hover,class:'fingerN'},fb); t.textContent=f;
+  fingers.push({f,fret,home:x,x,y:FB.hover,c,t,guide});
+}
+// the thumb: behind the neck, below the low E, between fingers 1 and 2. It stays put when the hand slides.
+// modes 'mute' and 'fret' are the over-the-top positions on the low E, wired but unused in this drill.
+const thumb={mode:'behind',fret:POSITION};
+function thumbPos(){
+  const x12=(tipX(POSITION)+tipX(POSITION+1))/2;
+  if(thumb.mode==='mute') return {x:x12,y:FB.strY[5]};
+  if(thumb.mode==='fret') return {x:tipX(thumb.fret),y:FB.strY[5]};
+  return {x:x12,y:FB.bot+44};
+}
+const thumbG=el('g',{},fb);
+el('rect',{x:-17,y:-11,width:34,height:22,rx:11,class:'fingerC'},thumbG);
+const thumbT=el('text',{x:0,y:0,class:'fingerN'},thumbG); thumbT.textContent='T';
+function placeThumb(){ const p=thumbPos(); thumbG.setAttribute('transform','translate('+p.x+' '+p.y+')'); }
+placeThumb();
+// click a string to move the drill there
+FB.strY.forEach((y,i)=>{ const h=el('rect',{x:FB.x0,y:y-12,width:FB.right-FB.x0,height:24,class:'hit'},fb); h.addEventListener('click',()=>setString(i)); });
+
+/* ---------- the ring: a chromatic clock face, A at 12, ascending clockwise, π/6 per semitone ---------- */
+const RG={c:120,R:84,RL:107,RW:58,RT:38};
+const ang=pc=>pc*Math.PI/6;
+const pt=(r,pc)=>{ const a=ang(pc); return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; };
+const ringSvg=document.getElementById('ring');
+el('circle',{cx:RG.c,cy:RG.c,r:RG.R,fill:'none',class:'faintS','stroke-width':1},ringSvg);
+const rDots=[], rLbls=[];
+for(let pc=0;pc<12;pc++){
+  const [x,y]=pt(RG.R,pc); rDots.push(el('circle',{cx:x,cy:y,r:3,class:'rd'},ringSvg));
+  const [lx,ly]=pt(RG.RL,pc); const parts=NAMES[pc].split('/'); const g=el('g',{},ringSvg); rLbls.push(g);
+  if(parts.length===1){ const t=el('text',{x:lx,y:ly,class:'rl','font-size':14},g); t.textContent=parts[0]; }
+  else{ const t1=el('text',{x:lx,y:ly-6.5,class:'rl','font-size':11},g); t1.textContent=parts[0]; const t2=el('text',{x:lx,y:ly+6.5,class:'rl','font-size':11},g); t2.textContent=parts[1]; }
+}
+const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the drill's own semitone, drawn as its angle
+const piLbl=el('text',{x:RG.c,y:RG.c,class:'pi'},ringSvg); piLbl.textContent='π/6';
+const hand=el('line',{x1:RG.c,y1:RG.c,x2:RG.c,y2:RG.c-RG.R,class:'hand',visibility:'hidden'},ringSvg);
+el('circle',{cx:RG.c,cy:RG.c,r:3,class:'ink'},ringSvg);
+function buildWedge(){
+  const [a,b]=pairOf().map(n=>pcOf(drill.string,n.fret));
+  const [x1,y1]=pt(RG.RW,a), [x2,y2]=pt(RG.RW,b);
+  wedge.setAttribute('d','M'+x1.toFixed(1)+' '+y1.toFixed(1)+' A'+RG.RW+' '+RG.RW+' 0 0 '+(drill.dir==='up'?1:0)+' '+x2.toFixed(1)+' '+y2.toFixed(1));
+  const mid=a+(drill.dir==='up'?0.5:-0.5), [mx,my]=pt(RG.RT,mid); piLbl.setAttribute('x',mx); piLbl.setAttribute('y',my);
+  rLbls.forEach((g,pc)=>g.classList.toggle('pair',pc===a||pc===b));
+}
+function setHand(pcFloat,litPc){
+  if(pcFloat===null){ hand.setAttribute('visibility','hidden'); rDots.forEach(d=>d.classList.remove('on')); rLbls.forEach(g=>g.classList.remove('on')); return; }
+  const [x,y]=pt(RG.R,pcFloat); hand.setAttribute('x2',x); hand.setAttribute('y2',y); hand.setAttribute('visibility','visible');
+  rDots.forEach((d,pc)=>d.classList.toggle('on',pc===litPc)); rLbls.forEach((g,pc)=>g.classList.toggle('on',pc===litPc));
+}
+
+/* ---------- TAB: strings × eighth-note cells, numbers with duration bars ---------- */
+const TB={x0:56,cw:52,cells:16,rowY:[34,51,68,85,102,119],dotY:14};
+TB.x1=TB.x0+TB.cells*TB.cw;
+const xBeat=b=>TB.x0+b*2*TB.cw;
+const tab=document.getElementById('tab');
+const rows=[], rowLbls=[];
+STRINGS.forEach((s,i)=>{
+  rows.push(el('line',{x1:TB.x0,y1:TB.rowY[i],x2:TB.x1,y2:TB.rowY[i],class:'row','stroke-width':1},tab));
+  const t=el('text',{x:TB.x0-12,y:TB.rowY[i],class:'lbl','text-anchor':'end','dominant-baseline':'central'},tab); t.textContent=s.lbl; rowLbls.push(t);
+});
+for(let c=0;c<=TB.cells;c++){
+  const x=TB.x0+c*TB.cw, bar=c%8===0, beat=c%2===0;
+  el('line',{x1:x,y1:TB.rowY[0]-8,x2:x,y2:TB.rowY[5]+8,class:bar?'inkS':(beat?'midS':'faintS'),'stroke-width':bar?2:1},tab);
+}
+[TB.x0+9,TB.x1-9].forEach(x=>{                          // repeat dots: the figure loops
+  el('circle',{cx:x,cy:(TB.rowY[1]+TB.rowY[2])/2,r:2.5,class:'ink'},tab);
+  el('circle',{cx:x,cy:(TB.rowY[3]+TB.rowY[4])/2,r:2.5,class:'ink'},tab);
+});
+const dots=[]; for(let b=0;b<8;b++) dots.push(el('circle',{cx:xBeat(b),cy:TB.dotY,r:4,class:'dot'},tab));
+const countLbl=el('text',{x:TB.x0-12,y:TB.dotY,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
+const noteG=el('g',{},tab); let tabNotes=[];
+function buildTabNotes(){
+  while(noteG.firstChild) noteG.removeChild(noteG.firstChild);
+  tabNotes=[]; const notes=pairOf(), y=TB.rowY[drill.string];
+  FIG.forEach((e,i)=>{
+    const n=notes[i%2], x=xBeat(e.s), w=e.d*2*TB.cw;
+    const bar=el('rect',{x:x+3,y:y-7,width:w-6,height:14,rx:7,class:'dur'},noteG);
+    const num=el('text',{x:x+TB.cw/2,y:y,class:'num'},noteG); num.textContent=n.fret;
+    tabNotes.push({bar,num});
+    if(drill.slide&&!BAR_START(i)){                      // slid into: a slash across the boundary, rising or falling with the pitch
+      const up=n.fret>notes[(i+1)%2].fret;
+      el('line',{x1:x-6,y1:up?y+9:y-9,x2:x+6,y2:up?y-9:y+9,class:'inkS','stroke-width':1.5,'stroke-linecap':'round'},noteG);
+    }
+  });
+}
+const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-12,x2:TB.x0,y2:TB.rowY[5]+12,class:'inkS','stroke-width':1.5,visibility:'hidden'},tab);
+// click a row (or its label) to move the drill there
+STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
+
+/* ---------- sound: a plucked string (Karplus–Strong), fractional delay so each fret is in tune ---------- */
+const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},click:{vol:80,mute:false,sound:'click'}};
+const stringGain=v=>v<=0?0:Math.pow(10,-40*(1-v/100)/20);         // log taper: 40 dB of travel, silent at the bottom
+const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-0.5?'−'+Math.abs(db).toFixed(0):'0')+' dB'; };
+let ctx=null, master=null, stringBus=null, clickBus=null, noiseBuf=null; const bufs={};
+function ensureCtx(){
+  if(!ctx){
+    const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC();
+    master=ctx.createGain(); stringBus=ctx.createGain(); clickBus=ctx.createGain();
+    stringBus.connect(master); clickBus.connect(master); master.connect(ctx.destination);
+    applyMix(true);
+  }
+  return ctx.resume();
+}
+function applyMix(now0){
+  if(!ctx) return;
+  const t=ctx.currentTime;
+  const set=(node,v)=>{ if(now0) node.gain.setValueAtTime(v,t); else node.gain.setTargetAtTime(v,t,0.015); };
+  set(master,mix.master.mute?0:mix.master.vol/100);
+  set(stringBus,mix.string.mute?0:stringGain(mix.string.vol));
+  set(clickBus,mix.click.mute?0:mix.click.vol/100);
+}
+/*KS-BEGIN*/
+function pluckSamples(sr,freq,secs){
+  const n=Math.floor(secs*sr), out=new Float32Array(n);
+  const P=sr/freq, D=P-0.5, Di=Math.floor(D), fr=D-Di, M=Di+3;   // the 2-tap loop filter adds half a sample
+  const ring=new Float32Array(M);
+  const fc=Math.min(6000,Math.max(1200,8*freq)), a=Math.exp(-2*Math.PI*fc/sr); // darker pluck on the lower, wound strings
+  let v=0,sum=0;
+  for(let i=0;i<M;i++){ const r=Math.random()*2-1; v+= (1-a)*(r-v); ring[i]=v; sum+=v; }
+  const mean=sum/M; for(let i=0;i<M;i++) ring[i]-=mean;
+  const g=Math.pow(0.35,1/freq);                                  // loop gain per cycle: the fundamental falls ~9 dB/s, the loop filter adds ~2
+  let w=0;
+  for(let i=0;i<n;i++){
+    const i0=(w-Di+M)%M, i1=(i0+M-1)%M, i2=(i1+M-1)%M;
+    const xD=ring[i0]*(1-fr)+ring[i1]*fr;
+    const xD1=ring[i1]*(1-fr)+ring[i2]*fr;
+    const y=g*0.5*(xD+xD1);
+    ring[w]=y; out[i]=y; w=(w+1)%M;
+  }
+  const fade=Math.min(n,Math.round(sr*0.0015)); for(let i=0;i<fade;i++) out[i]*=i/fade;
+  let pk=1e-9; for(let i=0;i<n;i++){ const q=Math.abs(out[i]); if(q>pk) pk=q; }
+  const sc=0.9/pk; for(let i=0;i<n;i++) out[i]*=sc;
+  return out;
+}
+/*KS-END*/
+function pluck(s,fret){
+  const key=s+':'+fret;
+  if(!bufs[key]){ const smp=pluckSamples(ctx.sampleRate,fretHz(s,fret),4); const b=ctx.createBuffer(1,smp.length,ctx.sampleRate); b.getChannelData(0).set(smp); bufs[key]=b; }
+  return bufs[key];
+}
+
+/* ---------- transport: everything on the audio clock ---------- */
+const T={on:false,beat:60/70,loopStart:0,nextI:0,nextCycle:0,nextBeat:-COUNT,timer:null,live:[],last:null,notes:pairOf(),string:0,slide:false};
+const playBtn=document.getElementById('play');
+function start(){
+  ensureCtx().then(()=>{
+    if(T.on) stopAll();
+    T.notes=pairOf(); T.string=drill.string; T.slide=drill.slide; T.beat=60/drill.bpm;
+    T.loopStart=ctx.currentTime+0.1+COUNT*T.beat;
+    T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.last=null; T.on=true;
+    tick(); T.timer=setInterval(tick,25);
+    playBtn.textContent='Stop'; playBtn.classList.add('on');
+  });
+}
+function tick(){
+  const horizon=ctx.currentTime+0.18;
+  for(;;){
+    const t=T.loopStart+T.nextBeat*T.beat; if(t>=horizon) break;
+    const counting=T.nextBeat<0;                                   // the count-in always clicks; the figure clicks only if asked
+    if(counting||drill.click) click(t,((T.nextBeat%4)+4)%4===0);
+    T.nextBeat++;
+  }
+  for(;;){
+    const e=FIG[T.nextI], t=T.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
+    note(t,T.nextI);
+    if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
+  }
+}
+function track(src,g,extra){ const rec=Object.assign({src,g},extra||{}); T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
+function strike(fret,t,level){                                     // a new vibration on the string at this fret
+  const src=ctx.createBufferSource(); src.buffer=pluck(T.string,fret);
+  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(stringBus); src.start(t);
+  return track(src,g,{fret,level});
+}
+function note(t,i){
+  const fret=T.notes[i%2].fret, L=T.last;
+  if(T.slide&&L){
+    // the finger stays down and slides: the ringing string glides to the new fret, arriving on the beat.
+    // Each bar starts with a pick; within the bar the slide itself re-energizes the string, softly.
+    const g0=Math.max(ctx.currentTime,t-SLIDE_T);
+    L.src.playbackRate.setValueAtTime(1,g0); L.src.playbackRate.linearRampToValueAtTime(Math.pow(2,(fret-L.fret)/12),t);
+    const fade=BAR_START(i)?0.05:0.2;
+    L.g.gain.setValueAtTime(L.level,t); L.g.gain.linearRampToValueAtTime(0,t+fade);
+    try{ L.src.stop(t+fade+0.02); }catch(err){}
+    T.last=strike(fret,t,BAR_START(i)?1:0.4);
+  }else{
+    if(L){                                                          // fingers: the new note ends the old one
+      const t0=Math.max(ctx.currentTime,t-0.012);
+      L.g.gain.setValueAtTime(L.level,t0); L.g.gain.linearRampToValueAtTime(0,t);
+      try{ L.src.stop(t+0.02); }catch(err){}
+    }
+    T.last=strike(fret,t,1);
+  }
+}
+// the pulse: three sounds on the click bus, beat 1 accented in each
+function click(t,accent){
+  const s=mix.click.sound;
+  if(s==='hat'){                                                     // white noise through a highpass, short decay; the accent rings a little longer
+    if(!noiseBuf){ noiseBuf=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate); const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000; hp.Q.value=0.7;
+    const g=ctx.createGain(); g.gain.setValueAtTime(accent?0.5:0.3,t); g.gain.exponentialRampToValueAtTime(0.0005,t+(accent?0.14:0.06));
+    src.connect(hp); hp.connect(g); g.connect(clickBus); src.start(t); src.stop(t+0.16); track(src,g);
+  }else if(s==='kick'){                                              // a sine that drops in pitch as it decays
+    const o=ctx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(accent?180:150,t); o.frequency.exponentialRampToValueAtTime(48,t+0.07);
+    const g=ctx.createGain(); g.gain.setValueAtTime(accent?1.0:0.75,t); g.gain.exponentialRampToValueAtTime(0.0005,t+(accent?0.32:0.24));
+    o.connect(g); g.connect(clickBus); o.start(t); o.stop(t+0.34); track(o,g);
+  }else{                                                             // the plain click
+    const o=ctx.createOscillator(); o.type='triangle'; o.frequency.value=accent?1760:1175;
+    const g=ctx.createGain(); g.gain.setValueAtTime(accent?0.5:0.3,t); g.gain.exponentialRampToValueAtTime(0.0005,t+0.04);
+    o.connect(g); g.connect(clickBus); o.start(t); o.stop(t+0.05); track(o,g);
+  }
+}
+function stopAll(){
+  if(T.timer){ clearInterval(T.timer); T.timer=null; }
+  T.on=false;
+  if(ctx){
+    const now=ctx.currentTime;
+    for(const r of T.live){ try{ r.g.gain.cancelScheduledValues(now); r.g.gain.setValueAtTime(r.g.gain.value,now); r.g.gain.linearRampToValueAtTime(0,now+0.03); r.src.stop(now+0.05); }catch(err){} }
+  }
+  T.live=[]; T.last=null;
+  playBtn.textContent='Play'; playBtn.classList.remove('on');
+}
+
+/* ---------- what the screen shows at audio time t ---------- */
+function stateAt(t){
+  const b=(t-T.loopStart)/T.beat;
+  if(b<0){ const k=Math.floor(b); return {count:true,idx:-1,beatIdx:k+COUNT,beatT:T.loopStart+k*T.beat}; }
+  const cyc=Math.floor(b/LOOP), ph=b-cyc*LOOP, base=T.loopStart+cyc*LOOP*T.beat;
+  let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
+  const e=FIG[idx], onset=base+e.s*T.beat, dur=e.d*T.beat;
+  return {count:false,ph,idx,onset,dur,nextIdx:(idx+1)%FIG.length,nextOnset:onset+dur,beatIdx:Math.floor(ph),beatT:base+Math.floor(ph)*T.beat};
+}
+// the fret under the pressed finger, as a continuous value: fixed between notes, travelling during the last SLIDE_T of a slide
+function fretAt(st,t){
+  const cur=T.notes[st.idx%2].fret; if(!T.slide) return cur;
+  const next=T.notes[st.nextIdx%2].fret, g0=st.nextOnset-SLIDE_T; if(t<g0) return cur;
+  let u=Math.min(1,(t-g0)/SLIDE_T); u=u*u*(3-2*u);
+  return cur+(next-cur)*u;
+}
+// Fingers: a finger is down while its note is written on; fingers above the sounding fret must be up; a lower finger of the
+// pair stays down once placed (plant) or lifts with its note. Slide: the starting finger is down from the first note on.
+function fingerDown(f,t){
+  const st=stateAt(t+LEAD); if(st.idx<0) return false;
+  if(T.slide) return f===T.notes[0].finger;
+  const cur=T.notes[st.idx%2].finger;
+  if(f===cur) return true;
+  if(f>cur||!drill.plant) return false;
+  const k=T.notes.findIndex(n=>n.finger===f); if(k<0) return false;
+  return t+LEAD>=T.loopStart+FIG[k].s*T.beat;
+}
+function frame(){
+  const t=(T.on&&ctx)?ctx.currentTime:null;
+  const st=t!==null?stateAt(t):null;
+  const sy=FB.strY[T.on?T.string:drill.string];
+  const live=!!(st&&!st.count);
+  const fr=live?fretAt(st,t):null;                                 // where the pressed finger is
+  const shift=(live&&T.slide)?fr-T.notes[0].fret:0;               // the whole hand moves with a slide; the thumb does not
+  for(const F of fingers){
+    const down=t!==null&&fingerDown(F.f,t), target=down?sy:FB.hover;
+    F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
+    F.x=F.home+shift*FB.cw;
+    F.c.setAttribute('cx',F.x); F.c.setAttribute('cy',F.y); F.t.setAttribute('x',F.x); F.t.setAttribute('y',F.y);
+    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x);
+    const pressed=F.y>(FB.hover+sy)/2;
+    F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
+    F.guide.setAttribute('visibility',down?'hidden':'visible');
+  }
+  if(live){
+    ringLine.setAttribute('x1',tipXf(fr)); ringLine.setAttribute('y1',sy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility','visible');
+    tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
+    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); head.setAttribute('visibility','visible');
+    countLbl.setAttribute('visibility','hidden');
+    setHand(pcOf(T.string,fr),pcOf(T.string,T.notes[st.idx%2].fret));
+  }else{
+    ringLine.setAttribute('visibility','hidden');
+    tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
+    if(st){ head.setAttribute('x1',TB.x0); head.setAttribute('x2',TB.x0); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
+    else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
+    setHand(null,-1);
+  }
+  dots.forEach((d,b)=>{
+    let on=false, r=4;
+    if(st&&b===st.beatIdx){ on=true; if(!reduce){ const age=Math.max(0,t-st.beatT); r=4*(1+0.6*Math.exp(-age/0.09)); } }
+    d.classList.toggle('on',on); d.setAttribute('r',r);
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- controls ---------- */
+const bpmIn=document.getElementById('bpm'), bpmV=document.getElementById('bpmv'), clickIn=document.getElementById('click'), slideIn=document.getElementById('slide');
+const segString=document.getElementById('segString'), segStart=document.getElementById('segStart'), segDir=document.getElementById('segDir'), segPlant=document.getElementById('segPlant'), plantCtl=document.getElementById('plantCtl');
+const spec=document.getElementById('spec'), cue=document.getElementById('cue');
+function syncSpec(){
+  const [a,b]=pairOf();
+  spec.textContent='Position '+POSITION+' on the '+STRINGS[drill.string].name+' string · '+(drill.slide?'finger '+a.finger+' slides':'fingers '+a.finger+' → '+b.finger)+' · frets '+a.fret+' → '+b.fret+' · '+NAMES[pcOf(drill.string,a.fret)]+' → '+NAMES[pcOf(drill.string,b.fret)]+' · bar 1 eighths, bar 2 halves · ♩ = '+drill.bpm;
+}
+function syncUI(){
+  for(const b of segString.querySelectorAll('button')) b.setAttribute('aria-pressed',+b.dataset.v===drill.string);
+  for(const b of segStart.querySelectorAll('button')){ const v=+b.dataset.v; b.setAttribute('aria-pressed',v===drill.start); b.disabled=!validStart(v); }
+  for(const b of segDir.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===drill.dir);
+  for(const b of segPlant.querySelectorAll('button')){ b.setAttribute('aria-pressed',(b.dataset.v==='1')===drill.plant); b.disabled=drill.slide; }
+  plantCtl.classList.toggle('off',drill.slide);
+  slideIn.checked=drill.slide;
+  bpmV.textContent=drill.bpm;
+  rows.forEach((r,i)=>r.classList.toggle('sel',i===drill.string));
+  rowLbls.forEach((l,i)=>l.classList.toggle('sel',i===drill.string));
+  fingers.forEach(F=>F.guide.setAttribute('y2',FB.strY[drill.string]-6));
+  syncSpec(); buildTabNotes(); buildWedge();
+  cue.innerHTML=drill.slide
+    ? '<span>Bar 1</span> eighths: one pick, then slide back and forth without lifting. <span>Bar 2</span> two half notes: pick, hold, and slide into the second note on beat 3 while the sound carries over.'
+    : '<span>Bar 1</span> eighths: back and forth between the two fingers. <span>Bar 2</span> two half notes: press, hold, and listen through the beat that passes before the next change.';
+}
+function changed(){ syncUI(); if(T.on) start(); }
+function setString(i){ if(i===drill.string) return; drill.string=i; changed(); }
+segString.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; setString(+b.dataset.v); });
+segStart.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.start=+b.dataset.v; changed(); });
+segDir.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; drill.dir=b.dataset.v; if(!validStart(drill.start)) drill.start+=drill.dir==='up'?-1:1; changed(); });
+segPlant.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.plant=b.dataset.v==='1'; syncUI(); });
+slideIn.addEventListener('change',()=>{ drill.slide=slideIn.checked; changed(); });
+bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; syncSpec(); });
+bpmIn.addEventListener('change',()=>{ if(T.on) start(); });
+clickIn.addEventListener('change',()=>{ drill.click=clickIn.checked; });
+playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else start(); });
+window.addEventListener('keydown',e=>{
+  if(e.code!=='Space') return;
+  const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return;
+  e.preventDefault(); if(T.on) stopAll(); else start();
+});
+
+// the gear: a mixer for the three sounds. Levels and the click sound are remembered on this device; mutes are not.
+const gear=document.getElementById('gear'), mixer=document.getElementById('mixer');
+gear.addEventListener('click',()=>{ const open=mixer.hidden; mixer.hidden=!open; gear.setAttribute('aria-expanded',open); });
+const MIX_KEY='semitone-drills-mix-3';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
+try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; } }catch(err){}
+function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,click:mix.click.vol,sound:mix.click.sound})); }catch(err){} }
+[['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
+  const vol=document.getElementById(volId), val=document.getElementById(volId+'V'), mute=document.getElementById(muteId);
+  vol.value=mix[k].vol; val.textContent=show(mix[k].vol); mute.checked=false;
+  vol.addEventListener('input',()=>{ mix[k].vol=+vol.value; val.textContent=show(mix[k].vol); applyMix(); });
+  vol.addEventListener('change',saveMix);
+  mute.addEventListener('change',()=>{ mix[k].mute=mute.checked; applyMix(); });
+});
+const segClick=document.getElementById('segClick');
+function syncClickSound(){ for(const b of segClick.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===mix.click.sound); }
+segClick.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; mix.click.sound=b.dataset.v; syncClickSound(); saveMix(); });
+syncClickSound();
+syncUI();
+})();
+</script>
+</body>
+</html>
