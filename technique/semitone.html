@@ -284,45 +284,28 @@ STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,heigh
 const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},body:{vol:60},click:{vol:80,mute:false,sound:'click'}};
 const stringGain=v=>v<=0?0:Math.pow(10,-40*(1-v/100)/20);         // log taper: 40 dB of travel, silent at the bottom
 const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-0.5?'−'+Math.abs(db).toFixed(0):'0')+' dB'; };
-// The body: the string drives a bank of resonators, each a mode of a steel-string guitar's box — the air resonance near 100 Hz,
-// the top plate near 200, and weaker, broader modes above — summed with the string itself. [frequency Hz, Q, weight]
-/*BODY-BEGIN*/
-const BODY_MODES=[[97,9,1.0],[196,12,0.9],[290,10,0.5],[410,8,0.45],[560,8,0.35],[790,7,0.3],[1120,6,0.25],[1600,5,0.2],[2300,4,0.15]];
-const BODY_WET=1.8;                                                // wet gain at Body = 100
-/*BODY-END*/
-let ctx=null, master=null, stringBus=null, clickBus=null, stringIn=null, bodyWet=null, noiseBuf=null; const bufs={};
-function ensureCtx(){
-  if(!ctx){
-    const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC();
-    master=ctx.createGain(); stringBus=ctx.createGain(); clickBus=ctx.createGain();
-    stringBus.connect(master); clickBus.connect(master); master.connect(ctx.destination);
-    stringIn=ctx.createGain(); stringIn.gain.value=0.8;             // the bare string, before the box
-    const dry=ctx.createGain(); dry.gain.value=1; stringIn.connect(dry); dry.connect(stringBus);
-    bodyWet=ctx.createGain(); bodyWet.connect(stringBus);
-    BODY_MODES.forEach(([f,q,w])=>{ const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q; const g=ctx.createGain(); g.gain.value=w; stringIn.connect(bp); bp.connect(g); g.connect(bodyWet); });
-    applyMix(true);
-  }
-  return ctx.resume();
-}
-function applyMix(now0){
-  if(!ctx) return;
-  const t=ctx.currentTime;
-  const set=(node,v)=>{ if(now0) node.gain.setValueAtTime(v,t); else node.gain.setTargetAtTime(v,t,0.015); };
-  set(master,mix.master.mute?0:mix.master.vol/100);
-  set(stringBus,mix.string.mute?0:stringGain(mix.string.vol));
-  set(bodyWet,BODY_WET*mix.body.vol/100);
-  set(clickBus,mix.click.mute?0:mix.click.vol/100);
-}
+/* The instrument, in four parts, all synthesized here:
+   1. the string — a waveguide loop whose starting contents are one period of an ideal plucked string's bridge-force wave
+      (a zero-mean rectangular pulse as wide as the pluck position), rounded by the pick's softness, salted with a little noise;
+      two such strings a hair apart in pitch are summed, as the two polarizations of a real string beat against each other;
+   2. the body — the string is convolved with a synthesized impulse response of a steel-string box: the air resonance near
+      97 Hz, the top near 196, and twenty quieter modes above, each ringing out at its own rate, plus the knock of the wood;
+   3. the other five strings and the open string itself, left to ring sympathetically: six tuned feedback loops fed quietly
+      from whatever is played;
+   4. a small room after the fader.
+   The Body amount scales parts 2 and 3; at zero you hear the bare string alone. */
 /*KS-BEGIN*/
-function pluckSamples(sr,freq,secs){
+function stringSamples(sr,freq,secs,beta,fcPick,noise,perSec){
   const n=Math.floor(secs*sr), out=new Float32Array(n);
   const P=sr/freq, D=P-0.5, Di=Math.floor(D), fr=D-Di, M=Di+3;   // the 2-tap loop filter adds half a sample
   const ring=new Float32Array(M);
-  const fc=Math.min(6000,Math.max(1200,8*freq)), a=Math.exp(-2*Math.PI*fc/sr); // darker pluck on the lower, wound strings
-  let v=0,sum=0;
-  for(let i=0;i<M;i++){ const r=Math.random()*2-1; v+= (1-a)*(r-v); ring[i]=v; sum+=v; }
+  const wdt=Math.max(1,Math.round(beta*P));                       // the pulse: +(1−β) for βP samples, −β for the rest of the period
+  for(let i=0;i<M;i++){ const k=i%Math.round(P); ring[i]=(k<wdt?1-beta:-beta); }
+  const a=Math.exp(-2*Math.PI*fcPick/sr); let v=ring[M-1];          // a soft pick rounds the corners (two passes, circular)
+  for(let pass=0;pass<2;pass++) for(let i=0;i<M;i++){ v+=(1-a)*(ring[i]-v); ring[i]=v; }
+  let sum=0; for(let i=0;i<M;i++){ ring[i]+=noise*(Math.random()*2-1); sum+=ring[i]; }
   const mean=sum/M; for(let i=0;i<M;i++) ring[i]-=mean;
-  const g=Math.pow(0.35,1/freq);                                  // loop gain per cycle: the fundamental falls ~9 dB/s, the loop filter adds ~2
+  const g=Math.pow(perSec,1/freq);                                // loop gain per cycle: perSec is what the fundamental keeps of itself each second
   let w=0;
   for(let i=0;i<n;i++){
     const i0=(w-Di+M)%M, i1=(i0+M-1)%M, i2=(i1+M-1)%M;
@@ -331,15 +314,78 @@ function pluckSamples(sr,freq,secs){
     const y=g*0.5*(xD+xD1);
     ring[w]=y; out[i]=y; w=(w+1)%M;
   }
+  return out;
+}
+// the two polarizations: the main string (fundamental down ~9 dB/s) plus a quieter, faster-dying partner 0.12 % apart,
+// so the note beats gently early on and settles as the partner fades; summed and normalized
+function pluckSamples(sr,freq,secs,low){
+  const beta=0.18, fcPick=low?2800:8000, noise=0.06, d=0.0006;
+  const a=stringSamples(sr,freq,secs,beta,fcPick,noise,0.35), b=stringSamples(sr,freq*(1+d),secs,beta,fcPick,noise,0.22);
+  const n=a.length, out=new Float32Array(n);
+  for(let i=0;i<n;i++) out[i]=a[i]+0.4*b[i];
   const fade=Math.min(n,Math.round(sr*0.0015)); for(let i=0;i<fade;i++) out[i]*=i/fade;
   let pk=1e-9; for(let i=0;i<n;i++){ const q=Math.abs(out[i]); if(q>pk) pk=q; }
   const sc=0.9/pk; for(let i=0;i<n;i++) out[i]*=sc;
   return out;
 }
 /*KS-END*/
+/*BODY-BEGIN*/
+// the box: [frequency Hz, decay time constant s, amplitude]; fixed phases so the instrument is the same every time it is built
+const BODY_MODES=[[97,0.07,1.0],[196,0.055,0.9],[236,0.04,0.45],[290,0.035,0.5],[340,0.03,0.3],[410,0.025,0.4],[480,0.02,0.3],[560,0.018,0.35],[650,0.015,0.25],[720,0.013,0.2],[790,0.012,0.3],[900,0.011,0.2],[1010,0.01,0.18],[1120,0.009,0.22],[1300,0.008,0.15],[1450,0.0075,0.12],[1600,0.007,0.16],[1900,0.006,0.1],[2300,0.005,0.12],[2800,0.0045,0.08],[3400,0.004,0.07],[4200,0.0035,0.05]];
+function bodyIR(sr){
+  const n=Math.floor(0.3*sr), ir=new Float32Array(n);
+  let seed=7; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  for(const [f,tau,amp] of BODY_MODES){ const ph=rnd()*2*Math.PI, wv=2*Math.PI*f/sr; for(let i=0;i<n;i++) ir[i]+=amp*Math.exp(-i/(tau*sr))*Math.sin(wv*i+ph); }
+  for(let i=0;i<n;i++) ir[i]+=0.3*(rnd()*2-1)*Math.exp(-i/(0.004*sr));   // the knock of the wood
+  return ir;
+}
+function roomIR(sr){
+  const n=Math.floor(0.6*sr), ir=new Float32Array(n);
+  let seed=11; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  for(let i=0;i<n;i++){ const t=i/sr; ir[i]=(rnd()*2-1)*Math.exp(-t/0.13)*Math.min(1,t/0.01); }
+  return ir;
+}
+const SYMP_SEND=0.12, BODY_WET=1.5, SYMP_RET=0.6, DRY=0.5, ROOM=0.12;   // the mix inside the instrument
+/*BODY-END*/
+let ctx=null, master=null, stringBus=null, clickBus=null, strings=null, bodyWet=null, sympRet=null, noiseBuf=null; const bufs={};
+function ensureCtx(){
+  if(!ctx){
+    const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC(); const sr=ctx.sampleRate;
+    master=ctx.createGain(); stringBus=ctx.createGain(); clickBus=ctx.createGain();
+    stringBus.connect(master); clickBus.connect(master); master.connect(ctx.destination);
+    strings=ctx.createGain(); strings.gain.value=0.8;               // the plucked strings arrive here
+    const inst=ctx.createGain();                                     // strings + sympathetic ring, into the box
+    strings.connect(inst);
+    const dry=ctx.createGain(); dry.gain.value=DRY; inst.connect(dry); dry.connect(stringBus);
+    const body=ctx.createConvolver(); const bb=ctx.createBuffer(1,Math.floor(0.3*sr),sr); bb.getChannelData(0).set(bodyIR(sr)); body.buffer=bb;
+    bodyWet=ctx.createGain(); inst.connect(body); body.connect(bodyWet); bodyWet.connect(stringBus);
+    const send=ctx.createGain(); send.gain.value=SYMP_SEND; strings.connect(send);
+    sympRet=ctx.createGain(); sympRet.connect(inst);
+    STRINGS.forEach(s=>{                                             // one tuned loop per open string
+      const L=sr/s.hz-2.5;                                           // minus the loop filter's own delay
+      const dl=ctx.createDelay(0.05); dl.delayTime.value=L/sr;
+      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3500; lp.Q.value=0.5;
+      const fb=ctx.createGain(); fb.gain.value=Math.exp(-1.2/s.hz);  // about −10 dB/s, whatever the string
+      send.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); fb.connect(sympRet);
+    });
+    const room=ctx.createConvolver(); const rb=ctx.createBuffer(1,Math.floor(0.6*sr),sr); rb.getChannelData(0).set(roomIR(sr)); room.buffer=rb;
+    const roomWet=ctx.createGain(); roomWet.gain.value=ROOM; stringBus.connect(room); room.connect(roomWet); roomWet.connect(master);
+    applyMix(true);
+  }
+  return ctx.resume();
+}
+function applyMix(now0){
+  if(!ctx) return;
+  const t=ctx.currentTime, a=mix.body.vol/100;
+  const set=(node,v)=>{ if(now0) node.gain.setValueAtTime(v,t); else node.gain.setTargetAtTime(v,t,0.015); };
+  set(master,mix.master.mute?0:mix.master.vol/100);
+  set(stringBus,mix.string.mute?0:stringGain(mix.string.vol));
+  set(bodyWet,BODY_WET*a); set(sympRet,SYMP_RET*a);
+  set(clickBus,mix.click.mute?0:mix.click.vol/100);
+}
 function pluck(s,fret){
   const key=s+':'+fret;
-  if(!bufs[key]){ const smp=pluckSamples(ctx.sampleRate,fretHz(s,fret),4); const b=ctx.createBuffer(1,smp.length,ctx.sampleRate); b.getChannelData(0).set(smp); bufs[key]=b; }
+  if(!bufs[key]){ const smp=pluckSamples(ctx.sampleRate,fretHz(s,fret),4,s>=3); const b=ctx.createBuffer(1,smp.length,ctx.sampleRate); b.getChannelData(0).set(smp); bufs[key]=b; }
   return bufs[key];
 }
 
@@ -373,7 +419,7 @@ function tick(){
 function track(src,g,extra){ const rec=Object.assign({src,g},extra||{}); T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
 function strike(fret,t,level){                                     // a new vibration on the string at this fret
   const src=ctx.createBufferSource(); src.buffer=pluck(T.string,fret);
-  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(stringIn); src.start(t);
+  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(strings); src.start(t);
   return track(src,g,{fret,level});
 }
 function note(t,i){
