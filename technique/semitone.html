@@ -126,7 +126,11 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
     <h2>Sound</h2>
     <div class="mixRow"><span class="name">Global</span><input type="range" id="volMaster" min="0" max="100" value="80"><b id="volMasterV">80</b><label><input type="checkbox" id="muteMaster"> Mute</label></div>
     <div class="mixRow"><span class="name">Fretboard</span><input type="range" id="volString" min="0" max="100" value="50"><b id="volStringV">−20 dB</b><label><input type="checkbox" id="muteString"> Mute</label></div>
-    <div class="mixRow sub"><span class="name">Body</span><input type="range" id="volBody" min="0" max="100" value="60"><b id="volBodyV">60</b><span></span></div>
+    <div class="mixRow sub"><span class="name">Instrument</span>
+      <div class="seg" id="segInst" role="group" aria-label="Instrument">
+        <button type="button" data-v="archtop">Archtop</button><button type="button" data-v="acoustic">Acoustic</button>
+      </div>
+    </div>
     <div class="mixRow"><span class="name">Click</span><input type="range" id="volClick" min="0" max="100" value="80"><b id="volClickV">80</b><label><input type="checkbox" id="muteClick"> Mute</label></div>
     <div class="mixRow sub"><span class="name">Click sound</span>
       <div class="seg" id="segClick" role="group" aria-label="Click sound">
@@ -281,123 +285,153 @@ const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-12,x2:TB.x0,y2:TB.rowY[5]+12,class:
 STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
 
 /* ---------- sound: a plucked string (Karplus–Strong), fractional delay so each fret is in tune ---------- */
-const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},body:{vol:60},click:{vol:80,mute:false,sound:'click'}};
+const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},click:{vol:80,mute:false,sound:'click'},inst:'archtop'};
 const stringGain=v=>v<=0?0:Math.pow(10,-40*(1-v/100)/20);         // log taper: 40 dB of travel, silent at the bottom
 const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-0.5?'−'+Math.abs(db).toFixed(0):'0')+' dB'; };
-/* The instrument, in four parts, all synthesized here:
-   1. the string — a waveguide loop whose starting contents are one period of an ideal plucked string's bridge-force wave
-      (a zero-mean rectangular pulse as wide as the pluck position), rounded by the pick's softness, salted with a little noise;
-      two such strings a hair apart in pitch are summed, as the two polarizations of a real string beat against each other;
-   2. the body — the string is convolved with a synthesized impulse response of a steel-string box: the air resonance near
-      97 Hz, the top near 196, and twenty quieter modes above, each ringing out at its own rate, plus the knock of the wood;
-   3. the other five strings and the open string itself, left to ring sympathetically: six tuned feedback loops fed quietly
-      from whatever is played;
-   4. a small room after the fader.
-   The Body amount scales parts 2 and 3; at zero you hear the bare string alone. */
-/*KS-BEGIN*/
-function stringSamples(sr,freq,secs,beta,fcPick,noise,perSec){
-  const n=Math.floor(secs*sr), out=new Float32Array(n);
-  const P=sr/freq, D=P-0.5, Di=Math.floor(D), fr=D-Di, M=Di+3;   // the 2-tap loop filter adds half a sample
-  const ring=new Float32Array(M);
-  const wdt=Math.max(1,Math.round(beta*P));                       // the pulse: +(1−β) for βP samples, −β for the rest of the period
-  for(let i=0;i<M;i++){ const k=i%Math.round(P); ring[i]=(k<wdt?1-beta:-beta); }
-  const a=Math.exp(-2*Math.PI*fcPick/sr); let v=ring[M-1];          // a soft pick rounds the corners (two passes, circular)
-  for(let pass=0;pass<2;pass++) for(let i=0;i<M;i++){ v+=(1-a)*(ring[i]-v); ring[i]=v; }
-  let sum=0; for(let i=0;i<M;i++){ ring[i]+=noise*(Math.random()*2-1); sum+=ring[i]; }
-  const mean=sum/M; for(let i=0;i<M;i++) ring[i]-=mean;
-  const g=Math.pow(perSec,1/freq);                                // loop gain per cycle: perSec is what the fundamental keeps of itself each second
-  let w=0;
-  for(let i=0;i<n;i++){
-    const i0=(w-Di+M)%M, i1=(i0+M-1)%M, i2=(i1+M-1)%M;
-    const xD=ring[i0]*(1-fr)+ring[i1]*fr;
-    const xD1=ring[i1]*(1-fr)+ring[i2]*fr;
-    const y=g*0.5*(xD+xD1);
-    ring[w]=y; out[i]=y; w=(w+1)%M;
-  }
-  return out;
+
+/* ---------- the string: the Tonal Field tool's own model (v303 TFString), unchanged in its physics ----------
+   A digital waveguide: one period of the pluck's shape (a triangle with its apex under the pick, plus a little filtered pick
+   noise) enters a delay loop; each trip passes an allpass tuner (the loop filter's own delay subtracted, so intonation holds
+   at every pitch and through every glide), a one-pole lowpass (the highs die first) and a loss set by the ring time. The
+   GAUGE (0 the high e, 1 the low E) darkens the loop, softens the pick, moves it toward the middle and lengthens the ring.
+   One string lives for the whole drill: a new note moves its length and picks it again; a slide moves its length only.
+   Here the events (pluck, set, glide) carry audio-clock times, so the string runs sample-accurately ahead of the screen. */
+/*CORE-BEGIN*/
+function makeStringCore(){
+  return class StringCore{
+    constructor(sr,gauge){ this.sr=sr; this.N=8192; this.buf=new Float32Array(this.N); this.w=0; this.g=Math.max(0,Math.min(1,+gauge||0));
+      this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; }
+    push(e){ this.q.push(e); this.q.sort((a,b)=>a.t-b.t); }
+    excite(f0,v){
+      const g=this.g, pm=0; v=Math.max(0.05,Math.min(1,v));
+      const fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);
+      this.t60=(9+5*g)*Math.pow(0.03/(9+5*g),pm);
+      const per=Math.max(2,Math.round(this.sr/f0)); this.exN=per; this.exI=0; this.ex=new Float32Array(per);
+      const pick=0.14+0.14*g, pd=Math.max(1,Math.min(per-1,Math.round(per*pick)));
+      const efc=(1500+2500*v)*(0.6+0.4*(1-g))*(1-0.6*pm), ec=1-Math.exp(-2*Math.PI*efc/this.sr);
+      const n=new Float32Array(per+pd); let y=0; for(let i=0;i<n.length;i++){ y+=ec*((Math.random()*2-1)-y); n[i]=y; }
+      const aT=0.7*(0.45+0.55*v)*(1-0.25*pm), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));
+      for(let k=0;k<per;k++){ const tri=(k<pd)?(k/pd):((per-k)/(per-pd)); const env=k<fade?0.5-0.5*Math.cos(Math.PI*k/fade):1;
+        this.ex[k]=(tri-0.5)*aT+(n[k+pd]-n[k])*aN*env; }
+    }
+    render(out,t0){
+      const sr=this.sr, N=this.N, buf=this.buf, q=this.q; let w=this.w, lp=this.lp, ap=this.ap, apx=this.apx;
+      for(let i=0;i<out.length;i++){
+        const t=t0+i/sr;
+        while(q.length&&q[0].t<=t){ const e=q.shift();
+          if(e.kind==='glide'){ this.gl={t0:e.t,t1:e.t1,f0:this.f,f1:e.f}; }
+          else{ this.gl=null; this.f=e.f; if(e.kind==='pluck') this.excite(e.f,e.v); } }
+        let f=this.f;
+        if(this.gl){ const G=this.gl; if(t>=G.t1){ f=this.f=G.f1; this.gl=null; } else { let u=Math.max(0,(t-G.t0)/(G.t1-G.t0)); u=u*u*(3-2*u); f=G.f0*Math.pow(G.f1/G.f0,u); } }
+        const c=this.c, a=1-c;
+        const om=2*Math.PI*f/sr, tau=Math.atan2(a*Math.sin(om),1-a*Math.cos(om))/om;
+        let D=sr/f-tau; if(D<2.5)D=2.5; if(D>N-4)D=N-4;
+        const M=Math.floor(D-0.5), eta=D-M, C=(1-eta)/(1+eta);
+        const x=buf[(w-M+N)%N];
+        const y=C*x+apx-C*ap; apx=x; ap=y;
+        lp+=c*(y-lp);
+        let v=lp*Math.pow(10,-3/(this.t60*f));
+        if(this.exI<this.exN) v+=this.ex[this.exI++];
+        buf[w]=v; out[i]=v; w=(w+1)%N;
+      }
+      this.w=w; this.lp=lp; this.ap=ap; this.apx=apx;
+    }
+  };
 }
-// the two polarizations: the main string (fundamental down ~9 dB/s) plus a quieter, faster-dying partner 0.12 % apart,
-// so the note beats gently early on and settles as the partner fades; summed and normalized
-function pluckSamples(sr,freq,secs,low){
-  const beta=0.18, fcPick=low?2800:8000, noise=0.06, d=0.0006;
-  const a=stringSamples(sr,freq,secs,beta,fcPick,noise,0.35), b=stringSamples(sr,freq*(1+d),secs,beta,fcPick,noise,0.22);
-  const n=a.length, out=new Float32Array(n);
-  for(let i=0;i<n;i++) out[i]=a[i]+0.4*b[i];
-  const fade=Math.min(n,Math.round(sr*0.0015)); for(let i=0;i<fade;i++) out[i]*=i/fade;
-  let pk=1e-9; for(let i=0;i<n;i++){ const q=Math.abs(out[i]); if(q>pk) pk=q; }
-  const sc=0.9/pk; for(let i=0;i<n;i++) out[i]*=sc;
-  return out;
+/*CORE-END*/
+const WORKLET_SRC=makeStringCore.toString()+`
+const StringCore=makeStringCore();
+class TFDrillString extends AudioWorkletProcessor{
+  constructor(o){ super(); const p=(o&&o.processorOptions)||{}; this.core=new StringCore(sampleRate,p.gauge); this.alive=true;
+    this.port.onmessage=e=>{ const d=e.data; if(d==='stop') this.alive=false; else this.core.push(d); }; }
+  process(ins,outs){ if(!this.alive) return false; this.core.render(outs[0][0],currentTime); return true; }
 }
-/*KS-END*/
+registerProcessor('tf-drill-string',TFDrillString);`;
+
+/* ---------- the two instruments, both dry ----------
+   Archtop: the tool's per-string body (three gentle peaks) into the tool's amp — a soft tanh stage, a low shelf, a
+   presence bump and the cabinet's lowpass at 3.4 kHz. The tool's chorus and room are left out.
+   Acoustic: no amp. The string's force at the bridge is convolved with the impulse response of a steel-string box —
+   the air mode near 97 Hz and the top near 196 ringing longest, distinct modes up through the low mids, then the dense
+   crowd of small modes that gives the top end its wood. All of the sound comes through the box, as it does from a real one. */
 /*BODY-BEGIN*/
-// the box: [frequency Hz, decay time constant s, amplitude]; fixed phases so the instrument is the same every time it is built
-const BODY_MODES=[[97,0.07,1.0],[196,0.055,0.9],[236,0.04,0.45],[290,0.035,0.5],[340,0.03,0.3],[410,0.025,0.4],[480,0.02,0.3],[560,0.018,0.35],[650,0.015,0.25],[720,0.013,0.2],[790,0.012,0.3],[900,0.011,0.2],[1010,0.01,0.18],[1120,0.009,0.22],[1300,0.008,0.15],[1450,0.0075,0.12],[1600,0.007,0.16],[1900,0.006,0.1],[2300,0.005,0.12],[2800,0.0045,0.08],[3400,0.004,0.07],[4200,0.0035,0.05]];
-function bodyIR(sr){
-  const n=Math.floor(0.3*sr), ir=new Float32Array(n);
+const ACOU_LOW=[[97,0.09,0.45],[196,0.07,0.5],[236,0.045,0.3],[290,0.04,0.35],[340,0.035,0.25],[410,0.03,0.32],[480,0.025,0.28],[560,0.022,0.3],[650,0.018,0.26],[720,0.016,0.22],[790,0.015,0.26],[900,0.013,0.2]];
+function acousticIR(sr){
+  const n=Math.floor(0.35*sr), ir=new Float32Array(n);
   let seed=7; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
-  for(const [f,tau,amp] of BODY_MODES){ const ph=rnd()*2*Math.PI, wv=2*Math.PI*f/sr; for(let i=0;i<n;i++) ir[i]+=amp*Math.exp(-i/(tau*sr))*Math.sin(wv*i+ph); }
-  for(let i=0;i<n;i++) ir[i]+=0.3*(rnd()*2-1)*Math.exp(-i/(0.004*sr));   // the knock of the wood
+  const add=(f,tau,amp)=>{ const ph=rnd()*2*Math.PI, wv=2*Math.PI*f/sr, L=Math.min(n,Math.ceil(tau*sr*7)); for(let i=0;i<L;i++) ir[i]+=amp*Math.exp(-i/(tau*sr))*Math.sin(wv*i+ph); };
+  for(const [f,tau,amp] of ACOU_LOW) add(f,tau,amp);
+  for(let k=0;k<260;k++){ const f=1000*Math.pow(10,rnd()*Math.log10(9)); add(f,0.012*Math.pow(1000/f,0.5),(0.10+0.08*rnd())*Math.pow(1000/f,0.25)); }   // 1–9 kHz, dense
+  let e=0; for(let i=0;i<n;i++) e+=ir[i]*ir[i]; const s=1/Math.sqrt(e/40); for(let i=0;i<n;i++) ir[i]*=s;
   return ir;
 }
-function roomIR(sr){
-  const n=Math.floor(0.6*sr), ir=new Float32Array(n);
-  let seed=11; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
-  for(let i=0;i<n;i++){ const t=i/sr; ir[i]=(rnd()*2-1)*Math.exp(-t/0.13)*Math.min(1,t/0.01); }
-  return ir;
-}
-const SYMP_SEND=0.12, BODY_WET=1.5, SYMP_RET=0.6, DRY=0.5, ROOM=0.12;   // the mix inside the instrument
+const ARCH_MAKE=1.85, ACOU_MAKE=0.42;                               // level matching: both land where the earlier string sat on the fader (measured offline)
 /*BODY-END*/
-let ctx=null, master=null, stringBus=null, clickBus=null, strings=null, bodyWet=null, sympRet=null, noiseBuf=null; const bufs={};
+
+let ctx=null, master=null, stringBus=null, clickBus=null, archSel=null, acouSel=null, voiceIn=null, workletOK=false, noiseBuf=null;
 function ensureCtx(){
   if(!ctx){
     const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC(); const sr=ctx.sampleRate;
     master=ctx.createGain(); stringBus=ctx.createGain(); clickBus=ctx.createGain();
     stringBus.connect(master); clickBus.connect(master); master.connect(ctx.destination);
-    strings=ctx.createGain(); strings.gain.value=0.8;               // the plucked strings arrive here
-    const inst=ctx.createGain();                                     // strings + sympathetic ring, into the box
-    strings.connect(inst);
-    const dry=ctx.createGain(); dry.gain.value=DRY; inst.connect(dry); dry.connect(stringBus);
-    const body=ctx.createConvolver(); const bb=ctx.createBuffer(1,Math.floor(0.3*sr),sr); bb.getChannelData(0).set(bodyIR(sr)); body.buffer=bb;
-    bodyWet=ctx.createGain(); inst.connect(body); body.connect(bodyWet); bodyWet.connect(stringBus);
-    const send=ctx.createGain(); send.gain.value=SYMP_SEND; strings.connect(send);
-    sympRet=ctx.createGain(); sympRet.connect(inst);
-    STRINGS.forEach(s=>{                                             // one tuned loop per open string
-      const L=sr/s.hz-2.5;                                           // minus the loop filter's own delay
-      const dl=ctx.createDelay(0.05); dl.delayTime.value=L/sr;
-      const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3500; lp.Q.value=0.5;
-      const fb=ctx.createGain(); fb.gain.value=Math.exp(-1.2/s.hz);  // about −10 dB/s, whatever the string
-      send.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); fb.connect(sympRet);
-    });
-    const room=ctx.createConvolver(); const rb=ctx.createBuffer(1,Math.floor(0.6*sr),sr); rb.getChannelData(0).set(roomIR(sr)); room.buffer=rb;
-    const roomWet=ctx.createGain(); roomWet.gain.value=ROOM; stringBus.connect(room); room.connect(roomWet); roomWet.connect(master);
+    voiceIn=ctx.createGain(); archSel=ctx.createGain(); acouSel=ctx.createGain();
+    voiceIn.connect(archSel); voiceIn.connect(acouSel);
+    const bq=(type,f,q,g)=>{ const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; if(q!==undefined) b.Q.value=q; if(g!==undefined) b.gain.value=g; return b; };
+    const chain=(...nodes)=>{ for(let i=0;i<nodes.length-1;i++) nodes[i].connect(nodes[i+1]); return nodes[nodes.length-1]; };
+    // archtop: the tool's body, then its amp (v387 headroom figures)
+    const WSK=4, pre=ctx.createGain(); pre.gain.value=2.0/WSK;
+    const ws=ctx.createWaveShaper(), cv=new Float32Array(4097); for(let i=0;i<cv.length;i++){ const x=(i/4096)*2-1; cv[i]=Math.tanh(1.6*WSK*x)/Math.tanh(1.6); } ws.curve=cv; ws.oversample='2x';
+    const post=ctx.createGain(); post.gain.value=0.7; const bodyOut=ctx.createGain(); bodyOut.gain.value=1.3; const dry=ctx.createGain(); dry.gain.value=0.9*ARCH_MAKE;
+    chain(archSel,bq('highpass',55,0.7),bq('peaking',118,2.2,3.5),bq('peaking',235,3,1.5),bq('peaking',2500,1.4,1.5),bodyOut,pre,ws,post,bq('lowshelf',220,undefined,3),bq('peaking',1200,0.8,1.5),bq('lowpass',3400,1.0),dry,stringBus);
+    // acoustic: the box alone
+    const conv=ctx.createConvolver(); conv.normalize=false; const ib=ctx.createBuffer(1,Math.floor(0.35*sr),sr); ib.getChannelData(0).set(acousticIR(sr)); conv.buffer=ib;
+    const acOut=ctx.createGain(); acOut.gain.value=ACOU_MAKE;
+    chain(acouSel,bq('highpass',55,0.7),conv,acOut,stringBus);
     applyMix(true);
   }
-  return ctx.resume();
+  const load=workletOK||!ctx.audioWorklet ? Promise.resolve() : (()=>{
+    const blob=URL.createObjectURL(new Blob([WORKLET_SRC],{type:'application/javascript'}));
+    const data='data:application/javascript;base64,'+btoa(unescape(encodeURIComponent(WORKLET_SRC)));
+    return ctx.audioWorklet.addModule(blob).catch(()=>ctx.audioWorklet.addModule(data)).then(()=>{ workletOK=true; },()=>{ workletOK=false; });
+  })();
+  return Promise.all([ctx.resume(),load]);
 }
 function applyMix(now0){
   if(!ctx) return;
-  const t=ctx.currentTime, a=mix.body.vol/100;
+  const t=ctx.currentTime;
   const set=(node,v)=>{ if(now0) node.gain.setValueAtTime(v,t); else node.gain.setTargetAtTime(v,t,0.015); };
   set(master,mix.master.mute?0:mix.master.vol/100);
   set(stringBus,mix.string.mute?0:stringGain(mix.string.vol));
-  set(bodyWet,BODY_WET*a); set(sympRet,SYMP_RET*a);
+  set(archSel,mix.inst==='archtop'?1:0); set(acouSel,mix.inst==='acoustic'?1:0);
   set(clickBus,mix.click.mute?0:mix.click.vol/100);
 }
-function pluck(s,fret){
-  const key=s+':'+fret;
-  if(!bufs[key]){ const smp=pluckSamples(ctx.sampleRate,fretHz(s,fret),4,s>=3); const b=ctx.createBuffer(1,smp.length,ctx.sampleRate); b.getChannelData(0).set(smp); bufs[key]=b; }
-  return bufs[key];
+// one string for the drill: in the audio worklet where allowed, otherwise the same core on the main thread
+function makeString(gauge){
+  const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V); vg.connect(voiceIn);   // the tool's voice level for this velocity
+  if(workletOK){
+    const node=new AudioWorkletNode(ctx,'tf-drill-string',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{gauge}});
+    node.connect(vg);
+    return {send:e=>node.port.postMessage(e), stop:()=>{ const now=ctx.currentTime; vg.gain.cancelScheduledValues(now); vg.gain.setValueAtTime(vg.gain.value,now); vg.gain.linearRampToValueAtTime(0,now+0.03);
+      setTimeout(()=>{ try{ node.port.postMessage('stop'); node.disconnect(); vg.disconnect(); }catch(err){} },80); }};
+  }
+  const core=new (makeStringCore())(ctx.sampleRate,gauge), sp=ctx.createScriptProcessor(1024,1,1);
+  sp.onaudioprocess=e=>core.render(e.outputBuffer.getChannelData(0),e.playbackTime);
+  sp.connect(vg);
+  return {send:e=>core.push(e), stop:()=>{ const now=ctx.currentTime; vg.gain.cancelScheduledValues(now); vg.gain.setValueAtTime(vg.gain.value,now); vg.gain.linearRampToValueAtTime(0,now+0.03);
+    setTimeout(()=>{ try{ sp.disconnect(); vg.disconnect(); sp.onaudioprocess=null; }catch(err){} },80); }};
 }
+const PLUCK_V=Math.pow(100/128,1.4);                                  // the tool's velocity curve, at velocity 100
 
 /* ---------- transport: everything on the audio clock ---------- */
-const T={on:false,beat:60/70,loopStart:0,nextI:0,nextCycle:0,nextBeat:-COUNT,timer:null,live:[],last:null,notes:pairOf(),string:0,slide:false};
+const T={on:false,beat:60/70,loopStart:0,nextI:0,nextCycle:0,nextBeat:-COUNT,timer:null,live:[],str:null,notes:pairOf(),string:0,slide:false};
 const playBtn=document.getElementById('play');
 function start(){
   ensureCtx().then(()=>{
     if(T.on) stopAll();
     T.notes=pairOf(); T.string=drill.string; T.slide=drill.slide; T.beat=60/drill.bpm;
     T.loopStart=ctx.currentTime+0.1+COUNT*T.beat;
-    T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.last=null; T.on=true;
+    T.str=makeString(T.string/5);                                    // gauge: 0 for the high e, 1 for the low E, as in the tool
+    T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.on=true;
     tick(); T.timer=setInterval(tick,25);
     playBtn.textContent='Stop'; playBtn.classList.add('on');
   });
@@ -412,34 +446,19 @@ function tick(){
   }
   for(;;){
     const e=FIG[T.nextI], t=T.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
-    note(t,T.nextI);
+    note(t,T.nextI,T.nextCycle===0&&T.nextI===0);
     if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
   }
 }
-function track(src,g,extra){ const rec=Object.assign({src,g},extra||{}); T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
-function strike(fret,t,level){                                     // a new vibration on the string at this fret
-  const src=ctx.createBufferSource(); src.buffer=pluck(T.string,fret);
-  const g=ctx.createGain(); g.gain.setValueAtTime(level,t); src.connect(g); g.connect(strings); src.start(t);
-  return track(src,g,{fret,level});
-}
-function note(t,i){
-  const fret=T.notes[i%2].fret, L=T.last;
-  if(T.slide&&L){
-    // the finger stays down and slides: the ringing string glides to the new fret, arriving on the beat.
-    // Each bar starts with a pick; within the bar the slide itself re-energizes the string, softly.
-    const g0=Math.max(ctx.currentTime,t-SLIDE_T);
-    L.src.playbackRate.setValueAtTime(1,g0); L.src.playbackRate.linearRampToValueAtTime(Math.pow(2,(fret-L.fret)/12),t);
-    const fade=BAR_START(i)?0.05:0.2;
-    L.g.gain.setValueAtTime(L.level,t); L.g.gain.linearRampToValueAtTime(0,t+fade);
-    try{ L.src.stop(t+fade+0.02); }catch(err){}
-    T.last=strike(fret,t,BAR_START(i)?1:0.4);
+function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
+function note(t,i,first){
+  const f=fretHz(T.string,T.notes[i%2].fret);
+  if(T.slide&&!first){
+    // the finger stays down and carries the string's length to the new fret, arriving on the beat; each bar begins with a pick
+    T.str.send({kind:'glide',t:Math.max(ctx.currentTime,t-SLIDE_T),t1:t,f});
+    if(BAR_START(i)) T.str.send({kind:'pluck',t,f,v:PLUCK_V});
   }else{
-    if(L){                                                          // fingers: the new note ends the old one
-      const t0=Math.max(ctx.currentTime,t-0.012);
-      L.g.gain.setValueAtTime(L.level,t0); L.g.gain.linearRampToValueAtTime(0,t);
-      try{ L.src.stop(t+0.02); }catch(err){}
-    }
-    T.last=strike(fret,t,1);
+    T.str.send({kind:'pluck',t,f,v:PLUCK_V});                         // fingers: the new length, picked
   }
 }
 // the pulse: three sounds on the click bus, beat 1 accented in each
@@ -469,7 +488,8 @@ function stopAll(){
     const now=ctx.currentTime;
     for(const r of T.live){ try{ r.g.gain.cancelScheduledValues(now); r.g.gain.setValueAtTime(r.g.gain.value,now); r.g.gain.linearRampToValueAtTime(0,now+0.03); r.src.stop(now+0.05); }catch(err){} }
   }
-  T.live=[]; T.last=null;
+  if(T.str){ T.str.stop(); T.str=null; }
+  T.live=[];
   playBtn.textContent='Play'; playBtn.classList.remove('on');
 }
 
@@ -583,10 +603,10 @@ window.addEventListener('keydown',e=>{
 // the gear: a mixer for the three sounds. Levels and the click sound are remembered on this device; mutes are not.
 const gear=document.getElementById('gear'), mixer=document.getElementById('mixer');
 gear.addEventListener('click',()=>{ const open=mixer.hidden; mixer.hidden=!open; gear.setAttribute('aria-expanded',open); });
-const MIX_KEY='semitone-drills-mix-3';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
-try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','body','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; } }catch(err){}
-function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,body:mix.body.vol,click:mix.click.vol,sound:mix.click.sound})); }catch(err){} }
-[['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['body','volBody',null,v=>v],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
+const MIX_KEY='semitone-drills-mix-4';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
+try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; if(['archtop','acoustic'].includes(saved.inst)) mix.inst=saved.inst; } }catch(err){}
+function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,click:mix.click.vol,sound:mix.click.sound,inst:mix.inst})); }catch(err){} }
+[['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
   const vol=document.getElementById(volId), val=document.getElementById(volId+'V'), mute=muteId&&document.getElementById(muteId);
   vol.value=mix[k].vol; val.textContent=show(mix[k].vol);
   vol.addEventListener('input',()=>{ mix[k].vol=+vol.value; val.textContent=show(mix[k].vol); applyMix(); });
@@ -597,6 +617,10 @@ const segClick=document.getElementById('segClick');
 function syncClickSound(){ for(const b of segClick.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===mix.click.sound); }
 segClick.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; mix.click.sound=b.dataset.v; syncClickSound(); saveMix(); });
 syncClickSound();
+const segInst=document.getElementById('segInst');
+function syncInst(){ for(const b of segInst.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===mix.inst); }
+segInst.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; mix.inst=b.dataset.v; syncInst(); applyMix(); saveMix(); });
+syncInst();
 syncUI();
 })();
 </script>
