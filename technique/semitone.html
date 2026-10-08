@@ -342,9 +342,10 @@ function placePick(st,sy,t){
   if(st&&!st.done){
     const s=st.s, c=catchT();
     if(t<s.loopStart-c){                                                  // count-in: draw the string like a bow on each beat, then relax
-      const b=(t-s.loopStart)/T.beat, tb=s.loopStart+Math.ceil(b)*T.beat, tp=s.loopStart+Math.floor(b)*T.beat, relax=0.14;
-      if(t>=tb-c&&tb<s.loopStart){ const x=sm((t-(tb-c))/c); pose=mixPose(POSE.rest,POSE.downHold,x); held=true; bloom=0.6*x; }
-      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); }
+      const b=(t-s.loopStart)/T.beat, tb=s.loopStart+Math.ceil(b)*T.beat, tp=s.loopStart+Math.floor(b)*T.beat, relax=0.14, w=0.35*T.beat;
+      const bow=mixPose(POSE.rest,POSE.downHold,0.55);                     // a gentle draw, about half a stroke
+      if(t>=tb-w&&tb<s.loopStart){ const x=sm((t-(tb-w))/w); pose=mixPose(POSE.rest,bow,x); held=true; bloom=0.45*x; }   // rising from well before the click, fullest on it
+      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(bow,POSE.rest,x); held=x<1; bloom=0.45*(1-x); }
     }else{
       const [prev,next]=around(s,t);
       const tame=(k,p)=>k.struck?p:mixPose(POSE.rest,p,SILENT);
@@ -354,7 +355,7 @@ function placePick(st,sy,t){
       else if(prev){
         if(t<rs) pose=mixPose(holdOf(prev),freeOf(prev),follow((t-prev.t)/(rs-prev.t)));                  // follows through, slowing to a stop
         else pose=mixPose(freeOf(prev),POSE.rest,sm((t-rs)/r));                                              // turns and comes back
-        if(t<rs){ if(prev.up) aUp=1; else aDown=1; }                                                       // the arrow: from the stroke until the stop, silent strokes too
+        if(prev.struck&&t<rs){ if(prev.up) aUp=1; else aDown=1; }                                          // the arrow: from the sound until the stop
       }
       const lp=prev&&!prev.struck?1:0, ln=next&&!next.struck?1:0;
       lift=PICK_LIFT*(prev?lp+(ln-lp)*sm((t-prev.t)/Math.max(0.01,end-prev.t)):ln);
@@ -786,7 +787,10 @@ function fingerDown(f,t){
   if(f===cur) return true;
   return f<cur&&s.plant;
 }
-const BEND_PX=16; let lastStr=-1;
+const BEND_PX=16;
+function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
+let inkCache=null, inkTheme=null;
+function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
 function frame(){
   const t=(T.on&&ctx)?ctx.currentTime:null;
   const st=t!==null?stateAt(t):null, s=st?st.s:null;
@@ -811,6 +815,13 @@ function frame(){
   const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
   const held=placePick(st,sy,t);
   const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
+  // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
+  // vibrating string and on the finger holding the fret, fading as the tone decays
+  const glow=vibOn?Math.min(1,ampOf(s.str.snap)/0.3):0, inkRGB=inkColour();
+  const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(PICK_YELLOW[i]-v)*a)).join(',')+')';
+  blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
+  const holder=live?(s.mode==='slide'?s.notes[0].finger:(s.mode==='bend'?s.bendFinger:s.notes[st.idx%2].finger)):0;
+  fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
   if(lastStr>=0&&lastStr!==strI) strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0));
   const fxH=live?fxV:tipX(s?s.base:POSITION);
