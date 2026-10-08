@@ -376,7 +376,7 @@ const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math
 function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
   let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
   return toneColour(pcOf(s.string,pitchOf(s,b<0?0:idx))); }
-function placePick(st,sy,t){
+function placePick(st,sy,t,amp=0,ampRGB=null){                         // amp: the sounding tone's level (0–1); the pick's colour decays with it
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
     const s=st.s, c=catchT();
@@ -399,8 +399,8 @@ function placePick(st,sy,t){
       }
       const lp=prev&&!prev.struck?1:0, ln=next&&!next.struck?1:0;
       lift=PICK_LIFT*(prev?lp+(ln-lp)*sm((t-prev.t)/Math.max(0.01,end-prev.t)):ln);
-      const bIn=next&&next.struck?sm(1-(next.t-t)/(c+0.16)):0, bOut=prev&&prev.struck?1-sm((t-prev.t)/0.025):0;
-      bloom=Math.max(bIn,bOut); toneAt=bIn>=bOut?(next&&next.t):(prev&&prev.t);
+      const bIn=next&&next.struck?sm(1-(next.t-t)/(c+0.16)):0, bOut=amp;   // blooms into a strike; after it, fades as the tone does
+      bloom=Math.max(bIn,bOut); toneAt=bIn>=bOut?(next&&next.t):null;
     }
     // every beat, count-in included: the hand keeps time with a slight dip of the axis
     const bIdx=Math.round((t-s.loopStart)/T.beat), tb=s.loopStart+bIdx*T.beat, x=Math.abs(t-tb)/(0.3*T.beat);
@@ -410,7 +410,7 @@ function placePick(st,sy,t){
   const axisY=tipY-PICK_L*pose.f;
   pickG.setAttribute('transform','translate('+PICK_X+' '+axisY.toFixed(1)+')');
   pickBody.setAttribute('transform','scale(1 '+pose.f.toFixed(3)+') translate(0 12) scale(2)');
-  const full=(st&&!st.done&&toneAt!=null)?toneRGB(st.s,toneAt):inkColour(), rest=pickRest();
+  const full=(st&&!st.done&&toneAt!=null)?toneRGB(st.s,toneAt):(ampRGB||inkColour()), rest=pickRest();
   const col=rest.map((v,i)=>Math.round(v+(full[i]-v)*bloom));
   const ay=(PICK_L*0.45*pose.f).toFixed(1);
   arrowDown.setAttribute('transform','translate(0 '+ay+')'); arrowUp.setAttribute('transform','translate(0 '+ay+')');
@@ -514,19 +514,18 @@ const tabDefs=el('defs',{},tab), bloomGrad=el('radialGradient',{id:'tabBloomG'},
 const bloomStops=[[0,.55],[.45,.22],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},bloomGrad));
 const tabBloom=el('ellipse',{cx:xBeat(0),cy:(TB.floor-TB.ballH+TB.rowY[5])/2,rx:2.4*TB.cw,ry:(TB.rowY[5]-TB.floor+TB.ballH)/2+40,fill:'url(#tabBloomG)',opacity:0,'pointer-events':'none'},tab);   // moved to the top below: it lights what it passes over
 const BLOOM_W=3.2*TB.cw;                                               // how far either side of the playhead a number is coloured
-function paintTabField(st,live,p){
+function paintTabField(st,live,p,amp){
   const L=FIELD.lit, ink=inkColour(); let hx=null, rgb=null, k=0;
-  if(st&&!st.done&&L>0.001){ const s=st.s;
-    if(live){ hx=xBeat(st.ph); rgb=valRGB(pcOf(s.string,p)); k=1; } else { hx=xBeat(0); rgb=valRGB(pcOf(s.string,pitchOf(s,0))); k=0.5; } }
+  if(live&&L>0.001&&amp>0.002){ hx=xBeat(st.ph); rgb=valRGB(pcOf(st.s.string,p)); k=amp; }   // only while a tone sounds, and as loud as it is
   if(hx===null){ tabBloom.setAttribute('opacity',0); tabNotes.forEach(o=>o.num.style.fill=''); ball.style.fill=''; return; }
   if(tabBloom.nextSibling) tab.appendChild(tabBloom);                    // above everything, so the numbers' knock-outs do not mask it
   tabBloom.style.mixBlendMode=bgColour()[0]<128?'screen':'multiply';     // light added on dark, ink-like tint on light
   const c=rgbS(rgb); bloomStops.forEach(e=>e.setAttribute('stop-color',c));
   tabBloom.setAttribute('cx',hx.toFixed(1)); tabBloom.setAttribute('opacity',(L*k*(bgColour()[0]<128?1:0.6)).toFixed(3));
   const notes=pairOf();
-  tabNotes.forEach((o,i)=>{ const d=Math.min(1,Math.abs(+o.num.getAttribute('x')-hx)/BLOOM_W), w=L*(0.5+0.5*Math.cos(Math.PI*d));
+  tabNotes.forEach((o,i)=>{ const d=Math.min(1,Math.abs(+o.num.getAttribute('x')-hx)/BLOOM_W), w=L*k*(0.5+0.5*Math.cos(Math.PI*d));
     o.num.style.fill=w>0.002?rgbS(mixRGB(ink,valRGB(pcOf(drill.string,notes[i%2].fret)),w)):''; });
-  ball.style.fill=rgbS(mixRGB(ink,rgb,L*(0.5+0.5*k)));
+  ball.style.fill=rgbS(mixRGB(ink,rgb,L*k));
 }
 const ball=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink'},tab);
 const countLbl=el('text',{x:TB.x0-24,y:TB.floor-TB.ballR,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
@@ -886,7 +885,7 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let fieldClock=0;
+let fieldClock=0; const ampHold={v:0,t:0};
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
   FIELD.target=fieldTarget();
@@ -919,7 +918,11 @@ function frame(){
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
   const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
-  const held=placePick(st,sy,t);
+  // the sounding tone's level (the glow's measure), held through the pick's brief catch so the colour does not blink on every
+  // stroke: it rises at once and falls no faster than a 0.15 s release, so it follows the tone's own decay
+  const ampNow=(live&&s.str)?Math.min(1,ampOf(s.str.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
+  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0; const amp=ampHold.v;
+  const held=placePick(st,sy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
@@ -955,7 +958,7 @@ function frame(){
   if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
   const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
-  paintTabField(st,live,p);
+  paintTabField(st,live,p,amp);
   if(T.test&&st) syncTestLine(st);
   paintChapters(t);
   requestAnimationFrame(frame);
