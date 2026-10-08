@@ -453,38 +453,50 @@ for(let pc=0;pc<12;pc++){
   else{ const t1=el('text',{x:lx,y:ly-6.5,class:'rl','font-size':11},g); t1.textContent=parts[0]; const t2=el('text',{x:lx,y:ly+6.5,class:'rl','font-size':11},g); t2.textContent=parts[1]; }
 }
 /* the field (g(x) on): the valence curve r = R0 + K·g, drawn with Re at 12 and turned so Re sits on its pitch; every drill
-   reads its semitone as Ti:Do — the lower tone Ti, the upper Do — so the field turns with the drill */
+   reads its semitone as Ti:Do — the lower tone Ti, the upper Do — so the field turns with the drill.
+   HEARING: Mi:Fa is the same field five semitones round, but that is not reached by turning. On the spectral side
+   g = (7/12)cos 5x + (5/12)cos 7x, a turn of five semitones advances the two winds by one tick each, in opposite directions:
+   g(x + 5π/6) = (7/12)cos(5x + π/6) + (5/12)cos(7x − π/6)  (exact). So the field MORPHS in place through
+   G(x,u) = (7/12)cos(5x + uπ/6) + (5/12)cos(7x − uπ/6), u from 0 (Ti:Do) to 1 (Mi:Fa) — the nearest move the field has:
+   every tone steps one place along the chain of fifths (Ti → Mi, Do → Fa), nothing travels round the ring. */
 const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700'],['~Do','#005500'],['Sol','#EE0000'],['~Re','#AA5500'],['La','#732699'],['~Mi','#001188'],['Ti','#FF00FF'],['Do','#22BB22'],['~Sol','#880000']]; // semitones up from Re
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
-const FIELD={on:false,lit:0,re:0,target:0,hearing:'tido'};       // hearing: the semitone read as Ti:Do (default) or Mi:Fa                          // re: where Re sits, in semitones from A (continuous while it turns)
+const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
+const FIELD={on:false,lit:0,re:0,target:0,hearing:'tido',uLin:0,u:0};   // re: where Ti:Do's Re sits (semitones from A); u: the morph to Mi:Fa
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
-const valRGB=pc=>relRGB(pc-FIELD.re);                                 // the field's colour at a pitch (continuous: a glide passes through)
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
+const morphRGB=(k,u)=>u<=0?relRGB(k):(u>=1?relRGB(k+5):mixRGB(relRGB(k),relRGB(k+5),u));   // each place's colour steps to the next station's
+const valRGB=pc=>morphRGB(pc-FIELD.re,FIELD.u);                       // the field's colour at a pitch (continuous: a glide passes through)
 const rgbS=c=>'rgb('+c.map(v=>Math.round(v)).join(',')+')';
-const HEAR={tido:{lo:9,hi:10,off:3}, mifa:{lo:2,hi:3,off:-2}};        // the pair's places above Re; Re = lower tone + off (Ti = Re − 3, Mi = Re + 2)
-function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+HEAR[FIELD.hearing].off; }
+const PAIR=[9,10];                                                      // the drill's two tones, in places above Ti:Do's Re (Ti, Do; Mi, Fa under the morph)
+function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+3; }   // Ti = Re − 3
 const VAL={R0:48,K:30,N:180};
-const valG=el('g',{opacity:0},ringSvg), valFills=[], valDots=[]; let valBg='';
-function tintFills(){ const bg=(getComputedStyle(document.body).backgroundColor.match(/\d+/g)||[15,15,15]).slice(0,3).map(Number), key=bg.join(); if(key===valBg) return; valBg=key; for(const [e,c] of valFills) e.setAttribute('fill',rgbS(mixRGB(bg,c,0.32))); }   // the petals' wash: 32% of the colour over the page
-{ const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*gOf(k*Math.PI/6);
-  el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':1,'stroke-dasharray':'2 3'},valG);    // the hinge: g = 0
-  const fillG=el('g',{},valG), lineG=el('g',{},valG);
-  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, rgb=relRGB(12*(i+.5)/VAL.N), c=rgbS(rgb);   // each wedge overlaps the next a little: opaque, so no seams
-    const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0));
-    valFills.push([el('path',{d:'M'+a.toFixed(2)+' '+b.toFixed(2)+'L'+d.toFixed(2)+' '+e.toFixed(2)+'L'+f.toFixed(2)+' '+g.toFixed(2)+'L'+h.toFixed(2)+' '+j.toFixed(2)+'Z'},fillG),rgb]);
-    const k2=12*(i+1)/VAL.N, [f2,g2]=at(k2,rOf(k2));
-    el('line',{x1:h.toFixed(2),y1:j.toFixed(2),x2:f2.toFixed(2),y2:g2.toFixed(2),stroke:c,'stroke-width':2,'stroke-linecap':'round'},lineG); }
-  for(let k=0;k<12;k++){ const [x,y]=at(k,rOf(k)); valDots.push(el('circle',{cx:x,cy:y,r:2.4,fill:rgbS(SOLF_RGB[k]),class:'valDot'},valG)); }
+const valG=el('g',{opacity:0},ringSvg), valFills=[], valLines=[], valDots=[]; let valKey='';
+el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':1,'stroke-dasharray':'2 3'},valG);    // the hinge: g = 0
+{ const fillG=el('g',{},valG), lineG=el('g',{},valG);
+  for(let i=0;i<VAL.N;i++){ valFills.push(el('path',{},fillG)); valLines.push(el('line',{'stroke-width':2,'stroke-linecap':'round'},lineG)); }
+  for(let k=0;k<12;k++) valDots.push(el('circle',{r:PAIR.includes(k)?3.6:2.4,class:'valDot'},valG));
+}
+// draw the curve for morph u (in Ti:Do's frame, Re at 12; the group is turned to the drill)
+function shapeField(u){
+  const bg=bgColour(), key=u.toFixed(4)+'|'+bg.join(); if(key===valKey) return; valKey=key;
+  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*GOf(k*Math.PI/6,u), f2=v=>v.toFixed(2);
+  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=morphRGB(12*(i+.5)/VAL.N,u);   // each wedge overlaps the next a little: opaque, so no seams
+    const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0)), [x2,y2]=at(k2,rOf(k2));
+    valFills[i].setAttribute('d','M'+f2(a)+' '+f2(b)+'L'+f2(d)+' '+f2(e)+'L'+f2(f)+' '+f2(g)+'L'+f2(h)+' '+f2(j)+'Z');
+    valFills[i].setAttribute('fill',rgbS(mixRGB(bg,rgb,0.32)));                   // the petals' wash: 32% of the colour over the page
+    const L=valLines[i]; L.setAttribute('x1',f2(h)); L.setAttribute('y1',f2(j)); L.setAttribute('x2',f2(x2)); L.setAttribute('y2',f2(y2)); L.setAttribute('stroke',rgbS(rgb)); }
+  valDots.forEach((dt,k)=>{ const [x,y]=at(k,rOf(k)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(morphRGB(k,u))); });
 }
 const valLbls=[0,1].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
 function placeField(){
-  tintFills(); wedge.setAttribute('opacity',(1-0.6*FIELD.lit).toFixed(3));
+  shapeField(FIELD.u); wedge.setAttribute('opacity',(1-0.6*FIELD.lit).toFixed(3));
   valG.setAttribute('transform','rotate('+(FIELD.re*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',FIELD.lit.toFixed(3));
-  const H=HEAR[FIELD.hearing];
-  valDots.forEach((d,k)=>d.setAttribute('r',k===H.lo||k===H.hi?3.6:2.4));
-  [H.lo,H.hi].forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*gOf(k*Math.PI/6)-16, a=pc*Math.PI/6; const t=valLbls[i]; if(t.textContent!==SOLF[k][0]){ t.textContent=SOLF[k][0]; t.style.fill=rgbS(SOLF_RGB[k]); }
-    t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',FIELD.lit.toFixed(3)); });
+  const u=FIELD.u, fade=Math.abs(1-2*u);                                 // the names cross over at the middle of the morph
+  PAIR.forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*GOf(k*Math.PI/6,u)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[u<0.5?k:(k+5)%12][0];
+    if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(morphRGB(k,u));
+    t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade).toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
 const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the drill's own semitone, drawn as its arc of the circle; no words
@@ -917,11 +929,14 @@ let fieldClock=0; const ampHold={v:0,t:0};
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
   FIELD.target=fieldTarget();
-  const goal=FIELD.on?1:0, was=FIELD.lit, wasRe=FIELD.re;
+  const goal=FIELD.on?1:0, was=FIELD.lit, wasRe=FIELD.re, wasU=FIELD.u;
+  const uGoal=FIELD.hearing==='mifa'?1:0;                                 // the morph runs at a steady pace (0.9 s), eased at both ends
+  if(FIELD.lit<=0.001||reduce) FIELD.uLin=uGoal; else FIELD.uLin+=Math.sign(uGoal-FIELD.uLin)*Math.min(Math.abs(uGoal-FIELD.uLin),dt/0.9);
+  FIELD.u=FIELD.uLin*FIELD.uLin*(3-2*FIELD.uLin);
   FIELD.lit=reduce?goal:FIELD.lit+(goal-FIELD.lit)*Math.min(1,dt*3.2); if(Math.abs(FIELD.lit-goal)<0.002) FIELD.lit=goal;
   const d=((FIELD.target-FIELD.re+6)%12+12)%12-6;                         // the short way round
   if(FIELD.lit<=0.001||reduce) FIELD.re=FIELD.target; else { FIELD.re+=d*Math.min(1,dt*5); if(Math.abs(d)<0.002) FIELD.re=FIELD.target; }
-  if(was!==FIELD.lit||wasRe!==FIELD.re||FIELD.lit>0) placeField();
+  if(was!==FIELD.lit||wasRe!==FIELD.re||wasU!==FIELD.u||FIELD.lit>0) placeField();
 }
 function frame(){
   stepField();
