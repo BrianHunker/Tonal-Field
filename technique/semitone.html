@@ -98,6 +98,9 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 .pickAxis{ stroke:var(--mid); stroke-width:1; stroke-dasharray:3 3; opacity:.5 }
 path.vibBlur{ fill:var(--ink); opacity:.3; stroke:none }
 path.vibStrobe{ fill:none; stroke:var(--ink); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round }
+/* left-handed: the fretboard mirrored (nut on the right, pick on the left); its numbers turned back to read normally */
+#fb.lefty{ transform:scaleX(-1) }
+#fb.lefty text{ transform-box:fill-box; transform-origin:center; transform:scaleX(-1) }
 path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the strings the drill is not on */
 .fingerC{ fill:var(--bg); stroke:var(--ink); stroke-width:1.6 } .fingerC.down{ fill:var(--ink) }
 .fingerN{ fill:var(--ink); font-weight:700; font-size:15px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .fingerN.down{ fill:var(--bg) }
@@ -169,6 +172,11 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
     <div class="mixRow sub"><span class="name">Strobe view</span>
       <div class="seg" id="segStrobe" role="group" aria-label="Strobe view of the vibrating string">
         <button type="button" data-v="show">Show</button><button type="button" data-v="hide">Hide</button>
+      </div>
+    </div>
+    <div class="mixRow sub"><span class="name">Hand</span>
+      <div class="seg" id="segHand" role="group" aria-label="Playing hand">
+        <button type="button" data-v="right">Right-handed</button><button type="button" data-v="left">Left-handed</button>
       </div>
     </div>
     <div class="mixRow sub"><span class="name">Theme</span>
@@ -643,7 +651,7 @@ function fadeOut(vg,t,now,release){
 const PLUCK_V=Math.pow(100/128,1.4);                                  // the tool's velocity curve, at velocity 100
 
 /* ---------- a run: one or more segments on the audio clock ----------
-   Drill: one segment, a one-bar count-in, looping until stopped. Test: a sequence of variants, each after a two-bar count-in
+   Drill: one segment, a one-bar count-in, looping until stopped. Test: a sequence of variants, each after a one-bar count-in
    (time to read the next instructions) and played for a few loops. Each segment has its own string (its own gauge), muted at
    the segment's end as a player would. */
 const TEST_VARIANTS=[
@@ -654,8 +662,8 @@ const TEST_VARIANTS=[
   {string:0,start:1,dir:'up',slide:true},  {string:2,start:3,dir:'down',slide:true},
   {string:1,start:3,dir:'up',bend:true},   {string:2,start:4,dir:'down',bend:true}
 ];
-const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-8)/LOOP)));   // about four minutes at any tempo
-const testMinutes=bpm=>chapIn.filter(Boolean).length*(8+LOOP*testLoops(bpm))/bpm;
+const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-COUNT)/LOOP)));   // about four minutes at any tempo
+const testMinutes=bpm=>chapIn.filter(Boolean).length*(COUNT+LOOP*testLoops(bpm))/bpm;
 const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it
 try{ const v=JSON.parse(localStorage.getItem('semitone-chapters')||'null'); if(Array.isArray(v)&&v.length===TEST_VARIANTS.length) v.forEach((x,i)=>{ chapIn[i]=!!x; }); }catch(err){}
 const cfgOf=d=>({string:d.string,start:d.start,dir:d.dir,plant:d.plant,slide:!!d.slide,bend:!!d.bend});
@@ -673,7 +681,7 @@ function run(test){
     T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null;
     const list=test?TEST_VARIANTS.map((v,k)=>Object.assign({plant:true,ck:k},v)).filter(v=>chapIn[v.ck]):[cfgOf(drill)];
     if(!list.length) return;
-    const loops=test?testLoops(drill.bpm):Infinity, count=test?8:COUNT;
+    const loops=test?testLoops(drill.bpm):Infinity, count=COUNT;
     let t=ctx.currentTime+0.1;
     T.segs=list.map((c,k)=>{ const s=mkSeg(c); s.k=c.ck!==undefined?c.ck:k; s.pos=k; s.count=count; s.loops=loops; s.countStart=t; s.loopStart=t+count*T.beat; s.end=s.loopStart+loops*LOOP*T.beat;
       s.xt=s.mode==='slide'?SLIDE_T:(s.mode==='bend'?Math.min(0.16,0.4*T.beat/2):0); t=s.end; return s; });
@@ -912,7 +920,7 @@ function syncUI(){
   const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm), len=mins<1.5?Math.round(mins*60)+' seconds':'about '+Math.round(mins)+' minutes';
   if(mode==='test'&&!(T.on&&T.test)){                              // test mode, stopped: what the test will be
     insFacts.textContent=nIn?'Test · '+nIn+' chapter'+(nIn===1?'':'s')+' · '+len+' · ♩ = '+drill.bpm:'Test · no chapters in';
-    insHow.innerHTML=nIn?'<span>Each chapter starts after a two-bar count-in:</span> read its instructions here while the count goes by, then play it with the ball. Click a chapter above to take it out of the test or put it back.':'Click a chapter above to put it in the test.';
+    insHow.innerHTML=nIn?'<span>Each chapter starts after a one-bar count-in:</span> read its instructions here while the count goes by, then play it with the ball. Click a chapter above to take it out of the test or put it back.':'Click a chapter above to put it in the test.';
   }else{ insFacts.textContent=factsOf(drill); insHow.innerHTML=howTo(drill); }
   if(!(T.on&&T.test)&&!insTest.textContent.startsWith('Test complete')) insTest.hidden=true;
   const testing=mode==='test';
@@ -970,6 +978,11 @@ const segTheme=document.getElementById('segTheme');
 function syncTheme(){ const th=document.documentElement.getAttribute('data-theme')||'dark'; for(const b of segTheme.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===th); }
 segTheme.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; document.documentElement.setAttribute('data-theme',b.dataset.v); try{ localStorage.setItem('semitone-theme',b.dataset.v); }catch(err){} syncTheme(); });
 syncTheme();
+const segHand=document.getElementById('segHand'), fbEl=document.getElementById('fb');
+let lefty=false; try{ lefty=localStorage.getItem('semitone-hand')==='left'; }catch(err){}
+function syncHand(){ fbEl.classList.toggle('lefty',lefty); for(const b of segHand.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='left')===lefty); }
+segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; lefty=b.dataset.v==='left'; try{ localStorage.setItem('semitone-hand',lefty?'left':'right'); }catch(err){} syncHand(); });
+syncHand();
 const segStrobe=document.getElementById('segStrobe');
 function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='show')===showStrobe); }
 segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
