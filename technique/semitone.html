@@ -92,6 +92,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 /* SVG parts, all through the tokens */
 .ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
 .inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
+path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the strings the drill is not on */
 .fingerC{ fill:var(--bg); stroke:var(--ink); stroke-width:1.6 } .fingerC.down{ fill:var(--ink) }
 .fingerN{ fill:var(--ink); font-weight:700; font-size:15px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .fingerN.down{ fill:var(--bg) }
 .guide{ stroke:var(--faint); stroke-dasharray:2 3 }
@@ -767,6 +768,7 @@ function syncUI(){
   slideIn.checked=drill.slide; bendIn.checked=drill.bend; slideIn.disabled=lock; bendIn.disabled=lock; bpmIn.disabled=lock;
   bpmV.textContent=drill.bpm;
   rows.forEach((r,i)=>r.classList.toggle('sel',i===drill.string));
+  strLines.forEach((l,i)=>l.classList.toggle('strDim',i!==drill.string));
   rowLbls.forEach((l,i)=>l.classList.toggle('sel',i===drill.string));
   fingers.forEach(F=>F.guide.setAttribute('y2',FB.strY[drill.string]-6));
   const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm), len=mins<1.5?Math.round(mins*60)+' seconds':'about '+Math.round(mins)+' minutes';
