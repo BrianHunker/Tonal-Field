@@ -44,7 +44,7 @@ h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-heigh
 .bar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding-block:12px; border-top:1px solid var(--faint); border-bottom:1px solid var(--faint) }
 .play{ font:inherit; font-weight:700; min-width:92px; padding:8px 18px; border:2px solid var(--ink); background:var(--ink); color:var(--bg); border-radius:999px; cursor:pointer }
 .play.on{ background:var(--bg); color:var(--ink) }
-.gear{ font:inherit; font-size:18px; line-height:1; width:36px; height:36px; margin-left:auto; border:1px solid var(--mid); border-radius:50%; background:var(--bg); color:var(--ink); cursor:pointer }
+.gear{ font:inherit; font-size:28px; line-height:1; display:grid; place-items:center; padding:0 0 2px; width:36px; height:36px; margin-left:auto; border:1px solid var(--mid); border-radius:50%; background:var(--bg); color:var(--ink); cursor:pointer }
 .gear[aria-expanded="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink) }
 button:focus-visible, input:focus-visible{ outline:2px solid var(--ink); outline-offset:2px }
 .ctl{ display:flex; align-items:center; gap:8px; color:var(--mid); font-size:13px; margin:0 }
@@ -94,6 +94,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 .ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
 .inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
 .pickBody{ fill:#f3e6bd; stroke:#6b5a10; stroke-width:1.2; vector-effect:non-scaling-stroke }   /* the pick: the one colour on the page */
+.pickArrow{ fill:#4a3d06 }
 .pickAxis{ stroke:var(--mid); stroke-width:1; stroke-dasharray:3 3; opacity:.5 }
 path.vibBlur{ fill:var(--ink); opacity:.3; stroke:none }
 path.vibStrobe{ fill:none; stroke:var(--ink); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round }
@@ -313,11 +314,18 @@ placeThumb();
    picked it waits clear, so the note rings on. Count-in: on each beat the tip draws the string up like a bow, then relaxes
    back to rest without plucking. Colour: cream at rest, blooming to full yellow into a strike, draining after it. */
 const PICK_L=38;                                                       // axis to tip, px
-const POSE={rest:{f:1,h:0}, downHold:{f:0.74,h:0}, upHold:{f:0.95,h:12}, downFree:{f:0.58,h:0}, upFree:{f:0.70,h:0}};   // f: foreshortening (1 = flat to the screen), h: the hand's dip (px)
+// f: foreshortening (1 = flat to the screen); h: the hand's dip (px). At rest the pick is turned a little (f 0.8), so a downstroke
+// turns it further in (tip up, string drawn up-screen) and an upstroke turns it back through flat (tip down, string drawn
+// down-screen) — the axis stays put while alternating.
+const POSE={rest:{f:0.8,h:0}, downHold:{f:0.6,h:0}, upHold:{f:1.0,h:0}, downFree:{f:0.48,h:0}, upFree:{f:0.6,h:0}};
+const BEAT_DIP=4;                                                       // the axis dips this far on a beat that passes unplayed
 const PICK_CREAM=[243,230,189], PICK_YELLOW=[247,226,40];
 const pickG=el('g',{class:'pick'},fb);
 const pickBody=el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody'},pickG);
 const pickAxis=el('line',{x1:-26,y1:0,x2:26,y2:0,class:'pickAxis'},pickG);   // the fulcrum, faint
+// the stroke's direction, in the middle of the pick: fades in into a stroke, solid at the strike, gone when the pick stops
+const arrowDown=el('path',{d:'M0 7 L-6 -1 L-2.2 -1 L-2.2 -7 L2.2 -7 L2.2 -1 L6 -1 Z',class:'pickArrow',opacity:0},pickG);
+const arrowUp=el('path',{d:'M0 -7 L-6 1 L-2.2 1 L-2.2 7 L2.2 7 L2.2 1 L6 1 Z',class:'pickArrow',opacity:0},pickG);
 function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.mode==='fingers'||BAR_START(i); }
 const sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
 const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
@@ -330,13 +338,13 @@ function around(s,t){
   return [prev,next];
 }
 function placePick(st,sy,t){
-  let pose=POSE.rest, bloom=0, held=null;
+  let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0;
   if(st&&!st.done){
     const s=st.s, c=catchT();
     if(t<s.loopStart-c){                                                  // count-in: draw the string like a bow on each beat, then relax
       const b=(t-s.loopStart)/T.beat, tb=s.loopStart+Math.ceil(b)*T.beat, tp=s.loopStart+Math.floor(b)*T.beat, relax=0.14;
-      if(t>=tb-c&&tb<s.loopStart){ const x=sm((t-(tb-c))/c); pose=mixPose(POSE.rest,POSE.downHold,x); held=true; bloom=0.6*x; }
-      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); }
+      if(t>=tb-c&&tb<s.loopStart){ const x=sm((t-(tb-c))/c); pose=mixPose(POSE.rest,POSE.downHold,x); held=true; bloom=0.6*x; aDown=0.6*x; }
+      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); aDown=0.6*(1-x); }
     }else{
       const [prev,next]=around(s,t);
       const free=prev?(prev.up?POSE.upFree:POSE.downFree):POSE.rest, hold=next?(next.up?POSE.upHold:POSE.downHold):POSE.rest;
@@ -347,13 +355,22 @@ function placePick(st,sy,t){
         else { const rs=(next?next.t-c:prev.t+1.2)-r; pose=t<rs?free:mixPose(free,POSE.rest,sm((t-rs)/r)); } // waits, then returns to rest
       }
       const bl=next?sm(1-(next.t-t)/(c+0.16)):0, dr=prev?1-sm((t-prev.t)/0.025):0; bloom=Math.max(bl,dr);
+      // arrows: the coming stroke's direction fades in with the bloom; the last stroke's holds until the pick has sprung clear
+      const gapA=prev?(next?next.t-c:prev.t+1.2)-prev.t:1, aRec=Math.min(0.04,0.4*gapA), fade=prev?1-sm((t-prev.t)/aRec):0;
+      if(fade>bl){ if(prev.up) aUp=fade; else aDown=fade; } else if(next){ if(next.up) aUp=bl; else aDown=bl; }
+      // a beat that passes unplayed: the hand keeps time with a slight dip of the axis
+      const bIdx=Math.round((t-s.loopStart)/T.beat), tb=s.loopStart+bIdx*T.beat, nb=bIdx*2;
+      if(bIdx>=0&&nb<s.loops*16&&!pickedAt(s,((nb%16)+16)%16)){ const x=Math.abs(t-tb)/(0.3*T.beat); if(x<1) pose={f:pose.f,h:pose.h+BEAT_DIP*(0.5+0.5*Math.cos(Math.PI*x))}; }
     }
   }
-  const tipY=sy+pose.h+PICK_L*(pose.f-1);                               // rest: the tip exactly on the string
+  const tipY=sy+pose.h+PICK_L*(pose.f-POSE.rest.f);                    // rest: the tip exactly on the string
   const axisY=tipY-PICK_L*pose.f;
   pickG.setAttribute('transform','translate('+PICK_X+' '+axisY.toFixed(1)+')');
   pickBody.setAttribute('transform','scale(1 '+pose.f.toFixed(3)+') translate(0 12) scale(2)');
   const col=PICK_CREAM.map((v,i)=>Math.round(v+(PICK_YELLOW[i]-v)*bloom));
+  const ay=(PICK_L*0.45*pose.f).toFixed(1);
+  arrowDown.setAttribute('transform','translate(0 '+ay+')'); arrowUp.setAttribute('transform','translate(0 '+ay+')');
+  arrowDown.setAttribute('opacity',aDown.toFixed(2)); arrowUp.setAttribute('opacity',aUp.toFixed(2));
   pickBody.style.fill='rgb('+col.join(',')+')';
   return held?tipY:null;
 }
