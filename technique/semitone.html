@@ -67,7 +67,15 @@ input[type=checkbox]{ accent-color:var(--ink) }
 .mixRow.sub .name{ color:var(--mid); font-weight:400 }
 .mixRow.sub .seg{ grid-column:2 / -1; justify-self:start }
 @media (max-width:480px){ .mixRow{ grid-template-columns:5.5em 1fr 3.8em auto; gap:8px } }
-.chapters{ display:grid; gap:6px; margin-top:-6px }
+.params{ flex:1 1 100%; display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px }
+.chapters{ flex:1 1 100%; display:grid; gap:6px }
+.mode{ position:relative; display:inline-grid; grid-template-columns:1fr 1fr; padding:0; border:2px solid var(--ink); border-radius:999px; background:var(--bg); font:inherit; font-weight:700; cursor:pointer }
+.mOpt{ position:relative; z-index:1; padding:7px 16px; color:var(--ink); transition:color .2s }
+.mKnob{ position:absolute; top:2px; bottom:2px; left:2px; width:calc(50% - 2px); border-radius:999px; background:var(--ink); transition:transform .2s ease }
+.mode[aria-checked="true"] .mKnob{ transform:translateX(100%) }
+.mode[aria-checked="false"] .mOpt:first-child, .mode[aria-checked="true"] .mOpt:nth-child(2){ color:var(--bg) }
+.mode:disabled{ cursor:default; opacity:.5 }
+@media (prefers-reduced-motion: reduce){ .mKnob, .mOpt{ transition:none } }
 .chHead{ display:flex; align-items:center; gap:12px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid); font-weight:600 }
 .chAll{ font:inherit; font-size:11px; letter-spacing:.02em; text-transform:none; padding:2px 9px; border:1px solid var(--mid); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer }
 .chRow{ display:grid; grid-template-columns:repeat(13,minmax(0,1fr)); gap:4px }
@@ -114,10 +122,12 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
   </header>
 
   <div class="bar">
-    <button id="play" class="play" type="button">Drill</button>
-    <button id="test" class="play" type="button">Test</button>
+    <button id="play" class="play" type="button">Play</button>
+    <button id="mode" class="mode" type="button" role="switch" aria-checked="false" aria-label="Test mode"><span class="mOpt">Drill</span><span class="mOpt">Test</span><span class="mKnob"></span></button>
     <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
     <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
+    <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound">&#x2699;&#xFE0E;</button>
+    <div class="params" id="params">
     <div class="ctl">String
       <div class="seg" id="segString" role="group" aria-label="String">
         <button type="button" data-v="0">e</button><button type="button" data-v="1">B</button><button type="button" data-v="2">G</button><button type="button" data-v="3">D</button><button type="button" data-v="4">A</button><button type="button" data-v="5">E</button>
@@ -140,12 +150,11 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
     </div>
     <label class="ctl" for="slide"><input type="checkbox" id="slide"> Slide</label>
     <label class="ctl" for="bend"><input type="checkbox" id="bend"> Bend</label>
-    <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound">&#x2699;&#xFE0E;</button>
-  </div>
-
-  <div class="chapters">
-    <div class="chHead"><span>Test chapters</span><button type="button" id="chAll" class="chAll" hidden>All in</button></div>
-    <div class="chRow" id="chRow" role="group" aria-label="Test chapters: click one to take it in or out of the test"></div>
+    </div>
+    <div class="chapters" id="chapters" hidden>
+      <div class="chHead"><span>Test chapters</span><button type="button" id="chAll" class="chAll" hidden>All in</button></div>
+      <div class="chRow" id="chRow" role="group" aria-label="Test chapters: click one to take it in or out of the test"></div>
+    </div>
   </div>
 
   <div class="mixer" id="mixer" hidden>
@@ -535,7 +544,8 @@ function mkSeg(c){
   return Object.assign({},c,{plant:c.plant!==false,notes,base,bendFinger:base-POSITION+1,mode:c.slide?'slide':(c.bend?'bend':'fingers')});
 }
 const T={on:false,test:false,beat:60/70,segs:[],si:0,nextI:0,nextCycle:0,nextBeat:0,timer:null,live:[],shown:null,saved:null};
-const playBtn=document.getElementById('play'), testBtn=document.getElementById('test');
+const playBtn=document.getElementById('play'), modeBtn=document.getElementById('mode');
+let mode='drill';                                                      // the switch: 'drill' or 'test'
 function run(test){
   ensureCtx().then(()=>{
     if(T.on) stopAll();
@@ -548,7 +558,7 @@ function run(test){
       s.xt=s.mode==='slide'?SLIDE_T:(s.mode==='bend'?Math.min(0.16,0.4*T.beat/2):0); t=s.end; return s; });
     T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-count; T.live=[]; T.shown=null; T.on=true;
     tick(); T.timer=setInterval(tick,25);
-    (test?testBtn:playBtn).textContent='Stop'; (test?testBtn:playBtn).classList.add('on');
+    playBtn.textContent='Stop'; playBtn.classList.add('on');
     syncLock();
   });
 }
@@ -620,7 +630,7 @@ function stopAll(){
     for(const s of T.segs) if(s.str) s.str.stopAt(now,true);
   }
   T.live=[]; T.segs=[]; T.shown=null;
-  playBtn.textContent='Drill'; playBtn.classList.remove('on'); testBtn.textContent='Test'; testBtn.classList.remove('on');
+  playBtn.textContent='Play'; playBtn.classList.remove('on');
   if(wasTest&&T.saved){ Object.assign(drill,T.saved); T.saved=null; }
   syncLock(); syncUI();
 }
@@ -759,11 +769,17 @@ function syncUI(){
   rows.forEach((r,i)=>r.classList.toggle('sel',i===drill.string));
   rowLbls.forEach((l,i)=>l.classList.toggle('sel',i===drill.string));
   fingers.forEach(F=>F.guide.setAttribute('y2',FB.strY[drill.string]-6));
-  insFacts.textContent=factsOf(drill); insHow.innerHTML=howTo(drill);
+  const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm), len=mins<1.5?Math.round(mins*60)+' seconds':'about '+Math.round(mins)+' minutes';
+  if(mode==='test'&&!(T.on&&T.test)){                              // test mode, stopped: what the test will be
+    insFacts.textContent=nIn?'Test · '+nIn+' chapter'+(nIn===1?'':'s')+' · '+len+' · ♩ = '+drill.bpm:'Test · no chapters in';
+    insHow.innerHTML=nIn?'<span>Each chapter starts after a two-bar count-in:</span> read its instructions here while the count goes by, then play it with the ball. Click a chapter above to take it out of the test or put it back.':'Click a chapter above to put it in the test.';
+  }else{ insFacts.textContent=factsOf(drill); insHow.innerHTML=howTo(drill); }
   if(!(T.on&&T.test)&&!insTest.textContent.startsWith('Test complete')) insTest.hidden=true;
-  const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm);
-  testBtn.title=nIn?('Test: '+nIn+' chapter'+(nIn===1?'':'s')+', about '+(mins<1.5?Math.round(mins*60)+' seconds':Math.round(mins)+' minutes')+' at ♩ = '+drill.bpm):'Put at least one chapter in';
-  testBtn.disabled=!nIn&&!(T.on&&T.test);
+  const testing=mode==='test';
+  paramsEl.hidden=testing; chaptersEl.hidden=!testing;
+  modeBtn.setAttribute('aria-checked',testing);
+  playBtn.title=testing?(nIn?'Play the test: '+nIn+' chapter'+(nIn===1?'':'s')+', '+len:'Put at least one chapter in'):'Play the drill';
+  playBtn.disabled=testing&&!nIn&&!T.on;
   chEls.forEach((b,k)=>{ b.disabled=lock; b.setAttribute('aria-pressed',chapIn[k]); }); chAll.disabled=lock; chAll.hidden=nIn===TEST_VARIANTS.length;
   buildTabNotes(); buildWedge();
 }
@@ -779,12 +795,13 @@ bendIn.addEventListener('change',()=>{ drill.bend=bendIn.checked; if(drill.bend)
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; insFacts.textContent=factsOf(drill); });
 bpmIn.addEventListener('change',()=>{ syncUI(); if(T.on&&!T.test) run(false); });
 clickIn.addEventListener('change',()=>{ drill.click=clickIn.checked; });
-playBtn.addEventListener('click',()=>{ if(T.on&&!T.test) stopAll(); else run(false); });
-testBtn.addEventListener('click',()=>{ if(T.on&&T.test) stopAll(); else run(true); });
+const paramsEl=document.getElementById('params'), chaptersEl=document.getElementById('chapters');
+playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(mode==='test'); });
+modeBtn.addEventListener('click',()=>{ if(T.on) stopAll(); mode=mode==='test'?'drill':'test'; insTest.hidden=true; insTest.textContent=''; syncUI(); });
 window.addEventListener('keydown',e=>{
   if(e.code!=='Space') return;
   const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return;
-  e.preventDefault(); if(T.on) stopAll(); else run(false);
+  e.preventDefault(); if(T.on) stopAll(); else run(mode==='test');
 });
 
 // the gear: a mixer for the three sounds. Levels and the click sound are remembered on this device; mutes are not.
