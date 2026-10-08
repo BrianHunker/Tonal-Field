@@ -224,7 +224,7 @@ const fretHz=(s,n)=>STRINGS[s].hz*Math.pow(2,n/12);
 const pcOf=(s,fret)=>((STRINGS[s].pc+fret)%12+12)%12;   // fret may be fractional, mid-slide
 const FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}]; // start, duration in beats
 const BAR_START=i=>i===0||i===8;
-const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09;          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
+const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09, CATCH=0.035;   // CATCH: how long the pick holds the string before releasing it into the note (s), heard and seen          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
 const drill={string:0,start:1,dir:'up',plant:true,slide:false,bend:false,bpm:70,click:true};
 const pairOf=()=>{const a=drill.start,b=drill.dir==='up'?a+1:a-1;return [a,b].map(f=>({finger:f,fret:POSITION+f-1}));};
 const validStart=s=>{const b=drill.dir==='up'?s+1:s-1;return b>=1&&b<=4;};
@@ -305,18 +305,25 @@ placeThumb();
 /* the pick: a continuous alternate-picking swing across the string — down (toward the treble side) on each beat, up on each 'and',
    crossing the string exactly on the eighth. It strikes only where a note is picked; elsewhere it passes faded, the hand
    keeping time without sounding (bar 2's held notes, and everything after the first pick of a bar in slide and bend). */
-const PICK_A=13;
+const PICK_A=24;
 const pickG=el('g',{class:'pick'},fb);
-el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody',transform:'rotate(-70)'},pickG);
+el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody',transform:'translate(2.27 -25.9) rotate(5) scale(2)'},pickG);   // tip at the group's origin
 function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.mode==='fingers'||BAR_START(i); }
+// One down-and-up cycle per beat, like the ball: the tip meets the string CATCH before each eighth, moving down into the beat
+// and up into the 'and'. On a sounding stroke it holds the string (stopped, bent around the tip) and lets go on the note;
+// on a silent stroke it passes faded. Returns where the string is held, or null.
 function placePick(st,sy,t){
-  let y=sy+PICK_A, op=1;
-  if(st&&!st.done){ const s=st.s, u=(t-s.loopStart)/(T.beat/2); y=sy-PICK_A*Math.sin(Math.PI*u);
-    const k=Math.round(u), inFig=k>=0&&k<s.loops*16, struck=inFig&&pickedAt(s,((k%16)+16)%16);
-    if(!struck&&Math.abs(u-k)<0.3) op=0.3+0.7*Math.abs(u-k)/0.3; }
+  let y=sy-PICK_A, op=1, held=null;
+  if(st&&!st.done){ const s=st.s, e8=T.beat/2, v=(t-s.loopStart+CATCH)/e8;
+    y=sy+PICK_A*Math.sin(Math.PI*v);
+    const k=Math.round(v), inFig=k>=0&&k<s.loops*16, struck=inFig&&pickedAt(s,((k%16)+16)%16);
+    const since=t-(s.loopStart+k*e8-CATCH);                            // time since the tip met the string
+    if(struck&&since>=0&&since<CATCH) held=y;
+    else if(!struck&&Math.abs(v-k)<0.3) op=0.3+0.7*Math.abs(v-k)/0.3; }
   pickG.setAttribute('transform','translate('+PICK_X+' '+y.toFixed(1)+')'); pickG.setAttribute('opacity',op.toFixed(2));
+  return held;
 }
-placePick(null,FB.strY[0],0);
+placePick(null,FB.strY[0],0);   // at rest: just above the string, ready for the first downstroke
 // click a string to move the drill there
 FB.strY.forEach((y,i)=>{ const h=el('rect',{x:FB.x0,y:y-12,width:FB.edge-FB.x0,height:24,class:'hit'},fb); h.addEventListener('click',()=>setString(i)); });
 
@@ -653,7 +660,7 @@ const pitchOf=(s,i)=>s.notes[i%2].fret;                               // the pit
 function note(s,t,i,first){
   const p=pitchOf(s,i), f=fretHz(s.string,p), str=s.str;
   // the pick meets the string before it releases it: 10 ms that stop most of what is ringing, so picks never stack up
-  const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-0.010),t1:t,depth:0.03}); };
+  const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-CATCH),t1:t,depth:0.03}); };
   if(s.mode==='fingers'||first){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
   // slide: the finger carries the string's length; bend: the finger pushes the string's tension. Either way the pitch moves
   // continuously, arriving on the beat, and only the first note of each bar is picked.
@@ -750,11 +757,13 @@ function frame(){
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
   const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
-  const vibOn=live&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
+  const held=placePick(st,sy,t);
+  const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
-  placePick(st,sy+0,t);
   if(lastStr>=0&&lastStr!==strI) strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0));
-  strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,tipX(s?s.base:POSITION),bendDy));
+  const fxH=live?fxV:tipX(s?s.base:POSITION);
+  if(held!==null) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
+  else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,tipX(s?s.base:POSITION),bendDy));
   lastStr=strI;
   if(live){
     const x1=fxV;
