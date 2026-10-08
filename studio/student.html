@@ -229,6 +229,9 @@ function weekSecs(wk){ var a=wk, b=S.addDays(wk,6); return data.opens.filter(fun
 function streak(){ var d=S.ymd(new Date()), n=0; if(!dayActive(d))d=S.addDays(d,-1); while(dayActive(d)&&n<1000){ n++; d=S.addDays(d,-1); } return n; }
 
 /* ── who ── */
+/* a technique page opens in the student's hand: its link carries hand=left|right */
+function handLink(u){ if(!/\/Tonal-Field\/technique\//.test(u)) return u; var h=(data.student&&data.student.hand)==='left'?'left':'right';
+  var b=u.replace(/([?&])hand=[^&#]*&?/,'$1').replace(/[?&]$/,''); return b+(b.indexOf('?')<0?'?':'&')+'hand='+h; }
 function renderWho(){
   var st=data.student, I=S.INSTRUMENTS[st.inst]||S.INSTRUMENTS.guitar;
   $('who').textContent=st.name; document.title=st.name+' — practice';
@@ -302,7 +305,7 @@ function render(){
     var page=(kind==='drill')||(kind==='song'&&song&&song.lesson), act='';
     if(page) act='<a class="btn primary" href="drill.html?d='+encodeURIComponent(d.did)+'">'+(kind==='drill'?'Open the drill':'Open the lesson')+'</a>';
     else act='<div class="sw" data-did="'+S.esc(d.did)+'"><button type="button" class="btn primary">Start</button><span class="t"></span><span class="bar"><i style="width:0"></i></span><span class="msg"></span></div>';
-    if(kind==='task'&&d.params.link&&/^https?:\/\//.test(d.params.link)) act+='<a class="btn" href="'+S.esc(d.params.link)+'" target="_blank" rel="noopener">Open the link</a>';
+    if(kind==='task'&&d.params.link&&/^https?:\/\//.test(d.params.link)) act+='<a class="btn" href="'+S.esc(handLink(d.params.link))+'" target="_blank" rel="noopener">Open the link</a>';
     var meta=kind==='drill'?S.INSTRUMENTS[S.instOf(P).id].name+' · '+S.summary(P):(daily+' min a day'+(song&&S.itemTitle(d,data.songs).indexOf(song.title)<0?' · '+S.songTitle(song):'')+(kind==='song'&&!page?' · the stopwatch keeps time until it’s in Tonal Field':''));
     var el=document.createElement('details'); el.className='it'; el.setAttribute('data-did',d.did); if(OPENED[d.did])el.open=true;
     el.innerHTML='<summary><span class="num">'+(i+1)+'</span><span class="tt">'+S.esc(S.itemTitle(d,data.songs))+'<span class="sub">'+S.esc(part)+' · '+daily+' min<span class="live" hidden>● running</span></span></span>'

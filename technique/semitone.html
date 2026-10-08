@@ -980,6 +980,7 @@ segTheme.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b
 syncTheme();
 const segHand=document.getElementById('segHand'), fbEl=document.getElementById('fb');
 let lefty=false; try{ lefty=localStorage.getItem('semitone-hand')==='left'; }catch(err){}
+{ const q=new URLSearchParams(location.search).get('hand'); if(q==='left'||q==='right'){ lefty=q==='left'; try{ localStorage.setItem('semitone-hand',q); }catch(err){} } }   // a student's link carries their hand
 function syncHand(){ fbEl.classList.toggle('lefty',lefty); for(const b of segHand.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='left')===lefty); }
 segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; lefty=b.dataset.v==='left'; try{ localStorage.setItem('semitone-hand',lefty?'left':'right'); }catch(err){} syncHand(); });
 syncHand();

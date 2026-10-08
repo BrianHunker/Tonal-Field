@@ -32,12 +32,12 @@
 <script src="config.js?v=41"></script>
 <script>
 (function(){
-  var STUDENTS=['Brian Hunker','Victor Gadda','Stephen Roansky'];
+  var STUDENTS=['Brian Hunker','Victor Gadda','Stephen Roansky'], LEFT={'Stephen Roansky':1};
   var LINK='https://brianhunker.github.io/Tonal-Field/technique/semitone.html';
   var item={ title:'Semitone Drills', params:{kind:'task',label:'Technique',link:LINK,daily:10},
              notes:'Open the Semitone page. Drill: work the string, fingers and direction we set in the lesson, lower fingers staying down. Then switch to Test and play it through once.' };
   var who=document.getElementById('who'), pass=document.getElementById('pass'), go=document.getElementById('go'), msg=document.getElementById('msg');
-  var rows=STUDENTS.map(function(n){ var li=document.createElement('li'); li.innerHTML='<span></span><span class="st">not sent</span>'; li.firstChild.textContent=n; who.appendChild(li); return li.lastChild; });
+  var rows=STUDENTS.map(function(n){ var li=document.createElement('li'); li.innerHTML='<span></span><span class="st">not sent</span>'; li.firstChild.textContent=n+(LEFT[n]?' · left-handed':''); who.appendChild(li); return li.lastChild; });
   try{ pass.value=localStorage.getItem('studio-pass')||''; }catch(e){}
   function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function post(p){ return fetch(window.STUDIO_API,{method:'POST',body:JSON.stringify(p)}).then(function(r){ return r.json(); }); }
@@ -51,7 +51,7 @@
       var k=i++, st=rows[k];
       if(st.classList.contains('ok')){ next(); return; }
       st.textContent='sending…'; st.className='st';
-      post(Object.assign({action:'assign',pass:pass.value,student:STUDENTS[k],inst:'guitar',hand:'right',date:today,ex:''},item)).then(function(r){
+      post(Object.assign({action:'assign',pass:pass.value,student:STUDENTS[k],inst:'guitar',hand:LEFT[STUDENTS[k]]?'left':'right',date:today,ex:''},item)).then(function(r){
         if(r&&r.ok){ st.className='st ok'; st.innerHTML='assigned as item '+r.ex+' · <a href="student.html?s='+encodeURIComponent(r.sid)+'" target="_blank" rel="noopener">their page</a>'; }
         else{ failed++; st.className='st err'; st.textContent=(r&&r.error==='wrong passphrase')?'wrong passphrase':((r&&r.error)||'no answer'); }
       },function(){ failed++; st.className='st err'; st.textContent='could not reach the Sheet'; }).then(next);
