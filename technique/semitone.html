@@ -108,8 +108,8 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 /* SVG parts, all through the tokens */
 .ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
 .inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
-.pickBody{ fill:#f3e6bd; stroke:#6b5a10; stroke-width:1.2; vector-effect:non-scaling-stroke }   /* the pick: the one colour on the page */
-.pickArrow{ fill:#4a3d06 }
+.pickBody{ fill:var(--mid); stroke:rgba(0,0,0,.5); stroke-width:1.2; vector-effect:non-scaling-stroke }   /* grey with g(x) off; its fill is set each frame */
+.pickArrow{ fill:var(--bg) }
 .pickAxis{ stroke:var(--mid); stroke-width:1; stroke-dasharray:3 3; opacity:.5 }
 path.vibBlur{ fill:var(--ink); opacity:.3; stroke:none }
 path.vibStrobe{ fill:none; stroke:var(--ink); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round }
@@ -349,7 +349,12 @@ const PICK_L=38;                                                       // axis t
 // down-screen) — the axis stays put while alternating.
 const POSE={rest:{f:0.8,h:0}, downHold:{f:0.42,h:0}, upHold:{f:1.0,h:0}, downFree:{f:0.3,h:0}, upFree:{f:0.6,h:0}};   // downstrokes turn further than upstrokes
 const BEAT_DIP=4;                                                       // the axis dips this far on every beat, count-in included
-const PICK_CREAM=[243,230,189], PICK_YELLOW=[247,226,40];
+// Colour belongs to g(x): with it off everything is grey — the pick rests a soft grey and blooms to the ink into a strike;
+// with it on, the bloom (and the string's and finger's glow) is the field's colour at the tone's pitch.
+let bgCache=null, bgTheme=null;
+function bgColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!bgCache||th!==bgTheme){ bgTheme=th; bgCache=(getComputedStyle(document.body).backgroundColor.match(/\d+/g)||[15,15,15]).slice(0,3).map(Number); } return bgCache; }
+const pickRest=()=>mixRGB(bgColour(),inkColour(),0.62);
+const toneColour=pc=>FIELD.lit>0.001?mixRGB(inkColour(),valRGB(pc),FIELD.lit):inkColour();   // ink when off
 const pickG=el('g',{class:'pick'},fb);
 const pickBody=el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody'},pickG);
 const pickAxis=el('line',{x1:-26,y1:0,x2:26,y2:0,class:'pickAxis'},pickG);   // the fulcrum, faint
@@ -368,9 +373,9 @@ function around(s,t){
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
 const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math.exp(-7)); };   // fast off the string, slowing to a stop
 // the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
-function toneRGB(s,tt){ if(FIELD.lit<=0.001) return PICK_YELLOW; const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
+function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
   let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
-  return mixRGB(PICK_YELLOW,valRGB(pcOf(s.string,pitchOf(s,b<0?0:idx))),FIELD.lit); }
+  return toneColour(pcOf(s.string,pitchOf(s,b<0?0:idx))); }
 function placePick(st,sy,t){
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
@@ -405,15 +410,15 @@ function placePick(st,sy,t){
   const axisY=tipY-PICK_L*pose.f;
   pickG.setAttribute('transform','translate('+PICK_X+' '+axisY.toFixed(1)+')');
   pickBody.setAttribute('transform','scale(1 '+pose.f.toFixed(3)+') translate(0 12) scale(2)');
-  const full=(st&&!st.done&&toneAt!=null)?toneRGB(st.s,toneAt):PICK_YELLOW;
-  const col=PICK_CREAM.map((v,i)=>Math.round(v+(full[i]-v)*bloom));
+  const full=(st&&!st.done&&toneAt!=null)?toneRGB(st.s,toneAt):inkColour(), rest=pickRest();
+  const col=rest.map((v,i)=>Math.round(v+(full[i]-v)*bloom));
   const ay=(PICK_L*0.45*pose.f).toFixed(1);
   arrowDown.setAttribute('transform','translate(0 '+ay+')'); arrowUp.setAttribute('transform','translate(0 '+ay+')');
   arrowDown.setAttribute('opacity',aDown); arrowUp.setAttribute('opacity',aUp);
   pickBody.style.fill='rgb('+col.join(',')+')';
   return held?tipY:null;
 }
-placePick(null,FB.strY[0],0);   // at rest: the tip on the string
+// (placed at rest by the first frame)
 // click a string to move the drill there
 FB.strY.forEach((y,i)=>{ const h=el('rect',{x:FB.x0,y:y-12,width:FB.edge-FB.x0,height:24,class:'hit'},fb); h.addEventListener('click',()=>setString(i)); });
 
@@ -503,9 +508,30 @@ const re=TB.s1; vline(re,4); vline(re-6,1);                           // end rep
 [midY(1),midY(3)].forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},tab));
 // the pulse as a bouncing ball: it lands on every beat and is somewhere definite at every moment in between
 for(let b=0;b<8;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},tab);   // where it lands
+// the bloom (g(x) on): a soft glow centred on the playhead, in the sounding tone's colour; the TAB's numbers take their own
+// field colour as it passes over them and fade back to the ink behind it, and the ball carries the tone's colour
+const tabDefs=el('defs',{},tab), bloomGrad=el('radialGradient',{id:'tabBloomG'},tabDefs);
+const bloomStops=[[0,.55],[.45,.22],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},bloomGrad));
+const tabBloom=el('ellipse',{cx:xBeat(0),cy:(TB.floor-TB.ballH+TB.rowY[5])/2,rx:2.4*TB.cw,ry:(TB.rowY[5]-TB.floor+TB.ballH)/2+40,fill:'url(#tabBloomG)',opacity:0,'pointer-events':'none'},tab);   // moved to the top below: it lights what it passes over
+const BLOOM_W=3.2*TB.cw;                                               // how far either side of the playhead a number is coloured
+function paintTabField(st,live,p){
+  const L=FIELD.lit, ink=inkColour(); let hx=null, rgb=null, k=0;
+  if(st&&!st.done&&L>0.001){ const s=st.s;
+    if(live){ hx=xBeat(st.ph); rgb=valRGB(pcOf(s.string,p)); k=1; } else { hx=xBeat(0); rgb=valRGB(pcOf(s.string,pitchOf(s,0))); k=0.5; } }
+  if(hx===null){ tabBloom.setAttribute('opacity',0); tabNotes.forEach(o=>o.num.style.fill=''); ball.style.fill=''; return; }
+  if(tabBloom.nextSibling) tab.appendChild(tabBloom);                    // above everything, so the numbers' knock-outs do not mask it
+  tabBloom.style.mixBlendMode=bgColour()[0]<128?'screen':'multiply';     // light added on dark, ink-like tint on light
+  const c=rgbS(rgb); bloomStops.forEach(e=>e.setAttribute('stop-color',c));
+  tabBloom.setAttribute('cx',hx.toFixed(1)); tabBloom.setAttribute('opacity',(L*k*(bgColour()[0]<128?1:0.6)).toFixed(3));
+  const notes=pairOf();
+  tabNotes.forEach((o,i)=>{ const d=Math.min(1,Math.abs(+o.num.getAttribute('x')-hx)/BLOOM_W), w=L*(0.5+0.5*Math.cos(Math.PI*d));
+    o.num.style.fill=w>0.002?rgbS(mixRGB(ink,valRGB(pcOf(drill.string,notes[i%2].fret)),w)):''; });
+  ball.style.fill=rgbS(mixRGB(ink,rgb,L*(0.5+0.5*k)));
+}
 const ball=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink'},tab);
 const countLbl=el('text',{x:TB.x0-24,y:TB.floor-TB.ballR,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
-const noteG=el('g',{},tab); let tabNotes=[];
+let tabNotes=[];
+const noteG=el('g',{},tab);
 function arrowHead(x,y,dir){                                          // dir: -1 points up, +1 points down
   el('path',{d:'M'+(x-3.5)+' '+(y-dir*6)+' L'+x+' '+y+' L'+(x+3.5)+' '+(y-dir*6)+' Z',class:'ink'},noteG);
 }
@@ -898,7 +924,7 @@ function frame(){
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
   const glow=vibOn?Math.min(1,ampOf(s.str.snap)/0.3):0, inkRGB=inkColour();
-  const glowRGB=(live&&FIELD.lit>0.001)?mixRGB(PICK_YELLOW,valRGB(pcOf(strI,p)),FIELD.lit):PICK_YELLOW;   // yellow, or the field's colour at the sounding pitch
+  const glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;                // grey (the ink) with g(x) off; the field's colour at the sounding pitch with it on
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
   blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
   const holder=live?(s.mode==='slide'?s.notes[0].finger:(s.mode==='bend'?s.bendFinger:s.notes[st.idx%2].finger)):0;
@@ -929,6 +955,7 @@ function frame(){
   if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
   const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
+  paintTabField(st,live,p);
   if(T.test&&st) syncTestLine(st);
   paintChapters(t);
   requestAnimationFrame(frame);
