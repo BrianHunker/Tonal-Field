@@ -317,7 +317,7 @@ const PICK_L=38;                                                       // axis t
 // f: foreshortening (1 = flat to the screen); h: the hand's dip (px). At rest the pick is turned a little (f 0.8), so a downstroke
 // turns it further in (tip up, string drawn up-screen) and an upstroke turns it back through flat (tip down, string drawn
 // down-screen) — the axis stays put while alternating.
-const POSE={rest:{f:0.8,h:0}, downHold:{f:0.5,h:0}, upHold:{f:1.0,h:0}, downFree:{f:0.4,h:0}, upFree:{f:0.6,h:0}};
+const POSE={rest:{f:0.8,h:0}, downHold:{f:0.42,h:0}, upHold:{f:1.0,h:0}, downFree:{f:0.3,h:0}, upFree:{f:0.6,h:0}};   // downstrokes turn further than upstrokes
 const BEAT_DIP=4;                                                       // the axis dips this far on every beat, count-in included
 const PICK_CREAM=[243,230,189], PICK_YELLOW=[247,226,40];
 const pickG=el('g',{class:'pick'},fb);
@@ -335,7 +335,7 @@ function around(s,t){
   const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*16, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:n%2===1, struck:pickedAt(s,n%16)};
   return [at(n0), at(n0+1)];
 }
-const PICK_LIFT=16;                                                     // a stroke that does not sound passes with the axis lifted this far
+const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
 const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math.exp(-7)); };   // fast off the string, slowing to a stop
 function placePick(st,sy,t){
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0;
@@ -347,13 +347,14 @@ function placePick(st,sy,t){
       else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); }
     }else{
       const [prev,next]=around(s,t);
-      const holdOf=k=>k.up?POSE.upHold:POSE.downHold, freeOf=k=>k.up?POSE.upFree:POSE.downFree;
+      const tame=(k,p)=>k.struck?p:mixPose(POSE.rest,p,SILENT);
+      const holdOf=k=>tame(k,k.up?POSE.upHold:POSE.downHold), freeOf=k=>tame(k,k.up?POSE.upFree:POSE.downFree);
       const end=next?next.t-c:(prev?prev.t+0.6:t), r=prev?Math.min(0.12,0.4*(end-prev.t)):0, rs=end-r;
       if(next&&t>=end){ pose=mixPose(POSE.rest,holdOf(next),sm((t-end)/c)); if(next.struck) held=true; }   // into the string (or past it, lifted)
       else if(prev){
         if(t<rs) pose=mixPose(holdOf(prev),freeOf(prev),follow((t-prev.t)/(rs-prev.t)));                  // follows through, slowing to a stop
         else pose=mixPose(freeOf(prev),POSE.rest,sm((t-rs)/r));                                              // turns and comes back
-        if(prev.struck&&t<rs){ if(prev.up) aUp=1; else aDown=1; }                                          // the arrow: from the sound until the stop
+        if(t<rs){ if(prev.up) aUp=1; else aDown=1; }                                                       // the arrow: from the stroke until the stop, silent strokes too
       }
       const lp=prev&&!prev.struck?1:0, ln=next&&!next.struck?1:0;
       lift=PICK_LIFT*(prev?lp+(ln-lp)*sm((t-prev.t)/Math.max(0.01,end-prev.t)):ln);
