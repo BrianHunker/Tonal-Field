@@ -319,7 +319,7 @@ function placePick(st,sy,t){
   let ang=PICK_TILT;
   if(st&&!st.done){ const CATCH=catchT(), s=st.s, e8=T.beat/2, v=(t-s.loopStart+CATCH)/e8;
     const ub=((((t-s.loopStart)/T.beat)%1)+1)%1, h=4*ub*(1-ub);        // the ball's height through the beat, 0 on the beat
-    fy=Math.cos(2*Math.PI*ub);                                         // the pick turns over its own x-axis: face up into the beat (1), face down on the upstroke (−1)
+    fy=-Math.cos(2*Math.PI*ub);                                        // the pick turns over its own x-axis: tip down on the beat (−1), tip up on the upstroke (1)
     ang=PICK_TILT*Math.cos(2*Math.PI*ub);                              // +10° (clockwise) into the beat, −10° on the upstroke
     const k=Math.round(v), inFig=k>=0&&k<s.loops*16, struck=inFig&&pickedAt(s,((k%16)+16)%16);
     const since=t-(s.loopStart+k*e8-CATCH);                            // time since the tip met the string
