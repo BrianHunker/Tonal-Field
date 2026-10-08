@@ -93,6 +93,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 /* SVG parts, all through the tokens */
 .ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
 .inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
+.pickBody{ fill:#f2c230; stroke:#8a6a00; stroke-width:1.2 }                 /* a yellow pick: the one colour on the page */
 path.vibBlur{ fill:var(--ink); opacity:.3; stroke:none }
 path.vibStrobe{ fill:none; stroke:var(--ink); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round }
 path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the strings the drill is not on */
@@ -198,7 +199,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
     <div class="ringBox"><svg id="ring" viewBox="0 0 240 240" aria-label="Chromatic ring: the twelve pitch names around a circle, A at the top, with a dashed hand on the sounding pitch"></svg></div>
   </div>
 
-  <div class="panel"><svg id="fb" viewBox="0 0 900 304" aria-label="Fretboard, position 5, with the fret-hand's four fingers floating above the high e and the thumb behind the neck"></svg></div>
+  <div class="panel"><svg id="fb" viewBox="0 0 990 304" aria-label="Fretboard, position 5, with the fret-hand's four fingers floating above the high e and the thumb behind the neck"></svg></div>
   <div class="panel"><svg id="tab" viewBox="0 0 900 226" aria-label="Two bars of TAB in 4/4, with rhythm stems below the staff"></svg></div>
 
 </div>
@@ -230,18 +231,19 @@ const validStart=s=>{const b=drill.dir==='up'?s+1:s-1;return b>=1&&b<=4;};
 
 /* ---------- fretboard ---------- */
 const FB={x0:40,nut:96,cw:66,n:12,top:80,bot:240,hover:36,strY:[98,122,146,170,194,218],gauge:[1,1.2,1.5,1.9,2.4,3]};
-FB.right=FB.nut+FB.n*FB.cw;
+FB.right=FB.nut+FB.n*FB.cw;                                             // the 12th fret
+FB.edge=990; const BRIDGE_X=1500, PICK_X=940;                          // the board runs on past the edge; the bridge is off-screen; the pick works in the open stretch
 const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;
 const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;
 const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
 const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };   // mid-slide, between two fretted cells
 const cellM=n=>(cellL(n)+cellR(n))/2;
 const fb=document.getElementById('fb');
-el('rect',{x:FB.x0,y:FB.top,width:FB.right-FB.x0,height:FB.bot-FB.top,class:'board'},fb);
+el('rect',{x:FB.x0,y:FB.top,width:FB.edge-FB.x0,height:FB.bot-FB.top,class:'board'},fb);
 for(let k=1;k<=FB.n;k++) el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,class:'midS','stroke-width':1.5},fb);
 el('line',{x1:FB.nut,y1:FB.top-8,x2:FB.nut,y2:FB.bot+8,class:'inkS','stroke-width':4},fb);   // nut line, past both edges
 for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'},fb); t.textContent=k; }
-const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+FB.right+' '+y;
+const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+BRIDGE_X+' '+y;
 const strLines=FB.strY.map((y,i)=>el('path',{d:strPath(y,0,0),fill:'none',class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round','stroke-linejoin':'round'},fb));
 let bentStr=-1;
 function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
@@ -251,13 +253,13 @@ function bendString(i,x,dy){                                          // the str
 [3,5,7,9].forEach(k=>el('circle',{cx:cellM(k),cy:FB.bot+14,r:4,class:'mid'},fb));            // neck dots below the low E
 el('circle',{cx:cellM(12)-7,cy:FB.bot+14,r:4,class:'mid'},fb);
 el('circle',{cx:cellM(12)+7,cy:FB.bot+14,r:4,class:'mid'},fb);
-const ringLine=el('line',{x1:0,y1:FB.strY[0],x2:FB.right,y2:FB.strY[0],class:'inkS','stroke-width':4,'stroke-linecap':'round',visibility:'hidden'},fb); // written note-on: fret to bridge (shown only until the string model reports its shape)
+const ringLine=el('line',{x1:0,y1:FB.strY[0],x2:BRIDGE_X,y2:FB.strY[0],class:'inkS','stroke-width':4,'stroke-linecap':'round',visibility:'hidden'},fb); // written note-on: fret to bridge (shown only until the string model reports its shape)
 /* the vibrating string, from the string model's own loop: with one round trip of P samples and the string P/2 long,
    y(x) = h[now−d−(P/2−x)] − h[now−d−(P/2+x)], pinned at both ends. BLUR: the band between its extremes over a whole cycle —
    what the eye sees. STROBE: the actual shape, its phase slowed to STROBE_HZ as under a strobe a hair off the note,
    its size in real time — what the eye misses and the ear hears. */
 const blurEl=el('path',{d:'',class:'vibBlur',visibility:'hidden'},fb), strobeEl=el('path',{d:'',class:'vibStrobe',visibility:'hidden'},fb);
-const VIB_K=26, VIB_MAX=11, VIB_N=48, STROBE_HZ=1.5;
+const VIB_K=26, VIB_MAX=11, VIB_N=160, STROBE_HZ=1.5;
 let showStrobe=true; try{ showStrobe=localStorage.getItem('semitone-strobe')!=='hide'; }catch(err){}
 function drawVib(snap,fx,fy,bx,by,t){
   if(!snap||!snap.hist) return false;
@@ -300,8 +302,23 @@ el('rect',{x:-17,y:-11,width:34,height:22,rx:11,class:'fingerC'},thumbG);
 const thumbT=el('text',{x:0,y:0,class:'fingerN'},thumbG); thumbT.textContent='T';
 function placeThumb(){ const p=thumbPos(); thumbG.setAttribute('transform','translate('+p.x+' '+p.y+')'); }
 placeThumb();
+/* the pick: a continuous alternate-picking swing across the string — down (toward the treble side) on each beat, up on each 'and',
+   crossing the string exactly on the eighth. It strikes only where a note is picked; elsewhere it passes faded, the hand
+   keeping time without sounding (bar 2's held notes, and everything after the first pick of a bar in slide and bend). */
+const PICK_A=13;
+const pickG=el('g',{class:'pick'},fb);
+el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody',transform:'rotate(-70)'},pickG);
+function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.mode==='fingers'||BAR_START(i); }
+function placePick(st,sy,t){
+  let y=sy+PICK_A, op=1;
+  if(st&&!st.done){ const s=st.s, u=(t-s.loopStart)/(T.beat/2); y=sy-PICK_A*Math.sin(Math.PI*u);
+    const k=Math.round(u), inFig=k>=0&&k<s.loops*16, struck=inFig&&pickedAt(s,((k%16)+16)%16);
+    if(!struck&&Math.abs(u-k)<0.3) op=0.3+0.7*Math.abs(u-k)/0.3; }
+  pickG.setAttribute('transform','translate('+PICK_X+' '+y.toFixed(1)+')'); pickG.setAttribute('opacity',op.toFixed(2));
+}
+placePick(null,FB.strY[0],0);
 // click a string to move the drill there
-FB.strY.forEach((y,i)=>{ const h=el('rect',{x:FB.x0,y:y-12,width:FB.right-FB.x0,height:24,class:'hit'},fb); h.addEventListener('click',()=>setString(i)); });
+FB.strY.forEach((y,i)=>{ const h=el('rect',{x:FB.x0,y:y-12,width:FB.edge-FB.x0,height:24,class:'hit'},fb); h.addEventListener('click',()=>setString(i)); });
 
 /* ---------- the ring: a chromatic clock face, A at 12, ascending clockwise, π/6 per semitone ---------- */
 const RG={c:120,R:84,RL:107,RW:58};
@@ -733,8 +750,9 @@ function frame(){
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
   const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
-  const vibOn=live&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,FB.right,sy,t);
+  const vibOn=live&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
+  placePick(st,sy+0,t);
   if(lastStr>=0&&lastStr!==strI) strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0));
   strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,tipX(s?s.base:POSITION),bendDy));
   lastStr=strI;
