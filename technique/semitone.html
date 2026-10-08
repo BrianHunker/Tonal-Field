@@ -510,22 +510,30 @@ const re=TB.s1; vline(re,4); vline(re-6,1);                           // end rep
 for(let b=0;b<8;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},tab);   // where it lands
 // the bloom (g(x) on): a soft glow centred on the playhead, in the sounding tone's colour; the TAB's numbers take their own
 // field colour as it passes over them and fade back to the ink behind it, and the ball carries the tone's colour
-const tabDefs=el('defs',{},tab), bloomGrad=el('radialGradient',{id:'tabBloomG'},tabDefs);
-const bloomStops=[[0,.55],[.45,.22],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},bloomGrad));
-const tabBloom=el('ellipse',{cx:xBeat(0),cy:(TB.floor-TB.ballH+TB.rowY[5])/2,rx:2.4*TB.cw,ry:(TB.rowY[5]-TB.floor+TB.ballH)/2+40,fill:'url(#tabBloomG)',opacity:0,'pointer-events':'none'},tab);   // moved to the top below: it lights what it passes over
-const BLOOM_W=3.2*TB.cw;                                               // how far either side of the playhead a number is coloured
+// the blooms (g(x) on): each TAB number has its own, centred on it, in its own field colour — lit while its tone sounds, as
+// loud as the tone is, and gone a moment after the next tone takes over; the ball has its own too, riding with it
+const tabDefs=el('defs',{},tab), bloomBlur=el('filter',{id:'tabBloomF',x:'-100%',y:'-100%',width:'300%',height:'300%'},tabDefs);
+el('feGaussianBlur',{stdDeviation:5},bloomBlur);
+const bloomG=el('g',{'pointer-events':'none'},tab);                    // kept on top (re-appended), so the numbers' knock-outs do not mask it
+const ballBloom=el('circle',{r:TB.ballR+5,filter:'url(#tabBloomF)',opacity:0},bloomG);
+let noteBlooms=[], bloomFor=null, bloomClock=0; const noteLv=[];
+const NOTE_REL=0.06;                                                   // a number's bloom lets go this fast (s) once its tone is replaced
 function paintTabField(st,live,p,amp){
-  const L=FIELD.lit, ink=inkColour(); let hx=null, rgb=null, k=0;
-  if(live&&L>0.001&&amp>0.002){ hx=xBeat(st.ph); rgb=valRGB(pcOf(st.s.string,p)); k=amp; }   // only while a tone sounds, and as loud as it is
-  if(hx===null){ tabBloom.setAttribute('opacity',0); tabNotes.forEach(o=>o.num.style.fill=''); ball.style.fill=''; return; }
-  if(tabBloom.nextSibling) tab.appendChild(tabBloom);                    // above everything, so the numbers' knock-outs do not mask it
-  tabBloom.style.mixBlendMode=bgColour()[0]<128?'screen':'multiply';     // light added on dark, ink-like tint on light
-  const c=rgbS(rgb); bloomStops.forEach(e=>e.setAttribute('stop-color',c));
-  tabBloom.setAttribute('cx',hx.toFixed(1)); tabBloom.setAttribute('opacity',(L*k*(bgColour()[0]<128?1:0.6)).toFixed(3));
-  const notes=pairOf();
-  tabNotes.forEach((o,i)=>{ const d=Math.min(1,Math.abs(+o.num.getAttribute('x')-hx)/BLOOM_W), w=L*k*(0.5+0.5*Math.cos(Math.PI*d));
-    o.num.style.fill=w>0.002?rgbS(mixRGB(ink,valRGB(pcOf(drill.string,notes[i%2].fret)),w)):''; });
-  ball.style.fill=rgbS(mixRGB(ink,rgb,L*k));
+  const L=FIELD.lit, ink=inkColour(), dark=bgColour()[0]<128, now=performance.now()/1000, dt=Math.min(0.1,now-(bloomClock||now)); bloomClock=now;
+  if(bloomFor!==tabNotes){ bloomFor=tabNotes; noteBlooms.forEach(c=>c.remove()); noteLv.length=0;
+    noteBlooms=tabNotes.map(o=>{ noteLv.push(0); return el('circle',{cx:o.num.getAttribute('x'),cy:o.num.getAttribute('y'),r:11,filter:'url(#tabBloomF)',opacity:0},bloomG); }); }
+  if(bloomG.nextSibling) tab.appendChild(bloomG);
+  bloomG.style.mixBlendMode=dark?'screen':'multiply';                   // light added on dark, a tint on light
+  const gain=dark?0.9:0.55, notes=pairOf(), cur=(live&&L>0.001)?st.idx:-1;
+  tabNotes.forEach((o,i)=>{
+    noteLv[i]=i===cur?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
+    const w=L*noteLv[i], c=valRGB(pcOf(drill.string,notes[i%2].fret));
+    noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
+    o.num.style.fill=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; });
+  const bw=(live&&L>0.001)?L*amp:0;
+  if(bw>0.003){ const c=valRGB(pcOf(st.s.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
+    ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
+  else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }
 const ball=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink'},tab);
 const countLbl=el('text',{x:TB.x0-24,y:TB.floor-TB.ballR,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
