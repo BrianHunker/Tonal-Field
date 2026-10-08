@@ -305,22 +305,24 @@ placeThumb();
 /* the pick: a continuous alternate-picking swing across the string — down (toward the treble side) on each beat, up on each 'and',
    crossing the string exactly on the eighth. It strikes only where a note is picked; elsewhere it passes faded, the hand
    keeping time without sounding (bar 2's held notes, and everything after the first pick of a bar in slide and bend). */
-const PICK_A=24;
 const pickG=el('g',{class:'pick'},fb);
 el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody',transform:'translate(2.27 -25.9) rotate(5) scale(2)'},pickG);   // tip at the group's origin
 function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.mode==='fingers'||BAR_START(i); }
-// One down-and-up cycle per beat, like the ball: the tip meets the string CATCH before each eighth, moving down into the beat
-// and up into the 'and'. On a sounding stroke it holds the string (stopped, bent around the tip) and lets go on the note;
-// on a silent stroke it passes faded. Returns where the string is held, or null.
+// The pick hovers on the string it is playing, and the stroke shows as depth: in step with the ball it narrows toward edge-on
+// as the ball rises (lifted, 'up') and opens to full face as the ball comes down (into the string, 'down'). On a sounding stroke
+// the tip presses the string CATCH before the note — down on the beat, up on the 'and' — holds it, and lets go on the note.
+// On a silent stroke it passes faded. Returns where the string is held, or null.
+const PICK_PRESS=5, PICK_THIN=0.22;
 function placePick(st,sy,t){
-  let y=sy-PICK_A, op=1, held=null;
+  let y=sy, op=1, held=null, w=1;
   if(st&&!st.done){ const s=st.s, e8=T.beat/2, v=(t-s.loopStart+CATCH)/e8;
-    y=sy+PICK_A*Math.sin(Math.PI*v);
+    const ub=((((t-s.loopStart)/T.beat)%1)+1)%1, h=4*ub*(1-ub);        // the ball's height through the beat, 0 on the beat
+    w=1-(1-PICK_THIN)*h;
     const k=Math.round(v), inFig=k>=0&&k<s.loops*16, struck=inFig&&pickedAt(s,((k%16)+16)%16);
     const since=t-(s.loopStart+k*e8-CATCH);                            // time since the tip met the string
-    if(struck&&since>=0&&since<CATCH) held=y;
+    if(struck&&since>=0&&since<CATCH){ y=sy+(k%2===0?1:-1)*PICK_PRESS*since/CATCH; held=y; }
     else if(!struck&&Math.abs(v-k)<0.3) op=0.3+0.7*Math.abs(v-k)/0.3; }
-  pickG.setAttribute('transform','translate('+PICK_X+' '+y.toFixed(1)+')'); pickG.setAttribute('opacity',op.toFixed(2));
+  pickG.setAttribute('transform','translate('+PICK_X+' '+y.toFixed(1)+') scale('+w.toFixed(3)+' 1)'); pickG.setAttribute('opacity',op.toFixed(2));
   return held;
 }
 placePick(null,FB.strY[0],0);   // at rest: just above the string, ready for the first downstroke
