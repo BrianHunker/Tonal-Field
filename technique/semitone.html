@@ -125,10 +125,10 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
   <div class="mixer" id="mixer" hidden>
     <h2>Sound</h2>
     <div class="mixRow"><span class="name">Global</span><input type="range" id="volMaster" min="0" max="100" value="80"><b id="volMasterV">80</b><label><input type="checkbox" id="muteMaster"> Mute</label></div>
-    <div class="mixRow"><span class="name">Fretboard</span><input type="range" id="volString" min="0" max="100" value="50"><b id="volStringV">−20 dB</b><label><input type="checkbox" id="muteString"> Mute</label></div>
+    <div class="mixRow"><span class="name">Fretboard</span><input type="range" id="volString" min="0" max="100" value="80"><b id="volStringV">−8 dB</b><label><input type="checkbox" id="muteString"> Mute</label></div>
     <div class="mixRow sub"><span class="name">Instrument</span>
       <div class="seg" id="segInst" role="group" aria-label="Instrument">
-        <button type="button" data-v="archtop">Archtop</button><button type="button" data-v="acoustic">Acoustic</button>
+        <button type="button" data-v="acoustic">Acoustic</button><button type="button" data-v="archtop">Archtop</button>
       </div>
     </div>
     <div class="mixRow"><span class="name">Click</span><input type="range" id="volClick" min="0" max="100" value="80"><b id="volClickV">80</b><label><input type="checkbox" id="muteClick"> Mute</label></div>
@@ -285,7 +285,7 @@ const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-12,x2:TB.x0,y2:TB.rowY[5]+12,class:
 STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
 
 /* ---------- sound: a plucked string (Karplus–Strong), fractional delay so each fret is in tune ---------- */
-const mix={master:{vol:80,mute:false},string:{vol:50,mute:false},click:{vol:80,mute:false,sound:'click'},inst:'archtop'};
+const mix={master:{vol:80,mute:false},string:{vol:80,mute:false},click:{vol:80,mute:false,sound:'click'},inst:'acoustic'};
 const stringGain=v=>v<=0?0:Math.pow(10,-40*(1-v/100)/20);         // log taper: 40 dB of travel, silent at the bottom
 const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-0.5?'−'+Math.abs(db).toFixed(0):'0')+' dB'; };
 
@@ -603,7 +603,7 @@ window.addEventListener('keydown',e=>{
 // the gear: a mixer for the three sounds. Levels and the click sound are remembered on this device; mutes are not.
 const gear=document.getElementById('gear'), mixer=document.getElementById('mixer');
 gear.addEventListener('click',()=>{ const open=mixer.hidden; mixer.hidden=!open; gear.setAttribute('aria-expanded',open); });
-const MIX_KEY='semitone-drills-mix-4';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
+const MIX_KEY='semitone-drills-mix-5';                               // the key carries the defaults' version: 80 / −20 dB / 80, fretboard on a log taper
 try{ const saved=JSON.parse(localStorage.getItem(MIX_KEY)||'null'); if(saved){ for(const k of ['master','string','click']) if(typeof saved[k]==='number') mix[k].vol=Math.max(0,Math.min(100,saved[k])); if(['click','hat','kick'].includes(saved.sound)) mix.click.sound=saved.sound; if(['archtop','acoustic'].includes(saved.inst)) mix.inst=saved.inst; } }catch(err){}
 function saveMix(){ try{ localStorage.setItem(MIX_KEY,JSON.stringify({master:mix.master.vol,string:mix.string.vol,click:mix.click.vol,sound:mix.click.sound,inst:mix.inst})); }catch(err){} }
 [['master','volMaster','muteMaster',v=>v],['string','volString','muteString',stringDb],['click','volClick','muteClick',v=>v]].forEach(([k,volId,muteId,show])=>{
