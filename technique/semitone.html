@@ -318,7 +318,7 @@ const PICK_L=38;                                                       // axis t
 // turns it further in (tip up, string drawn up-screen) and an upstroke turns it back through flat (tip down, string drawn
 // down-screen) — the axis stays put while alternating.
 const POSE={rest:{f:0.8,h:0}, downHold:{f:0.6,h:0}, upHold:{f:1.0,h:0}, downFree:{f:0.48,h:0}, upFree:{f:0.6,h:0}};
-const BEAT_DIP=4;                                                       // the axis dips this far on a beat that passes unplayed
+const BEAT_DIP=4;                                                       // the axis dips this far on every beat, count-in included
 const PICK_CREAM=[243,230,189], PICK_YELLOW=[247,226,40];
 const pickG=el('g',{class:'pick'},fb);
 const pickBody=el('path',{d:'M0 13 C-3 10 -11 0 -11 -6 C-11 -12 -5 -14 0 -14 C5 -14 11 -12 11 -6 C11 0 3 10 0 13 Z',class:'pickBody'},pickG);
@@ -343,25 +343,24 @@ function placePick(st,sy,t){
     const s=st.s, c=catchT();
     if(t<s.loopStart-c){                                                  // count-in: draw the string like a bow on each beat, then relax
       const b=(t-s.loopStart)/T.beat, tb=s.loopStart+Math.ceil(b)*T.beat, tp=s.loopStart+Math.floor(b)*T.beat, relax=0.14;
-      if(t>=tb-c&&tb<s.loopStart){ const x=sm((t-(tb-c))/c); pose=mixPose(POSE.rest,POSE.downHold,x); held=true; bloom=0.6*x; aDown=0.6*x; }
-      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); aDown=0.6*(1-x); }
+      if(t>=tb-c&&tb<s.loopStart){ const x=sm((t-(tb-c))/c); pose=mixPose(POSE.rest,POSE.downHold,x); held=true; bloom=0.6*x; }
+      else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(POSE.downHold,POSE.rest,x); held=x<1; bloom=0.6*(1-x); }
     }else{
       const [prev,next]=around(s,t);
       const free=prev?(prev.up?POSE.upFree:POSE.downFree):POSE.rest, hold=next?(next.up?POSE.upHold:POSE.downHold):POSE.rest;
+      const end=next?next.t-c:(prev?prev.t+1.2:0), gap=prev?end-prev.t:0, a=Math.min(0.04,0.4*gap), r=Math.min(0.12,Math.max(0,gap-a)), rs=end-r;
       if(next&&t>=next.t-c){ const x=sm((t-(next.t-c))/c); pose=mixPose(POSE.rest,hold,x); held=true; }      // the catch
-      else if(prev){ const gap=(next?next.t-c:prev.t+1.2)-prev.t, a=Math.min(0.04,0.4*gap), r=Math.min(0.12,Math.max(0,gap-a));
-        const ph=prev.up?POSE.upHold:POSE.downHold;
+      else if(prev){ const ph=prev.up?POSE.upHold:POSE.downHold;
         if(t<prev.t+a) pose=mixPose(ph,free,sm((t-prev.t)/a));                                             // springs clear
-        else { const rs=(next?next.t-c:prev.t+1.2)-r; pose=t<rs?free:mixPose(free,POSE.rest,sm((t-rs)/r)); } // waits, then returns to rest
+        else pose=t<rs?free:mixPose(free,POSE.rest,sm((t-rs)/r));                                          // waits, then returns to rest
       }
-      const bl=next?sm(1-(next.t-t)/(c+0.16)):0, dr=prev?1-sm((t-prev.t)/0.025):0; bloom=Math.max(bl,dr);
-      // arrows: the coming stroke's direction fades in with the bloom; the last stroke's holds until the pick has sprung clear
-      const gapA=prev?(next?next.t-c:prev.t+1.2)-prev.t:1, aRec=Math.min(0.04,0.4*gapA), fade=prev?1-sm((t-prev.t)/aRec):0;
-      if(fade>bl){ if(prev.up) aUp=fade; else aDown=fade; } else if(next){ if(next.up) aUp=bl; else aDown=bl; }
-      // a beat that passes unplayed: the hand keeps time with a slight dip of the axis
-      const bIdx=Math.round((t-s.loopStart)/T.beat), tb=s.loopStart+bIdx*T.beat, nb=bIdx*2;
-      if(bIdx>=0&&nb<s.loops*16&&!pickedAt(s,((nb%16)+16)%16)){ const x=Math.abs(t-tb)/(0.3*T.beat); if(x<1) pose={f:pose.f,h:pose.h+BEAT_DIP*(0.5+0.5*Math.cos(Math.PI*x))}; }
+      bloom=Math.max(next?sm(1-(next.t-t)/(c+0.16)):0, prev?1-sm((t-prev.t)/0.025):0);
+      // the arrow arrives full with the sound of its stroke and is gone by the time the pick turns to come back
+      if(prev){ const span=Math.max(0.05,Math.min(0.3,rs-prev.t)), op=1-sm((t-prev.t)/span); if(prev.up) aUp=op; else aDown=op; }
     }
+    // every beat, count-in included: the hand keeps time with a slight dip of the axis
+    const bIdx=Math.round((t-s.loopStart)/T.beat), tb=s.loopStart+bIdx*T.beat, x=Math.abs(t-tb)/(0.3*T.beat);
+    if(tb>=s.countStart&&bIdx<s.loops*LOOP&&x<1) pose={f:pose.f,h:pose.h+BEAT_DIP*(0.5+0.5*Math.cos(Math.PI*x))};
   }
   const tipY=sy+pose.h+PICK_L*(pose.f-POSE.rest.f);                    // rest: the tip exactly on the string
   const axisY=tipY-PICK_L*pose.f;
