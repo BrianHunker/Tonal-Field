@@ -22,12 +22,12 @@
   color-scheme:light;
   --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
   --serif:"IBM Plex Serif",Georgia,serif;
-  --gxg:#a8780c; --eqx:#77746c; --eqenv:#5d594f; --eqcar:#1d8a6b; --eqs5:#c4572a; --eqs7:#1f7fae;
+  --faCol:#b89400; --gxg:#a8780c; --eqx:#77746c; --eqenv:#5d594f; --eqcar:#1d8a6b; --eqs5:#c4572a; --eqs7:#1f7fae;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
+  :root:not([data-theme="light"]){ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --faCol:#FFD700; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
 }
-:root[data-theme="dark"]{ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
+:root[data-theme="dark"]{ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --faCol:#FFD700; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
 
 *{ box-sizing:border-box }
 [hidden]{ display:none !important }
@@ -54,6 +54,17 @@ h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-heigh
 .insFacts{ margin:0; font-weight:600 }
 .insHow{ margin:0; max-width:64ch }
 .insHow span{ color:var(--mid) }
+.listen{ display:grid; gap:6px; margin-top:4px; animation:lsIn .9s ease }
+.listen[hidden]{ display:none }
+@keyframes lsIn{ from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
+.lsLine{ margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px }
+.hearSeg{ position:relative; display:inline-flex; gap:2px }
+.hearKnob{ position:absolute; top:0; bottom:0; left:0; width:0; border-radius:9px; background:var(--faint); transition:transform .35s ease, width .35s ease }
+.hearSeg button{ position:relative; z-index:1; font:inherit; font-weight:600; padding:4px 12px; border:0; border-radius:9px; background:none; color:var(--mid); cursor:pointer }
+.hearSeg button[aria-checked="true"]{ color:var(--ink) }
+.hearSeg b{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:1.12em }
+.sTi{ color:#FF00FF } .sDo{ color:#22BB22 } .sMi{ color:#3a66ff } .sFa{ color:var(--faCol) }
+@media (prefers-reduced-motion: reduce){ .listen{ animation:none } .hearKnob{ transition:none } }
 .insTest{ margin:0; justify-self:start; font-size:13px; font-weight:700; padding:4px 10px; border:1.5px solid var(--ink); border-radius:999px }
 @media (max-width:640px){ .stage{ grid-template-columns:1fr } .ringBox svg{ max-width:220px } }
 .bar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding-block:12px; border-top:1px solid var(--faint); border-bottom:1px solid var(--faint) }
@@ -227,6 +238,12 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
       <h2>Instructions</h2>
       <p class="insFacts" id="insFacts"></p>
       <p class="insHow" id="insHow"></p>
+      <div class="listen" id="listen" hidden>
+        <h2>Listen</h2>
+        <p class="lsLine">The two most common hearings of a semitone:
+          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the semitone as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="tido" aria-checked="true"><b class="sTi">Ti</b> ↔ <b class="sDo">Do</b></button><button type="button" role="radio" data-v="mifa" aria-checked="false"><b class="sMi">Mi</b> ↔ <b class="sFa">Fa</b></button></span>
+        </p>
+      </div>
     </section>
     <div class="ringBox"><svg id="ring" viewBox="0 0 240 240" aria-label="Chromatic ring: the twelve pitch names around a circle, A at the top, with a dashed hand on the sounding pitch"></svg></div>
   </div>
@@ -440,14 +457,15 @@ for(let pc=0;pc<12;pc++){
 const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700'],['~Do','#005500'],['Sol','#EE0000'],['~Re','#AA5500'],['La','#732699'],['~Mi','#001188'],['Ti','#FF00FF'],['Do','#22BB22'],['~Sol','#880000']]; // semitones up from Re
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
-const FIELD={on:false,lit:0,re:0,target:0};                          // re: where Re sits, in semitones from A (continuous while it turns)
+const FIELD={on:false,lit:0,re:0,target:0,hearing:'tido'};       // hearing: the semitone read as Ti:Do (default) or Mi:Fa                          // re: where Re sits, in semitones from A (continuous while it turns)
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const valRGB=pc=>relRGB(pc-FIELD.re);                                 // the field's colour at a pitch (continuous: a glide passes through)
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const rgbS=c=>'rgb('+c.map(v=>Math.round(v)).join(',')+')';
-function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+3; }   // Ti = Re − 3
+const HEAR={tido:{lo:9,hi:10,off:3}, mifa:{lo:2,hi:3,off:-2}};        // the pair's places above Re; Re = lower tone + off (Ti = Re − 3, Mi = Re + 2)
+function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+HEAR[FIELD.hearing].off; }
 const VAL={R0:48,K:30,N:180};
-const valG=el('g',{opacity:0},ringSvg), valFills=[]; let valBg='';
+const valG=el('g',{opacity:0},ringSvg), valFills=[], valDots=[]; let valBg='';
 function tintFills(){ const bg=(getComputedStyle(document.body).backgroundColor.match(/\d+/g)||[15,15,15]).slice(0,3).map(Number), key=bg.join(); if(key===valBg) return; valBg=key; for(const [e,c] of valFills) e.setAttribute('fill',rgbS(mixRGB(bg,c,0.32))); }   // the petals' wash: 32% of the colour over the page
 { const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*gOf(k*Math.PI/6);
   el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':1,'stroke-dasharray':'2 3'},valG);    // the hinge: g = 0
@@ -457,13 +475,15 @@ function tintFills(){ const bg=(getComputedStyle(document.body).backgroundColor.
     valFills.push([el('path',{d:'M'+a.toFixed(2)+' '+b.toFixed(2)+'L'+d.toFixed(2)+' '+e.toFixed(2)+'L'+f.toFixed(2)+' '+g.toFixed(2)+'L'+h.toFixed(2)+' '+j.toFixed(2)+'Z'},fillG),rgb]);
     const k2=12*(i+1)/VAL.N, [f2,g2]=at(k2,rOf(k2));
     el('line',{x1:h.toFixed(2),y1:j.toFixed(2),x2:f2.toFixed(2),y2:g2.toFixed(2),stroke:c,'stroke-width':2,'stroke-linecap':'round'},lineG); }
-  for(let k=0;k<12;k++){ const [x,y]=at(k,rOf(k)); el('circle',{cx:x,cy:y,r:k===9||k===10?3.6:2.4,fill:rgbS(SOLF_RGB[k]),class:'valDot'},valG); }
+  for(let k=0;k<12;k++){ const [x,y]=at(k,rOf(k)); valDots.push(el('circle',{cx:x,cy:y,r:2.4,fill:rgbS(SOLF_RGB[k]),class:'valDot'},valG)); }
 }
-const valLbls=['Ti','Do'].map(n=>{ const t=el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg); t.textContent=n; t.style.fill=rgbS(SOLF_RGB[n==='Ti'?9:10]); return t; });
+const valLbls=[0,1].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
 function placeField(){
   tintFills(); wedge.setAttribute('opacity',(1-0.6*FIELD.lit).toFixed(3));
   valG.setAttribute('transform','rotate('+(FIELD.re*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',FIELD.lit.toFixed(3));
-  [9,10].forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*gOf(k*Math.PI/6)-16, a=pc*Math.PI/6; const t=valLbls[i];
+  const H=HEAR[FIELD.hearing];
+  valDots.forEach((d,k)=>d.setAttribute('r',k===H.lo||k===H.hi?3.6:2.4));
+  [H.lo,H.hi].forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*gOf(k*Math.PI/6)-16, a=pc*Math.PI/6; const t=valLbls[i]; if(t.textContent!==SOLF[k][0]){ t.textContent=SOLF[k][0]; t.style.fill=rgbS(SOLF_RGB[k]); }
     t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',FIELD.lit.toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
@@ -1099,7 +1119,15 @@ syncHand();
 // g(x): off by default (black and white); on, the equation fades up to the button's left and the field comes on. Remembered on this device.
 const gxBtn=document.getElementById('gx'), eqn=document.getElementById('eqn');
 try{ FIELD.on=localStorage.getItem('semitone-gx')==='on'; }catch(err){}
-function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); }
+const listenEl=document.getElementById('listen'), hearSeg=document.getElementById('hearSeg'), hearKnob=document.getElementById('hearKnob');
+try{ if(localStorage.getItem('semitone-hearing')==='mifa') FIELD.hearing='mifa'; }catch(err){}
+function syncHearing(){
+  let sel=null; for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===FIELD.hearing; b.setAttribute('aria-checked',on); if(on) sel=b; }
+  if(sel&&sel.offsetWidth){ hearKnob.style.width=sel.offsetWidth+'px'; hearKnob.style.transform='translateX('+sel.offsetLeft+'px)'; }   // the grey box slides to the choice
+}
+hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; FIELD.hearing=b.dataset.v; try{ localStorage.setItem('semitone-hearing',FIELD.hearing); }catch(err){} syncHearing(); });
+window.addEventListener('resize',syncHearing);
+function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; if(FIELD.on){ hearKnob.style.transition='none'; syncHearing(); hearKnob.offsetWidth; hearKnob.style.transition=''; } }
 gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on; try{ localStorage.setItem('semitone-gx',FIELD.on?'on':'off'); }catch(err){} syncGx(); });
 syncGx();
 const segStrobe=document.getElementById('segStrobe');
