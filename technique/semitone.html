@@ -122,9 +122,9 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
         <button type="button" data-v="up">Up</button><button type="button" data-v="down">Down</button>
       </div>
     </div>
-    <div class="ctl" id="plantCtl">Lower finger
-      <div class="seg" id="segPlant" role="group" aria-label="Lower finger">
-        <button type="button" data-v="1">Stays down</button><button type="button" data-v="0">Lifts</button>
+    <div class="ctl" id="plantCtl">Lower fingers
+      <div class="seg" id="segPlant" role="group" aria-label="Lower fingers">
+        <button type="button" data-v="1">Stay down</button><button type="button" data-v="0">Lift</button>
       </div>
     </div>
     <label class="ctl" for="slide"><input type="checkbox" id="slide"> Slide</label>
@@ -621,8 +621,8 @@ function pitchAt(st,t){
   let u=Math.min(1,(t-g0)/s.xt); u=u*u*(3-2*u);
   return cur+(next-cur)*u;
 }
-// Fingers: a finger is down while its note is written on; fingers above the sounding fret must be up; a lower finger of the
-// pair stays down once placed (plant) or lifts with its note. Slide: the starting finger, from the first note on.
+// Fingers: the sounding finger is down; fingers above it must be up; every finger below it stays down (Stay down) or is up (Lift),
+// so in a 2–3 drill finger 1 rests on the string too rather than hovering tense above it. Slide: the starting finger, from the first note on.
 // Bend: the finger on the lower fret, with the fingers behind it pushing too.
 function fingerDown(f,t){
   const st=stateAt(t+LEAD); if(st.idx<0) return false;
@@ -631,9 +631,7 @@ function fingerDown(f,t){
   if(s.mode==='bend') return f<=s.bendFinger;
   const cur=s.notes[st.idx%2].finger;
   if(f===cur) return true;
-  if(f>cur||!s.plant) return false;
-  const k=s.notes.findIndex(n=>n.finger===f); if(k<0) return false;
-  return t+LEAD>=s.loopStart+FIG[k].s*T.beat;
+  return f<cur&&s.plant;
 }
 const BEND_PX=16;
 function frame(){
@@ -690,7 +688,8 @@ function howTo(c){
   if(c.slide) return '<span>Pick only at the start of each bar.</span> Finger '+a.finger+' stays down and the whole hand slides between frets '+a.fret+' and '+b.fret+'. <span>Bar 1</span> eighths: slide back and forth without lifting. <span>Bar 2</span> half notes: hold, then slide into the second on beat 3 while the sound carries over.';
   if(c.bend&&c.dir==='up') return '<span>Pick only at the start of each bar.</span> Finger '+k+' frets '+lo+(k>1?', the fingers behind it helping,':'')+' and bends the string until it sounds the pitch of fret '+hi+'. <span>Bar 1</span> eighths: pick, bend, release, bend. <span>Bar 2</span> half notes: pick and hold; bend on beat 3 and hold the bent note.';
   if(c.bend) return '<span>Prebend.</span> Before each bar, finger '+k+' frets '+lo+(k>1?' with the fingers behind it':'')+' and silently bends the string up to the pitch of fret '+hi+'. Pick, then release to fret '+lo+'’s own pitch. <span>Bar 1</span> eighths: release, bend, release. <span>Bar 2</span> half notes: the bent note, then release on beat 3 and hold.';
-  return '<span>Pick every note.</span> <span>Bar 1</span> eighths: back and forth from finger '+a.finger+' to finger '+b.finger+'. <span>Bar 2</span> half notes: press, pick, and listen to each one sustain through the beat that passes.';
+  const lower=Math.min(a.finger,b.finger)>1?(c.plant?' Every finger below the sounding one rests on the string.':' Only the sounding finger touches the string.'):'';
+  return '<span>Pick every note.</span>'+lower+' <span>Bar 1</span> eighths: back and forth from finger '+a.finger+' to finger '+b.finger+'. <span>Bar 2</span> half notes: press, pick, and listen to each one sustain through the beat that passes.';
 }
 function factsOf(c){
   const [a,b]=pairFor(c), lo=Math.min(a.fret,b.fret);
