@@ -13,7 +13,8 @@
    instructions in the left three quarters and the chromatic ring in the right quarter (no words on the ring), then the fretboard with the floating hand above the high e and the
    thumb below the low E, then the two-bar TAB as a subdivision grid. Grayscale by default: the g(x) button above the bar (off at first)
    fades the equation up and turns on the field — the ring's valence and the tone colours, every whole step read as Sol:La
-   by default, or any of its five hearings — Sol:La, then Do:Re and Re:Mi (one tick away), then Fa:Sol and La:Ti (two). */
+   by default, or any of its five hearings, laid out in dial order — Fa:Sol, Do:Re, Sol:La, Re:Mi, La:Ti — so neighbours
+   are one tick apart and Sol:La sits in the centre. */
 :root{
   --bg:#ffffff;
   --ink:#121212;
@@ -243,7 +244,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
       <div class="listen" id="listen" hidden>
         <h2>Listen</h2>
         <p class="lsLine">The five hearings of a whole step:
-          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the whole step as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="solla" aria-checked="true"><b class="sSol">Sol</b> ↔ <b class="sLa">La</b></button><button type="button" role="radio" data-v="dore" aria-checked="false"><b class="sDo">Do</b> ↔ <b class="sRe">Re</b></button><button type="button" role="radio" data-v="remi" aria-checked="false"><b class="sRe">Re</b> ↔ <b class="sMi">Mi</b></button><button type="button" role="radio" data-v="fasol" aria-checked="false"><b class="sFa">Fa</b> ↔ <b class="sSol">Sol</b></button><button type="button" role="radio" data-v="lati" aria-checked="false"><b class="sLa">La</b> ↔ <b class="sTi">Ti</b></button></span>
+          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the whole step as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="fasol" aria-checked="false"><b class="sFa">Fa</b> ↔ <b class="sSol">Sol</b></button><button type="button" role="radio" data-v="dore" aria-checked="false"><b class="sDo">Do</b> ↔ <b class="sRe">Re</b></button><button type="button" role="radio" data-v="solla" aria-checked="true"><b class="sSol">Sol</b> ↔ <b class="sLa">La</b></button><button type="button" role="radio" data-v="remi" aria-checked="false"><b class="sRe">Re</b> ↔ <b class="sMi">Mi</b></button><button type="button" role="radio" data-v="lati" aria-checked="false"><b class="sLa">La</b> ↔ <b class="sTi">Ti</b></button></span>
         </p>
       </div>
     </section>
