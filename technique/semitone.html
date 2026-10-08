@@ -160,7 +160,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
   </div>
 
   <div class="panel"><svg id="fb" viewBox="0 0 900 304" aria-label="Fretboard, position 5, with the fret-hand's four fingers floating above the high e and the thumb behind the neck"></svg></div>
-  <div class="panel"><svg id="tab" viewBox="0 0 900 194" aria-label="Two bars of TAB in 4/4, with rhythm stems below the staff"></svg></div>
+  <div class="panel"><svg id="tab" viewBox="0 0 900 226" aria-label="Two bars of TAB in 4/4, with rhythm stems below the staff"></svg></div>
 
 </div>
 
@@ -273,7 +273,7 @@ function setHand(pcFloat,litPc){
    rhythm on stems below the staff (eighths beamed by the beat, half notes on short stems, as Guitar Pro prints them).
    Bends: a curved arrow from the number up above the staff, marked ½; a release comes back down to the fret in parentheses;
    a prebend is a straight arrow up from a picked number. Slides: a straight line from one number to the next. */
-const TB={s0:40,s1:886,rowY:[64,81,98,115,132,149],dotY:10,topY:40};
+const TB={s0:40,s1:886,rowY:[96,113,130,147,164,181],floor:50,topY:72,ballR:6,ballH:34};
 TB.x0=TB.s0+86; TB.cw=(TB.s1-TB.x0)/16; TB.x1=TB.s1;
 const xBeat=b=>TB.x0+TB.cw/2+b*2*TB.cw;                              // where a note on beat b is written; the playhead follows it
 const tab=document.getElementById('tab');
@@ -292,8 +292,10 @@ const rs=TB.x0-14; vline(rs,4); vline(rs+6,1);                        // start r
 vline(TB.x0+8*TB.cw,1);                                               // the bar line between the two bars
 const re=TB.s1; vline(re,4); vline(re-6,1);                           // end repeat: dots, thin, thick
 [midY(1),midY(3)].forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},tab));
-const dots=[]; for(let b=0;b<8;b++) dots.push(el('circle',{cx:xBeat(b),cy:TB.dotY,r:4,class:'dot'},tab));
-const countLbl=el('text',{x:TB.x0-24,y:TB.dotY,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
+// the pulse as a bouncing ball: it lands on every beat and is somewhere definite at every moment in between
+for(let b=0;b<8;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},tab);   // where it lands
+const ball=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink'},tab);
+const countLbl=el('text',{x:TB.x0-24,y:TB.floor-TB.ballR,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
 const noteG=el('g',{},tab); let tabNotes=[];
 function arrowHead(x,y,dir){                                          // dir: -1 points up, +1 points down
   el('path',{d:'M'+(x-3.5)+' '+(y-dir*6)+' L'+x+' '+y+' L'+(x+3.5)+' '+(y-dir*6)+' Z',class:'ink'},noteG);
@@ -670,11 +672,12 @@ function frame(){
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     setHand(null,-1);
   }
-  dots.forEach((d,b)=>{
-    let on=false, r=4;
-    if(st&&b===st.beatIdx){ on=true; if(!reduce){ const age=Math.max(0,t-st.beatT); r=4*(1+0.6*Math.exp(-age/0.09)); } }
-    d.classList.toggle('on',on); d.setAttribute('r',r);
-  });
+  // the ball: across the bars at the playhead's pace, rising and falling once per beat (a parabola, touching down on the beat);
+  // through the count-in it bounces in place before the first note
+  let bx=xBeat(0), u=0;
+  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
+  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
+  ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
   if(T.test&&st) syncTestLine(st);
   requestAnimationFrame(frame);
 }
