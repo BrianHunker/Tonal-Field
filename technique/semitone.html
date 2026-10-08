@@ -81,8 +81,12 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 .clef{ fill:var(--ink); font-size:24px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .row{ stroke:var(--mid) } .row.sel{ stroke:var(--ink) }
 .hit{ fill:transparent; cursor:pointer }
-.num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .num.on{ fill:var(--bg) }
-.dur{ fill:var(--faint) } .dur.on{ fill:var(--ink) }
+.num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none }
+.knock{ fill:var(--bg) } .knock.on{ fill:var(--faint) }
+.tsig{ fill:var(--ink); font-size:24px; font-weight:700; text-anchor:middle; dominant-baseline:central }
+.bendLbl{ fill:var(--ink); font-size:13px; font-weight:700; text-anchor:middle; dominant-baseline:central }
+.curve{ fill:none; stroke:var(--ink); stroke-width:1.3 }
+.headS{ stroke:var(--mid) }
 .dot{ fill:var(--bg); stroke:var(--ink); stroke-width:1.4 } .dot.on{ fill:var(--ink) }
 .rl{ fill:var(--mid); text-anchor:middle; dominant-baseline:central } .rl.pair{ fill:var(--ink) } .rl.on{ fill:var(--ink); font-weight:700 }
 .rd{ fill:var(--mid) } .rd.on{ fill:var(--ink) }
@@ -156,7 +160,7 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
   </div>
 
   <div class="panel"><svg id="fb" viewBox="0 0 900 304" aria-label="Fretboard, position 5, with the fret-hand's four fingers floating above the high e and the thumb behind the neck"></svg></div>
-  <div class="panel"><svg id="tab" viewBox="0 0 900 140" aria-label="Two bars of TAB on an eighth-note grid"></svg></div>
+  <div class="panel"><svg id="tab" viewBox="0 0 900 194" aria-label="Two bars of TAB in 4/4, with rhythm stems below the staff"></svg></div>
 
 </div>
 
@@ -198,7 +202,13 @@ el('rect',{x:FB.x0,y:FB.top,width:FB.right-FB.x0,height:FB.bot-FB.top,class:'boa
 for(let k=1;k<=FB.n;k++) el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,class:'midS','stroke-width':1.5},fb);
 el('line',{x1:FB.nut,y1:FB.top-8,x2:FB.nut,y2:FB.bot+8,class:'inkS','stroke-width':4},fb);   // nut line, past both edges
 for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'},fb); t.textContent=k; }
-FB.strY.forEach((y,i)=>el('line',{x1:FB.x0,y1:y,x2:FB.right,y2:y,class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round'},fb));
+const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+FB.right+' '+y;
+const strLines=FB.strY.map((y,i)=>el('path',{d:strPath(y,0,0),fill:'none',class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round','stroke-linejoin':'round'},fb));
+let bentStr=-1;
+function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
+  if(bentStr>=0&&bentStr!==i) strLines[bentStr].setAttribute('d',strPath(FB.strY[bentStr],0,0));
+  strLines[i].setAttribute('d',strPath(FB.strY[i],x,dy)); bentStr=dy?i:-1;
+}
 [3,5,7,9].forEach(k=>el('circle',{cx:cellM(k),cy:FB.bot+14,r:4,class:'mid'},fb));            // neck dots below the low E
 el('circle',{cx:cellM(12)-7,cy:FB.bot+14,r:4,class:'mid'},fb);
 el('circle',{cx:cellM(12)+7,cy:FB.bot+14,r:4,class:'mid'},fb);
@@ -258,49 +268,84 @@ function setHand(pcFloat,litPc){
   rDots.forEach((d,pc)=>d.classList.toggle('on',pc===litPc)); rLbls.forEach((g,pc)=>g.classList.toggle('on',pc===litPc));
 }
 
-/* ---------- TAB: strings × eighth-note cells, numbers with duration bars ---------- */
-const TB={x0:86,cw:50,cells:16,rowY:[34,51,68,85,102,119],dotY:14};
-TB.x1=TB.x0+TB.cells*TB.cw;
-const xBeat=b=>TB.x0+b*2*TB.cw;
+/* ---------- TAB, engraved the way published tablature is ----------
+   Six lines, the clef, 4/4, repeat bars; fret numbers sit on their line with the line broken behind them; no grid inside a bar;
+   rhythm on stems below the staff (eighths beamed by the beat, half notes on short stems, as Guitar Pro prints them).
+   Bends: a curved arrow from the number up above the staff, marked ½; a release comes back down to the fret in parentheses;
+   a prebend is a straight arrow up from a picked number. Slides: a straight line from one number to the next. */
+const TB={s0:40,s1:886,rowY:[64,81,98,115,132,149],dotY:10,topY:40};
+TB.x0=TB.s0+86; TB.cw=(TB.s1-TB.x0)/16; TB.x1=TB.s1;
+const xBeat=b=>TB.x0+TB.cw/2+b*2*TB.cw;                              // where a note on beat b is written; the playhead follows it
 const tab=document.getElementById('tab');
-['T','A','B'].forEach((ch,i)=>{ const t=el('text',{x:22,y:TB.rowY[0]+(TB.rowY[5]-TB.rowY[0])*(2*i+1)/6,class:'clef'},tab); t.textContent=ch; });   // the TAB clef
 const rows=[], rowLbls=[];
 STRINGS.forEach((s,i)=>{
-  rows.push(el('line',{x1:TB.x0,y1:TB.rowY[i],x2:TB.x1,y2:TB.rowY[i],class:'row','stroke-width':1},tab));
-  const t=el('text',{x:TB.x0-12,y:TB.rowY[i],class:'lbl','text-anchor':'end','dominant-baseline':'central'},tab); t.textContent=s.lbl; rowLbls.push(t);
+  rows.push(el('line',{x1:TB.s0,y1:TB.rowY[i],x2:TB.s1,y2:TB.rowY[i],class:'row','stroke-width':1},tab));
+  const t=el('text',{x:TB.s0-8,y:TB.rowY[i],class:'lbl','text-anchor':'end','dominant-baseline':'central'},tab); t.textContent=s.lbl; rowLbls.push(t);
 });
-for(let c=0;c<=TB.cells;c++){
-  const x=TB.x0+c*TB.cw, bar=c%8===0, beat=c%2===0;
-  el('line',{x1:x,y1:TB.rowY[0]-8,x2:x,y2:TB.rowY[5]+8,class:bar?'inkS':(beat?'midS':'faintS'),'stroke-width':bar?2:1},tab);
-}
-[TB.x0+9,TB.x1-9].forEach(x=>{                          // repeat dots: the figure loops
-  el('circle',{cx:x,cy:(TB.rowY[1]+TB.rowY[2])/2,r:2.5,class:'ink'},tab);
-  el('circle',{cx:x,cy:(TB.rowY[3]+TB.rowY[4])/2,r:2.5,class:'ink'},tab);
-});
+const midY=k=>(TB.rowY[k]+TB.rowY[k+1])/2;
+['T','A','B'].forEach((ch,i)=>{ const t=el('text',{x:TB.s0+20,y:TB.rowY[0]+(TB.rowY[5]-TB.rowY[0])*(2*i+1)/6,class:'clef'},tab); t.textContent=ch; });
+[['4',midY(1)],['4',midY(3)]].forEach(([d,y])=>{ const t=el('text',{x:TB.s0+50,y,class:'tsig'},tab); t.textContent=d; });   // 4/4
+const vline=(x,w)=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[5],class:'inkS','stroke-width':w},tab);
+vline(TB.s0,1);                                                       // the system's opening line
+const rs=TB.x0-14; vline(rs,4); vline(rs+6,1);                        // start repeat: thick, thin, dots
+[midY(1),midY(3)].forEach(y=>el('circle',{cx:rs+12,cy:y,r:2.4,class:'ink'},tab));
+vline(TB.x0+8*TB.cw,1);                                               // the bar line between the two bars
+const re=TB.s1; vline(re,4); vline(re-6,1);                           // end repeat: dots, thin, thick
+[midY(1),midY(3)].forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},tab));
 const dots=[]; for(let b=0;b<8;b++) dots.push(el('circle',{cx:xBeat(b),cy:TB.dotY,r:4,class:'dot'},tab));
-const countLbl=el('text',{x:TB.x0-12,y:TB.dotY,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
+const countLbl=el('text',{x:TB.x0-24,y:TB.dotY,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
 const noteG=el('g',{},tab); let tabNotes=[];
+function arrowHead(x,y,dir){                                          // dir: -1 points up, +1 points down
+  el('path',{d:'M'+(x-3.5)+' '+(y-dir*6)+' L'+x+' '+y+' L'+(x+3.5)+' '+(y-dir*6)+' Z',class:'ink'},noteG);
+}
+function numberAt(x,y,text){                                          // a number on its line, the line broken behind it
+  const w=7.6*text.length+6;
+  const knock=el('rect',{x:x-w/2,y:y-8,width:w,height:16,rx:2,class:'knock'},noteG);
+  const num=el('text',{x,y,class:'num'},noteG); num.textContent=text;
+  return {bar:knock,num};
+}
 function buildTabNotes(){
   while(noteG.firstChild) noteG.removeChild(noteG.firstChild);
-  tabNotes=[]; const notes=pairOf(), y=TB.rowY[drill.string];
+  tabNotes=[]; const notes=pairOf(), y=TB.rowY[drill.string], lo=Math.min(notes[0].fret,notes[1].fret);
+  const stemTop=TB.rowY[5]+10, stemLong=26, stemShort=13;
   FIG.forEach((e,i)=>{
-    const n=notes[i%2], x=xBeat(e.s), w=e.d*2*TB.cw;
-    const bar=el('rect',{x:x+3,y:y-7,width:w-6,height:14,rx:7,class:'dur'},noteG);
-    const num=el('text',{x:x+TB.cw/2,y:y,class:'num'},noteG); num.textContent=n.fret;
-    if(drill.bend){                                      // the fret held, marked b (bent into), r (released into), pb (picked prebent)
-      const lo=Math.min(notes[0].fret,notes[1].fret), bent=n.fret>lo;
-      num.textContent=lo+(BAR_START(i)?(bent?'pb':''):(bent?'b':'r'));
+    const n=notes[i%2], x=xBeat(e.s), prev=notes[(i+1)%2], first=BAR_START(i);
+    let mark;
+    if(drill.bend){
+      const bent=n.fret>lo;
+      if(first&&!bent) mark=numberAt(x,y,String(lo));
+      else if(first&&bent){                                             // prebend: picked already bent — a straight arrow up
+        mark=numberAt(x,y,String(lo));
+        el('line',{x1:x,y1:y-9,x2:x,y2:TB.topY+6,class:'inkS','stroke-width':1.3},noteG); arrowHead(x,TB.topY,-1);
+        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='½';
+      }else if(bent){                                                   // bend: a curve from the string up to above the staff
+        const x0=x-TB.cw+10;
+        el('path',{d:'M'+x0+' '+(y-2)+' Q'+x+' '+(y-2)+' '+x+' '+(TB.topY+6),class:'curve'},noteG); arrowHead(x,TB.topY,-1);
+        const k=el('rect',{x:x-7,y:TB.topY-17,width:14,height:13,rx:2,class:'knock'},noteG);
+        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='½';
+        mark={bar:k,num:t};
+      }else{                                                            // release: from above the staff back down to the fret, in parentheses
+        const x0=x-TB.cw+10;
+        el('path',{d:'M'+x0+' '+(TB.topY+2)+' Q'+x+' '+(TB.topY+2)+' '+x+' '+(y-14),class:'curve'},noteG); arrowHead(x,y-9,1);
+        mark=numberAt(x,y,'('+lo+')');
+      }
+    }else{
+      mark=numberAt(x,y,(drill.slide&&!first)?String(n.fret):String(n.fret));
+      if(drill.slide&&!first){                                          // slid into: a line from the last number to this one
+        const xp=xBeat(FIG[(i+FIG.length-1)%FIG.length].s), up=n.fret>prev.fret;
+        el('line',{x1:xp+9,y1:up?y+4:y-4,x2:x-9,y2:up?y-4:y+4,class:'inkS','stroke-width':1.3,'stroke-linecap':'round'},noteG);
+      }
     }
-    tabNotes.push({bar,num});
-    if(drill.slide&&!BAR_START(i)){                      // slid into: a slash across the boundary, rising or falling with the pitch
-      const up=n.fret>notes[(i+1)%2].fret;
-      el('line',{x1:x-6,y1:up?y+9:y-9,x2:x+6,y2:up?y-9:y+9,class:'inkS','stroke-width':1.5,'stroke-linecap':'round'},noteG);
-    }
+    tabNotes.push(mark);
+    // rhythm below the staff
+    const half=e.d>=2;
+    el('line',{x1:x,y1:stemTop,x2:x,y2:stemTop+(half?stemShort:stemLong),class:'inkS','stroke-width':1.3},noteG);
+    if(!half&&i%2===0) el('rect',{x:x-0.65,y:stemTop+stemLong-3.5,width:TB.cw+1.3,height:3.5,class:'ink'},noteG);   // one beam per beat
   });
 }
-const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-12,x2:TB.x0,y2:TB.rowY[5]+12,class:'inkS','stroke-width':1.5,visibility:'hidden'},tab);
+const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-10,x2:TB.x0,y2:TB.rowY[5]+10,class:'headS','stroke-width':1.5,visibility:'hidden'},tab);
 // click a row (or its label) to move the drill there
-STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.x1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
+STRINGS.forEach((s,i)=>{ const h=el('rect',{x:0,y:TB.rowY[i]-8,width:TB.s1,height:16,class:'hit'},tab); h.addEventListener('click',()=>setString(i)); });
 
 /* ---------- sound: a plucked string (Karplus–Strong), fractional delay so each fret is in tune ---------- */
 const mix={master:{vol:80,mute:false},string:{vol:80,mute:false},click:{vol:80,mute:false,sound:'click'},inst:'acoustic'};
@@ -600,7 +645,8 @@ function frame(){
   const bendAmt=(live&&s.mode==='bend')?p-s.base:0;                  // 0 at the fret's own pitch, 1 a semitone up
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
   for(const F of fingers){
-    const down=t!==null&&fingerDown(F.f,t), target=down?sy+((s&&s.mode==='bend'&&F.f<=s.bendFinger)?bendDy:0):FB.hover;
+    const onBent=s&&s.mode==='bend'&&F.f<=s.bendFinger;                 // a supporting finger rides the bent string where it passes
+    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0):FB.hover;
     F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
     F.x=F.home+shift*FB.cw;
     F.c.setAttribute('cx',F.x); F.c.setAttribute('cy',F.y); F.t.setAttribute('x',F.x); F.t.setAttribute('y',F.y);
@@ -609,6 +655,7 @@ function frame(){
     F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
+  if(bendDy||bentStr>=0) bendString(strI,tipX(s?s.base:POSITION),bendDy);
   if(live){
     const x1=s.mode==='bend'?tipX(s.base):tipXf(p);
     ringLine.setAttribute('x1',x1); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility','visible');
@@ -619,7 +666,7 @@ function frame(){
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
-    if(st&&!st.done){ head.setAttribute('x1',TB.x0); head.setAttribute('x2',TB.x0); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
+    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     setHand(null,-1);
   }
