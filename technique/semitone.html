@@ -1052,10 +1052,11 @@ function syncTheme(){ const th=document.documentElement.getAttribute('data-theme
 segTheme.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; document.documentElement.setAttribute('data-theme',b.dataset.v); try{ localStorage.setItem('semitone-theme',b.dataset.v); }catch(err){} syncTheme(); });
 syncTheme();
 const segHand=document.getElementById('segHand'), fbEl=document.getElementById('fb');
-let lefty=false; try{ lefty=localStorage.getItem('semitone-hand')==='left'; }catch(err){}
-{ const q=new URLSearchParams(location.search).get('hand'); if(q==='left'||q==='right'){ lefty=q==='left'; try{ localStorage.setItem('semitone-hand',q); }catch(err){} } }   // a student's link carries their hand
+// right-handed unless the link says otherwise (a student's link carries their hand: ?hand=left). Not remembered, so the page
+// always opens right-handed; the gear switches it for this visit only.
+let lefty=false; try{ lefty=new URLSearchParams(location.search).get('hand')==='left'; localStorage.removeItem('semitone-hand'); }catch(err){}
 function syncHand(){ fbEl.classList.toggle('lefty',lefty); for(const b of segHand.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='left')===lefty); }
-segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; lefty=b.dataset.v==='left'; try{ localStorage.setItem('semitone-hand',lefty?'left':'right'); }catch(err){} syncHand(); });
+segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; lefty=b.dataset.v==='left'; syncHand(); });
 syncHand();
 // g(x): off by default (black and white); on, the equation fades up to the button's left and the field comes on. Remembered on this device.
 const gxBtn=document.getElementById('gx'), eqn=document.getElementById('eqn');
