@@ -5,30 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Semitone Drills</title>
 <link rel="icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@1,500&display=swap" rel="stylesheet">
 <script>(function(){ var t="dark"; try{ if(localStorage.getItem("semitone-theme")==="light") t="light"; }catch(e){} document.documentElement.setAttribute("data-theme",t); })();</script>
 <style>
 /* Layout: one column — the name, a control bar (Drill, Test, the drill's settings, a gear that opens the mixer), then a stage:
    instructions in the left three quarters and the chromatic ring in the right quarter (no words on the ring), then the fretboard with the floating hand above the high e and the
-   thumb below the low E, then the two-bar TAB as a subdivision grid. Grayscale only: g(x) is off. */
+   thumb below the low E, then the two-bar TAB as a subdivision grid. Grayscale by default: the g(x) button above the bar (off at first)
+   fades the equation up and turns on the field — the ring's valence and the tone colours, every semitone read as Ti:Do. */
 :root{
-  color-scheme:light;
   --bg:#ffffff;
   --ink:#121212;
   --mid:#6e6e6e;
   --faint:#d4d4d4;
   --board:#f2f2f2;
+  color-scheme:light;
   --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --gxg:#a8780c; --eqx:#77746c; --eqenv:#5d594f; --eqcar:#1d8a6b; --eqs5:#c4572a; --eqs7:#1f7fae;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; color-scheme:dark }
+  :root:not([data-theme="light"]){ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
 }
-:root[data-theme="dark"]{ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; color-scheme:dark }
+:root[data-theme="dark"]{ --bg:#0f0f0f; --ink:#ededed; --mid:#9b9b9b; --faint:#3a3a3a; --board:#1a1a1a; --gxg:#d8a838; --eqx:#aaaaaa; --eqenv:#c8c4b8; --eqcar:#5acca8; --eqs5:#ffa07a; --eqs7:#7ad9ff; color-scheme:dark }
 
 *{ box-sizing:border-box }
 [hidden]{ display:none !important }
 body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.4; font-variant-numeric:tabular-nums }
 .wrap{ max-width:980px; margin:0 auto; padding-inline:16px; padding-block:22px 44px; display:grid; gap:18px }
-header{ display:grid; gap:2px }
+header{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 16px; margin-bottom:-6px }   /* the g(x) button sits just above the bar's line, mirroring the gear just below it */
+.hd{ display:grid; gap:2px; margin-right:auto }
+.gxRow{ display:flex; align-items:center; gap:12px; margin-left:auto; min-width:0 }
+.eqn{ display:flex; flex-wrap:wrap; justify-content:flex-end; column-gap:.32em; font-family:var(--serif); font-style:italic; font-weight:500; font-size:clamp(12px,1.75vw,18px); line-height:1.3; letter-spacing:.01em; color:var(--eqx); text-align:right;
+  opacity:0; transform:translateX(12px); visibility:hidden; transition:opacity .9s ease, transform .9s ease, visibility 0s linear .9s }
+.eqn.on{ opacity:1; transform:none; visibility:visible; transition:opacity .9s ease, transform .9s ease, visibility 0s }
+.eqn > span{ white-space:nowrap }
+.eqn .e-env{ color:var(--eqenv) } .eqn .e-car{ color:var(--eqcar) } .eqn .e-s5{ color:var(--eqs5) } .eqn .e-s7{ color:var(--eqs7) }
+.gx{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:14px; letter-spacing:.01em; line-height:1; flex:none; display:grid; place-items:center; width:36px; height:36px; padding:0 1px 1px 0; border:1px solid var(--mid); border-radius:50%; background:var(--bg); color:var(--mid); cursor:pointer; transition:color .6s, border-color .6s, box-shadow .6s }
+.gx[aria-pressed="true"]{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 12px -3px var(--gxg) }
+@media (prefers-reduced-motion: reduce){ .eqn, .eqn.on, .gx{ transition:none } }
 .eyebrow{ margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid) }
 h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1; text-wrap:balance }
 .stage{ display:grid; grid-template-columns:3fr 1fr; gap:16px 28px; align-items:center }
@@ -121,14 +136,21 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 .rd{ fill:var(--mid) } .rd.on{ fill:var(--ink) }
 .hand{ stroke:var(--ink); stroke-width:1.5; stroke-dasharray:4 3; stroke-linecap:round }
 .wedge{ fill:none; stroke:var(--ink); stroke-width:2 }
+.valLbl{ font-family:var(--serif); font-style:italic; font-weight:500; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:3px; stroke-linejoin:round }
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">Harmonic structure · 1 of 7</p>
-    <h1>Semitone</h1>
+    <div class="hd">
+      <p class="eyebrow">Harmonic structure · 1 of 7</p>
+      <h1>Semitone</h1>
+    </div>
+    <div class="gxRow">
+      <div class="eqn" id="eqn" aria-hidden="true"><span><span class="e-env">cos(x)</span>·<span class="e-car">cos(6x)</span> + (1/6)·<span class="e-env">sin(x)</span>·<span class="e-car">sin(6x)</span> =</span><span><span class="e-s5">(7/12)·cos(5x)</span> + <span class="e-s7">(5/12)·cos(7x)</span> =</span></div>
+      <button id="gx" class="gx" type="button" aria-pressed="false" title="g(x): the tonal field — valence on the ring and in the tone colours">g(x)</button>
+    </div>
   </header>
 
   <div class="bar">
@@ -345,13 +367,18 @@ function around(s,t){
 }
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
 const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math.exp(-7)); };   // fast off the string, slowing to a stop
+// the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
+function toneRGB(s,tt){ if(FIELD.lit<=0.001) return PICK_YELLOW; const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
+  let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
+  return mixRGB(PICK_YELLOW,valRGB(pcOf(s.string,pitchOf(s,b<0?0:idx))),FIELD.lit); }
 function placePick(st,sy,t){
-  let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0;
+  let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
     const s=st.s, c=catchT();
     if(t<s.loopStart-c){                                                  // count-in: draw the string like a bow on each beat, then relax
       const b=(t-s.loopStart)/T.beat, tb=s.loopStart+Math.ceil(b)*T.beat, tp=s.loopStart+Math.floor(b)*T.beat, relax=0.14, w=0.35*T.beat;
       const bow=mixPose(POSE.rest,POSE.downHold,0.55);                     // a gentle draw, about half a stroke
+      toneAt=s.loopStart;
       if(t>=tb-w&&tb<s.loopStart){ const x=sm((t-(tb-w))/w); pose=mixPose(POSE.rest,bow,x); held=true; bloom=0.45*x; }   // rising from well before the click, fullest on it
       else if(t<tp+relax&&tp>=s.countStart){ const x=sm((t-tp)/relax); pose=mixPose(bow,POSE.rest,x); held=x<1; bloom=0.45*(1-x); }
     }else{
@@ -367,7 +394,8 @@ function placePick(st,sy,t){
       }
       const lp=prev&&!prev.struck?1:0, ln=next&&!next.struck?1:0;
       lift=PICK_LIFT*(prev?lp+(ln-lp)*sm((t-prev.t)/Math.max(0.01,end-prev.t)):ln);
-      bloom=Math.max(next&&next.struck?sm(1-(next.t-t)/(c+0.16)):0, prev&&prev.struck?1-sm((t-prev.t)/0.025):0);
+      const bIn=next&&next.struck?sm(1-(next.t-t)/(c+0.16)):0, bOut=prev&&prev.struck?1-sm((t-prev.t)/0.025):0;
+      bloom=Math.max(bIn,bOut); toneAt=bIn>=bOut?(next&&next.t):(prev&&prev.t);
     }
     // every beat, count-in included: the hand keeps time with a slight dip of the axis
     const bIdx=Math.round((t-s.loopStart)/T.beat), tb=s.loopStart+bIdx*T.beat, x=Math.abs(t-tb)/(0.3*T.beat);
@@ -377,7 +405,8 @@ function placePick(st,sy,t){
   const axisY=tipY-PICK_L*pose.f;
   pickG.setAttribute('transform','translate('+PICK_X+' '+axisY.toFixed(1)+')');
   pickBody.setAttribute('transform','scale(1 '+pose.f.toFixed(3)+') translate(0 12) scale(2)');
-  const col=PICK_CREAM.map((v,i)=>Math.round(v+(PICK_YELLOW[i]-v)*bloom));
+  const full=(st&&!st.done&&toneAt!=null)?toneRGB(st.s,toneAt):PICK_YELLOW;
+  const col=PICK_CREAM.map((v,i)=>Math.round(v+(full[i]-v)*bloom));
   const ay=(PICK_L*0.45*pose.f).toFixed(1);
   arrowDown.setAttribute('transform','translate(0 '+ay+')'); arrowUp.setAttribute('transform','translate(0 '+ay+')');
   arrowDown.setAttribute('opacity',aDown); arrowUp.setAttribute('opacity',aUp);
@@ -400,6 +429,38 @@ for(let pc=0;pc<12;pc++){
   const [lx,ly]=pt(RG.RL,pc); const parts=NAMES[pc].split('/'); const g=el('g',{},ringSvg); rLbls.push(g);
   if(parts.length===1){ const t=el('text',{x:lx,y:ly,class:'rl','font-size':14},g); t.textContent=parts[0]; }
   else{ const t1=el('text',{x:lx,y:ly-6.5,class:'rl','font-size':11},g); t1.textContent=parts[0]; const t2=el('text',{x:lx,y:ly+6.5,class:'rl','font-size':11},g); t2.textContent=parts[1]; }
+}
+/* the field (g(x) on): the valence curve r = R0 + K·g, drawn with Re at 12 and turned so Re sits on its pitch; every drill
+   reads its semitone as Ti:Do — the lower tone Ti, the upper Do — so the field turns with the drill */
+const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700'],['~Do','#005500'],['Sol','#EE0000'],['~Re','#AA5500'],['La','#732699'],['~Mi','#001188'],['Ti','#FF00FF'],['Do','#22BB22'],['~Sol','#880000']]; // semitones up from Re
+const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
+const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
+const FIELD={on:false,lit:0,re:0,target:0};                          // re: where Re sits, in semitones from A (continuous while it turns)
+const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
+const valRGB=pc=>relRGB(pc-FIELD.re);                                 // the field's colour at a pitch (continuous: a glide passes through)
+const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
+const rgbS=c=>'rgb('+c.map(v=>Math.round(v)).join(',')+')';
+function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+3; }   // Ti = Re − 3
+const VAL={R0:48,K:30,N:180};
+const valG=el('g',{opacity:0},ringSvg), valFills=[]; let valBg='';
+function tintFills(){ const bg=(getComputedStyle(document.body).backgroundColor.match(/\d+/g)||[15,15,15]).slice(0,3).map(Number), key=bg.join(); if(key===valBg) return; valBg=key; for(const [e,c] of valFills) e.setAttribute('fill',rgbS(mixRGB(bg,c,0.32))); }   // the petals' wash: 32% of the colour over the page
+{ const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*gOf(k*Math.PI/6);
+  el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':1,'stroke-dasharray':'2 3'},valG);    // the hinge: g = 0
+  const fillG=el('g',{},valG), lineG=el('g',{},valG);
+  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, rgb=relRGB(12*(i+.5)/VAL.N), c=rgbS(rgb);   // each wedge overlaps the next a little: opaque, so no seams
+    const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0));
+    valFills.push([el('path',{d:'M'+a.toFixed(2)+' '+b.toFixed(2)+'L'+d.toFixed(2)+' '+e.toFixed(2)+'L'+f.toFixed(2)+' '+g.toFixed(2)+'L'+h.toFixed(2)+' '+j.toFixed(2)+'Z'},fillG),rgb]);
+    const k2=12*(i+1)/VAL.N, [f2,g2]=at(k2,rOf(k2));
+    el('line',{x1:h.toFixed(2),y1:j.toFixed(2),x2:f2.toFixed(2),y2:g2.toFixed(2),stroke:c,'stroke-width':2,'stroke-linecap':'round'},lineG); }
+  for(let k=0;k<12;k++){ const [x,y]=at(k,rOf(k)); el('circle',{cx:x,cy:y,r:k===9||k===10?3.6:2.4,fill:rgbS(SOLF_RGB[k]),class:'valDot'},valG); }
+}
+const valLbls=['Ti','Do'].map(n=>{ const t=el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg); t.textContent=n; t.style.fill=rgbS(SOLF_RGB[n==='Ti'?9:10]); return t; });
+function placeField(){
+  tintFills(); wedge.setAttribute('opacity',(1-0.6*FIELD.lit).toFixed(3));
+  valG.setAttribute('transform','rotate('+(FIELD.re*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',FIELD.lit.toFixed(3));
+  [9,10].forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*gOf(k*Math.PI/6)-16, a=pc*Math.PI/6; const t=valLbls[i];
+    t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',FIELD.lit.toFixed(3)); });
+  rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
 const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the drill's own semitone, drawn as its arc of the circle; no words
 const hand=el('line',{x1:RG.c,y1:RG.c,x2:RG.c,y2:RG.c-RG.R,class:'hand',visibility:'hidden'},ringSvg);
@@ -799,7 +860,18 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
+let fieldClock=0;
+function stepField(){
+  const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
+  FIELD.target=fieldTarget();
+  const goal=FIELD.on?1:0, was=FIELD.lit, wasRe=FIELD.re;
+  FIELD.lit=reduce?goal:FIELD.lit+(goal-FIELD.lit)*Math.min(1,dt*3.2); if(Math.abs(FIELD.lit-goal)<0.002) FIELD.lit=goal;
+  const d=((FIELD.target-FIELD.re+6)%12+12)%12-6;                         // the short way round
+  if(FIELD.lit<=0.001||reduce) FIELD.re=FIELD.target; else { FIELD.re+=d*Math.min(1,dt*5); if(Math.abs(d)<0.002) FIELD.re=FIELD.target; }
+  if(was!==FIELD.lit||wasRe!==FIELD.re||FIELD.lit>0) placeField();
+}
 function frame(){
+  stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null;
   const st=t!==null?stateAt(t):null, s=st?st.s:null;
   if(s&&T.test&&T.shown!==s){ T.shown=s; Object.assign(drill,{string:s.string,start:s.start,dir:s.dir,plant:s.plant,slide:s.mode==='slide',bend:s.mode==='bend'}); syncUI(); }
@@ -826,7 +898,8 @@ function frame(){
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
   const glow=vibOn?Math.min(1,ampOf(s.str.snap)/0.3):0, inkRGB=inkColour();
-  const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(PICK_YELLOW[i]-v)*a)).join(',')+')';
+  const glowRGB=(live&&FIELD.lit>0.001)?mixRGB(PICK_YELLOW,valRGB(pcOf(strI,p)),FIELD.lit):PICK_YELLOW;   // yellow, or the field's colour at the sounding pitch
+  const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
   blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
   const holder=live?(s.mode==='slide'?s.notes[0].finger:(s.mode==='bend'?s.bendFinger:s.notes[st.idx%2].finger)):0;
   fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
@@ -984,6 +1057,12 @@ let lefty=false; try{ lefty=localStorage.getItem('semitone-hand')==='left'; }cat
 function syncHand(){ fbEl.classList.toggle('lefty',lefty); for(const b of segHand.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='left')===lefty); }
 segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; lefty=b.dataset.v==='left'; try{ localStorage.setItem('semitone-hand',lefty?'left':'right'); }catch(err){} syncHand(); });
 syncHand();
+// g(x): off by default (black and white); on, the equation fades up to the button's left and the field comes on. Remembered on this device.
+const gxBtn=document.getElementById('gx'), eqn=document.getElementById('eqn');
+try{ FIELD.on=localStorage.getItem('semitone-gx')==='on'; }catch(err){}
+function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); }
+gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on; try{ localStorage.setItem('semitone-gx',FIELD.on?'on':'off'); }catch(err){} syncGx(); });
+syncGx();
 const segStrobe=document.getElementById('segStrobe');
 function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='show')===showStrobe); }
 segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
