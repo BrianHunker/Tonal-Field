@@ -232,7 +232,7 @@ const validStart=s=>{const b=drill.dir==='up'?s+1:s-1;return b>=1&&b<=4;};
 /* ---------- fretboard ---------- */
 const FB={x0:40,nut:96,cw:66,n:12,top:80,bot:240,hover:36,strY:[98,122,146,170,194,218],gauge:[1,1.2,1.5,1.9,2.4,3]};
 FB.right=FB.nut+FB.n*FB.cw;                                             // the 12th fret
-FB.edge=990; const BRIDGE_X=1500, PICK_X=940;                          // the board runs on past the edge; the bridge is off-screen; the pick works in the open stretch
+FB.edge=990; const BRIDGE_X=FB.right+(FB.right-FB.nut), PICK_X=940;    // the 12th fret is the string's midpoint (the octave), so the bridge sits as far past it as the nut is before it: off-screen
 const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;
 const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;
 const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
