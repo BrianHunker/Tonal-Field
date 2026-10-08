@@ -925,7 +925,7 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let fieldClock=0; const ampHold={v:0,t:0};
+let fieldClock=0; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
   FIELD.target=fieldTarget();
@@ -964,12 +964,17 @@ function frame(){
   // the sounding tone's level (the glow's measure), held through the pick's brief catch so the colour does not blink on every
   // stroke: it rises at once and falls no faster than a 0.15 s release, so it follows the tone's own decay
   const ampNow=(live&&s.str)?Math.min(1,ampOf(s.str.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
-  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0; const amp=ampHold.v;
+  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0;
+  // slides and bends: each arrival the hand makes without a pick re-lights the colour a little, so a run of slides or of bends
+  // and releases keeps its colour rather than fading with the one picked tone; the boost itself fades in about a second
+  if(live&&s.mode!=='fingers'){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!BAR_START(st.idx)) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
+  else { boost.key=null; boost.v=0; }
+  boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
   const held=placePick(st,sy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
-  const glow=vibOn?Math.min(1,ampOf(s.str.snap)/0.3):0, inkRGB=inkColour();
+  const glow=vibOn?amp:0, inkRGB=inkColour();                         // the tone's level, lifted by slide and bend arrivals
   const glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;                // grey (the ink) with g(x) off; the field's colour at the sounding pitch with it on
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
   blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);

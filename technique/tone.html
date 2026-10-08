@@ -12,8 +12,8 @@
 /* Layout: one column — the name, a control bar (Drill, Test, the drill's settings, a gear that opens the mixer), then a stage:
    instructions in the left three quarters and the chromatic ring in the right quarter (no words on the ring), then the fretboard with the floating hand above the high e and the
    thumb below the low E, then the two-bar TAB as a subdivision grid. Grayscale by default: the g(x) button above the bar (off at first)
-   fades the equation up and turns on the field — the ring's valence and the tone colours, every whole step read as Do:Re
-   by default, or any of its five hearings (Do:Re, Re:Mi, Fa:Sol, Sol:La, La:Ti). */
+   fades the equation up and turns on the field — the ring's valence and the tone colours, every whole step read as Sol:La
+   by default, or any of its five hearings — Sol:La, then Do:Re and Re:Mi (one tick away), then Fa:Sol and La:Ti (two). */
 :root{
   --bg:#ffffff;
   --ink:#121212;
@@ -243,7 +243,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
       <div class="listen" id="listen" hidden>
         <h2>Listen</h2>
         <p class="lsLine">The five hearings of a whole step:
-          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the whole step as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="dore" aria-checked="true"><b class="sDo">Do</b> ↔ <b class="sRe">Re</b></button><button type="button" role="radio" data-v="remi" aria-checked="false"><b class="sRe">Re</b> ↔ <b class="sMi">Mi</b></button><button type="button" role="radio" data-v="fasol" aria-checked="false"><b class="sFa">Fa</b> ↔ <b class="sSol">Sol</b></button><button type="button" role="radio" data-v="solla" aria-checked="false"><b class="sSol">Sol</b> ↔ <b class="sLa">La</b></button><button type="button" role="radio" data-v="lati" aria-checked="false"><b class="sLa">La</b> ↔ <b class="sTi">Ti</b></button></span>
+          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the whole step as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="solla" aria-checked="true"><b class="sSol">Sol</b> ↔ <b class="sLa">La</b></button><button type="button" role="radio" data-v="dore" aria-checked="false"><b class="sDo">Do</b> ↔ <b class="sRe">Re</b></button><button type="button" role="radio" data-v="remi" aria-checked="false"><b class="sRe">Re</b> ↔ <b class="sMi">Mi</b></button><button type="button" role="radio" data-v="fasol" aria-checked="false"><b class="sFa">Fa</b> ↔ <b class="sSol">Sol</b></button><button type="button" role="radio" data-v="lati" aria-checked="false"><b class="sLa">La</b> ↔ <b class="sTi">Ti</b></button></span>
         </p>
       </div>
     </section>
@@ -265,7 +265,8 @@ const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: r
 /* ---------- the drill ----------
    Hand: position 5 (the index finger's fret), one finger per fret, so finger f sits at fret POSITION+f-1.
    A tone drill is a whole step on one string: the starting finger's fret and the fret two away in the chosen direction.
-   Fingers: in tandem, fingers 1 & 3 or 2 & 4 (Up starts on 1 or 2, Down on 3 or 4).  Slide: any finger, holding both frets,
+   Fingers: in tandem, fingers 1 & 3 or 2 & 4 (Up starts on 1 or 2, Down on 3 or 4); the other two fingers stay up, and
+   Lower fingers chooses only whether the pair's lower finger stays down while the upper one sounds.  Slide: any finger, holding both frets,
    the whole hand moving two frets with it.  Bend: any finger stays on its fret and bends the string up a whole step
    (Down: a prebend, then release).
    Figure: bar 1 eight straight eighths, bar 2 two halves; the two frets alternate through all ten notes, and the figure loops. */
@@ -472,8 +473,8 @@ const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700']
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
-const FIELD={on:false,lit:0,re:0,target:0,hearing:'dore',u:0,m:null};   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
-const HEARINGS={dore:0, remi:-2, fasol:1, solla:-1, lati:-3};
+const FIELD={on:false,lit:0,re:0,target:0,hearing:'solla',u:-1,m:null};   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
+const HEARINGS={solla:-1, dore:0, remi:-2, fasol:1, lati:-3};   // ticks from Do:Re; Sol:La sits in the middle, the others one and two ticks either side
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const morphRGB=(k,u)=>{ const fl=Math.floor(u), f=u-fl, a=relRGB(k+5*fl); return f<1e-6?a:mixRGB(a,relRGB(k+5*(fl+1)),f); };   // each tick, every place's colour steps one station
@@ -926,15 +927,15 @@ function fingerDown(f,t){
   const s=st.s;
   if(s.mode==='slide') return f===s.notes[0].finger;
   if(s.mode==='bend') return f<=s.bendFinger;
-  const cur=s.notes[st.idx%2].finger;
+  const cur=s.notes[st.idx%2].finger, other=s.notes[(st.idx+1)%2].finger;
   if(f===cur) return true;
-  return f<cur&&s.plant;
+  return f===other&&other<cur&&s.plant;                                // only the pair's lower finger may stay down; the two between and beyond stay up
 }
 const BEND_PX=11;                                                     // per fret of pitch: a whole-step bend pushes the string 22 px
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let fieldClock=0; const ampHold={v:0,t:0};
+let fieldClock=0; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
   FIELD.target=fieldTarget();
@@ -974,12 +975,17 @@ function frame(){
   // the sounding tone's level (the glow's measure), held through the pick's brief catch so the colour does not blink on every
   // stroke: it rises at once and falls no faster than a 0.15 s release, so it follows the tone's own decay
   const ampNow=(live&&s.str)?Math.min(1,ampOf(s.str.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
-  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0; const amp=ampHold.v;
+  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0;
+  // slides and bends: each arrival the hand makes without a pick re-lights the colour a little, so a run of slides or of bends
+  // and releases keeps its colour rather than fading with the one picked tone; the boost itself fades in about a second
+  if(live&&s.mode!=='fingers'){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!BAR_START(st.idx)) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
+  else { boost.key=null; boost.v=0; }
+  boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
   const held=placePick(st,sy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
-  const glow=vibOn?Math.min(1,ampOf(s.str.snap)/0.3):0, inkRGB=inkColour();
+  const glow=vibOn?amp:0, inkRGB=inkColour();                         // the tone's level, lifted by slide and bend arrivals
   const glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;                // grey (the ink) with g(x) off; the field's colour at the sounding pitch with it on
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
   blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
@@ -1025,7 +1031,8 @@ function howTo(c){
   if(c.slide) return '<span>Pick only at the start of each bar.</span> Finger '+a.finger+' stays down and the whole hand slides between frets '+a.fret+' and '+b.fret+'. <span>Bar 1</span> eighths: slide back and forth without lifting. <span>Bar 2</span> half notes: hold, then slide into the second on beat 3 while the sound carries over.';
   if(c.bend&&c.dir==='up') return '<span>Pick only at the start of each bar.</span> Finger '+k+' frets '+lo+(k>1?', the fingers behind it helping,':'')+' and bends the string until it sounds the pitch of fret '+hi+'. <span>Bar 1</span> eighths: pick, bend, release, bend. <span>Bar 2</span> half notes: pick and hold; bend on beat 3 and hold the bent note.';
   if(c.bend) return '<span>Prebend.</span> Before each bar, finger '+k+' frets '+lo+(k>1?' with the fingers behind it':'')+' and silently bends the string up to the pitch of fret '+hi+'. Pick, then release to fret '+lo+'’s own pitch. <span>Bar 1</span> eighths: release, bend, release. <span>Bar 2</span> half notes: the bent note, then release on beat 3 and hold.';
-  const lower=Math.min(a.finger,b.finger)>1?(c.plant?' Every finger below the sounding one rests on the string.':' Only the sounding finger touches the string.'):'';
+  const fLo=Math.min(a.finger,b.finger), fHi=Math.max(a.finger,b.finger), rest=[1,2,3,4].filter(f=>f!==fLo&&f!==fHi).join(' and ');
+  const lower=c.plant?' Finger '+fLo+' stays down while finger '+fHi+' sounds; fingers '+rest+' stay up, off the string.':' Only the sounding finger touches the string; fingers '+rest+' stay up.';
   return '<span>Pick every note.</span>'+lower+' <span>Bar 1</span> eighths: back and forth from finger '+a.finger+' to finger '+b.finger+'. <span>Bar 2</span> half notes: press, pick, and listen to each one sustain through the beat that passes.';
 }
 function factsOf(c){
