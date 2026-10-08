@@ -67,6 +67,17 @@ input[type=checkbox]{ accent-color:var(--ink) }
 .mixRow.sub .name{ color:var(--mid); font-weight:400 }
 .mixRow.sub .seg{ grid-column:2 / -1; justify-self:start }
 @media (max-width:480px){ .mixRow{ grid-template-columns:5.5em 1fr 3.8em auto; gap:8px } }
+.chapters{ display:grid; gap:6px; margin-top:-6px }
+.chHead{ display:flex; align-items:center; gap:12px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid); font-weight:600 }
+.chAll{ font:inherit; font-size:11px; letter-spacing:.02em; text-transform:none; padding:2px 9px; border:1px solid var(--mid); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer }
+.chRow{ display:grid; grid-template-columns:repeat(13,minmax(0,1fr)); gap:4px }
+@media (max-width:720px){ .chRow{ grid-template-columns:repeat(7,minmax(0,1fr)) } }
+.ch{ --p:0; font:inherit; font-size:12px; font-weight:600; padding:6px 2px; border:1.5px solid var(--ink); border-radius:6px; color:var(--ink); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  background:linear-gradient(to right, var(--faint) calc(var(--p) * 100%), var(--bg) 0) }
+.ch[aria-pressed="false"]{ border-style:dashed; border-color:var(--mid); color:var(--mid); text-decoration:line-through }
+.ch.now{ box-shadow:inset 0 0 0 1px var(--ink) }
+.ch.done{ background:var(--ink); color:var(--bg) }
+.ch:disabled{ cursor:default }
 .panel{ width:100%; min-width:0; overflow:hidden }
 svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--sans) }
 
@@ -130,6 +141,11 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
     <label class="ctl" for="slide"><input type="checkbox" id="slide"> Slide</label>
     <label class="ctl" for="bend"><input type="checkbox" id="bend"> Bend</label>
     <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound">&#x2699;&#xFE0E;</button>
+  </div>
+
+  <div class="chapters">
+    <div class="chHead"><span>Test chapters</span><button type="button" id="chAll" class="chAll" hidden>All in</button></div>
+    <div class="chRow" id="chRow" role="group" aria-label="Test chapters: click one to take it in or out of the test"></div>
   </div>
 
   <div class="mixer" id="mixer" hidden>
@@ -365,7 +381,7 @@ const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-
 function makeStringCore(){
   return class StringCore{
     constructor(sr,gauge){ this.sr=sr; this.N=8192; this.buf=new Float32Array(this.N); this.w=0; this.g=Math.max(0,Math.min(1,+gauge||0));
-      this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; this.dampTo=0; }
+      this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; this.dampTo=0; this.dampK=1; }
     push(e){ this.q.push(e); this.q.sort((a,b)=>a.t-b.t); }
     excite(f0,v){
       const g=this.g, pm=0; v=Math.max(0.05,Math.min(1,v));
@@ -384,7 +400,7 @@ function makeStringCore(){
       for(let i=0;i<out.length;i++){
         const t=t0+i/sr;
         while(q.length&&q[0].t<=t){ const e=q.shift();
-          if(e.kind==='damp'){ this.dampTo=e.t1; }
+          if(e.kind==='damp'){ this.dampTo=e.t1; this.dampK=Math.pow(e.depth||0.03,1/Math.max(1,(e.t1-e.t)*this.f)); }   // per trip round the loop, so the depth holds at any pitch
           else if(e.kind==='glide'){ this.gl={t0:e.t,t1:e.t1,f0:this.f,f1:e.f}; }
           else{ this.gl=null; this.f=e.f; if(e.kind==='pluck') this.excite(e.f,e.v); } }
         let f=this.f;
@@ -397,7 +413,7 @@ function makeStringCore(){
         const y=C*x+apx-C*ap; apx=x; ap=y;
         lp+=c*(y-lp);
         let v=lp*Math.pow(10,-3/(this.t60*f));
-        if(t<this.dampTo) v*=0.99;
+        if(t<this.dampTo) v*=this.dampK;
         if(this.exI<this.exN) v+=this.ex[this.exI++];
         buf[w]=v; out[i]=v; w=(w+1)%N;
       }
@@ -427,12 +443,14 @@ function acousticIR(sr){
   const n=Math.floor(0.35*sr), ir=new Float32Array(n);
   let seed=7; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
   const add=(f,tau,amp)=>{ const ph=rnd()*2*Math.PI, wv=2*Math.PI*f/sr, L=Math.min(n,Math.ceil(tau*sr*7)); for(let i=0;i<L;i++) ir[i]+=amp*Math.exp(-i/(tau*sr))*Math.sin(wv*i+ph); };
-  for(const [f,tau,amp] of ACOU_LOW) add(f,tau,amp);
-  for(let k=0;k<260;k++){ const f=1000*Math.pow(10,rnd()*Math.log10(9)); add(f,0.012*Math.pow(1000/f,0.5),(0.10+0.08*rnd())*Math.pow(1000/f,0.25)); }   // 1–9 kHz, dense
+  // the modes are broad and well damped (measured: no note more than ~3.5 dB over its neighbours, no dead note deeper than ~5.5 dB)
+  for(const [f,tau,amp] of ACOU_LOW) add(f,tau*0.2,amp*0.6);
+  const ak=Math.sqrt(260/1200); for(let k=0;k<1200;k++){ const f=1000*Math.pow(10,rnd()*Math.log10(9)); add(f,0.005*Math.pow(1000/f,0.5),ak*(0.10+0.08*rnd())*Math.pow(1000/f,0.25)); }   // 1–9 kHz, dense
   let e=0; for(let i=0;i<n;i++) e+=ir[i]*ir[i]; const s=1/Math.sqrt(e/40); for(let i=0;i<n;i++) ir[i]*=s;
+  ir[0]+=10;                                                       // a share of the string itself, which fills the box's cancellations
   return ir;
 }
-const ARCH_MAKE=1.85, ACOU_MAKE=0.42;                               // level matching: both land where the earlier string sat on the fader (measured offline)
+const ARCH_MAKE=1.85, ACOU_MAKE=0.27;                               // level matching: both land where the earlier string sat on the fader (measured offline)
 /*BODY-END*/
 
 let ctx=null, master=null, stringBus=null, clickBus=null, archSel=null, acouSel=null, voiceIn=null, workletOK=false, noiseBuf=null;
@@ -507,7 +525,9 @@ const TEST_VARIANTS=[
   {string:1,start:3,dir:'up',bend:true},   {string:2,start:4,dir:'down',bend:true}
 ];
 const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-8)/LOOP)));   // about four minutes at any tempo
-const testMinutes=bpm=>TEST_VARIANTS.length*(8+LOOP*testLoops(bpm))/bpm;
+const testMinutes=bpm=>chapIn.filter(Boolean).length*(8+LOOP*testLoops(bpm))/bpm;
+const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it
+try{ const v=JSON.parse(localStorage.getItem('semitone-chapters')||'null'); if(Array.isArray(v)&&v.length===TEST_VARIANTS.length) v.forEach((x,i)=>{ chapIn[i]=!!x; }); }catch(err){}
 const cfgOf=d=>({string:d.string,start:d.start,dir:d.dir,plant:d.plant,slide:!!d.slide,bend:!!d.bend});
 function pairFor(c){ const a=c.start,b=c.dir==='up'?a+1:a-1; return [a,b].map(f=>({finger:f,fret:POSITION+f-1})); }
 function mkSeg(c){
@@ -520,10 +540,11 @@ function run(test){
   ensureCtx().then(()=>{
     if(T.on) stopAll();
     T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null;
-    const list=test?TEST_VARIANTS.map(v=>Object.assign({plant:true},v)):[cfgOf(drill)];
+    const list=test?TEST_VARIANTS.map((v,k)=>Object.assign({plant:true,ck:k},v)).filter(v=>chapIn[v.ck]):[cfgOf(drill)];
+    if(!list.length) return;
     const loops=test?testLoops(drill.bpm):Infinity, count=test?8:COUNT;
     let t=ctx.currentTime+0.1;
-    T.segs=list.map((c,k)=>{ const s=mkSeg(c); s.k=k; s.count=count; s.loops=loops; s.countStart=t; s.loopStart=t+count*T.beat; s.end=s.loopStart+loops*LOOP*T.beat;
+    T.segs=list.map((c,k)=>{ const s=mkSeg(c); s.k=c.ck!==undefined?c.ck:k; s.pos=k; s.count=count; s.loops=loops; s.countStart=t; s.loopStart=t+count*T.beat; s.end=s.loopStart+loops*LOOP*T.beat;
       s.xt=s.mode==='slide'?SLIDE_T:(s.mode==='bend'?Math.min(0.16,0.4*T.beat/2):0); t=s.end; return s; });
     T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-count; T.live=[]; T.shown=null; T.on=true;
     tick(); T.timer=setInterval(tick,25);
@@ -560,13 +581,15 @@ function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{con
 const pitchOf=(s,i)=>s.notes[i%2].fret;                               // the pitch of note i, in frets of this string
 function note(s,t,i,first){
   const p=pitchOf(s,i), f=fretHz(s.string,p), str=s.str;
-  if(s.mode==='fingers'||first){ str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
+  // the pick meets the string before it releases it: 10 ms that stop most of what is ringing, so picks never stack up
+  const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-0.010),t1:t,depth:0.03}); };
+  if(s.mode==='fingers'||first){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
   // slide: the finger carries the string's length; bend: the finger pushes the string's tension. Either way the pitch moves
   // continuously, arriving on the beat, and only the first note of each bar is picked.
-  const g0=Math.max(ctx.currentTime,t-s.xt);
-  if(s.mode==='bend'&&BAR_START(i)&&p>s.base) str.send({kind:'damp',t:g0,t1:t});   // a prebend is made silently
+  const g0=Math.max(ctx.currentTime,t-s.xt), prebend=s.mode==='bend'&&BAR_START(i)&&p>s.base;
+  if(prebend) str.send({kind:'damp',t:g0,t1:t,depth:0.003});        // a prebend is made silently, the string held quiet under the hand
   str.send({kind:'glide',t:g0,t1:t,f});
-  if(BAR_START(i)) str.send({kind:'pluck',t,f,v:PLUCK_V});
+  if(BAR_START(i)){ if(!prebend) choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); }
 }
 // the pulse: three sounds on the click bus, beat 1 accented in each
 function click(t,accent){
@@ -601,7 +624,7 @@ function stopAll(){
   if(wasTest&&T.saved){ Object.assign(drill,T.saved); T.saved=null; }
   syncLock(); syncUI();
 }
-function finish(){ const n=TEST_VARIANTS.length; stopAll(); showDone(n); }
+function finish(){ const n=T.segs.length; stopAll(); showDone(n); }
 
 /* ---------- what the screen shows at audio time t ---------- */
 function segAt(t){ let s=T.segs[0]; for(const x of T.segs){ if(x.countStart<=t) s=x; else break; } return s; }
@@ -677,6 +700,7 @@ function frame(){
   const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
   if(T.test&&st) syncTestLine(st);
+  paintChapters(t);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -698,12 +722,26 @@ function factsOf(c){
 }
 let testLineKey='';
 function syncTestLine(st){
-  const n=TEST_VARIANTS.length, key=st.s.k+':'+(st.count?'c':'p');
+  const n=T.segs.length, key=st.s.pos+':'+(st.count?'c':'p');
   if(key===testLineKey) return; testLineKey=key;
   insTest.hidden=false;
-  insTest.textContent='Test · '+(st.s.k+1)+' of '+n+(st.count?' · get ready, it starts after the count':'');
+  insTest.textContent='Test · '+(st.s.pos+1)+' of '+n+(st.count?' · get ready, it starts after the count':'');
 }
-function showDone(n){ insTest.hidden=false; insTest.textContent='Test complete · '+n+' variants. Press Test to go again, or Drill to work on one.'; testLineKey=''; }
+function showDone(n){ insTest.hidden=false; insTest.textContent='Test complete · '+n+' chapter'+(n===1?'':'s')+'. Press Test to go again, or Drill to work on one.'; testLineKey=''; }
+
+/* ---------- test chapters ---------- */
+const chRow=document.getElementById('chRow'), chAll=document.getElementById('chAll');
+const chapLabel=c=>{ const o=c.dir==='up'?c.start+1:c.start-1; return STRINGS[c.string].lbl+' '+(c.slide?'sl '+c.start+(c.dir==='up'?'↑':'↓'):(c.bend?(c.dir==='up'?'b':'pb')+Math.min(c.start,o):c.start+'→'+o)); };
+const chEls=TEST_VARIANTS.map((v,k)=>{ const b=document.createElement('button'); b.type='button'; b.className='ch'; b.id='ch'+k; b.textContent=chapLabel(v);
+  const c=Object.assign({plant:true},v); b.title=(k+1)+'. '+factsOf(c).replace(/ · ♩ = \d+/,'')+(v.slide?' · slide':v.bend?(v.dir==='up'?' · bend':' · prebend'):'');
+  b.addEventListener('click',()=>{ if(T.on&&T.test) return; chapIn[k]=!chapIn[k]; saveChapters(); syncUI(); }); chRow.appendChild(b); return b; });
+chAll.addEventListener('click',()=>{ chapIn.fill(true); saveChapters(); syncUI(); });
+function saveChapters(){ try{ localStorage.setItem('semitone-chapters',JSON.stringify(chapIn.map(Number))); }catch(err){} }
+function paintChapters(t){
+  chEls.forEach((b,k)=>{ let p=0, done=false, now=false;
+    if(T.on&&T.test&&t!==null){ const s=T.segs.find(x=>x.k===k); if(s){ if(t>=s.end) done=true; else if(t>=s.countStart){ now=true; p=(t-s.countStart)/(s.end-s.countStart); } } }
+    b.style.setProperty('--p',p.toFixed(3)); b.classList.toggle('done',done); b.classList.toggle('now',now); });
+}
 
 /* ---------- controls ---------- */
 const bpmIn=document.getElementById('bpm'), bpmV=document.getElementById('bpmv'), clickIn=document.getElementById('click'), slideIn=document.getElementById('slide'), bendIn=document.getElementById('bend');
@@ -723,7 +761,10 @@ function syncUI(){
   fingers.forEach(F=>F.guide.setAttribute('y2',FB.strY[drill.string]-6));
   insFacts.textContent=factsOf(drill); insHow.innerHTML=howTo(drill);
   if(!(T.on&&T.test)&&!insTest.textContent.startsWith('Test complete')) insTest.hidden=true;
-  testBtn.title='Test: '+TEST_VARIANTS.length+' variants, about '+Math.round(testMinutes(drill.bpm))+' minutes at ♩ = '+drill.bpm;
+  const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm);
+  testBtn.title=nIn?('Test: '+nIn+' chapter'+(nIn===1?'':'s')+', about '+(mins<1.5?Math.round(mins*60)+' seconds':Math.round(mins)+' minutes')+' at ♩ = '+drill.bpm):'Put at least one chapter in';
+  testBtn.disabled=!nIn&&!(T.on&&T.test);
+  chEls.forEach((b,k)=>{ b.disabled=lock; b.setAttribute('aria-pressed',chapIn[k]); }); chAll.disabled=lock; chAll.hidden=nIn===TEST_VARIANTS.length;
   buildTabNotes(); buildWedge();
 }
 function syncLock(){ document.body.classList.toggle('testing',T.on&&T.test); }
