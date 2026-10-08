@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fix Stephen's Semitone Drills — Gables Guitar Studio</title>
+<link rel="icon" href="../favicon.ico" sizes="any">
+<style>
+  :root{ color-scheme:dark; --bg:#121212; --ink:#ededed; --mid:#9b9b9b; --line:#3a3a3a; --ok:#9fd39f; --err:#f0a0a0; --accent:#f5e33a }
+  body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif }
+  main{ max-width:600px; margin:0 auto; padding:32px 16px 48px; display:grid; gap:18px }
+  h1{ margin:0; font-size:26px } h2{ margin:0; font-size:17px } p{ margin:0 } .mid{ color:var(--mid) }
+  ul{ margin:0; padding:0; list-style:none; display:grid; gap:8px }
+  li{ display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:8px }
+  li .st{ color:var(--mid); font-size:14px; text-align:right } .ok{ color:var(--ok)!important } .err{ color:var(--err)!important }
+  label{ display:grid; gap:6px; font-size:14px; color:var(--mid) }
+  input{ font:inherit; padding:8px 10px; border-radius:6px; border:1px solid var(--line); background:#1b1b1b; color:var(--ink) }
+  button{ font:inherit; font-weight:700; padding:10px 20px; border-radius:999px; border:2px solid var(--ink); background:var(--ink); color:var(--bg); cursor:pointer; justify-self:start }
+  button:disabled{ opacity:.45; cursor:default }
+  a{ color:var(--accent) }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fix Stephen's Semitone Drills</h1>
+  <p class="mid">Looks up Stephen Roansky, deletes every Semitone item in his routine (the duplicates), sets his profile to left-handed, and assigns the Semitone drill/test page once: 10 minutes a day, opening left-handed. Nothing changes until you press the button.</p>
+  <label for="pass">Studio passphrase <input type="password" id="pass" autocomplete="current-password"></label>
+  <button type="button" id="look">Look him up</button>
+  <h2 id="h" hidden></h2>
+  <ul id="plan"></ul>
+  <button type="button" id="go" hidden>Make these changes</button>
+  <p id="msg" class="mid" aria-live="polite"></p>
+</main>
+<script src="config.js?v=42"></script>
+<script>
+(function(){
+  var LINK='https://brianhunker.github.io/Tonal-Field/technique/semitone.html?hand=left';
+  var ITEM={ title:'Semitone Drills', params:{kind:'task',label:'Technique',link:LINK,daily:10},
+             notes:'Open the Semitone page. Drill: work the string, fingers and direction we set in the lesson, lower fingers staying down. Then switch to Test and play it through once.' };
+  var $=function(i){ return document.getElementById(i); }, pass=$('pass'), plan=$('plan'), msg=$('msg'), go=$('go');
+  var st=null, dupes=[];
+  try{ pass.value=localStorage.getItem('studio-pass')||''; }catch(e){}
+  function post(p){ p.pass=pass.value; return fetch(window.STUDIO_API,{method:'POST',body:JSON.stringify(p)}).then(function(r){ return r.json(); }); }
+  function row(text){ var li=document.createElement('li'); li.innerHTML='<span></span><span class="st">to do</span>'; li.firstChild.textContent=text; plan.appendChild(li); return li.lastChild; }
+  function isSemitone(d){ return /semitone/i.test(d.title||'')||/technique\/semitone/i.test((d.params&&d.params.link)||''); }
+  function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+  $('look').onclick=function(){
+    if(!window.STUDIO_API){ msg.textContent='The studio is not connected to its Sheet (config.js has no address).'; return; }
+    try{ localStorage.setItem('studio-pass',pass.value); }catch(e){}
+    msg.textContent='Reading the Sheet…'; plan.innerHTML=''; go.hidden=true;
+    post({action:'overview'}).then(function(r){
+      if(!r.ok){ msg.textContent=r.error==='wrong passphrase'?'Wrong passphrase.':(r.error||'No answer.'); return; }
+      var m=r.students.filter(function(s){ return /^stephen\b/i.test(s.name)&&/ro\w*ansky/i.test(s.name); });
+      if(m.length!==1){ msg.textContent=m.length?('More than one Stephen R…ansky: '+m.map(function(s){return s.name;}).join(', ')+'. Nothing changed.'):'No Stephen Roansky in the Students tab. Nothing changed.'; return; }
+      st=m[0];
+      dupes=r.drills.filter(function(d){ return d.sid===st.sid&&isSemitone(d); });
+      $('h').hidden=false; $('h').textContent=st.name+' · now '+(st.hand==='left'?'left':'right')+'-handed on his profile';
+      dupes.forEach(function(d){ d._st=row('Delete item '+d.ex+': '+d.title+' ('+d.date+(d.status==='retired'?', retired':'')+')'); });
+      st._hand=row(st.hand==='left'?'Profile already left-handed':'Set his profile to left-handed');
+      st._new=row('Assign Semitone Drills · 10 min a day · opens left-handed');
+      msg.textContent=dupes.length+' Semitone item'+(dupes.length===1?'':'s')+' found.';
+      go.hidden=false; go.disabled=false;
+    },function(){ msg.textContent='Could not reach the Sheet.'; });
+  };
+
+  go.onclick=function(){
+    go.disabled=true; $('look').disabled=true; msg.textContent='Working…';
+    var chain=Promise.resolve(), bad=0;
+    function mark(el,r,okText){ if(r&&r.ok){ el.className='st ok'; el.innerHTML=okText; } else { bad++; el.className='st err'; el.textContent=(r&&r.error)||'no answer'; } }
+    dupes.forEach(function(d){ chain=chain.then(function(){ d._st.textContent='deleting…'; return post({action:'remove',did:d.did}); }).then(function(r){ mark(d._st,r,'deleted'); }); });
+    if(st.hand!=='left') chain=chain.then(function(){
+      st._hand.textContent='saving…';
+      return post({action:'profile',sid:st.sid,first:st.first,last:st.last,inst:st.inst,hand:'left',email:st.email,phone:st.phone,since:st.since,day:st.day,time:st.time,status:st.status});
+    }).then(function(r){ mark(st._hand,r,'left-handed'); });
+    else st._hand.className='st ok', st._hand.textContent='unchanged';
+    chain=chain.then(function(){
+      if(bad){ st._new.className='st err'; st._new.textContent='skipped (fix the problem above first)'; return; }
+      st._new.textContent='assigning…';
+      return post(Object.assign({action:'assign',sid:st.sid,student:st.name,date:ymd(new Date()),ex:''},ITEM)).then(function(r){
+        mark(st._new,r,'assigned as item '+(r&&r.ex)+' · <a href="student.html?s='+encodeURIComponent(st.sid)+'" target="_blank" rel="noopener">his page</a>');
+      });
+    }).then(function(){ msg.textContent=bad?'Something did not go through; see above.':'Done. Open his page and press "Open the link" to check it opens left-handed.'; },
+            function(){ msg.textContent='Lost the connection to the Sheet partway; press Look him up again to see where it stands.'; $('look').disabled=false; });
+  };
+})();
+</script>
+</body>
+</html>
