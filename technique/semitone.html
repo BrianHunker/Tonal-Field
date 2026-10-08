@@ -93,6 +93,8 @@ svg{ display:block; width:100%; height:auto; max-width:100%; font-family:var(--s
 /* SVG parts, all through the tokens */
 .ink{ fill:var(--ink) } .mid{ fill:var(--mid) } .board{ fill:var(--board) }
 .inkS{ stroke:var(--ink) } .midS{ stroke:var(--mid) } .faintS{ stroke:var(--faint) }
+path.vibBlur{ fill:var(--ink); opacity:.3; stroke:none }
+path.vibStrobe{ fill:none; stroke:var(--ink); stroke-width:1.8; stroke-linejoin:round; stroke-linecap:round }
 path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the strings the drill is not on */
 .fingerC{ fill:var(--bg); stroke:var(--ink); stroke-width:1.6 } .fingerC.down{ fill:var(--ink) }
 .fingerN{ fill:var(--ink); font-weight:700; font-size:15px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .fingerN.down{ fill:var(--bg) }
@@ -161,6 +163,11 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 
   <div class="mixer" id="mixer" hidden>
     <h2>Settings</h2>
+    <div class="mixRow sub"><span class="name">Strobe view</span>
+      <div class="seg" id="segStrobe" role="group" aria-label="Strobe view of the vibrating string">
+        <button type="button" data-v="show">Show</button><button type="button" data-v="hide">Hide</button>
+      </div>
+    </div>
     <div class="mixRow sub"><span class="name">Theme</span>
       <div class="seg" id="segTheme" role="group" aria-label="Theme">
         <button type="button" data-v="dark">Dark</button><button type="button" data-v="light">Light</button>
@@ -244,7 +251,31 @@ function bendString(i,x,dy){                                          // the str
 [3,5,7,9].forEach(k=>el('circle',{cx:cellM(k),cy:FB.bot+14,r:4,class:'mid'},fb));            // neck dots below the low E
 el('circle',{cx:cellM(12)-7,cy:FB.bot+14,r:4,class:'mid'},fb);
 el('circle',{cx:cellM(12)+7,cy:FB.bot+14,r:4,class:'mid'},fb);
-const ringLine=el('line',{x1:0,y1:FB.strY[0],x2:FB.right,y2:FB.strY[0],class:'inkS','stroke-width':4,'stroke-linecap':'round',visibility:'hidden'},fb); // written note-on: fret to bridge
+const ringLine=el('line',{x1:0,y1:FB.strY[0],x2:FB.right,y2:FB.strY[0],class:'inkS','stroke-width':4,'stroke-linecap':'round',visibility:'hidden'},fb); // written note-on: fret to bridge (shown only until the string model reports its shape)
+/* the vibrating string, from the string model's own loop: with one round trip of P samples and the string P/2 long,
+   y(x) = h[now−d−(P/2−x)] − h[now−d−(P/2+x)], pinned at both ends. BLUR: the band between its extremes over a whole cycle —
+   what the eye sees. STROBE: the actual shape, its phase slowed to STROBE_HZ as under a strobe a hair off the note,
+   its size in real time — what the eye misses and the ear hears. */
+const blurEl=el('path',{d:'',class:'vibBlur',visibility:'hidden'},fb), strobeEl=el('path',{d:'',class:'vibStrobe',visibility:'hidden'},fb);
+const VIB_K=26, VIB_MAX=11, VIB_N=48, STROBE_HZ=1.5;
+let showStrobe=true; try{ showStrobe=localStorage.getItem('semitone-strobe')!=='hide'; }catch(err){}
+function drawVib(snap,fx,fy,bx,by,t){
+  if(!snap||!snap.hist) return false;
+  const H=snap.hist, L=H.length, P=ctx.sampleRate/snap.f; if(L<2*P) return false;
+  const at=k=>{ const j=L-1-k; if(j<0) return 0; const i0=Math.floor(j), fr=j-i0; return H[i0]*(1-fr)+H[Math.min(L-1,i0+1)]*fr; };
+  const yAt=(d,i)=>{ const x=i/VIB_N*P/2; return Math.max(-VIB_MAX,Math.min(VIB_MAX,VIB_K*(at(d+P/2-x)-at(d+P/2+x)))); };
+  const px=i=>fx+(bx-fx)*i/VIB_N, py=i=>fy+(by-fy)*i/VIB_N;
+  const lo=new Float32Array(VIB_N+1), hi=new Float32Array(VIB_N+1);
+  for(let k=0;k<16;k++){ const d=k*P/16; for(let i=0;i<=VIB_N;i++){ const y=yAt(d,i); if(y<lo[i]) lo[i]=y; if(y>hi[i]) hi[i]=y; } }
+  let band='M'+px(0).toFixed(1)+' '+py(0).toFixed(1);
+  for(let i=1;i<=VIB_N;i++) band+=' L'+px(i).toFixed(1)+' '+(py(i)-hi[i]).toFixed(1);
+  for(let i=VIB_N;i>=0;i--) band+=' L'+px(i).toFixed(1)+' '+(py(i)-lo[i]).toFixed(1);
+  blurEl.setAttribute('d',band+' Z'); blurEl.setAttribute('visibility','visible');
+  if(showStrobe){ const d=reduce?P/4:P*(1-((t*STROBE_HZ)%1)); let line='M'+px(0).toFixed(1)+' '+py(0).toFixed(1);
+    for(let i=1;i<=VIB_N;i++) line+=' L'+px(i).toFixed(1)+' '+(py(i)-yAt(d,i)).toFixed(1);
+    strobeEl.setAttribute('d',line); strobeEl.setAttribute('visibility','visible'); } else strobeEl.setAttribute('visibility','hidden');
+  return true;
+}
 
 // the hand: four numbered fingers float above the high e in their positions
 const fingers=[];
@@ -399,6 +430,7 @@ function makeStringCore(){
     constructor(sr,gauge){ this.sr=sr; this.N=8192; this.buf=new Float32Array(this.N); this.w=0; this.g=Math.max(0,Math.min(1,+gauge||0));
       this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; this.dampTo=0; this.dampK=1; }
     push(e){ this.q.push(e); this.q.sort((a,b)=>a.t-b.t); }
+    history(len){ const o=new Float32Array(len), N=this.N; for(let k=0;k<len;k++) o[k]=this.buf[(this.w-len+k+N*2)%N]; return o; }
     excite(f0,v){
       const g=this.g, pm=0; v=Math.max(0.05,Math.min(1,v));
       const fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);
@@ -431,7 +463,7 @@ function makeStringCore(){
         let v=lp*Math.pow(10,-3/(this.t60*f));
         if(t<this.dampTo) v*=this.dampK;
         if(this.exI<this.exN) v+=this.ex[this.exI++];
-        buf[w]=v; out[i]=v; w=(w+1)%N;
+        buf[w]=v; out[i]=v; w=(w+1)%N; this.fNow=f;
       }
       this.w=w; this.lp=lp; this.ap=ap; this.apx=apx;
     }
@@ -443,7 +475,9 @@ const StringCore=makeStringCore();
 class TFDrillString extends AudioWorkletProcessor{
   constructor(o){ super(); const p=(o&&o.processorOptions)||{}; this.core=new StringCore(sampleRate,p.gauge); this.alive=true;
     this.port.onmessage=e=>{ const d=e.data; if(d==='stop') this.alive=false; else this.core.push(d); }; }
-  process(ins,outs){ if(!this.alive) return false; this.core.render(outs[0][0],currentTime); return true; }
+  process(ins,outs){ if(!this.alive) return false; this.core.render(outs[0][0],currentTime);
+    if((this.blk=(this.blk||0)+1)%4===0){ const P=sampleRate/(this.core.fNow||220), h=this.core.history(Math.ceil(2*P)+4); this.port.postMessage({hist:h,f:this.core.fNow||220},[h.buffer]); }   // for the picture of the string
+    return true; }
 }
 registerProcessor('tf-drill-string',TFDrillString);`;
 
@@ -512,12 +546,15 @@ function makeString(gauge){
   if(workletOK){
     const node=new AudioWorkletNode(ctx,'tf-drill-string',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{gauge}});
     node.connect(vg);
-    return {send:e=>node.port.postMessage(e), stopAt:(t,now)=>fadeOut(vg,t,now,()=>{ node.port.postMessage('stop'); node.disconnect(); vg.disconnect(); })};
+    const o={snap:null};
+    node.port.onmessage=e=>{ if(e.data&&e.data.hist) o.snap=e.data; };
+    return Object.assign(o,{send:e=>node.port.postMessage(e), stopAt:(t,now)=>fadeOut(vg,t,now,()=>{ node.port.postMessage('stop'); node.disconnect(); vg.disconnect(); })});
   }
   const core=new (makeStringCore())(ctx.sampleRate,gauge), sp=ctx.createScriptProcessor(1024,1,1);
-  sp.onaudioprocess=e=>core.render(e.outputBuffer.getChannelData(0),e.playbackTime);
+  const o={snap:null};
+  sp.onaudioprocess=e=>{ core.render(e.outputBuffer.getChannelData(0),e.playbackTime); const f=core.fNow||220; o.snap={hist:core.history(Math.ceil(2*ctx.sampleRate/f)+4),f}; };
   sp.connect(vg);
-  return {send:e=>core.push(e), stopAt:(t,now)=>fadeOut(vg,t,now,()=>{ sp.disconnect(); vg.disconnect(); sp.onaudioprocess=null; })};
+  return Object.assign(o,{send:e=>core.push(e), stopAt:(t,now)=>fadeOut(vg,t,now,()=>{ sp.disconnect(); vg.disconnect(); sp.onaudioprocess=null; })});
 }
 // mute a string at audio time t (now: cancel whatever was scheduled and mute at once), then let it go
 function fadeOut(vg,t,now,release){
@@ -673,7 +710,7 @@ function fingerDown(f,t){
   if(f===cur) return true;
   return f<cur&&s.plant;
 }
-const BEND_PX=16;
+const BEND_PX=16; let lastStr=-1;
 function frame(){
   const t=(T.on&&ctx)?ctx.currentTime:null;
   const st=t!==null?stateAt(t):null, s=st?st.s:null;
@@ -695,10 +732,15 @@ function frame(){
     F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
-  if(bendDy||bentStr>=0) bendString(strI,tipX(s?s.base:POSITION),bendDy);
+  const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
+  const vibOn=live&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,FB.right,sy,t);
+  if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
+  if(lastStr>=0&&lastStr!==strI) strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0));
+  strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,tipX(s?s.base:POSITION),bendDy));
+  lastStr=strI;
   if(live){
-    const x1=s.mode==='bend'?tipX(s.base):tipXf(p);
-    ringLine.setAttribute('x1',x1); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility','visible');
+    const x1=fxV;
+    ringLine.setAttribute('x1',x1); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
     const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
@@ -838,6 +880,10 @@ const segTheme=document.getElementById('segTheme');
 function syncTheme(){ const th=document.documentElement.getAttribute('data-theme')||'dark'; for(const b of segTheme.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===th); }
 segTheme.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; document.documentElement.setAttribute('data-theme',b.dataset.v); try{ localStorage.setItem('semitone-theme',b.dataset.v); }catch(err){} syncTheme(); });
 syncTheme();
+const segStrobe=document.getElementById('segStrobe');
+function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='show')===showStrobe); }
+segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
+syncStrobe();
 syncUI();
 })();
 </script>
