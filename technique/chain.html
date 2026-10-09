@@ -374,6 +374,23 @@ for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'
 const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+BRIDGE_X+' '+y;
 const HOVER_GAP=22, hoverY=sy=>sy-HOVER_GAP;                         // a lifted finger waits just above the string it will play, not far off
 const strLines=FB.strY.map((y,i)=>el('path',{d:strPath(y,0,0),fill:'none',class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round','stroke-linejoin':'round'},fb));
+// the framed area: only the stretch of string the hand frames is lit — its string between the frame's frets, and those frets'
+// wires beside it; every other string and fret stays gray
+const spanDefs=el('defs',{},fb), spanFr=el('g',{'pointer-events':'none'}); fb.insertBefore(spanFr,strLines[0]);
+const spanGr=FB.strY.map((y,i)=>{ const g=el('linearGradient',{id:'spanG'+i,gradientUnits:'userSpaceOnUse',x1:FB.x0,y1:0,x2:BRIDGE_X,y2:0},spanDefs);
+  return [0,1,2,3].map(k=>el('stop',{style:(k===1||k===2)?'stop-color:var(--ink)':'stop-color:var(--mid);stop-opacity:.45'},g)); });
+const SPAN_GAP=FB.strY.length>1?(FB.strY[1]-FB.strY[0])/2:12;
+let spanKey='';
+function paintSpan(spans){                                              // spans: [{string, lo, hi}] — the lit cells, fret lo to fret hi
+  const key=JSON.stringify(spans); if(key===spanKey) return; spanKey=key;
+  while(spanFr.firstChild) spanFr.removeChild(spanFr.firstChild);
+  strLines.forEach((l,i)=>{ const sp=spans.find(q=>q.string===i); l.classList.toggle('strDim',!sp); l.style.stroke=sp?'url(#spanG'+i+')':'';
+    if(!sp) return;
+    const a=cellL(sp.lo), b=cellR(sp.hi), off=v=>((v-FB.x0)/(BRIDGE_X-FB.x0)).toFixed(5);
+    spanGr[i].forEach((s,k)=>s.setAttribute('offset',off(k<2?a:b)));
+    for(let k=Math.max(1,sp.lo-1);k<=sp.hi;k++){ const x=FB.nut+k*FB.cw; el('line',{x1:x,y1:FB.strY[i]-SPAN_GAP,x2:x,y2:FB.strY[i]+SPAN_GAP,class:'inkS','stroke-width':1.5},spanFr); } });
+}
+const spanOf=()=>chainFrames(cfgOf(drill)).map(F=>{ const fr=F.tones.map(t=>t.fret); return {string:F.string,lo:Math.min(homeFret(F.shape,1,F.low),...fr),hi:Math.max(homeFret(F.shape,4,F.low),...fr)}; });   // every frame of the chain, on its string
 // g(x) on: each of the drill's frets shows its tone's valence on the string itself — the stretch of string the finger presses,
 // from the fret behind it to its own fret wire, rising from the string's ink to the full colour at the wire
 const projDefs=el('defs',{},fb), projG=el('g',{'pointer-events':'none'},fb), projCells=Array.from({length:18},(_,i)=>{
@@ -1127,7 +1144,7 @@ function frame(){
   const live=!!(st&&!st.count), dplan=s?s.plan:planFor(cfgOf(drill));
   const strI=live?dplan[st.idx].string:dplan[0].string, sy=FB.strY[strI];
   // the fretting hand reads a moment ahead (it lands just before the note): its string, its frame
-  const stL=(t!==null&&st&&!st.done)?stateAt(t+LEAD):null, nH=(stL&&stL.idx>=0)?dplan[stL.idx]:dplan[live?st.idx:0], syF=FB.strY[nH.string];
+  const stL=(t!==null&&st&&!st.done)?stateAt(t+LEAD):null, nH=(stL&&stL.idx>=0)?dplan[stL.idx]:dplan[live?st.idx:0], syF=FB.strY[t===null?0:nH.string];   // stopped, the hand waits over the top string; the count-in brings it to the chain's
   const p=live?pitchAt(st,t):null;                                  // the sounding pitch
   // slide: fingers 1 and 3 where the plan has them, travelling with the pitch through a slide; 2 and 4 keep the hand's shape
   // slide: the hand flexes. Each active finger (1 and the frame's middle finger) is where it is needed — the sounding finger
@@ -1316,7 +1333,7 @@ function syncUI(){
   bpmV.textContent=drill.bpm;
   rows.forEach((r,i)=>r.classList.toggle('sel',chainFrames(cfgOf(drill)).some(F=>F.string===i)));
   const used=chainFrames(cfgOf(drill)).map(F=>F.string);
-  strLines.forEach((l,i)=>l.classList.toggle('strDim',!used.includes(i)));
+  paintSpan(spanOf());
   rowLbls.forEach((l,i)=>l.classList.toggle('sel',chainFrames(cfgOf(drill)).some(F=>F.string===i)));
   const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm), len=mins<1.5?Math.round(mins*60)+' seconds':'about '+Math.round(mins)+' minutes';
   if(mode==='test'&&!(T.on&&T.test)){                              // test mode, stopped: what the test will be
