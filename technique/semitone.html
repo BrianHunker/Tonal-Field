@@ -309,7 +309,7 @@ function paintProjection(strI){
     c.gr.setAttribute('x1',x1); c.gr.setAttribute('x2',x2); c.gr.setAttribute('y1',y); c.gr.setAttribute('y2',y);
     c.s0.setAttribute('stop-color',ink); c.s1.setAttribute('stop-color',rgbS(valRGB(pcOf(strI,fr))));
     c.line.setAttribute('x1',x1); c.line.setAttribute('x2',x2); c.line.setAttribute('y1',y); c.line.setAttribute('y2',y);
-    c.line.setAttribute('stroke-width',FB.gauge[strI]+1.6); c.line.setAttribute('opacity',L.toFixed(3)); });
+    c.line.setAttribute('stroke-width',FB.gauge[strI]); c.line.setAttribute('opacity',L.toFixed(3)); });   // the string's own width: colour, not thickness
 }
 let bentStr=-1;
 function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
@@ -345,12 +345,20 @@ function drawVib(snap,fx,fy,bx,by,t){
   return true;
 }
 
+// a fingertip: a circle while it hovers; pressed (k → 1) its underside flattens onto the string — a dome, the flat at the
+// string and the round on top — as a fingertip does under pressure. yc: the centre of the round top.
+const FR=14, PRESS_H=0.75;                                             // pressed, the dome stands 0.75 r below its centre
+function fingerPath(x,yc,k){
+  const r=FR, c=0.5523, hb=r*(1-(1-PRESS_H)*k), cb=c+(0.95-c)*k, f=v=>v.toFixed(2);
+  return 'M'+f(x-r)+' '+f(yc)+' C'+f(x-r)+' '+f(yc-c*r)+' '+f(x-c*r)+' '+f(yc-r)+' '+f(x)+' '+f(yc-r)+' C'+f(x+c*r)+' '+f(yc-r)+' '+f(x+r)+' '+f(yc-c*r)+' '+f(x+r)+' '+f(yc)
+    +' C'+f(x+r)+' '+f(yc+cb*hb)+' '+f(x+cb*r)+' '+f(yc+hb)+' '+f(x)+' '+f(yc+hb)+' C'+f(x-cb*r)+' '+f(yc+hb)+' '+f(x-r)+' '+f(yc+cb*hb)+' '+f(x-r)+' '+f(yc)+' Z';
+}
 // the hand: four numbered fingers float above the high e in their positions
 const fingers=[];
 for(let f=1;f<=4;f++){
   const fret=POSITION+f-1, x=tipX(fret);
   const guide=el('line',{x1:x,y1:FB.hover+17,x2:x,y2:FB.strY[0]-6,class:'guide'},fb);
-  const c=el('circle',{cx:x,cy:FB.hover,r:14,class:'fingerC'},fb);
+  const c=el('path',{d:fingerPath(x,FB.hover,0),class:'fingerC'},fb);
   const t=el('text',{x:x,y:FB.hover,class:'fingerN'},fb); t.textContent=f;
   fingers.push({f,fret,home:x,x,y:FB.hover,c,t,guide});
 }
@@ -968,12 +976,13 @@ function frame(){
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
   for(const F of fingers){
     const onBent=s&&s.mode==='bend'&&F.f<=s.bendFinger;                 // a supporting finger rides the bent string where it passes
-    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0):hoverY(sy);
+    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0)-FR*PRESS_H:hoverY(sy);   // pressed: the flat underside on the string
     F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
     F.x=F.home+shift*FB.cw;
-    F.c.setAttribute('cx',F.x); F.c.setAttribute('cy',F.y); F.t.setAttribute('x',F.x); F.t.setAttribute('y',F.y);
-    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+15).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
-    const pressed=F.y>(hoverY(sy)+sy)/2-Math.abs(bendDy);
+    const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k);
+    F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
+    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
+    const pressed=k>0.5||(Math.abs(bendDy)>0&&down);
     F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
@@ -1029,7 +1038,7 @@ function frame(){
   let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
   if(st&&!st.done&&!st.count&&!reduce){
     const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
-    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2u=st.ph%1; b1o=1-0.6*k; }
+    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }   // in from half a beat before beat 1, travelling right
     else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
   }
   ball.setAttribute('opacity',b1o.toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));
