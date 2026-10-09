@@ -268,8 +268,9 @@ const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: r
    Hand: position 5 (the index finger's fret). A frame is three tones on one string — two steps:
    Diminished semitone:tone (fingers 1 2 4 on frets 5 6 8), Minor tone:semitone (1 3 4 on 5 7 8), Major tone:tone
    (1 2 4 on 5 7 9: finger 2 reaches to fret 7, finger 4 stretches to fret 9). The unused finger stays up.
-   Slide (every frame): fingers 1 and 3. Going up, finger 1 frets the low tone, finger 3 the middle, and finger 3 slides up
-   to the top tone; coming down, finger 1 frets the middle tone and slides down to the low one. The hand moves with each slide.
+   Slide (every frame): going up, finger 1 frets the low tone, the frame's middle finger frets the middle tone and slides up
+   to the top tone; coming down, finger 1 frets the middle tone and slides back to the low one. The hand keeps its shape
+   and moves with each slide (and with finger 1 as it takes the middle tone).
    Bend: the top tone is not fretted — the middle finger frets the middle tone and bends (or prebends) the string up to it.
    Bar 1's top tones are bends, released back to the middle; bar 2's top tone is a prebend, picked bent and released on the
    next beat. Pick every tone a finger frets; slides, bends and releases carry the tone without a pick.
@@ -305,17 +306,17 @@ const pairOf=()=>pairFor(drill);
 function planFor(c){
   const S=SHAPES[c.shape], F=[POSITION, POSITION+S.steps[0], POSITION+S.steps[0]+S.steps[1]], up=c.dir==='up';
   const reg=i=>up?SEQ[i]:2-SEQ[i], mode=c.slide?'slide':(c.bend?'bend':'fingers');
-  const out=[]; let p1=up?F[0]:F[1], p3=up?F[1]:F[2];
+  const out=[], m=S.fing[1], home=f=>S.home[f-1]; let sh=up?0:F[2]-home(m);   // sh: how far the hand has moved from position 5
   for(let pass=0;pass<2;pass++) for(let i=0;i<FIG.length;i++){
     const r=reg(i), pr=reg((i+FIG.length-1)%FIG.length), first=BAR_START(i), e={r,pitch:F[r],fret:F[r],finger:S.fing[r],pick:true,glide:false,pre:false,kind:'pick'};
     if(mode==='slide'){
-      if(r===2&&pr===1){ e.glide=true; e.kind='slide'; e.finger=3; const d=F[2]-p3; p3=F[2]; p1+=d; }
-      else if(r===0&&pr===1){ e.glide=true; e.kind='slide'; e.finger=1; const d=F[0]-p1; p1=F[0]; p3+=d; }
-      else if(r===0){ e.finger=1; p1=F[0]; }
-      else if(r===2){ e.finger=3; p3=F[2]; }
-      else if(pr===0){ e.finger=3; p3=F[1]; }                          // middle, going up: finger 3 frets it
-      else { e.finger=1; p1=F[1]; }                                     // middle, coming down: finger 1 frets it
-      e.pick=!e.glide||first; e.p1=p1; e.p3=p3;
+      if(r===2&&pr===1){ e.glide=true; e.kind='slide'; e.finger=m; }    // the middle finger slides up to the top tone
+      else if(r===0&&pr===1){ e.glide=true; e.kind='slide'; e.finger=1; } // finger 1 slides back down to the low tone
+      else if(r===0) e.finger=1;
+      else if(r===2) e.finger=m;
+      else if(pr===0) e.finger=m;                                       // middle, going up: the middle finger frets it
+      else e.finger=1;                                                  // middle, coming down: finger 1 frets it
+      sh=F[r]-home(e.finger); e.pick=!e.glide||first; e.shift=sh;
     }else if(mode==='bend'){
       e.fret=r===2?F[1]:F[r]; e.finger=r===0?S.fing[0]:S.fing[1];
       if(r===2&&pr===1&&i<8&&!first){ e.glide=true; e.pick=false; e.kind='bend'; }
@@ -986,7 +987,7 @@ function fingerDown(f,t){
   const st=stateAt(t+LEAD); if(st.idx<0) return false;
   const s=st.s;
   const e=s.plan[st.idx];
-  if(s.mode==='slide') return f===e.finger||(f===1&&e.finger===3&&e.kind==='pick');   // finger 1 stays on the low tone while 3 frets the middle
+  if(s.mode==='slide') return f===e.finger||(f===1&&e.finger!==1&&e.r===1&&e.kind==='pick');   // finger 1 stays on the low tone while the middle finger frets the middle
   if(s.mode==='bend') return e.r===0?f===e.finger:(f<=s.bendFinger&&SHAPES[s.shape].fing.includes(f));
   const cur=e.finger;
   if(f===cur) return true;
@@ -1022,9 +1023,9 @@ function frame(){
   let slidePos=null;
   { const sg=s||null, plan=sg?sg.plan:planFor(cfgOf(drill));
     if((sg?sg.mode:(drill.slide?'slide':''))==='slide'){
-      let a=plan[live?st.idx:0], q={p1:a.p1,p3:a.p3};
-      if(live){ const n=plan[st.nextIdx]; if(n.glide&&p!==a.pitch&&n.pitch!==a.pitch){ const u=Math.max(0,Math.min(1,(p-a.pitch)/(n.pitch-a.pitch))); q={p1:a.p1+(n.p1-a.p1)*u,p3:a.p3+(n.p3-a.p3)*u}; } }
-      slidePos={1:q.p1,2:(q.p1+q.p3)/2,3:q.p3,4:q.p3+1}; } }
+      const a=plan[live?st.idx:0]; let h=a.shift;
+      if(live){ const n=plan[st.nextIdx]; if(n.glide&&n.pitch!==a.pitch){ const u=Math.max(0,Math.min(1,(p-a.pitch)/(n.pitch-a.pitch))); h=a.shift+(n.shift-a.shift)*u; } }
+      const H=SHAPES[sg?sg.shape:drill.shape].home; slidePos={1:H[0]+h,2:H[1]+h,3:H[2]+h,4:H[3]+h}; } }   // the hand keeps its shape
   const shift=0;
   const bendAmt=(live&&s.mode==='bend')?Math.max(0,p-s.base):0;       // 0 at the middle fret's own pitch, up to 2 for a whole step
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
@@ -1112,7 +1113,7 @@ function howTo(c){
   const S=SHAPES[c.shape], ns=pairFor(c), frets=ns.map(n=>n.fret), way=c.dir==='up'?'up and back':'down and back';
   const order=ns.map(n=>n.finger).concat([ns[1].finger]).join(' ');
   const F=frets.slice().sort((x,y)=>x-y);
-  if(c.slide) return '<span>Fingers 1 and 3.</span> Going up, finger 1 frets '+F[0]+', finger 3 frets '+F[1]+' and slides up to '+F[2]+'; coming down, finger 1 frets '+F[1]+' and slides down to '+F[0]+'. The hand moves with each slide. <span>Pick each tone a finger frets; the slides are not picked.</span> <span>Bar 1</span> eighths: '+way+' twice. <span>Bar 2</span> quarters: '+way+' once, a full beat on each.';
+  if(c.slide) return '<span>Going up,</span> finger 1 frets '+F[0]+', finger '+S.fing[1]+' frets '+F[1]+' and slides up to '+F[2]+'; <span>coming down,</span> finger 1 frets '+F[1]+' and slides back to '+F[0]+'. The hand keeps its shape and moves with each slide. <span>Pick each tone a finger frets; the slides are not picked.</span> <span>Bar 1</span> eighths: '+way+' twice. <span>Bar 2</span> quarters: '+way+' once, a full beat on each.';
   if(c.bend){ const m=S.fing[1], size=S.steps[1]===1?'a half step':'a whole step';
     return '<span>Bend the top tone.</span> Finger '+S.fing[0]+' frets '+F[0]+'; finger '+m+' frets '+F[1]+' and bends the string up '+size+' to the pitch of fret '+F[2]+', the fingers behind it helping. <span>Bar 1</span> eighths: the top tones are bends, released back to '+F[1]+'. <span>Bar 2</span> quarters: the top tone is a prebend — bent silently before its beat, picked, then released on the next. <span>Pick each fretted tone; bends and releases are not picked.</span>'; }
   const unused=[1,2,3,4].filter(f=>!S.fing.includes(f))[0];
@@ -1122,7 +1123,7 @@ function howTo(c){
 }
 function factsOf(c){
   const S=SHAPES[c.shape], ns=pairFor(c);
-  const who=c.slide?'fingers 1 and 3, sliding':(c.bend?'finger '+S.fing[1]+' bends':'fingers '+ns.map(n=>n.finger).join(' '));
+  const who=c.slide?'fingers 1 and '+S.fing[1]+', sliding':(c.bend?'finger '+S.fing[1]+' bends':'fingers '+ns.map(n=>n.finger).join(' '));
   return 'Position '+POSITION+' · '+STRINGS[c.string].name+' string · '+S.name.toLowerCase()+' frame ('+S.kind+') · '+who+' · frets '+ns.map(n=>n.fret).join(' → ')+' · '+ns.map(n=>NAMES[pcOf(c.string,n.fret)]).join(' → ')+' · ♩ = '+drill.bpm;
 }
 let testLineKey='';
