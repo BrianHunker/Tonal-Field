@@ -305,7 +305,23 @@ for(let k=1;k<=FB.n;k++) el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.c
 el('line',{x1:FB.nut,y1:FB.top-8,x2:FB.nut,y2:FB.bot+8,class:'inkS','stroke-width':4},fb);   // nut line, past both edges
 for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'},fb); t.textContent=k; }
 const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+BRIDGE_X+' '+y;
+const HOVER_GAP=22, hoverY=sy=>sy-HOVER_GAP;                         // a lifted finger waits just above the string it will play, not far off
 const strLines=FB.strY.map((y,i)=>el('path',{d:strPath(y,0,0),fill:'none',class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round','stroke-linejoin':'round'},fb));
+// g(x) on: each of the drill's frets shows its tone's valence on the string itself — the stretch of string the finger presses,
+// from the fret behind it to its own fret wire, rising from the string's ink to the full colour at the wire
+const projDefs=el('defs',{},fb), projG=el('g',{'pointer-events':'none'},fb), projCells=[0,1,2].map(i=>{
+  const gr=el('linearGradient',{id:'projG'+i,gradientUnits:'userSpaceOnUse'},projDefs);
+  const s0=el('stop',{offset:0},gr), s1=el('stop',{offset:1},gr);
+  return {gr,s0,s1,line:el('line',{stroke:'url(#projG'+i+')','stroke-linecap':'butt',opacity:0},projG)}; });
+function paintProjection(strI){
+  const L=FIELD.lit, frets=L>0.001?[...new Set(pairOf().map(n=>n.fret))].filter(f=>f>=1):[], ink=rgbS(inkColour()), y=FB.strY[strI];
+  projCells.forEach((c,i)=>{ const fr=frets[i]; if(fr===undefined){ c.line.setAttribute('opacity',0); return; }
+    const x1=cellL(fr), x2=cellR(fr);
+    c.gr.setAttribute('x1',x1); c.gr.setAttribute('x2',x2); c.gr.setAttribute('y1',y); c.gr.setAttribute('y2',y);
+    c.s0.setAttribute('stop-color',ink); c.s1.setAttribute('stop-color',rgbS(valRGB(pcOf(strI,fr))));
+    c.line.setAttribute('x1',x1); c.line.setAttribute('x2',x2); c.line.setAttribute('y1',y); c.line.setAttribute('y2',y);
+    c.line.setAttribute('stroke-width',FB.gauge[strI]+1.6); c.line.setAttribute('opacity',L.toFixed(3)); });
+}
 let bentStr=-1;
 function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
   if(bentStr>=0&&bentStr!==i) strLines[bentStr].setAttribute('d',strPath(FB.strY[bentStr],0,0));
@@ -580,6 +596,7 @@ function paintTabField(st,live,p,amp){
   else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }
 const ball=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink'},tab);
+const ball2=el('circle',{cx:xBeat(0),cy:TB.floor-TB.ballR,r:TB.ballR,class:'ink',opacity:0},tab);   // the overlap ball at the repeat
 const countLbl=el('text',{x:TB.x0-24,y:TB.floor-TB.ballR,class:'lbl','text-anchor':'end','dominant-baseline':'central',visibility:'hidden'},tab); countLbl.textContent='count-in';
 let tabNotes=[];
 const noteG=el('g',{},tab);
@@ -963,15 +980,16 @@ function frame(){
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
   for(const F of fingers){
     const onBent=s&&s.mode==='bend'&&F.f<=s.bendFinger;                 // a supporting finger rides the bent string where it passes
-    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0):FB.hover;
+    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0):hoverY(sy);
     F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
     F.x=F.home+shift*FB.cw;
     F.c.setAttribute('cx',F.x); F.c.setAttribute('cy',F.y); F.t.setAttribute('x',F.x); F.t.setAttribute('y',F.y);
-    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x);
-    const pressed=F.y>(FB.hover+sy)/2-Math.abs(bendDy);
+    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+15).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
+    const pressed=F.y>(hoverY(sy)+sy)/2-Math.abs(bendDy);
     F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
+  paintProjection(strI);
   const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
   // the sounding tone's level (the glow's measure), held through the pick's brief catch so the colour does not blink on every
   // stroke: it rises at once and falls no faster than a 0.15 s release, so it follows the tone's own decay
@@ -1018,6 +1036,16 @@ function frame(){
   if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
   const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
+  // at the repeat: the next ball appears at the top of its arc on the "&" before the downbeat, over beat 1, and falls to it;
+  // the last ball keeps bouncing on out past beat 4, fading — for a moment both are in the air, so the eye can move across
+  let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
+  if(st&&!st.done&&!st.count&&!reduce){
+    const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
+    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2u=st.ph%1; b1o=1-0.6*k; }
+    else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
+  }
+  ball.setAttribute('opacity',b1o.toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));
+  if(b2o>0){ ball2.setAttribute('cx',b2x.toFixed(1)); ball2.setAttribute('cy',(TB.floor-TB.ballR-TB.ballH*4*b2u*(1-b2u)).toFixed(1)); }
   paintTabField(st,live,p,amp);
   if(T.test&&st) syncTestLine(st);
   paintChapters(t);
