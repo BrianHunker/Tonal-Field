@@ -915,6 +915,7 @@ const TEST_VARIANTS=[
   {string:1,shape:'maj',dir:'up',bend:true},   {string:2,shape:'min',dir:'up',bend:true}
 ];
 if(NSTR!==6) TEST_VARIANTS.forEach(v=>{ v.string=Math.round(v.string*(NSTR-1)/5); });   // the same path across a bass's strings
+if(BASS) TEST_VARIANTS.forEach(v=>{ if(v.bend&&SHAPES[v.shape].steps[1]>1){ v.shape='min'; v.string=Math.max(0,v.string-1); } });   // on bass the Test bends no more than a half step: only the minor frame's top step is one
 const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-COUNT)/LOOP)));   // about four minutes at any tempo
 const testMinutes=bpm=>chapIn.filter(Boolean).length*(COUNT+LOOP*testLoops(bpm))/bpm;
 const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it

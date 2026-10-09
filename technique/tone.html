@@ -885,6 +885,7 @@ const TEST_VARIANTS=[
   {string:1,start:3,dir:'up',bend:true},   {string:2,start:3,dir:'down',bend:true}
 ];
 if(NSTR!==6) TEST_VARIANTS.forEach(v=>{ v.string=Math.round(v.string*(NSTR-1)/5); });   // the same path across a bass's strings
+if(BASS) TEST_VARIANTS.forEach(v=>{ if(v.bend){ delete v.bend; v.ham=v.pull=true; v.start=v.dir==='up'?1:3; } });   // on bass the Test bends no more than a half step: a whole-step bend becomes hammer-ons and pull-offs
 const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-COUNT)/LOOP)));   // about four minutes at any tempo
 const testMinutes=bpm=>chapIn.filter(Boolean).length*(COUNT+LOOP*testLoops(bpm))/bpm;
 const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it
@@ -1165,7 +1166,7 @@ function showDone(n){ insTest.hidden=false; insTest.textContent='Test complete �
 
 /* ---------- test chapters ---------- */
 const chRow=document.getElementById('chRow'), chAll=document.getElementById('chAll');
-const chapLabel=c=>{ const o=c.dir==='up'?c.start+STEP:c.start-STEP; return STRINGS[c.string].lbl+' '+(c.slide?'sl '+c.start+(c.dir==='up'?'↑':'↓'):(c.bend?(c.dir==='up'?'b':'pb')+c.start:c.start+'→'+o)); };
+const chapLabel=c=>{ const o=c.dir==='up'?c.start+STEP:c.start-STEP; return STRINGS[c.string].lbl+' '+(c.slide?'sl '+c.start+(c.dir==='up'?'↑':'↓'):(c.bend?(c.dir==='up'?'b':'pb')+c.start:c.start+'→'+o+((c.ham||c.pull)?' h/p':''))); };
 const chEls=TEST_VARIANTS.map((v,k)=>{ const b=document.createElement('button'); b.type='button'; b.className='ch'; b.id='ch'+k; b.textContent=chapLabel(v);
   const c=Object.assign({plant:true},v); b.title=(k+1)+'. '+factsOf(c).replace(/ · ♩ = \d+/,'')+(v.slide?' · slide':v.bend?(v.dir==='up'?' · bend':' · prebend'):'');
   b.addEventListener('click',()=>{ if(T.on&&T.test) return; chapIn[k]=!chapIn[k]; saveChapters(); syncUI(); }); chRow.appendChild(b); return b; });
