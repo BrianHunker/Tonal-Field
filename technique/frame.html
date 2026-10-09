@@ -411,18 +411,19 @@ function fingerPath(x,yc,k){
 // legato fingers. A hammer-on: the finger lifts a little above its hover, then drives down, accelerating, to land as the
 // note sounds. A pull-off: the finger about to pull presses a little deeper into the held string, then flicks off at once.
 const legKind=(s,i)=>{ const k=s.plan[i].kind; return k==='ham'?'H':(k==='pull'?'P':null); }, noteFinger=(s,i)=>s.plan[i].finger;
-const LIFT=9, FLICK=7;
-function legatoMotion(f,st,t,sy){
-  const s=st.s, idx=st.idx, ni=st.nextIdx, dn=st.nextOnset-t, dur=st.dur, hov=hoverY(sy), press=sy-FR*PRESS_H, sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
-  if(legKind(s,ni)==='H'&&noteFinger(s,ni)===f){ const W1=Math.min(0.24,0.75*dur), W2=Math.min(0.08,0.3*dur);
-    if(dn<W1&&dn>W2) return {y:hov-LIFT*sm((W1-dn)/(W1-W2))};
-    if(dn<=W2&&dn>0){ const x=1-dn/W2; return {y:hov-LIFT+(press-(hov-LIFT))*x*x*x}; } }        // accelerating onto the string
+const LIFT=9, FLICK_V=520;                                              // a hammer's lift (px); a pull-off's flick (px/s, up off the string)
+// a lifted finger is not placed, it settles: a soft spring to the hand's resting curve (about 3.5 Hz, under-damped), so it
+// floats back and overshoots a touch rather than being pushed into place; pressing down stays decisive
+const SPR_K=Math.pow(2*Math.PI*3.5,2), SPR_C=2*0.5*2*Math.PI*3.5;
+function legatoMotion(F,st,t,sy){
+  const f=F.f, s=st.s, idx=st.idx, ni=st.nextIdx, dn=st.nextOnset-t, dur=st.dur, hov=hoverY(sy), press=sy-FR*PRESS_H, sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
+  if(legKind(s,ni)==='H'&&noteFinger(s,ni)===f){ const W1=Math.min(0.3,0.85*dur), W2=Math.min(0.08,0.3*dur);
+    if(dn<W1&&dn>W2) return {target:hov-LIFT};                        // the finger drifts up a little as the hammer gathers (the spring carries it)
+    if(dn<=W2&&dn>0){ if(F.sk!==st.nextOnset){ F.sk=st.nextOnset; F.sy0=F.y; } const x=1-dn/W2; return {y:F.sy0+(press-F.sy0)*x*x*x}; } }   // then drives down, accelerating
   if(legKind(s,ni)==='P'&&noteFinger(s,idx)===f){ const W3=Math.min(0.18,0.6*dur);
     if(dn<W3&&dn>0){ const sq=0.3*sm((W3-dn)/W3); return {y:sy-FR*(1-(1-PRESS_H)*(1+sq)),sq}; } }   // pressing deeper, the tip spreading
   const a=t-st.onset;
-  if(legKind(s,idx)==='P'&&noteFinger(s,(idx+FIG.length-1)%FIG.length)===f&&a>=0&&a<0.12){
-    if(a<0.04){ const x=a/0.04, e=1-Math.pow(1-x,3); return {y:press+(hov-FLICK-press)*e}; }         // the flick: off the string at once
-    return {y:hov-FLICK+FLICK*sm((a-0.04)/0.08)}; }
+  if(legKind(s,idx)==='P'&&noteFinger(s,(idx+FIG.length-1)%FIG.length)===f&&a>=0&&a<0.05) return {kick:st.onset};   // the flick: one quick snap, then the spring
   return null;
 }
 // the hand: four numbered fingers float above the high e in their positions
@@ -1072,15 +1073,21 @@ function frame(){
   const shift=0, fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
   const bendAmt=(live&&s.mode==='bend')?Math.max(0,p-s.base):0;       // 0 at the middle fret's own pitch, up to 2 for a whole step
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
+  const ynow=performance.now(), ydt=Math.min(0.05,(ynow-(frame.lastY||ynow))/1000); frame.lastY=ynow;
   for(const F of fingers){
     const onBent=s&&s.mode==='bend'&&F.f<=s.bendFinger;                 // a supporting finger rides the bent string where it passes
     const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0)-FR*PRESS_H:hoverY(sy);   // pressed: the flat underside on the string
-    F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
+    const lm=(live&&!reduce&&st&&!st.count)?legatoMotion(F,st,t,sy):null; let sq=0;
+    const tgt=(lm&&lm.target!==undefined&&!down)?lm.target:target;
+    if(reduce) F.y=tgt;
+    else if(lm&&lm.y!==undefined){ F.y=lm.y; F.vy=0; sq=lm.sq||0; }                     // the scripted part: the hammer's drive, the pull's press
+    else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }       // pressing: decisive
+    else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
+      F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }          // lifted: it settles on the spring
     F.home=tipX(homeFret(s?s.shape:drill.shape,F.f));                 // the frame's own hand shape (the Major stretch)
     if(slidePos){ const tx=tipXf(slidePos.pos[F.f]);                      // a sounding or holding finger is exactly on its fret; the others glide there
       F.x=(slidePos.fixed(F.f)||reduce||F.x===undefined)?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07); }
     else F.x=F.home+shift*FB.cw;
-    let sq=0; if(live&&!reduce&&st&&!st.count){ const o=legatoMotion(F.f,st,t,sy); if(o){ F.y=o.y; sq=o.sq||0; } }
     const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k)+sq;
     F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
     F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
