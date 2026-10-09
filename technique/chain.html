@@ -48,15 +48,21 @@ header{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 16px; margin
 @media (prefers-reduced-motion: reduce){ .eqn, .eqn.on, .gx{ transition:none } }
 .eyebrow{ margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid) }
 h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1; text-wrap:balance }
-.stage{ display:grid; grid-template-columns:3fr 1fr; gap:16px 28px; align-items:center }
+.stage{ display:grid; grid-template-columns:minmax(0,3fr) minmax(0,1fr); gap:16px 28px; align-items:center }
 .ringBox{ display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0 }
 .ringSeg button{ font-size:12px; padding:4px 9px }
 .ringBox svg{ width:100%; max-width:264px; height:auto }
-.ins{ min-width:0; display:grid; gap:8px; align-content:start; min-height:9.5em }
+.ins{ min-width:0; display:grid; grid-template-columns:minmax(0,1fr); gap:8px; align-content:start; min-height:9.5em }
 .ins h2{ margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--mid); font-weight:600 }
 .insFacts{ margin:0; font-weight:600 }
 .insHow{ margin:0; max-width:64ch }
 .insHow span{ color:var(--mid) }
+.insHow[hidden]{ display:none }
+.insTog{ font:inherit; letter-spacing:inherit; text-transform:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; display:inline-flex; align-items:center; gap:6px }
+.insTog:hover{ color:var(--ink) }
+.chev{ width:7px; height:7px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-45deg); transition:transform .2s ease; margin-top:-1px }
+.insTog[aria-expanded="true"] .chev{ transform:rotate(45deg); margin-top:-4px }
+@media (prefers-reduced-motion: reduce){ .chev{ transition:none } }
 .listen{ display:grid; gap:6px; margin-top:4px; animation:lsIn .9s ease }
 .listen[hidden]{ display:none }
 @keyframes lsIn{ from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
@@ -72,11 +78,13 @@ h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-heigh
 body:not(.gxOn) .hearSeg b{ color:inherit }   /* grayscale unless g(x) is on */
 .chainArrow{ color:var(--mid); padding:0 .3em }
 .lsChain{ display:grid; gap:3px; max-width:64ch }
-.lsRow{ margin:0 } .lsRow span{ color:var(--mid) }
+.lsRow{ margin:0; min-width:0; overflow-wrap:anywhere } .lsRow span{ color:var(--mid) }
+.lsWalk, .lsPairs{ display:flex; flex-wrap:wrap; align-items:baseline; row-gap:2px }   /* break between names and between pairs, never past the column */
 .lsRow + .lsRow:not(.lsWalk):not(.lsPairs){ margin-top:8px }
 .lsWalk b{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:1.25em }
 .lsPairs{ color:var(--mid); font-size:14px } .lsPairs b{ font-family:var(--serif); font-style:italic; font-weight:600; font-size:1.08em }
 .lsDot{ padding:0 .55em } .lsPair{ white-space:nowrap; color:var(--mid) }
+.listen, .lsChain{ min-width:0 }
 body:not(.gxOn) .lsChain b{ color:inherit }
 @media (prefers-reduced-motion: reduce){ .listen{ animation:none } .hearKnob{ transition:none } }
 .insTest{ margin:0; justify-self:start; font-size:13px; font-weight:700; padding:4px 10px; border:1.5px solid var(--ink); border-radius:999px }
@@ -257,9 +265,9 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
   <div class="stage">
     <section class="ins" aria-live="polite">
       <p class="insTest" id="insTest" hidden></p>
-      <h2>Instructions</h2>
+      <h2><button type="button" class="insTog" id="insTog" aria-expanded="false" aria-controls="insHow">Instructions<span class="chev" aria-hidden="true"></span></button></h2>
       <p class="insFacts" id="insFacts"></p>
-      <p class="insHow" id="insHow"></p>
+      <p class="insHow" id="insHow" hidden></p>
       <div class="listen" id="listen" hidden>
         <h2>Listen</h2>
         <div class="lsChain" id="chainLine"></div>
@@ -1258,6 +1266,11 @@ requestAnimationFrame(frame);
 
 /* ---------- instructions ---------- */
 const insFacts=document.getElementById('insFacts'), insHow=document.getElementById('insHow'), insTest=document.getElementById('insTest');
+// the full instructions fold away under the heading (closed by default; remembered on this device); the one-line facts stay
+const insTog=document.getElementById('insTog');
+function setIns(open){ insTog.setAttribute('aria-expanded',open); insHow.hidden=!open; }
+try{ setIns(localStorage.getItem('chain-ins')==='open'); }catch(err){ setIns(false); }
+insTog.addEventListener('click',()=>{ const open=insTog.getAttribute('aria-expanded')!=='true'; setIns(open); try{ localStorage.setItem('chain-ins',open?'open':'closed'); }catch(err){} });
 const nameList=xs=>xs.length===3?xs[0]+', '+xs[1]+' and '+xs[2]:xs.join(' and ');
 function legatoTxt(c,dflt){
   if(c.slide||c.bend||!(c.ham||c.pull)) return dflt;
