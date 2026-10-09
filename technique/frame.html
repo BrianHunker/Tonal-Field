@@ -660,6 +660,7 @@ function numberAt(x,y,text){                                          // a numbe
   return {bar:knock,num};
 }
 function buildTabNotes(){
+  const slurPts=[];                                                   // for the legato arcs over slides that are not picked
   while(noteG.firstChild) noteG.removeChild(noteG.firstChild);
   tabNotes=[]; const plan=planFor(cfgOf(drill)), y=TB.rowY[drill.string];
   const stemTop=TB.rowY[5]+10, stemLong=26, stemShort=13;
@@ -682,12 +683,17 @@ function buildTabNotes(){
       mark=numberAt(x,y,String(n.fret));
       if(n.kind==='slide'){ const upw=n.fret>prev.fret, x0=i===0?x-30:xp+9; el('line',{x1:x0,y1:upw?y+4:y-4,x2:x-9,y2:upw?y-4:y+4,class:'inkS','stroke-width':1.3,'stroke-linecap':'round'},noteG); }
     }
+    slurPts.push({x:xBeat(e.s),leg:n.kind==='slide'&&!n.pick});
     tabNotes.push(mark);
     // rhythm below the staff
     const half=e.d>=2, eighth=e.d<1;
     el('line',{x1:x,y1:stemTop,x2:x,y2:stemTop+(half?stemShort:stemLong),class:'inkS','stroke-width':1.3},noteG);
     if(eighth&&i%2===0) el('rect',{x:x-0.65,y:stemTop+stemLong-3.5,width:TB.cw+1.3,height:3.5,class:'ink'},noteG);   // eighths: one beam per beat; quarters stand alone
   });
+  // legato: an arc from the picked note over every slide that follows it unpicked, so only the first is read as picked
+  { const yRow=TB.rowY[drill.string]; let g0=-1;
+    const arc=(xa,xb)=>el('path',{d:'M'+(xa+3)+' '+(yRow-11)+' Q'+((xa+xb)/2)+' '+(yRow-11-Math.min(16,6+(xb-xa)*0.12))+' '+(xb-3)+' '+(yRow-11),class:'curve'},noteG);
+    slurPts.forEach((q,i)=>{ if(q.leg){ if(g0<0) g0=Math.max(0,i-1); if(i===slurPts.length-1||!slurPts[i+1].leg){ arc(slurPts[g0].x,q.x); g0=-1; } } }); }
 }
 const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-10,x2:TB.x0,y2:TB.rowY[5]+10,class:'headS','stroke-width':1.5,visibility:'hidden'},tab);
 // click a row (or its label) to move the drill there
@@ -1020,13 +1026,23 @@ function frame(){
   const live=!!(st&&!st.count);
   const p=live?pitchAt(st,t):null;                                  // the sounding pitch
   // slide: fingers 1 and 3 where the plan has them, travelling with the pitch through a slide; 2 and 4 keep the hand's shape
+  // slide: the hand flexes. Each active finger (1 and the frame's middle finger) is where it is needed — the sounding finger
+  // on its pitch (riding the slide), a finger holding the string on its fret, and a lifted finger travelling ahead of time to
+  // the fret it plays next, so it is there, ready, before it lands. The unused fingers keep their places in the hand.
   let slidePos=null;
-  { const sg=s||null, plan=sg?sg.plan:planFor(cfgOf(drill));
+  { const sg=s||null, plan=sg?sg.plan:planFor(cfgOf(drill)), shp=sg?sg.shape:drill.shape;
     if((sg?sg.mode:(drill.slide?'slide':''))==='slide'){
-      const a=plan[live?st.idx:0]; let h=a.shift;
-      if(live){ const n=plan[st.nextIdx]; if(n.glide&&n.pitch!==a.pitch){ const u=Math.max(0,Math.min(1,(p-a.pitch)/(n.pitch-a.pitch))); h=a.shift+(n.shift-a.shift)*u; } }
-      const H=SHAPES[sg?sg.shape:drill.shape].home; slidePos={1:H[0]+h,2:H[1]+h,3:H[2]+h,4:H[3]+h}; } }   // the hand keeps its shape
-  const shift=0;
+      const i=live?st.idx:0, e=plan[i], S=SHAPES[shp], m=S.fing[1], H=S.home, low=plan.find(q=>q.r===0).pitch;
+      const held=a=>a===1&&e.finger!==1&&e.r===1&&e.kind==='pick';    // finger 1 holds the low tone while the middle finger frets the middle
+      const posOf=a=>{ if(e.finger===a) return live?p:e.pitch; if(held(a)) return low;
+        for(let k=1;k<=plan.length;k++){ const q=plan[(i+k)%plan.length]; if(q.finger===a) return q.pitch; } return e.pitch; };
+      let x1=posOf(1), xm=posOf(m);
+      const fx1=e.finger===1||held(1), fxm=e.finger===m;                  // a waiting finger never crowds onto a fret another finger is on:
+      if(fxm||!fx1) x1=Math.min(x1,xm-1); else xm=Math.max(xm,x1+1);    // it waits a fret away and moves in as the other leaves
+      const pos={1:x1}; pos[m]=xm;
+      for(let f=2;f<=4;f++) if(f!==m) pos[f]=f<m?x1+(xm-x1)*(H[f-1]-H[0])/(H[m-1]-H[0]):xm+(H[f-1]-H[m-1]);
+      slidePos={pos,fixed:a=>e.finger===a||held(a)}; } }
+  const shift=0, fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
   const bendAmt=(live&&s.mode==='bend')?Math.max(0,p-s.base):0;       // 0 at the middle fret's own pitch, up to 2 for a whole step
   const bendDy=bendAmt*BEND_PX*(strI<=2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
   for(const F of fingers){
@@ -1034,7 +1050,9 @@ function frame(){
     const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0)-FR*PRESS_H:hoverY(sy);   // pressed: the flat underside on the string
     F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
     F.home=tipX(homeFret(s?s.shape:drill.shape,F.f));                 // the frame's own hand shape (the Major stretch)
-    F.x=slidePos?tipXf(slidePos[F.f]):F.home+shift*FB.cw;
+    if(slidePos){ const tx=tipXf(slidePos.pos[F.f]);                      // a sounding or holding finger is exactly on its fret; the others glide there
+      F.x=(slidePos.fixed(F.f)||reduce||F.x===undefined)?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07); }
+    else F.x=F.home+shift*FB.cw;
     const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k);
     F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
     F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
