@@ -216,6 +216,11 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
         <button type="button" data-v="repeat" title="Back to the first string and up (or down) the chain again">Repeat</button><button type="button" data-v="return" title="Back along the chain to the first string: a continuous loop">Return</button>
       </div>
     </div>
+    <div class="ctl">
+      <div class="seg" id="segShift" role="group" aria-label="Major frames: stretch for them, or shift to the next string">
+        <button type="button" data-v="stretch" title="Three tones to every string: a Major frame takes the 1 2 4 stretch">Stretch</button><button type="button" data-v="shift" title="No Major frames: the third tone moves to the next string, so half steps stay together and the hand shifts">Shift</button>
+      </div>
+    </div>
     <label class="ctl" for="ham"><input type="checkbox" id="ham"> Hammer-on</label>
     <label class="ctl" for="pull"><input type="checkbox" id="pull"> Pull-off</label>
     </div>
@@ -318,14 +323,15 @@ let FIG=[], LOOP=8, LINKS=2, BARS=2;                                   // the fi
 const BAR_START=i=>i%4===0;
 const COUNT=4, LEAD=0.06, SLIDE_T=0.09;
 const catchT=()=>Math.min(0.06,0.15*T.beat/2);   // how long the pick holds the string before releasing it into the note (s), heard and seen: 60 ms, less at fast tempos          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
-const drill={string:NSTR-1,dir:'up',hear:'do',links:2,ret:true,plant:true,slide:false,bend:false,ham:false,pull:false,bpm:70,click:true};
+const drill={string:NSTR-1,dir:'up',hear:'do',links:2,ret:true,shift:false,plant:true,slide:false,bend:false,ham:false,pull:false,bpm:70,click:true};
 const SHAPES={
   dim:{name:'Diminished',short:'Dim',kind:'semitone:tone',steps:[1,2],fing:[1,2,4],home:[5,6,7,8],
        low:2, hear:[['mifasol',0,'MiFa_Sol'],['tidore',-1,'TiDo_Re']], def:'tidore'},
   min:{name:'Minor',short:'Min',kind:'tone:semitone',steps:[2,1],fing:[1,3,4],home:[5,6,7,8],
        low:0, hear:[['remifa',0,'Re_MiFa'],['latido',-1,'La_TiDo']], def:'remifa'},
   maj:{name:'Major',short:'Maj',kind:'tone:tone',steps:[2,2],fing:[1,2,4],home:[5,7,8,9],
-       low:10, hear:[['fasolla',1,'Fa_Sol_La'],['doremi',0,'Do_Re_Mi'],['solati',-1,'Sol_La_Ti']], def:'doremi'}
+       low:10, hear:[['fasolla',1,'Fa_Sol_La'],['doremi',0,'Do_Re_Mi'],['solati',-1,'Sol_La_Ti']], def:'doremi'},
+  tone:{name:'Whole step',short:'Tone',kind:'tone',steps:[2],fing:[1,3],home:[5,6,7,8], low:0, hear:[], def:''}   // Shift: two tones on a string
 };   // home: each finger's fret; low: the frame's lowest tone in places above Re in its first-listed-at-tick-0 hearing; hear: [key, dial tick, name]
 const SYL7=['Do','Re','Mi','Fa','Sol','La','Ti'], DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, MAJ7=[0,2,4,5,7,9,11];
 const HEAR7=[['fa',1],['do',0],['sol',-1],['re',-2],['la',-3],['mi',-4],['ti',-5]];   // dial order: one tick apart (the chain of fifths)
@@ -336,31 +342,44 @@ const roomOf=(str,dir)=>dir==='up'?str:NSTR-1-str;                    // strings
 function setLinks(n,ret){ const bars=ret?2*n:n; if(LINKS===n&&BARS===bars&&FIG.length) return; LINKS=n; BARS=bars; LOOP=4*bars; FIG=[];
   for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5});
   if(typeof sizeTab==='function') sizeTab(); if(typeof buildGrid==='function') buildGrid(); }
-// the chain's frames, string by string: each with its three tones (low to high), their frets, its shape
-function chainFrames(c){
-  const up=c.dir==='up', d0=DEG[c.hear], L=Math.max(1,Math.min(c.links,roomOf(c.string,c.dir))), f0=up?5:8, P0=openMidi(c.string)+f0, out=[];
-  for(let k=0;k<=L;k++){ const si=up?c.string-k:c.string+k, degs=up?[d0+3*k,d0+3*k+1,d0+3*k+2]:[d0-3*k-2,d0-3*k-1,d0-3*k];
-    const tones=degs.map(d=>({deg:d,fret:Math.round(P0+semiOf(d)-semiOf(d0)-openMidi(si))}));
-    const a=tones[1].fret-tones[0].fret, b=tones[2].fret-tones[1].fret, shape=a===2&&b===2?'maj':(a===2?'min':'dim');
-    out.push({string:si,tones,shape,low:tones[0].fret,name:tones.map((t,i)=>(i&&tones[i].fret-tones[i-1].fret===2?'_':'')+SYL7[((t.deg%7)+7)%7]).join('')}); }
+// THE BAR is the chain: four scale tones, three eighths and the fourth held — from a dominant to its root going up (four
+// diatonic steps), from a root to its dominant going down — and the next bar begins on the held tone. Which string carries
+// which tone is a separate choice:
+//   Stretch: three tones to a string, whatever they make (a Major frame takes the 1 2 4 stretch over five frets).
+//   Shift:   no Major frames — where three tones on a string would make one, the third moves on to the next string, so the
+//            string holds a whole step (fingers 1 3) and the hand shifts instead of stretching. Every boundary between strings
+//            is then a whole step: the diatonic half steps always stay together on one string.
+// The pitches are the same either way; only the strings (and so the positions) change.
+function groupsFor(c,L){                                                // the scale tones, in playing order, cut into strings
+  const sg=c.dir==='up'?1:-1, d0=DEG[c.hear], need=3*L+1, out=[]; let d=d0, got=0;
+  while(got<need){ let g=[d,d+sg,d+2*sg];
+    if(c.shift){ const a=Math.abs(semiOf(g[1])-semiOf(g[0])), b=Math.abs(semiOf(g[2])-semiOf(g[1])); if(a===2&&b===2) g=g.slice(0,2); }
+    out.push(g); got+=g.length; d+=sg*g.length; }
   return out; }
-// the notes in playing order: per bar, the frame's three tones then the next frame's first tone (held)
+function linksMax(c){                                                   // how many links the strings left can carry
+  const room=roomOf(c.string,c.dir); if(!c.shift) return room;
+  let L=0; while(L<12&&groupsFor(c,L+1).length-1<=room) L++; return L; }
+// the chain's frames, string by string: each with its tones (low to high: three, or two under Shift), their frets, its shape
+function chainFrames(c){
+  const up=c.dir==='up', d0=DEG[c.hear], L=Math.max(1,Math.min(c.links,linksMax(c))), f0=up?5:8, P0=openMidi(c.string)+f0;
+  return groupsFor(c,L).map((g,k)=>{ const si=up?c.string-k:c.string+k, degs=g.slice().sort((a,b)=>a-b);
+    const tones=degs.map(d=>({deg:d,fret:Math.round(P0+semiOf(d)-semiOf(d0)-openMidi(si))}));
+    let shape='tone'; if(tones.length===3){ const a=tones[1].fret-tones[0].fret, b=tones[2].fret-tones[1].fret; shape=a===2&&b===2?'maj':(a===2?'min':'dim'); }
+    return {string:si,tones,shape,low:tones[0].fret,name:tones.map((t,i)=>(i&&tones[i].fret-tones[i-1].fret===2?'_':'')+SYL7[((t.deg%7)+7)%7]).join('')}; }); }
+// the notes in playing order, bar by bar: out, four tones a bar; back (Return), each bar the outbound one run backwards —
+// Do Re Mi Fa~ | Fa Sol La Ti~ | Ti La Sol Fa~ | Fa Mi Re Do~ — every tone on the string its frame gives it
 function planFor(c){
-  const fr=chainFrames(c), up=c.dir==='up', L=fr.length-1, out=[];
-  for(let b=0;b<L;b++){ const F=fr[b], N=fr[b+1];
-    (up?[0,1,2]:[2,1,0]).forEach(r=>out.push({string:F.string,r,frame:b,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick'}));
-    const r=up?0:2; out.push({string:N.string,r,frame:b+1,shape:N.shape,low:N.low,pitch:N.tones[r].fret,fret:N.tones[r].fret,finger:SHAPES[N.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:true}); }
-  // and back, the way it came — the outbound figure run backwards, so the return sounds the same frames (the same modes): each
-  // bar begins on the tone just held, steps back across the frame before it, and holds that frame's first tone. Up from Do:
-  // Do Re Mi Fa~ | Fa Sol La Ti~ | Ti La Sol Fa~ | Fa Mi Re Do~ — the last frame is never played whole, out or back.
-  if(c.ret){ const ord=up?[0,1,2]:[2,1,0], nt=(F,k,r,land)=>({string:F.string,r,frame:k,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:!!land});
-    for(let b=L-1;b>=0;b--){ const F=fr[b], N=fr[b+1];
-      out.push(nt(N,b+1,ord[0]), nt(F,b,ord[2]), nt(F,b,ord[1]), nt(F,b,ord[0],true)); } }
+  const fr=chainFrames(c), up=c.dir==='up', sg=up?1:-1, d0=DEG[c.hear], L=Math.max(1,Math.min(c.links,linksMax(c))), at={};
+  fr.forEach((F,k)=>F.tones.forEach((t,r)=>{ at[t.deg]={F,k,r}; }));
+  const nt=(d,land)=>{ const {F,k,r}=at[d]; return {string:F.string,r,frame:k,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:!!land}; };
+  const out=[];
+  for(let b=0;b<L;b++) for(let j=0;j<4;j++) out.push(nt(d0+sg*(3*b+j),j===3));
+  if(c.ret) for(let b=L-1;b>=0;b--) for(let j=3;j>=0;j--) out.push(nt(d0+sg*(3*b+j),j===0));
   if(c.ham||c.pull) out.forEach((e,i)=>{ const q=out[(i+out.length-1)%out.length];   // legato within a string: hammer-ons rising, pull-offs falling
     if(q.string!==e.string||q.pitch===e.pitch) return;
     if(e.pitch>q.pitch&&c.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&c.pull){ e.pick=false; e.kind='pull'; } });
   return out; }
-function pairFor(c){ const F=chainFrames(c)[0], o=(c.dir==='up'?[0,1,2]:[2,1,0]); return o.map(r=>({finger:SHAPES[F.shape].fing[r],fret:F.tones[r].fret})); }
+function pairFor(c){ const F=chainFrames(c)[0], o=F.tones.map((t,r)=>r); if(c.dir!=='up') o.reverse(); return o.map(r=>({finger:SHAPES[F.shape].fing[r],fret:F.tones[r].fret})); }
 const pairOf=()=>pairFor(drill);
 const homeFret=(shape,f,low=POSITION)=>SHAPES[shape].home[f-1]-POSITION+low;
 const validStart=()=>true; function fixStart(){}
@@ -992,7 +1011,7 @@ const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.lengt
 const testMinutes=bpm=>chapIn.filter(Boolean).length*(COUNT+LOOP*testLoops(bpm))/bpm;
 const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it
 try{ const v=JSON.parse(localStorage.getItem('chain-chapters')||'null'); if(Array.isArray(v)&&v.length===TEST_VARIANTS.length) v.forEach((x,i)=>{ chapIn[i]=!!x; }); }catch(err){}
-const cfgOf=d=>({string:d.string,dir:d.dir,hear:d.hear,links:d.links,ret:!!d.ret,plant:true,slide:false,bend:false,ham:!!d.ham,pull:!!d.pull});
+const cfgOf=d=>({string:d.string,dir:d.dir,hear:d.hear,links:d.links,ret:!!d.ret,shift:!!d.shift,plant:true,slide:false,bend:false,ham:!!d.ham,pull:!!d.pull});
 function mkSeg(c){
   const plan=planFor(c);
   return Object.assign({},c,{plant:true,notes:pairFor(c),plan,base:plan[0].fret,bendFinger:1,mode:'fingers',strs:{},string:plan[0].string});
@@ -1003,7 +1022,7 @@ let mode='drill';                                                      // the sw
 function run(test){
   ensureCtx().then(()=>{
     if(T.on) stopAll();
-    T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null; setLinks(test?2:Math.max(1,Math.min(drill.links,roomOf(drill.string,drill.dir))),test?false:drill.ret); buildTabNotes();
+    T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null; setLinks(test?2:Math.max(1,Math.min(drill.links,linksMax(cfgOf(drill)))),test?false:drill.ret); buildTabNotes();
     const list=test?TEST_VARIANTS.map((v,k)=>Object.assign({plant:true,ck:k},v)).filter(v=>chapIn[v.ck]):[cfgOf(drill)];
     if(!list.length) return;
     const loops=test?testLoops(drill.bpm):Infinity, count=COUNT;
@@ -1148,7 +1167,7 @@ function frame(){
   stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null;
   const st=t!==null?stateAt(t):null, s=st?st.s:null;
-  if(s&&T.test&&T.shown!==s){ T.shown=s; Object.assign(drill,{string:s.plan[0].string,dir:s.dir,hear:s.hear,links:s.links,ham:!!s.ham,pull:!!s.pull}); syncUI(); }
+  if(s&&T.test&&T.shown!==s){ T.shown=s; Object.assign(drill,{string:s.plan[0].string,dir:s.dir,hear:s.hear,links:s.links,ret:!!s.ret,shift:!!s.shift,ham:!!s.ham,pull:!!s.pull}); syncUI(); }
   const live=!!(st&&!st.count), dplan=s?s.plan:planFor(cfgOf(drill));
   const strI=live?dplan[st.idx].string:dplan[0].string, sy=FB.strY[strI];
   // the fretting hand reads a moment ahead (it lands just before the note): its string, its frame
@@ -1280,17 +1299,24 @@ function legatoTxt(c,dflt){
 }
 function legatoTag(c){ return (c.slide||c.bend)?'':(c.ham&&c.pull?' · hammer-ons & pull-offs':(c.ham?' · hammer-ons':(c.pull?' · pull-offs':''))); }
 function howTo(c){
-  const fr=chainFrames(c), up=c.dir==='up', L=fr.length-1, F=fr[0], N=fr[1];
-  const ord=up?[0,1,2]:[2,1,0], fings=ord.map(r=>SHAPES[F.shape].fing[r]).join(' '), frets=ord.map(r=>F.tones[r].fret).join(' ');
-  const next=N.tones[up?0:2], nf=SHAPES[N.shape].fing[up?0:2];
+  const fr=chainFrames(c), up=c.dir==='up', L=fr.length-1, F=fr[0], syl=t=>SYL7[((t.deg%7)+7)%7];
   const pickTxt=legatoTxt(c,'<span>Pick every note.</span>').replace('Pick only the very first note; the fingers sound every note after it.','Pick each new string; the fingers sound the rest.');
-  return pickTxt+' <span>Each bar:</span> three eighths '+(up?'up':'down')+' the frame on the '+STRINGS[F.string].name+' string (fingers '+fings+', frets '+frets+'), then the next scale tone — '+SYL7[((next.deg%7)+7)%7]+' — on the '+STRINGS[N.string].name+' string (finger '+nf+', fret '+next.fret+'), held through the bar. '
-    +(L>1?'<span>The next bar</span> begins on that tone and does the same, string by string, '+L+' links in all. ':'')
-    +(c.ret?'<span>Then back, the way you came:</span> each bar begins on the tone just held, steps back across the frame before it ('+(up?'high to low':'low to high')+'), and holds that frame\'s '+(up?'lowest':'top')+' tone — the same frames, the same modes, home to the '+STRINGS[F.string].name+' string: '+L+' bar'+(L>1?'s':'')+' out, '+L+' back, and round again.':(L>1?'':'<span>Then</span> back to the start.'))+' Each frame\'s lower fingers stay down; the hand moves as the frames shift.';
+  const back=c.ret?'<span>Then back, the way you came:</span> each bar begins on the tone just held and runs the bar before it backwards, on the same strings — '+L+' bar'+(L>1?'s':'')+' out, '+L+' back, and round again.':'<span>Then</span> back to the start.';
+  if(c.shift){
+    const per=fr.map(G=>{ const o=G.tones.map((t,r)=>r); if(!up) o.reverse();
+      return STRINGS[G.string].name+': '+o.map(r=>syl(G.tones[r])).join(' ')+' (finger'+(o.length>1?'s ':' ')+o.map(r=>SHAPES[G.shape].fing[r]).join(' ')+', frets '+o.map(r=>G.tones[r].fret).join(' ')+')'; }).join(' · ');
+    return pickTxt+' <span>Each bar:</span> four scale tones '+(up?'rising':'falling')+' — three eighths, then the fourth held through the bar; the next bar begins on the held tone. '
+      +'<span>Shift:</span> no string takes a Major frame. Where three tones would need the stretch, the third moves on to the next string — so the hand shifts position instead, every half step stays on one string, and the strings change wherever the frames do, not always at the bar line. <span>The strings:</span> '+per+'. '+back+' Each frame\'s lower fingers stay down.';
+  }
+  const N=fr[1], ord=up?[0,1,2]:[2,1,0], fings=ord.map(r=>SHAPES[F.shape].fing[r]).join(' '), frets=ord.map(r=>F.tones[r].fret).join(' ');
+  const next=N.tones[up?0:2], nf=SHAPES[N.shape].fing[up?0:2];
+  return pickTxt+' <span>Each bar:</span> three eighths '+(up?'up':'down')+' the frame on the '+STRINGS[F.string].name+' string (fingers '+fings+', frets '+frets+'), then the next scale tone — '+syl(next)+' — on the '+STRINGS[N.string].name+' string (finger '+nf+', fret '+next.fret+'), held through the bar. '
+    +(L>1?'<span>The next bar</span> begins on that tone and does the same, string by string, '+L+' links in all. ':'')+back+' Each frame\'s lower fingers stay down; the hand moves as the frames shift.';
 }
 function factsOf(c){
   const fr=chainFrames(c);
-  return STRINGS[c.string].name+' string '+(c.dir==='up'?'up':'down')+' · start on '+SYL7[DEG[c.hear]]+' · '+(fr.length-1)+' link'+(fr.length>2?'s':'')+' · '+fr.map(F=>F.name).join(' | ')+(c.ret?' · and back':'')+legatoTag(c)+' · ♩ = '+drill.bpm;
+  const L=Math.max(1,Math.min(c.links,linksMax(c)));
+  return STRINGS[c.string].name+' string '+(c.dir==='up'?'up':'down')+' · start on '+SYL7[DEG[c.hear]]+' · '+L+' link'+(L>1?'s':'')+' · '+fr.map(F=>F.name).join(' | ')+(c.shift?' · shift':'')+(c.ret?' · and back':'')+legatoTag(c)+' · ♩ = '+drill.bpm;
 }
 // Listen: each string's first tone walks the chain. Up the strings every step is a dominant resolving to its root — the
 // thing to hear (Re resolves to Sol, Sol resolves to Do): each root is heard through its own dominant. Down the strings
@@ -1300,8 +1326,9 @@ function chainLine(c){
   const walk=(lead,names,upStr)=>'<p class="lsRow">'+lead+'</p><p class="lsRow lsWalk">'+names.map(B).join(A)+'</p><p class="lsRow lsPairs">'
     +names.slice(1).map((n,i)=>'<span class="lsPair">'+(upStr?B(names[i])+' resolves to '+B(n):B(names[i])+' moves to its dominant, '+B(n))+'</span>').join('<span class="lsDot">·</span>')+'</p>';
   const UP='up the strings, each tone the dominant of the next, resolving to it: every root heard through its own dominant', DN='down the strings, each tone moving out to its dominant';
-  let h=walk('The first tone of each string walks the dominant chain, '+(up?UP:DN)+'.',fr.map(F=>syl(F.tones[up?0:2])),up);
-  if(c.ret) h+=walk('<span>And back,</span> the same chain in reverse, '+(up?DN:UP)+'.',fr.map(F=>syl(F.tones[up?0:2])).reverse(),!up);
+  const L=Math.max(1,Math.min(c.links,linksMax(c))), firsts=Array.from({length:L+1},(_,b)=>syl({deg:DEG[c.hear]+(up?3:-3)*b}));   // each bar's first tone, and the last one held
+  let h=walk('The first tone of each bar walks the dominant chain, '+(up?UP:DN)+'.',firsts,up);
+  if(c.ret) h+=walk('<span>And back,</span> the same chain in reverse, '+(up?DN:UP)+'.',firsts.slice().reverse(),!up);
   return h;
 }
 let testLineKey='';
@@ -1335,15 +1362,16 @@ const segDir=document.getElementById('segDir'), segLinks=document.getElementById
 segLinks.innerHTML=Array.from({length:NSTR-1},(_,i)=>'<button type="button" data-v="'+(i+1)+'">'+(i+1)+'</button>').join('');
 const pairOfDrill=()=>pairFor(drill);
 function fitDrill(){                                                    // a direction with no strings left flips; the links fit the strings left
-  if(roomOf(drill.string,drill.dir)<1) drill.dir=drill.dir==='up'?'down':'up';
-  drill.links=Math.max(1,Math.min(drill.links,roomOf(drill.string,drill.dir))); }
+  if(linksMax(cfgOf(drill))<1) drill.dir=drill.dir==='up'?'down':'up';
+  drill.links=Math.max(1,Math.min(drill.links,linksMax(cfgOf(drill)))); }
 function syncUI(){
   const lock=T.on&&T.test; if(!lock) fitDrill();
   setLinks(lock?2:drill.links,lock?false:drill.ret);
   for(const b of segString.querySelectorAll('button')){ b.setAttribute('aria-pressed',+b.dataset.v===drill.string); b.disabled=lock; }
-  for(const b of segDir.querySelectorAll('button')){ b.setAttribute('aria-pressed',b.dataset.v===drill.dir); b.disabled=lock||roomOf(drill.string,b.dataset.v)<1; }
+  for(const b of segDir.querySelectorAll('button')){ b.setAttribute('aria-pressed',b.dataset.v===drill.dir); b.disabled=lock||linksMax(Object.assign(cfgOf(drill),{dir:b.dataset.v}))<1; }
+  for(const b of segShift.querySelectorAll('button')){ b.setAttribute('aria-pressed',(b.dataset.v==='shift')===!!drill.shift); b.disabled=lock; }
   for(const b of segLoop.querySelectorAll('button')){ b.setAttribute('aria-pressed',(b.dataset.v==='return')===(lock?false:!!drill.ret)); b.disabled=lock; }
-  for(const b of segLinks.querySelectorAll('button')){ const v=+b.dataset.v; b.setAttribute('aria-pressed',v===drill.links); b.disabled=lock||v>roomOf(drill.string,drill.dir); }
+  for(const b of segLinks.querySelectorAll('button')){ const v=+b.dataset.v; b.setAttribute('aria-pressed',v===drill.links); b.disabled=lock||v>linksMax(cfgOf(drill)); }
   hamIn.checked=!!drill.ham; pullIn.checked=!!drill.pull; hamIn.disabled=lock; pullIn.disabled=lock; bpmIn.disabled=lock;
   syncHearing(); document.getElementById('chainLine').innerHTML=chainLine(cfgOf(drill));
   bpmV.textContent=drill.bpm;
@@ -1370,7 +1398,9 @@ function changed(){ insTest.hidden=true; insTest.textContent=''; syncUI(); if(T.
 function setString(i){ if(T.test&&T.on) return; if(i===drill.string) return; drill.string=i; changed(); }
 segString.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; setString(+b.dataset.v); });
 segDir.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.dir=b.dataset.v; fixStart(); changed(); });
-const segLoop=document.getElementById('segLoop');
+const segLoop=document.getElementById('segLoop'), segShift=document.getElementById('segShift');
+try{ drill.shift=localStorage.getItem('chain-shift')==='shift'; }catch(err){}
+segShift.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.shift=b.dataset.v==='shift'; try{ localStorage.setItem('chain-shift',b.dataset.v); }catch(err){} changed(); });
 try{ const v=localStorage.getItem('chain-loop'); if(v) drill.ret=v==='return'; }catch(err){}
 segLoop.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.ret=b.dataset.v==='return'; try{ localStorage.setItem('chain-loop',b.dataset.v); }catch(err){} changed(); });
 segLinks.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.links=+b.dataset.v; changed(); });
