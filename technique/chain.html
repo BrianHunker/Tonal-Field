@@ -295,7 +295,7 @@ const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: r
 /* ---------- the drill ----------
    The dominant chain: three diatonic tones per string, frames stacked string to string. Standard tuning recovers the chain
    vertically: the next string's first tone is the next scale tone, a fourth from the last string's first tone — up the strings
-   each new string begins on the subdominant of the one before, down the strings on its dominant.
+   each string's first tone is the dominant of the next one's and resolves to it; down the strings each moves to its dominant.
    Start on: the starting finger's tone, by its syllable (it sets the key, and so every frame's shape). Up: the first frame's
    lowest tone is at fret 5; Down: the first frame's top tone is at fret 8. Dominant links: how many strings the chain climbs or
    descends (one bar each), limited by the strings left in that direction.
@@ -1292,11 +1292,14 @@ function factsOf(c){
   const fr=chainFrames(c);
   return STRINGS[c.string].name+' string '+(c.dir==='up'?'up':'down')+' · start on '+SYL7[DEG[c.hear]]+' · '+(fr.length-1)+' link'+(fr.length>2?'s':'')+' · '+fr.map(F=>F.name).join(' | ')+(c.ret?' · and back':'')+legatoTag(c)+' · ♩ = '+drill.bpm;
 }
-function chainLine(c){                                                 // Listen: each string's first tone walks the chain; which is whose dominant
+// Listen: each string's first tone walks the chain. Up the strings every step is a dominant resolving to its root — the
+// thing to hear (Re resolves to Sol, Sol resolves to Do): each root is heard through its own dominant. Down the strings
+// each tone moves out to its dominant.
+function chainLine(c){
   const fr=chainFrames(c), up=c.dir==='up', syl=t=>SYL7[((t.deg%7)+7)%7], B=x=>'<b class="s'+x+'">'+x+'</b>', A='<span class="chainArrow">→</span>';
   const walk=(lead,names,upStr)=>'<p class="lsRow">'+lead+'</p><p class="lsRow lsWalk">'+names.map(B).join(A)+'</p><p class="lsRow lsPairs">'
-    +names.slice(1).map((n,i)=>'<span class="lsPair">'+(upStr?B(names[i])+' is the dominant of '+B(n):B(n)+' is the dominant of '+B(names[i]))+'</span>').join('<span class="lsDot">·</span>')+'</p>';
-  const UP='up the strings, each a fourth higher: the subdominant of the one before', DN='down the strings, each a fourth lower: the dominant of the one before';
+    +names.slice(1).map((n,i)=>'<span class="lsPair">'+(upStr?B(names[i])+' resolves to '+B(n):B(names[i])+' moves to its dominant, '+B(n))+'</span>').join('<span class="lsDot">·</span>')+'</p>';
+  const UP='up the strings, each tone the dominant of the next, resolving to it: every root heard through its own dominant', DN='down the strings, each tone moving out to its dominant';
   let h=walk('The first tone of each string walks the dominant chain, '+(up?UP:DN)+'.',fr.map(F=>syl(F.tones[up?0:2])),up);
   if(c.ret) h+=walk('<span>And back,</span> the same chain in reverse, '+(up?DN:UP)+'.',fr.map(F=>syl(F.tones[up?0:2])).reverse(),!up);
   return h;
