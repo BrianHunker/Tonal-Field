@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tone Drills</title>
+<title>Dominant Chain Drills</title>
 <link rel="icon" href="../favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@1,500&display=swap" rel="stylesheet">
@@ -12,9 +12,9 @@
 /* Layout: one column — the name, a control bar (Drill, Test, the drill's settings, a gear that opens the mixer), then a stage:
    instructions in the left three quarters and the chromatic ring in the right quarter (no words on the ring), then the fretboard with the floating hand above the high e and the
    thumb below the low E, then the two-bar TAB as a subdivision grid. Grayscale by default: the g(x) button above the bar (off at first)
-   fades the equation up and turns on the field — the ring's valence and the tone colours, every whole step read as Sol:La
-   by default, or any of its five hearings, laid out in dial order — Fa:Sol, Do:Re, Sol:La, Re:Mi, La:Ti — so neighbours
-   are one tick apart and Sol:La sits in the centre. */
+   fades the equation up and turns on the field — the ring's valence and the tone colours, every frame read in one of
+   its hearings — Diminished MiFa_Sol | TiDo_Re, Minor Re_MiFa | La_TiDo, Major Fa_Sol_La | Do_Re_Mi | Sol_La_Ti — laid out
+   in dial order, neighbours one tick apart. */
 :root{
   --bg:#ffffff;
   --ink:#121212;
@@ -67,6 +67,9 @@ h1{ margin:0; font-size:30px; font-weight:700; letter-spacing:-.01em; line-heigh
 .hearSeg b{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:1.12em }
 .sTi{ color:var(--tiCol) } .sDo{ color:var(--doCol) } .sRe{ color:var(--reCol) } .sMi{ color:var(--miCol) } .sFa{ color:var(--faCol) } .sSol{ color:var(--solCol) } .sLa{ color:var(--laCol) }
 .hearSeg{ flex-wrap:wrap }
+.hearSeg .us{ color:var(--mid); padding:0 .12em }
+body:not(.gxOn) .hearSeg b{ color:inherit }   /* grayscale unless g(x) is on */
+.chainArrow{ color:var(--mid); padding:0 .3em }
 @media (prefers-reduced-motion: reduce){ .listen{ animation:none } .hearKnob{ transition:none } }
 .insTest{ margin:0; justify-self:start; font-size:13px; font-weight:700; padding:4px 10px; border:1.5px solid var(--ink); border-radius:999px }
 @media (max-width:640px){ .stage{ grid-template-columns:1fr } .ringBox svg{ max-width:220px } }
@@ -158,8 +161,8 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 <div class="wrap">
   <header>
     <div class="hd">
-      <p class="eyebrow">Harmonic structure · 2 of 8</p>
-      <h1>Tone</h1>
+      <p class="eyebrow">Harmonic structure · 4 of 8</p>
+      <h1>Dominant Chain</h1>
     </div>
     <div class="gxRow">
       <div class="eqn" id="eqn" aria-hidden="true"><span><span class="e-env">cos(x)</span>·<span class="e-car">cos(6x)</span> + (1/6)·<span class="e-env">sin(x)</span>·<span class="e-car">sin(6x)</span> =</span><span><span class="e-s5">(7/12)·cos(5x)</span> + <span class="e-s7">(5/12)·cos(7x)</span> =</span></div>
@@ -179,23 +182,17 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
         <button type="button" data-v="0">e</button><button type="button" data-v="1">B</button><button type="button" data-v="2">G</button><button type="button" data-v="3">D</button><button type="button" data-v="4">A</button><button type="button" data-v="5">E</button>
       </div>
     </div>
-    <div class="ctl">Starting finger
-      <div class="seg" id="segStart" role="group" aria-label="Starting finger">
-        <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
-      </div>
-    </div>
     <div class="ctl">Direction
       <div class="seg" id="segDir" role="group" aria-label="Direction">
         <button type="button" data-v="up">Up</button><button type="button" data-v="down">Down</button>
       </div>
     </div>
-    <div class="ctl" id="plantCtl">Lower fingers
-      <div class="seg" id="segPlant" role="group" aria-label="Lower fingers">
-        <button type="button" data-v="1">Stay down</button><button type="button" data-v="0">Lift</button>
-      </div>
+    <div class="ctl">Start on
+      <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Start on (the starting finger's tone)"><span class="hearKnob" id="hearKnob"></span></span>
     </div>
-    <label class="ctl" for="slide"><input type="checkbox" id="slide"> Slide</label>
-    <label class="ctl" for="bend"><input type="checkbox" id="bend"> Bend</label>
+    <div class="ctl">Dominant links
+      <div class="seg" id="segLinks" role="group" aria-label="Dominant links"></div>
+    </div>
     <label class="ctl" for="ham"><input type="checkbox" id="ham"> Hammer-on</label>
     <label class="ctl" for="pull"><input type="checkbox" id="pull"> Pull-off</label>
     </div>
@@ -250,9 +247,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
       <p class="insHow" id="insHow"></p>
       <div class="listen" id="listen" hidden>
         <h2>Listen</h2>
-        <p class="lsLine">The five hearings of a whole step:
-          <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="Hear the whole step as"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="fasol" aria-checked="false"><b class="sFa">Fa</b> ↔ <b class="sSol">Sol</b></button><button type="button" role="radio" data-v="dore" aria-checked="false"><b class="sDo">Do</b> ↔ <b class="sRe">Re</b></button><button type="button" role="radio" data-v="solla" aria-checked="true"><b class="sSol">Sol</b> ↔ <b class="sLa">La</b></button><button type="button" role="radio" data-v="remi" aria-checked="false"><b class="sRe">Re</b> ↔ <b class="sMi">Mi</b></button><button type="button" role="radio" data-v="lati" aria-checked="false"><b class="sLa">La</b> ↔ <b class="sTi">Ti</b></button></span>
-        </p>
+        <p class="lsLine" id="chainLine"></p>
       </div>
     </section>
     <div class="ringBox"><svg id="ring" viewBox="0 0 240 240" aria-label="Chromatic ring: the twelve pitch names around a circle, A at the top, with a dashed hand on the sounding pitch"></svg></div>
@@ -271,13 +266,15 @@ const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const
 const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /* ---------- the drill ----------
-   Hand: position 5 (the index finger's fret), one finger per fret, so finger f sits at fret POSITION+f-1.
-   A tone drill is a whole step on one string: the starting finger's fret and the fret two away in the chosen direction.
-   Fingers: in tandem, fingers 1 & 3 or 2 & 4 (Up starts on 1 or 2, Down on 3 or 4); the other two fingers stay up, and
-   Lower fingers chooses only whether the pair's lower finger stays down while the upper one sounds.  Slide: any finger, holding both frets,
-   the whole hand moving two frets with it.  Bend: any finger stays on its fret and bends the string up a whole step
-   (Down: a prebend, then release).
-   Figure: bar 1 eight straight eighths, bar 2 two halves; the two frets alternate through all ten notes, and the figure loops. */
+   The dominant chain: three diatonic tones per string, frames stacked string to string. Standard tuning recovers the chain
+   vertically: the next string's first tone is the next scale tone, a fourth from the last string's first tone — up the strings
+   each new string begins on the subdominant of the one before, down the strings on its dominant.
+   Start on: the starting finger's tone, by its syllable (it sets the key, and so every frame's shape). Up: the first frame's
+   lowest tone is at fret 5; Down: the first frame's top tone is at fret 8. Dominant links: how many strings the chain climbs or
+   descends (one bar each), limited by the strings left in that direction.
+   Rhythm, each bar: three eighths across the frame (low to high, or high to low), then a fourth eighth tied to a half note —
+   the next scale tone, the first tone of the next frame on the next string. The next bar begins on that tone. Fingers per frame:
+   Major 1 2 4 (the stretch), Minor 1 3 4, Diminished 1 2 4. */
 const POSITION=5;
 // the instrument: guitar (Acoustic or Archtop sound) or Bass, 4 or 5 strings (5: a low B below the E). Chosen in the gear (it
 // rebuilds the page) or by a student's link (?inst=bass, bass4, bass5 or guitar). Strings are listed high to low.
@@ -290,19 +287,49 @@ const NSTR=STRINGS.length, GAUGE=i=>BASS?[0.7,0.8,0.9,1,1][i]:i/5;     // the st
 const NAMES=['A','A♯/B♭','B','C','C♯/D♭','D','D♯/E♭','E','F','F♯/G♭','G','G♯/A♭'];
 const fretHz=(s,n)=>STRINGS[s].hz*Math.pow(2,n/12);
 const pcOf=(s,fret)=>((STRINGS[s].pc+fret)%12+12)%12;   // fret may be fractional, mid-slide
-const FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}]; // start, duration in beats
-const BAR_START=i=>i===0||i===8;
-const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09;
+let FIG=[], LOOP=8, LINKS=2;                                           // the figure: four notes a bar, one bar per link
+const BAR_START=i=>i%4===0;
+const COUNT=4, LEAD=0.06, SLIDE_T=0.09;
 const catchT=()=>Math.min(0.06,0.15*T.beat/2);   // how long the pick holds the string before releasing it into the note (s), heard and seen: 60 ms, less at fast tempos          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
-const drill={string:0,start:1,dir:'up',plant:true,slide:false,bend:false,bpm:70,click:true};
-const STEP=2;                                                          // a whole step: two frets
-function pairFor(c){ const a=c.start, f0=POSITION+a-1, up=c.dir==='up';
-  if(c.bend) return up?[{finger:a,fret:f0},{finger:a,fret:f0+STEP}]:[{finger:a,fret:f0+STEP},{finger:a,fret:f0}];   // the finger stays on f0; Down starts bent
-  if(c.slide) return [{finger:a,fret:f0},{finger:a,fret:up?f0+STEP:f0-STEP}];
-  const b=up?a+STEP:a-STEP; return [{finger:a,fret:f0},{finger:b,fret:POSITION+b-1}]; }
+const drill={string:NSTR-1,dir:'up',hear:'do',links:2,plant:true,slide:false,bend:false,ham:false,pull:false,bpm:70,click:true};
+const SHAPES={
+  dim:{name:'Diminished',short:'Dim',kind:'semitone:tone',steps:[1,2],fing:[1,2,4],home:[5,6,7,8],
+       low:2, hear:[['mifasol',0,'MiFa_Sol'],['tidore',-1,'TiDo_Re']], def:'tidore'},
+  min:{name:'Minor',short:'Min',kind:'tone:semitone',steps:[2,1],fing:[1,3,4],home:[5,6,7,8],
+       low:0, hear:[['remifa',0,'Re_MiFa'],['latido',-1,'La_TiDo']], def:'remifa'},
+  maj:{name:'Major',short:'Maj',kind:'tone:tone',steps:[2,2],fing:[1,2,4],home:[5,7,8,9],
+       low:10, hear:[['fasolla',1,'Fa_Sol_La'],['doremi',0,'Do_Re_Mi'],['solati',-1,'Sol_La_Ti']], def:'doremi'}
+};   // home: each finger's fret; low: the frame's lowest tone in places above Re in its first-listed-at-tick-0 hearing; hear: [key, dial tick, name]
+const SYL7=['Do','Re','Mi','Fa','Sol','La','Ti'], DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, MAJ7=[0,2,4,5,7,9,11];
+const HEAR7=[['fa',1],['do',0],['sol',-1],['re',-2],['la',-3],['mi',-4],['ti',-5]];   // dial order: one tick apart (the chain of fifths)
+const semiOf=d=>12*Math.floor(d/7)+MAJ7[((d%7)+7)%7];                  // a scale degree in semitones above Do
+const openMidi=i=>69+12*Math.log2(STRINGS[i].hz/440);
+const roomOf=(str,dir)=>dir==='up'?str:NSTR-1-str;                    // strings left in that direction
+function setLinks(n){ if(LINKS===n&&FIG.length) return; LINKS=n; LOOP=4*n; FIG=[];
+  for(let b=0;b<n;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5});
+  TB.cw=(TB.s1-TB.x0)/(2*LOOP); if(typeof buildGrid==='function') buildGrid(); }
+// the chain's frames, string by string: each with its three tones (low to high), their frets, its shape
+function chainFrames(c){
+  const up=c.dir==='up', d0=DEG[c.hear], L=Math.max(1,Math.min(c.links,roomOf(c.string,c.dir))), f0=up?5:8, P0=openMidi(c.string)+f0, out=[];
+  for(let k=0;k<=L;k++){ const si=up?c.string-k:c.string+k, degs=up?[d0+3*k,d0+3*k+1,d0+3*k+2]:[d0-3*k-2,d0-3*k-1,d0-3*k];
+    const tones=degs.map(d=>({deg:d,fret:Math.round(P0+semiOf(d)-semiOf(d0)-openMidi(si))}));
+    const a=tones[1].fret-tones[0].fret, b=tones[2].fret-tones[1].fret, shape=a===2&&b===2?'maj':(a===2?'min':'dim');
+    out.push({string:si,tones,shape,low:tones[0].fret,name:tones.map((t,i)=>(i&&tones[i].fret-tones[i-1].fret===2?'_':'')+SYL7[((t.deg%7)+7)%7]).join('')}); }
+  return out; }
+// the notes in playing order: per bar, the frame's three tones then the next frame's first tone (held)
+function planFor(c){
+  const fr=chainFrames(c), up=c.dir==='up', L=fr.length-1, out=[];
+  for(let b=0;b<L;b++){ const F=fr[b], N=fr[b+1];
+    (up?[0,1,2]:[2,1,0]).forEach(r=>out.push({string:F.string,r,frame:b,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick'}));
+    const r=up?0:2; out.push({string:N.string,r,frame:b+1,shape:N.shape,low:N.low,pitch:N.tones[r].fret,fret:N.tones[r].fret,finger:SHAPES[N.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:true}); }
+  if(c.ham||c.pull) out.forEach((e,i)=>{ const q=out[(i+out.length-1)%out.length];   // legato within a string: hammer-ons rising, pull-offs falling
+    if(q.string!==e.string||q.pitch===e.pitch) return;
+    if(e.pitch>q.pitch&&c.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&c.pull){ e.pick=false; e.kind='pull'; } });
+  return out; }
+function pairFor(c){ const F=chainFrames(c)[0], o=(c.dir==='up'?[0,1,2]:[2,1,0]); return o.map(r=>({finger:SHAPES[F.shape].fing[r],fret:F.tones[r].fret})); }
 const pairOf=()=>pairFor(drill);
-const validStart=s=>(drill.slide||drill.bend)?(s>=1&&s<=4):(drill.dir==='up'?s>=1&&s<=2:s>=3&&s<=4);   // tandem: 1 & 3 or 2 & 4
-function fixStart(){ if(!validStart(drill.start)) drill.start+=drill.dir==='up'?-STEP:STEP; }
+const homeFret=(shape,f,low=POSITION)=>SHAPES[shape].home[f-1]-POSITION+low;
+const validStart=()=>true; function fixStart(){}
 
 /* ---------- fretboard ---------- */
 const FB={x0:40,nut:96,cw:66,n:12,top:80,bot:240,hover:36,strY:Array.from({length:NSTR},(_,i)=>BASS?102+i*104/(NSTR-1):98+i*24),gauge:BASS?[1.8,2.3,2.9,3.5,4.1].slice(0,NSTR):[1,1.2,1.5,1.9,2.4,3]};
@@ -323,18 +350,19 @@ const HOVER_GAP=22, hoverY=sy=>sy-HOVER_GAP;                         // a lifted
 const strLines=FB.strY.map((y,i)=>el('path',{d:strPath(y,0,0),fill:'none',class:'inkS','stroke-width':FB.gauge[i],'stroke-linecap':'round','stroke-linejoin':'round'},fb));
 // g(x) on: each of the drill's frets shows its tone's valence on the string itself — the stretch of string the finger presses,
 // from the fret behind it to its own fret wire, rising from the string's ink to the full colour at the wire
-const projDefs=el('defs',{},fb), projG=el('g',{'pointer-events':'none'},fb), projCells=[0,1,2].map(i=>{
+const projDefs=el('defs',{},fb), projG=el('g',{'pointer-events':'none'},fb), projCells=Array.from({length:18},(_,i)=>{
   const gr=el('linearGradient',{id:'projG'+i,gradientUnits:'userSpaceOnUse'},projDefs);
   const s0=el('stop',{offset:0},gr), s1=el('stop',{offset:1},gr);
   return {gr,s0,s1,line:el('line',{stroke:'url(#projG'+i+')','stroke-linecap':'butt',opacity:0},projG)}; });
-function paintProjection(strI){
-  const L=FIELD.lit, frets=L>0.001?[...new Set(pairOf().map(n=>n.fret))].filter(f=>f>=1):[], ink=rgbS(inkColour()), y=FB.strY[strI];
-  projCells.forEach((c,i)=>{ const fr=frets[i]; if(fr===undefined){ c.line.setAttribute('opacity',0); return; }
-    const x1=cellL(fr), x2=cellR(fr);
+function paintProjection(){                                             // every frame of the chain: three tones on each of its strings
+  const L=FIELD.lit, ink=rgbS(inkColour()), cells=[];
+  if(L>0.001) chainFrames(cfgOf(drill)).forEach(F=>F.tones.forEach(t=>{ if(t.fret>=1) cells.push([F.string,t.fret]); }));
+  projCells.forEach((c,i)=>{ const q=cells[i]; if(!q){ c.line.setAttribute('opacity',0); return; }
+    const [si,fr]=q, x1=cellL(fr), x2=cellR(fr), y=FB.strY[si];
     c.gr.setAttribute('x1',x1); c.gr.setAttribute('x2',x2); c.gr.setAttribute('y1',y); c.gr.setAttribute('y2',y);
-    c.s0.setAttribute('stop-color',ink); c.s1.setAttribute('stop-color',rgbS(valRGB(pcOf(strI,fr))));
+    c.s0.setAttribute('stop-color',ink); c.s1.setAttribute('stop-color',rgbS(valRGB(pcOf(si,fr))));
     c.line.setAttribute('x1',x1); c.line.setAttribute('x2',x2); c.line.setAttribute('y1',y); c.line.setAttribute('y2',y);
-    c.line.setAttribute('stroke-width',FB.gauge[strI]); c.line.setAttribute('opacity',L.toFixed(3)); });   // the string's own width: colour, not thickness
+    c.line.setAttribute('stroke-width',FB.gauge[si]); c.line.setAttribute('opacity',L.toFixed(3)); });
 }
 let bentStr=-1;
 function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
@@ -380,7 +408,7 @@ function fingerPath(x,yc,k){
 }
 // legato fingers. A hammer-on: the finger lifts a little above its hover, then drives down, accelerating, to land as the
 // note sounds. A pull-off: the finger about to pull presses a little deeper into the held string, then flicks off at once.
-const legKind=(s,i)=>s.mode==='fingers'?legatoOf(s,i):null, noteFinger=(s,i)=>s.notes[i%2].finger;
+const legKind=(s,i)=>{ const k=s.plan[i].kind; return k==='ham'?'H':(k==='pull'?'P':null); }, noteFinger=(s,i)=>s.plan[i].finger;
 const LIFT=9, FLICK_V=520;                                              // a hammer's lift (px); a pull-off's flick (px/s, up off the string)
 // a lifted finger is not placed, it settles: a soft spring to the hand's resting curve (about 3.5 Hz, under-damped), so it
 // floats back and overshoots a touch rather than being pushed into place; pressing down stays decisive
@@ -445,18 +473,13 @@ const pickAxis=el('line',{x1:-26,y1:0,x2:26,y2:0,class:'pickAxis'},pickG);   // 
 // the stroke's direction, in the middle of the pick: fades in into a stroke, solid at the strike, gone when the pick stops
 const arrowDown=el('path',{d:'M0 7 L-6 -1 L-2.2 -1 L-2.2 -7 L2.2 -7 L2.2 -1 L6 -1 Z',class:'pickArrow',opacity:0},pickG);
 const arrowUp=el('path',{d:'M0 -7 L-6 1 L-2.2 1 L-2.2 7 L2.2 7 L2.2 1 L6 1 Z',class:'pickArrow',opacity:0},pickG);
-// a fingered note that is not picked: rising with Hammer-on checked, falling with Pull-off checked
-function legatoOf(c,i){ if(c.slide||c.bend||!(c.ham||c.pull)) return null;   // any note, the downbeat included; only the drill's very first is picked
-  const ns=pairFor(c), cur=ns[i%2].fret, prev=ns[(i+FIG.length-1)%2].fret;
-  return cur>prev?(c.ham?'H':null):(c.pull?'P':null); }
-const pickedIdx=(s,i)=>s.mode==='fingers'?!legatoOf(s,i):BAR_START(i);
-function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return pickedIdx(s,i); }
+function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.plan[i].pick; }
 const sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
 const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
 function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<16;e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
 // every eighth is a stroke, sounding or not: [prev, next] around time t, each {t, up, struck}
 function around(s,t){
-  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*16, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:n%2===1, struck:n===0||pickedAt(s,n%16)};
+  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:n%2===1, struck:n===0||pickedAt(s,n%(LOOP*2))};
   return [at(n0), at(n0+1)];
 }
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
@@ -464,7 +487,7 @@ const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math
 // the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
 function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
   let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
-  return toneColour(pcOf(s.string,pitchOf(s,b<0?0:idx))); }
+  const e=s.plan[b<0?0:idx]; return toneColour(pcOf(e.string,e.pitch)); }
 function placePick(st,sy,t,amp=0,ampRGB=null){                         // amp: the sounding tone's level (0–1); the pick's colour decays with it
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
@@ -535,21 +558,22 @@ const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700']
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
-const FIELD={on:false,lit:0,re:0,target:0,hearing:'solla',u:-1,m:null};   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
-const HEARINGS={solla:-1, dore:0, remi:-2, fasol:1, lati:-3};   // ticks from Do:Re; Sol:La sits in the middle, the others one and two ticks either side
+const FIELD={on:true,lit:0,re:0,target:0,u:0,m:null};   // re: where the tick-0 hearing's Re sits; u: the dial   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
+const tickOf=h=>{ const e=HEAR7.find(x=>x[0]===h); return e?e[1]:0; };
+const trio=shape=>{ const S=SHAPES[shape]; return [S.low, S.low+S.steps[0], S.low+S.steps[0]+S.steps[1]].map(k=>k%12); };   // the frame's places above Re at tick 0
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const morphRGB=(k,u)=>{ const fl=Math.floor(u), f=u-fl, a=relRGB(k+5*fl); return f<1e-6?a:mixRGB(a,relRGB(k+5*(fl+1)),f); };   // each tick, every place's colour steps one station
 const valRGB=pc=>morphRGB(pc-FIELD.re,FIELD.u);                       // the field's colour at a pitch (continuous: a glide passes through)
 const rgbS=c=>'rgb('+c.map(v=>Math.round(v)).join(',')+')';
-const PAIR=[10,0];                                                      // the drill's two tones, in places above Do:Re's Re (Do, Re at tick 0)
-function fieldTarget(){ const lo=Math.min(...pairOf().map(n=>n.fret)); return pcOf(drill.string,lo)+2; }   // Do = Re − 2
+
+function fieldTarget(){ return pcOf(drill.string,drill.dir==='up'?5:8)+2; }   // the starting tone read as Do: Re two above; the hearing is then a turn of the dial
 const VAL={R0:48,K:30,N:180};
 const valG=el('g',{opacity:0},ringSvg), valFills=[], valLines=[], valDots=[]; let valKey='';
 el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':1,'stroke-dasharray':'2 3'},valG);    // the hinge: g = 0
 { const fillG=el('g',{},valG), lineG=el('g',{},valG);
   for(let i=0;i<VAL.N;i++){ valFills.push(el('path',{},fillG)); valLines.push(el('line',{'stroke-width':2,'stroke-linecap':'round'},lineG)); }
-  for(let k=0;k<12;k++) valDots.push(el('circle',{r:PAIR.includes(k)?3.6:2.4,class:'valDot'},valG));
+  for(let k=0;k<12;k++) valDots.push(el('circle',{r:2.4,class:'valDot'},valG));
 }
 // draw the curve for dial u (in Do:Re's frame, Re at 12; the group is turned to the drill)
 function shapeField(u){
@@ -562,12 +586,14 @@ function shapeField(u){
     const L=valLines[i]; L.setAttribute('x1',f2(h)); L.setAttribute('y1',f2(j)); L.setAttribute('x2',f2(x2)); L.setAttribute('y2',f2(y2)); L.setAttribute('stroke',rgbS(rgb)); }
   valDots.forEach((dt,k)=>{ const [x,y]=at(k,rOf(k)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(morphRGB(k,u))); });
 }
-const valLbls=[0,1].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
+const valLbls=[0,1,2,3,4,5,6].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
 function placeField(){
   shapeField(FIELD.u); wedge.setAttribute('opacity',(1-0.6*FIELD.lit).toFixed(3));
   valG.setAttribute('transform','rotate('+(FIELD.re*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',FIELD.lit.toFixed(3));
   const u=FIELD.u, fr=u-Math.floor(u), fade=Math.abs(1-2*fr), tick=Math.round(u);   // the names cross over halfway through each tick
-  PAIR.forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*GOf(k*Math.PI/6,u)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[(((k+5*tick)%12)+12)%12][0];
+  const TRIO=[]; for(let k=0;k<12;k++) if(!SOLF[(((k+5*tick)%12)+12)%12][0].startsWith('~')) TRIO.push(k);   // the seven diatonic places at this hearing
+  valDots.forEach((d,k)=>d.setAttribute('r',TRIO.includes(k)?3.2:2.2));
+  TRIO.forEach((k,i)=>{ const pc=FIELD.re+k, r=VAL.R0+VAL.K*GOf(k*Math.PI/6,u)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[(((k+5*tick)%12)+12)%12][0];
     if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(morphRGB(k,u));
     t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade).toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
@@ -576,10 +602,10 @@ const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the dril
 const hand=el('line',{x1:RG.c,y1:RG.c,x2:RG.c,y2:RG.c-RG.R,class:'hand',visibility:'hidden'},ringSvg);
 el('circle',{cx:RG.c,cy:RG.c,r:3,class:'ink'},ringSvg);
 function buildWedge(){
-  const [a,b]=pairOf().map(n=>pcOf(drill.string,n.fret));
+  const pl=planFor(cfgOf(drill)), pcs=pl.map(n=>pcOf(n.string,n.pitch)), a=pcs[0], b=pcs[2];   // the first frame's span; every tone of the chain lit
   const [x1,y1]=pt(RG.RW,a), [x2,y2]=pt(RG.RW,b);
   wedge.setAttribute('d','M'+x1.toFixed(1)+' '+y1.toFixed(1)+' A'+RG.RW+' '+RG.RW+' 0 0 '+(drill.dir==='up'?1:0)+' '+x2.toFixed(1)+' '+y2.toFixed(1));
-  rLbls.forEach((g,pc)=>g.classList.toggle('pair',pc===a||pc===b));
+  rLbls.forEach((g,pc)=>g.classList.toggle('pair',pcs.includes(pc)));
 }
 function setHand(pcFloat,litPc){
   if(pcFloat===null){ hand.setAttribute('visibility','hidden'); rDots.forEach(d=>d.classList.remove('on')); rLbls.forEach(g=>g.classList.remove('on')); return; }
@@ -592,8 +618,8 @@ function setHand(pcFloat,litPc){
    rhythm on stems below the staff (eighths beamed by the beat, half notes on short stems, as Guitar Pro prints them).
    Bends: a curved arrow from the number up above the staff, marked ½; a release comes back down to the fret in parentheses;
    a prebend is a straight arrow up from a picked number. Slides: a straight line from one number to the next. */
-const TB={s0:40,s1:886,rowY:Array.from({length:NSTR},(_,i)=>96+17*i),floor:50,topY:72,ballR:6,ballH:34};
-TB.x0=TB.s0+86; TB.cw=(TB.s1-TB.x0)/16; TB.x1=TB.s1;
+const TB={cw:1,s0:40,s1:886,rowY:Array.from({length:NSTR},(_,i)=>96+17*i),floor:50,topY:72,ballR:6,ballH:34};
+TB.x0=TB.s0+86; TB.x1=TB.s1;
 const xBeat=b=>TB.x0+TB.cw/2+b*2*TB.cw;                              // where a note on beat b is written; the playhead follows it
 const tab=document.getElementById('tab');
 const rows=[], rowLbls=[];
@@ -609,11 +635,14 @@ const vline=(x,w)=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'
 vline(TB.s0,1);                                                       // the system's opening line
 const rs=TB.x0-14; vline(rs,4); vline(rs+6,1);                        // start repeat: thick, thin, dots
 DOTS.map(midY).forEach(y=>el('circle',{cx:rs+12,cy:y,r:2.4,class:'ink'},tab));
-vline(TB.x0+8*TB.cw,1);                                               // the bar line between the two bars
 const re=TB.s1; vline(re,4); vline(re-6,1);                           // end repeat: dots, thin, thick
 DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},tab));
 // the pulse as a bouncing ball: it lands on every beat and is somewhere definite at every moment in between
-for(let b=0;b<8;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},tab);   // where it lands
+const gridG=el('g',{},tab);
+function buildGrid(){                                                   // the bar lines and the ball's landing marks, for the loop's length
+  while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
+  for(let b=1;b<LINKS;b++){ const x=TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  for(let b=0;b<LOOP;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 // the bloom (g(x) on): a soft glow centred on the playhead, in the sounding tone's colour; the TAB's numbers take their own
 // field colour as it passes over them and fade back to the ink behind it, and the ball carries the tone's colour
 // the blooms (g(x) on): each TAB number has its own, centred on it, in its own field colour — lit while its tone sounds, as
@@ -630,14 +659,14 @@ function paintTabField(st,live,p,amp){
     noteBlooms=tabNotes.map(o=>{ noteLv.push(0); return el('circle',{cx:o.num.getAttribute('x'),cy:o.num.getAttribute('y'),r:11,filter:'url(#tabBloomF)',opacity:0},bloomG); }); }
   if(bloomG.nextSibling) tab.appendChild(bloomG);
   bloomG.style.mixBlendMode=dark?'screen':'multiply';                   // light added on dark, a tint on light
-  const gain=dark?0.9:0.55, notes=pairOf(), cur=(live&&L>0.001)?st.idx:-1;
+  const gain=dark?0.9:0.55, plan=planFor(cfgOf(drill)), cur=(live&&L>0.001)?st.idx:-1;
   tabNotes.forEach((o,i)=>{
     noteLv[i]=i===cur?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
-    const w=L*noteLv[i], c=valRGB(pcOf(drill.string,notes[i%2].fret));
+    const w=L*noteLv[i], c=valRGB(pcOf(plan[i].string,plan[i].pitch));
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
     const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
-  if(bw>0.003){ const c=valRGB(pcOf(st.s.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
+  if(bw>0.003){ const c=valRGB(pcOf(st.s.plan[st.idx].string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
   else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }
@@ -656,51 +685,25 @@ function numberAt(x,y,text){                                          // a numbe
   return {bar:knock,num};
 }
 function buildTabNotes(){
-  const slurPts=[];                                                   // for the legato arcs over slides that are not picked
+  const slurPts=[];                                                   // for the legato arcs over hammer-ons and pull-offs
   while(noteG.firstChild) noteG.removeChild(noteG.firstChild);
-  tabNotes=[]; const notes=pairOf(), y=TB.rowY[drill.string], lo=Math.min(notes[0].fret,notes[1].fret);
+  tabNotes=[]; const plan=planFor(cfgOf(drill));
   const stemTop=TB.rowY[NSTR-1]+10, stemLong=26, stemShort=13;
   FIG.forEach((e,i)=>{
-    const n=notes[i%2], x=xBeat(e.s), prev=notes[(i+1)%2], first=BAR_START(i);
-    let mark;
-    if(drill.bend){
-      const bent=n.fret>lo;
-      if(first&&!bent) mark=numberAt(x,y,String(lo));
-      else if(first&&bent){                                             // prebend: picked already bent — a straight arrow up
-        mark=numberAt(x,y,String(lo));
-        el('line',{x1:x,y1:y-9,x2:x,y2:TB.topY+6,class:'inkS','stroke-width':1.3},noteG); arrowHead(x,TB.topY,-1);
-        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='full'; mark.extra=[t];
-      }else if(bent){                                                   // bend: a curve from the string up to above the staff
-        const x0=x-TB.cw+10;
-        el('path',{d:'M'+x0+' '+(y-2)+' Q'+x+' '+(y-2)+' '+x+' '+(TB.topY+6),class:'curve'},noteG); arrowHead(x,TB.topY,-1);
-        const k=el('rect',{x:x-7,y:TB.topY-17,width:14,height:13,rx:2,class:'knock'},noteG);
-        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='full';
-        mark={bar:k,num:t};
-      }else{                                                            // release: from above the staff back down to the fret, in parentheses
-        const x0=x-TB.cw+10;
-        el('path',{d:'M'+x0+' '+(TB.topY+2)+' Q'+x+' '+(TB.topY+2)+' '+x+' '+(y-14),class:'curve'},noteG); arrowHead(x,y-9,1);
-        mark=numberAt(x,y,'('+lo+')');
-      }
-    }else{
-      mark=numberAt(x,y,(drill.slide&&!first)?String(n.fret):String(n.fret));
-      if(drill.slide&&!first){                                          // slid into: a line from the last number to this one
-        const xp=xBeat(FIG[(i+FIG.length-1)%FIG.length].s), up=n.fret>prev.fret;
-        el('line',{x1:xp+9,y1:up?y+4:y-4,x2:x-9,y2:up?y-4:y+4,class:'inkS','stroke-width':1.3,'stroke-linecap':'round'},noteG);
-      }
-    }
-    const lg=legatoOf(drill,i); slurPts.push({x:xBeat(e.s),leg:(drill.slide&&!BAR_START(i))||!!lg,lbl:lg||''});
-    tabNotes.push(mark);
-    // rhythm below the staff
-    const half=e.d>=2;
-    el('line',{x1:x,y1:stemTop,x2:x,y2:stemTop+(half?stemShort:stemLong),class:'inkS','stroke-width':1.3},noteG);
-    if(!half&&i%2===0) el('rect',{x:x-0.65,y:stemTop+stemLong-3.5,width:TB.cw+1.3,height:3.5,class:'ink'},noteG);   // one beam per beat
+    const n=plan[i], x=xBeat(e.s), y=TB.rowY[n.string];
+    tabNotes.push(numberAt(x,y,String(n.fret)));
+    slurPts.push({x,y,str:n.string,leg:(n.kind==='ham'||n.kind==='pull'),lbl:n.kind==='ham'?'H':(n.kind==='pull'?'P':'')});
+    // rhythm below the staff: eighths beamed in pairs; the fourth note's eighth tied over to a half note on beat 3
+    el('line',{x1:x,y1:stemTop,x2:x,y2:stemTop+stemLong,class:'inkS','stroke-width':1.3},noteG);
+    if(i%2===0) el('rect',{x:x-0.65,y:stemTop+stemLong-3.5,width:TB.cw+1.3,height:3.5,class:'ink'},noteG);
+    if(i%4===3){ const xh=xBeat(e.s+0.5); el('line',{x1:xh,y1:stemTop,x2:xh,y2:stemTop+stemShort,class:'inkS','stroke-width':1.3},noteG);
+      el('path',{d:'M'+(x+2)+' '+(stemTop+stemLong+6)+' Q'+((x+xh)/2)+' '+(stemTop+stemLong+13)+' '+(xh-2)+' '+(stemTop+stemShort+6),class:'curve'},noteG); }
   });
-  // legato: an arc from the picked note over every slide that follows it unpicked, so only the first is read as picked
-  { const yRow=TB.rowY[drill.string]; let g0=-1;
-    const arc=(xa,xb)=>el('path',{d:'M'+(xa+3)+' '+(yRow-11)+' Q'+((xa+xb)/2)+' '+(yRow-11-Math.min(16,6+(xb-xa)*0.12))+' '+(xb-3)+' '+(yRow-11),class:'curve'},noteG);
-    slurPts.forEach((q,i)=>{ if(q.lbl){ const t=el('text',{x:i>0?(slurPts[i-1].x+q.x)/2:q.x-16,y:yRow-24,class:'bendLbl'},noteG); t.textContent=q.lbl; }
-      if(i===0&&q.leg&&q.lbl){ arc(q.x-34,q.x); if(!(slurPts[1]&&slurPts[1].leg)) return; }   // the repeat's last note into the first
-      if(q.leg){ if(g0<0) g0=Math.max(0,i-1); if(i===slurPts.length-1||!slurPts[i+1].leg){ arc(slurPts[g0].x,q.x); g0=-1; } } }); }
+  // legato: an arc from the picked note over the hammer-ons and pull-offs that follow it on the same string
+  { const arc=(xa,xb,y)=>el('path',{d:'M'+(xa+3)+' '+(y-11)+' Q'+((xa+xb)/2)+' '+(y-11-Math.min(16,6+(xb-xa)*0.12))+' '+(xb-3)+' '+(y-11),class:'curve'},noteG); let g0=-1;
+    slurPts.forEach((q,i)=>{ if(q.lbl){ const t=el('text',{x:i>0?(slurPts[i-1].x+q.x)/2:q.x-16,y:q.y-24,class:'bendLbl'},noteG); t.textContent=q.lbl; }
+      if(i===0&&q.leg){ arc(q.x-34,q.x,q.y); return; }
+      if(q.leg){ if(g0<0) g0=i-1; if(i===slurPts.length-1||!slurPts[i+1].leg){ arc(slurPts[g0].x,q.x,q.y); g0=-1; } } }); }
 }
 const head=el('line',{x1:TB.x0,y1:TB.rowY[0]-10,x2:TB.x0,y2:TB.rowY[NSTR-1]+10,class:'headS','stroke-width':1.5,visibility:'hidden'},tab);
 // click a row (or its label) to move the drill there
@@ -877,23 +880,20 @@ const PLUCK_V=Math.pow(100/128,1.4);                                  // the too
    (time to read the next instructions) and played for a few loops. Each segment has its own string (its own gauge), muted at
    the segment's end as a player would. */
 const TEST_VARIANTS=[
-  {string:0,start:1,dir:'up'},   {string:0,start:3,dir:'down'},
-  {string:1,start:2,dir:'up'},   {string:1,start:4,dir:'down'},
-  {string:2,start:1,dir:'up'},   {string:2,start:4,dir:'down'},
-  {string:3,start:2,dir:'up'},   {string:4,start:3,dir:'down'}, {string:5,start:1,dir:'up'},
-  {string:0,start:1,dir:'up',slide:true},  {string:2,start:3,dir:'down',slide:true},
-  {string:1,start:3,dir:'up',bend:true},   {string:2,start:3,dir:'down',bend:true}
-];
+  {string:5,dir:'up',hear:'do'},  {string:5,dir:'up',hear:'sol'},  {string:4,dir:'up',hear:'la'},  {string:3,dir:'up',hear:'re',ham:true},
+  {string:0,dir:'down',hear:'mi'},{string:1,dir:'down',hear:'fa',pull:true},{string:2,dir:'down',hear:'ti'},{string:3,dir:'down',hear:'do'},
+  {string:4,dir:'up',hear:'fa',ham:true,pull:true},{string:2,dir:'down',hear:'re',ham:true,pull:true}
+].map(v=>Object.assign({links:2},v));
 if(NSTR!==6) TEST_VARIANTS.forEach(v=>{ v.string=Math.round(v.string*(NSTR-1)/5); });   // the same path across a bass's strings
-if(BASS) TEST_VARIANTS.forEach(v=>{ if(v.bend){ delete v.bend; v.ham=v.pull=true; v.start=v.dir==='up'?1:3; } });   // on bass the Test bends no more than a half step: a whole-step bend becomes hammer-ons and pull-offs
+TEST_VARIANTS.forEach(v=>{ if(v.dir==='up') v.string=Math.max(v.string,2); else v.string=Math.min(v.string,NSTR-3); });   // room for two links
 const testLoops=bpm=>Math.max(1,Math.min(4,Math.round((4*bpm/TEST_VARIANTS.length-COUNT)/LOOP)));   // about four minutes at any tempo
 const testMinutes=bpm=>chapIn.filter(Boolean).length*(COUNT+LOOP*testLoops(bpm))/bpm;
 const chapIn=TEST_VARIANTS.map(()=>true);                             // which chapters the test includes; all, unless a student narrows it
-try{ const v=JSON.parse(localStorage.getItem('tone-chapters')||'null'); if(Array.isArray(v)&&v.length===TEST_VARIANTS.length) v.forEach((x,i)=>{ chapIn[i]=!!x; }); }catch(err){}
-const cfgOf=d=>({string:d.string,start:d.start,dir:d.dir,plant:d.plant,slide:!!d.slide,bend:!!d.bend,ham:!!d.ham,pull:!!d.pull});
+try{ const v=JSON.parse(localStorage.getItem('chain-chapters')||'null'); if(Array.isArray(v)&&v.length===TEST_VARIANTS.length) v.forEach((x,i)=>{ chapIn[i]=!!x; }); }catch(err){}
+const cfgOf=d=>({string:d.string,dir:d.dir,hear:d.hear,links:d.links,plant:true,slide:false,bend:false,ham:!!d.ham,pull:!!d.pull});
 function mkSeg(c){
-  const notes=pairFor(c), base=Math.min(notes[0].fret,notes[1].fret);
-  return Object.assign({},c,{plant:c.plant!==false,notes,base,bendFinger:base-POSITION+1,mode:c.slide?'slide':(c.bend?'bend':'fingers')});
+  const plan=planFor(c);
+  return Object.assign({},c,{plant:true,notes:pairFor(c),plan,base:plan[0].fret,bendFinger:1,mode:'fingers',strs:{},string:plan[0].string});
 }
 const T={on:false,test:false,beat:60/70,segs:[],si:0,nextI:0,nextCycle:0,nextBeat:0,timer:null,live:[],shown:null,saved:null};
 const playBtn=document.getElementById('play'), modeBtn=document.getElementById('mode');
@@ -901,7 +901,7 @@ let mode='drill';                                                      // the sw
 function run(test){
   ensureCtx().then(()=>{
     if(T.on) stopAll();
-    T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null;
+    T.test=test; T.beat=60/drill.bpm; T.saved=test?cfgOf(drill):null; setLinks(test?2:Math.max(1,Math.min(drill.links,roomOf(drill.string,drill.dir)))); buildTabNotes();
     const list=test?TEST_VARIANTS.map((v,k)=>Object.assign({plant:true,ck:k},v)).filter(v=>chapIn[v.ck]):[cfgOf(drill)];
     if(!list.length) return;
     const loops=test?testLoops(drill.bpm):Infinity, count=COUNT;
@@ -928,31 +928,33 @@ function tick(){
     for(;;){
       if(T.nextCycle>=s.loops) break;
       const e=FIG[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
-      if(!s.str) s.str=makeString(GAUGE(s.string));                       // gauge: 0 for the high e, 1 for the low E, as in the tool
+      const sn=s.plan[T.nextI].string; if(!s.strs[sn]) s.strs[sn]=makeString(GAUGE(sn));   // each guitar string its own model
       note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
       if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){                      // segment fully scheduled: mute its string at its end, move on
-      if(s.str) s.str.stopAt(s.end);
+      for(const k in s.strs) s.strs[k].stopAt(s.end);
       T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
     }else break;
   }
   if(T.si>=T.segs.length&&ctx.currentTime>T.segs[T.segs.length-1].end+0.3) finish();
 }
 function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
-const pitchOf=(s,i)=>s.notes[i%2].fret;                               // the pitch of note i, in frets of this string
+const pitchOf=(s,i)=>s.plan[i].pitch;                                 // the pitch of note i, in frets of this string
 function note(s,t,i,first){
-  const p=pitchOf(s,i), f=fretHz(s.string,p), str=s.str;
-  // the pick meets the string before it releases it: 10 ms that stop most of what is ringing, so picks never stack up
+  const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
+  const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to a new string: the last one is let go (its finger lifts)
+  if(!first&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});
+  // the pick meets the string before it releases it: a moment that stops most of what is ringing, so picks never stack up
   const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
-  if(s.mode==='fingers'&&!first&&legatoOf(s,i)){ const K=legatoOf(s,i); { str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; } }   // hammer-on / pull-off: no pick; the finger itself sounds the string, softer
-  if(s.mode==='fingers'||first){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
-  // slide: the finger carries the string's length; bend: the finger pushes the string's tension. Either way the pitch moves
-  // continuously, arriving on the beat, and only the first note of each bar is picked.
-  const g0=Math.max(ctx.currentTime,t-s.xt), prebend=s.mode==='bend'&&BAR_START(i)&&p>s.base;
-  if(prebend) str.send({kind:'damp',t:g0,t1:t,depth:0.003});        // a prebend is made silently, the string held quiet under the hand
+  if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; { str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; } }   // hammer-on / pull-off: no pick; the finger sounds the string, softer
+  if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
+  // slide: the finger carries the string's length; bend and release: the finger moves the string's tension; prebend: the
+  // bend is made silently under the hand before the pick. The pitch arrives on the beat.
+  const g0=Math.max(ctx.currentTime,t-s.xt);
+  if(e.pre) str.send({kind:'damp',t:g0,t1:t,depth:0.003});
   str.send({kind:'glide',t:g0,t1:t,f});
-  if(BAR_START(i)){ if(!prebend) choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); }
+  if(e.pick){ if(!e.pre) choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); }
 }
 // the pulse: three sounds on the click bus, beat 1 accented in each
 function click(t,accent){
@@ -980,7 +982,7 @@ function stopAll(){
   if(ctx){
     const now=ctx.currentTime;
     for(const r of T.live){ try{ r.g.gain.cancelScheduledValues(now); r.g.gain.setValueAtTime(r.g.gain.value,now); r.g.gain.linearRampToValueAtTime(0,now+0.03); r.src.stop(now+0.05); }catch(err){} }
-    for(const s of T.segs) if(s.str) s.str.stopAt(now,true);
+    for(const s of T.segs) for(const k in s.strs) s.strs[k].stopAt(now,true);
   }
   T.live=[]; T.segs=[]; T.shown=null;
   playBtn.textContent='Play'; playBtn.classList.remove('on');
@@ -1003,6 +1005,7 @@ function stateAt(t){
 // the sounding pitch, in frets, as a continuous value: fixed between notes, travelling in the last xt of a slide or a bend
 function pitchAt(st,t){
   const s=st.s, cur=pitchOf(s,st.idx); if(s.mode==='fingers') return cur;
+  const pn=s.plan[st.nextIdx]; if(!(pn.glide||pn.pre)) return cur;     // fretted changes are instant; glides and prebends travel
   const next=pitchOf(s,st.nextIdx), g0=st.nextOnset-s.xt; if(t<g0) return cur;
   let u=Math.min(1,(t-g0)/s.xt); u=u*u*(3-2*u);
   return cur+(next-cur)*u;
@@ -1013,22 +1016,20 @@ function pitchAt(st,t){
 function fingerDown(f,t){
   const st=stateAt(t+LEAD); if(st.idx<0) return false;
   const s=st.s;
-  if(s.mode==='slide') return f===s.notes[0].finger;
-  if(s.mode==='bend') return f<=s.bendFinger;
-  const cur=s.notes[st.idx%2].finger, other=s.notes[(st.idx+1)%2].finger;
-  if(f===cur) return true;
-  return f===other&&other<cur&&s.plant;                                // only the pair's lower finger may stay down; the two between and beyond stay up
+  const e=s.plan[st.idx];
+  if(f===e.finger) return true;
+  return s.plant&&f<e.finger&&SHAPES[e.shape].fing.includes(f);      // the frame's lower fingers stay down; its unused finger stays up
 }
 const BEND_PX=11;                                                     // per fret of pitch: a whole-step bend pushes the string 22 px
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let fieldClock=0; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
+let fieldClock=0, pickSy=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
   FIELD.target=fieldTarget();
   const goal=FIELD.on?1:0, was=FIELD.lit, wasRe=FIELD.re, wasU=FIELD.u;
-  const uGoal=HEARINGS[FIELD.hearing];                                    // the morph: eased, 0.9 s for one tick, a little longer for more
+  const uGoal=tickOf(drill.hear);                                    // the morph: eased, 0.9 s for one tick, a little longer for more
   if(FIELD.lit<=0.001||reduce){ FIELD.u=uGoal; FIELD.m=null; }
   else if(FIELD.u!==uGoal){ if(!FIELD.m||FIELD.m.to!==uGoal) FIELD.m={from:FIELD.u,to:uGoal,t0:now,dur:900*Math.max(1,0.6*Math.abs(uGoal-FIELD.u))};
     const x=Math.min(1,(now-FIELD.m.t0)/FIELD.m.dur); FIELD.u=FIELD.m.from+(FIELD.m.to-FIELD.m.from)*x*x*(3-2*x); if(x>=1){ FIELD.u=uGoal; FIELD.m=null; } }
@@ -1041,57 +1042,83 @@ function frame(){
   stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null;
   const st=t!==null?stateAt(t):null, s=st?st.s:null;
-  if(s&&T.test&&T.shown!==s){ T.shown=s; Object.assign(drill,{string:s.string,start:s.start,dir:s.dir,plant:s.plant,slide:s.mode==='slide',bend:s.mode==='bend',ham:!!s.ham,pull:!!s.pull}); syncUI(); }
-  const strI=s?s.string:drill.string, sy=FB.strY[strI];
-  const live=!!(st&&!st.count);
+  if(s&&T.test&&T.shown!==s){ T.shown=s; Object.assign(drill,{string:s.plan[0].string,dir:s.dir,hear:s.hear,links:s.links,ham:!!s.ham,pull:!!s.pull}); syncUI(); }
+  const live=!!(st&&!st.count), dplan=s?s.plan:planFor(cfgOf(drill));
+  const strI=live?dplan[st.idx].string:dplan[0].string, sy=FB.strY[strI];
+  // the fretting hand reads a moment ahead (it lands just before the note): its string, its frame
+  const stL=(t!==null&&st&&!st.done)?stateAt(t+LEAD):null, nH=(stL&&stL.idx>=0)?dplan[stL.idx]:dplan[live?st.idx:0], syF=FB.strY[nH.string];
   const p=live?pitchAt(st,t):null;                                  // the sounding pitch
-  const shift=(live&&s.mode==='slide')?p-s.notes[0].fret:0;          // the whole hand moves with a slide; the thumb does not
-  const bendAmt=(live&&s.mode==='bend')?p-s.base:0;                  // 0 at the fret's own pitch, 2 a whole step up
+  // slide: fingers 1 and 3 where the plan has them, travelling with the pitch through a slide; 2 and 4 keep the hand's shape
+  // slide: the hand flexes. Each active finger (1 and the frame's middle finger) is where it is needed — the sounding finger
+  // on its pitch (riding the slide), a finger holding the string on its fret, and a lifted finger travelling ahead of time to
+  // the fret it plays next, so it is there, ready, before it lands. The unused fingers keep their places in the hand.
+  let slidePos=null;
+  { const sg=s||null, plan=sg?sg.plan:planFor(cfgOf(drill)), shp=sg?sg.shape:drill.shape;
+    if((sg?sg.mode:(drill.slide?'slide':''))==='slide'){
+      const i=live?st.idx:0, e=plan[i], S=SHAPES[shp], m=S.fing[1], H=S.home, low=plan.find(q=>q.r===0).pitch;
+      const held=a=>a===1&&e.finger!==1&&e.r===1&&e.kind==='pick';    // finger 1 holds the low tone while the middle finger frets the middle
+      const posOf=a=>{ if(e.finger===a) return live?p:e.pitch; if(held(a)) return low;
+        for(let k=1;k<=plan.length;k++){ const q=plan[(i+k)%plan.length]; if(q.finger===a) return q.pitch; } return e.pitch; };
+      let x1=posOf(1), xm=posOf(m);
+      const fx1=e.finger===1||held(1), fxm=e.finger===m;                  // a waiting finger never crowds onto a fret another finger is on:
+      if(fxm||!fx1) x1=Math.min(x1,xm-1); else xm=Math.max(xm,x1+1);    // it waits a fret away and moves in as the other leaves
+      const pos={1:x1}; pos[m]=xm;
+      for(let f=2;f<=4;f++) if(f!==m) pos[f]=f<m?x1+(xm-x1)*(H[f-1]-H[0])/(H[m-1]-H[0]):xm+(H[f-1]-H[m-1]);
+      slidePos={pos,fixed:a=>e.finger===a||held(a)}; } }
+  const shift=0, fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
+  const bendAmt=(live&&s.mode==='bend')?Math.max(0,p-s.base):0;       // 0 at the middle fret's own pitch, up to 2 for a whole step
   const bendDy=bendAmt*BEND_PX*(strI<NSTR/2?1:-1);                       // treble strings pushed toward the bass side, bass strings pulled toward the treble
   const ynow=performance.now(), ydt=Math.min(0.05,(ynow-(frame.lastY||ynow))/1000); frame.lastY=ynow;
   for(const F of fingers){
     const onBent=s&&s.mode==='bend'&&F.f<=s.bendFinger;                 // a supporting finger rides the bent string where it passes
-    const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0)-FR*PRESS_H:hoverY(sy);   // pressed: the flat underside on the string
-    const lm=(live&&!reduce&&st&&!st.count)?legatoMotion(F,st,t,sy):null; let sq=0;
+    const down=t!==null&&fingerDown(F.f,t), target=down?syF-FR*PRESS_H:hoverY(syF);   // pressed: the flat underside on the string
+    const lm=(live&&!reduce&&st&&!st.count)?legatoMotion(F,st,t,syF):null; let sq=0;
     const tgt=(lm&&lm.target!==undefined&&!down)?lm.target:target;
     if(reduce) F.y=tgt;
     else if(lm&&lm.y!==undefined){ F.y=lm.y; F.vy=0; sq=lm.sq||0; }                     // the scripted part: the hammer's drive, the pull's press
     else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }       // pressing: decisive
     else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
       F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }          // lifted: it settles on the spring
-    F.x=F.home+shift*FB.cw;
-    const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k)+sq;
+    F.home=tipX(homeFret(nH.shape,F.f,nH.low));                         // the frame's own hand shape, where its frame sits
+    if(true){ const tx=F.home; F.x=(reduce||F.x===undefined)?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.06); }   // the hand moves with the frames
+    else if(slidePos){ const tx=tipXf(slidePos.pos[F.f]);                      // a sounding or holding finger is exactly on its fret; the others glide there
+      F.x=(slidePos.fixed(F.f)||reduce||F.x===undefined)?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07); }
+    else F.x=F.home+shift*FB.cw;
+    const hov=hoverY(syF), pc=syF-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k)+sq;
     F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
-    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
+    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(syF-3).toFixed(1));
     const pressed=k>0.5||(Math.abs(bendDy)>0&&down);
     F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
     F.guide.setAttribute('visibility',down?'hidden':'visible');
   }
-  paintProjection(strI);
-  const fxV=live?(s.mode==='bend'?tipX(s.base):tipXf(p)):0;
+  paintProjection();
+  const fxV=live?((s.mode==='bend'&&p>s.base+1e-3)?tipX(s.base):tipXf(p)):0;
   // the sounding tone's level (the glow's measure), held through the pick's brief catch so the colour does not blink on every
   // stroke: it rises at once and falls no faster than a 0.15 s release, so it follows the tone's own decay
-  const ampNow=(live&&s.str)?Math.min(1,ampOf(s.str.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
+  const sstr=(live&&s.strs)?s.strs[strI]:null, ampNow=sstr?Math.min(1,ampOf(sstr.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
   ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0;
   // slides and bends: each arrival the hand makes without a pick re-lights the colour a little, so a run of slides or of bends
   // and releases keeps its colour rather than fading with the one picked tone; the boost itself fades in about a second
-  if(live&&(s.mode!=='fingers'||s.ham||s.pull)){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!pickedIdx(s,st.idx)) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
+  if(live&&(s.mode!=='fingers'||s.ham||s.pull)){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!s.plan[st.idx].pick) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
   else { boost.key=null; boost.v=0; }
   boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
-  const held=placePick(st,sy,t,amp,live?toneColour(pcOf(strI,p)):null);
-  const vibOn=live&&held===null&&drawVib(s.str&&s.str.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
+  // the pick goes to the string it will strike next, ahead of the catch
+  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null, ts=FB.strY[(sa&&sa.idx>=0)?dplan[sa.idx].string:strI];
+    pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
+  const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
+  const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   // the tone's colour: yellow in proportion to the string's own swing (its peak over one period, 0.3 at the pick), on the
   // vibrating string and on the finger holding the fret, fading as the tone decays
   const glow=vibOn?amp:0, inkRGB=inkColour();                         // the tone's level, lifted by slide and bend arrivals
   const glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;                // grey (the ink) with g(x) off; the field's colour at the sounding pitch with it on
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
   blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
-  const holder=live?(s.mode==='slide'?s.notes[0].finger:(s.mode==='bend'?s.bendFinger:s.notes[st.idx%2].finger)):0;
+  const holder=live?s.plan[st.idx].finger:0;
   fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
   if(lastStr>=0&&lastStr!==strI) strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0));
   const fxH=live?fxV:tipX(s?s.base:POSITION);
-  if(held!==null) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
+  if(held!==null&&Math.abs(pickSy-sy)<1) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
   else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,tipX(s?s.base:POSITION),bendDy));
   lastStr=strI;
   if(live){
@@ -1133,27 +1160,31 @@ requestAnimationFrame(frame);
 
 /* ---------- instructions ---------- */
 const insFacts=document.getElementById('insFacts'), insHow=document.getElementById('insHow'), insTest=document.getElementById('insTest');
+const nameList=xs=>xs.length===3?xs[0]+', '+xs[1]+' and '+xs[2]:xs.join(' and ');
 function legatoTxt(c,dflt){
   if(c.slide||c.bend||!(c.ham||c.pull)) return dflt;
-  if(c.ham&&c.pull) return '<span>Hammer on going up, pull off coming down — a slow trill.</span> Pick only the very first note; the fingers sound every note after it.';
+  if(c.ham&&c.pull) return '<span>Hammer on going up, pull off coming down.</span> Pick only the very first note; the fingers sound every note after it.';
   if(c.ham) return '<span>Hammer on each rising note:</span> the finger comes down onto its fret hard enough to sound it — no pick. Pick the falling notes.';
   return '<span>Pull off each falling note:</span> the lower finger is already down, and the upper finger lifts with a slight pull that sounds it — no pick. Pick the rising notes.';
 }
 function legatoTag(c){ return (c.slide||c.bend)?'':(c.ham&&c.pull?' · hammer-ons & pull-offs':(c.ham?' · hammer-ons':(c.pull?' · pull-offs':''))); }
 function howTo(c){
-  const [a,b]=pairFor(c), lo=Math.min(a.fret,b.fret), hi=Math.max(a.fret,b.fret), k=lo-POSITION+1;
-  if(c.slide) return '<span>Pick only at the start of each bar.</span> Finger '+a.finger+' stays down and the whole hand slides between frets '+a.fret+' and '+b.fret+'. <span>Bar 1</span> eighths: slide back and forth without lifting. <span>Bar 2</span> half notes: hold, then slide into the second on beat 3 while the sound carries over.';
-  if(c.bend&&c.dir==='up') return '<span>Pick only at the start of each bar.</span> Finger '+k+' frets '+lo+(k>1?', the fingers behind it helping,':'')+' and bends the string until it sounds the pitch of fret '+hi+'. <span>Bar 1</span> eighths: pick, bend, release, bend. <span>Bar 2</span> half notes: pick and hold; bend on beat 3 and hold the bent note.';
-  if(c.bend) return '<span>Prebend.</span> Before each bar, finger '+k+' frets '+lo+(k>1?' with the fingers behind it':'')+' and silently bends the string up to the pitch of fret '+hi+'. Pick, then release to fret '+lo+'’s own pitch. <span>Bar 1</span> eighths: release, bend, release. <span>Bar 2</span> half notes: the bent note, then release on beat 3 and hold.';
-  const fLo=Math.min(a.finger,b.finger), fHi=Math.max(a.finger,b.finger), rest=[1,2,3,4].filter(f=>f!==fLo&&f!==fHi).join(' and ');
-  const lower=c.plant?' Finger '+fLo+' stays down while finger '+fHi+' sounds; fingers '+rest+' stay up, off the string.':' Only the sounding finger touches the string; fingers '+rest+' stay up.';
-  const txt=legatoTxt(c,'<span>Pick every note.</span>')+lower+' <span>Bar 1</span> eighths: back and forth from finger '+a.finger+' to finger '+b.finger+'. <span>Bar 2</span> half notes: press, pick, and listen to each one sustain through the beat that passes.';
-  return (c.ham||c.pull)?txt.replace('press, pick, and listen to each one','listen to each one'):txt;
+  const fr=chainFrames(c), up=c.dir==='up', L=fr.length-1, F=fr[0], N=fr[1];
+  const ord=up?[0,1,2]:[2,1,0], fings=ord.map(r=>SHAPES[F.shape].fing[r]).join(' '), frets=ord.map(r=>F.tones[r].fret).join(' ');
+  const next=N.tones[up?0:2], nf=SHAPES[N.shape].fing[up?0:2];
+  const pickTxt=legatoTxt(c,'<span>Pick every note.</span>').replace('Pick only the very first note; the fingers sound every note after it.','Pick each new string; the fingers sound the rest.');
+  return pickTxt+' <span>Each bar:</span> three eighths '+(up?'up':'down')+' the frame on the '+STRINGS[F.string].name+' string (fingers '+fings+', frets '+frets+'), then the next scale tone — '+SYL7[((next.deg%7)+7)%7]+' — on the '+STRINGS[N.string].name+' string (finger '+nf+', fret '+next.fret+'), held through the bar. '
+    +(L>1?'<span>The next bar</span> begins on that tone and does the same, string by string, '+L+' links in all.':'<span>Then</span> back to the start.')+' Each frame\'s lower fingers stay down; the hand moves as the frames shift.';
 }
 function factsOf(c){
-  const [a,b]=pairFor(c), lo=Math.min(a.fret,b.fret);
-  const who=(c.slide?'finger '+a.finger+' slides':(c.bend?'finger '+(lo-POSITION+1)+' bends':'fingers '+a.finger+' → '+b.finger))+legatoTag(c);
-  return 'Position '+POSITION+' · '+STRINGS[c.string].name+' string · '+who+' · frets '+a.fret+' → '+b.fret+' · '+NAMES[pcOf(c.string,a.fret)]+' → '+NAMES[pcOf(c.string,b.fret)]+' · ♩ = '+drill.bpm;
+  const fr=chainFrames(c);
+  return STRINGS[c.string].name+' string '+(c.dir==='up'?'up':'down')+' · start on '+SYL7[DEG[c.hear]]+' · '+(fr.length-1)+' link'+(fr.length>2?'s':'')+' · '+fr.map(F=>F.name).join(' | ')+legatoTag(c)+' · ♩ = '+drill.bpm;
+}
+function chainLine(c){                                                 // Listen: the frames' first tones walk the chain
+  const fr=chainFrames(c), up=c.dir==='up';
+  const firsts=fr.map(F=>{ const t=F.tones[up?0:2]; return SYL7[((t.deg%7)+7)%7]; });
+  return 'The first tone of each string walks the dominant chain: '+firsts.map(x=>'<b class="s'+x+'">'+x+'</b>').join('<span class="chainArrow">→</span>')
+    +' — '+(up?'up the strings, each begins a fourth higher: the subdominant of the one before.':'down the strings, each begins a fourth lower: the dominant of the one before.');
 }
 let testLineKey='';
 function syncTestLine(st){
@@ -1166,12 +1197,12 @@ function showDone(n){ insTest.hidden=false; insTest.textContent='Test complete �
 
 /* ---------- test chapters ---------- */
 const chRow=document.getElementById('chRow'), chAll=document.getElementById('chAll');
-const chapLabel=c=>{ const o=c.dir==='up'?c.start+STEP:c.start-STEP; return STRINGS[c.string].lbl+' '+(c.slide?'sl '+c.start+(c.dir==='up'?'↑':'↓'):(c.bend?(c.dir==='up'?'b':'pb')+c.start:c.start+'→'+o+((c.ham||c.pull)?' h/p':''))); };
+const chapLabel=c=>STRINGS[c.string].lbl+' '+SYL7[DEG[c.hear]]+(c.dir==='up'?'↑':'↓')+((c.ham||c.pull)?' h/p':'');
 const chEls=TEST_VARIANTS.map((v,k)=>{ const b=document.createElement('button'); b.type='button'; b.className='ch'; b.id='ch'+k; b.textContent=chapLabel(v);
-  const c=Object.assign({plant:true},v); b.title=(k+1)+'. '+factsOf(c).replace(/ · ♩ = \d+/,'')+(v.slide?' · slide':v.bend?(v.dir==='up'?' · bend':' · prebend'):'');
+  const c=Object.assign({plant:true},v); b.title=(k+1)+'. '+factsOf(c).replace(/ · ♩ = \d+/,'')
   b.addEventListener('click',()=>{ if(T.on&&T.test) return; chapIn[k]=!chapIn[k]; saveChapters(); syncUI(); }); chRow.appendChild(b); return b; });
 chAll.addEventListener('click',()=>{ chapIn.fill(true); saveChapters(); syncUI(); });
-function saveChapters(){ try{ localStorage.setItem('tone-chapters',JSON.stringify(chapIn.map(Number))); }catch(err){} }
+function saveChapters(){ try{ localStorage.setItem('chain-chapters',JSON.stringify(chapIn.map(Number))); }catch(err){} }
 function paintChapters(t){
   chEls.forEach((b,k)=>{ let p=0, done=false, now=false;
     if(T.on&&T.test&&t!==null){ const s=T.segs.find(x=>x.k===k); if(s){ if(t>=s.end) done=true; else if(t>=s.countStart){ now=true; p=(t-s.countStart)/(s.end-s.countStart); } } }
@@ -1179,25 +1210,28 @@ function paintChapters(t){
 }
 
 /* ---------- controls ---------- */
-const bpmIn=document.getElementById('bpm'), bpmV=document.getElementById('bpmv'), clickIn=document.getElementById('click'), slideIn=document.getElementById('slide'), bendIn=document.getElementById('bend');
+const bpmIn=document.getElementById('bpm'), bpmV=document.getElementById('bpmv'), clickIn=document.getElementById('click');
 const segString=document.getElementById('segString');
 segString.innerHTML=STRINGS.map((st,i)=>'<button type="button" data-v="'+i+'">'+st.lbl+'</button>').join('');
-const segStart=document.getElementById('segStart'), segDir=document.getElementById('segDir'), segPlant=document.getElementById('segPlant'), plantCtl=document.getElementById('plantCtl');
+const segDir=document.getElementById('segDir'), segLinks=document.getElementById('segLinks');
+segLinks.innerHTML=Array.from({length:NSTR-1},(_,i)=>'<button type="button" data-v="'+(i+1)+'">'+(i+1)+'</button>').join('');
 const pairOfDrill=()=>pairFor(drill);
+function fitDrill(){                                                    // a direction with no strings left flips; the links fit the strings left
+  if(roomOf(drill.string,drill.dir)<1) drill.dir=drill.dir==='up'?'down':'up';
+  drill.links=Math.max(1,Math.min(drill.links,roomOf(drill.string,drill.dir))); }
 function syncUI(){
-  const lock=T.on&&T.test;
+  const lock=T.on&&T.test; if(!lock) fitDrill();
+  setLinks(lock?2:drill.links);
   for(const b of segString.querySelectorAll('button')){ b.setAttribute('aria-pressed',+b.dataset.v===drill.string); b.disabled=lock; }
-  for(const b of segStart.querySelectorAll('button')){ const v=+b.dataset.v; b.setAttribute('aria-pressed',v===drill.start); b.disabled=lock||!validStart(v); }
-  for(const b of segDir.querySelectorAll('button')){ b.setAttribute('aria-pressed',b.dataset.v===drill.dir); b.disabled=lock; }
-  for(const b of segPlant.querySelectorAll('button')){ b.setAttribute('aria-pressed',(b.dataset.v==='1')===drill.plant); b.disabled=lock||drill.slide||drill.bend; }
-  plantCtl.classList.toggle('off',drill.slide||drill.bend);
-  slideIn.checked=drill.slide; bendIn.checked=drill.bend; slideIn.disabled=lock; bendIn.disabled=lock;
+  for(const b of segDir.querySelectorAll('button')){ b.setAttribute('aria-pressed',b.dataset.v===drill.dir); b.disabled=lock||roomOf(drill.string,b.dataset.v)<1; }
+  for(const b of segLinks.querySelectorAll('button')){ const v=+b.dataset.v; b.setAttribute('aria-pressed',v===drill.links); b.disabled=lock||v>roomOf(drill.string,drill.dir); }
   hamIn.checked=!!drill.ham; pullIn.checked=!!drill.pull; hamIn.disabled=lock; pullIn.disabled=lock; bpmIn.disabled=lock;
+  syncHearing(); document.getElementById('chainLine').innerHTML=chainLine(cfgOf(drill));
   bpmV.textContent=drill.bpm;
-  rows.forEach((r,i)=>r.classList.toggle('sel',i===drill.string));
-  strLines.forEach((l,i)=>l.classList.toggle('strDim',i!==drill.string));
-  rowLbls.forEach((l,i)=>l.classList.toggle('sel',i===drill.string));
-  fingers.forEach(F=>F.guide.setAttribute('y2',FB.strY[drill.string]-6));
+  rows.forEach((r,i)=>r.classList.toggle('sel',chainFrames(cfgOf(drill)).some(F=>F.string===i)));
+  const used=chainFrames(cfgOf(drill)).map(F=>F.string);
+  strLines.forEach((l,i)=>l.classList.toggle('strDim',!used.includes(i)));
+  rowLbls.forEach((l,i)=>l.classList.toggle('sel',chainFrames(cfgOf(drill)).some(F=>F.string===i)));
   const nIn=chapIn.filter(Boolean).length, mins=testMinutes(drill.bpm), len=mins<1.5?Math.round(mins*60)+' seconds':'about '+Math.round(mins)+' minutes';
   if(mode==='test'&&!(T.on&&T.test)){                              // test mode, stopped: what the test will be
     insFacts.textContent=nIn?'Test · '+nIn+' chapter'+(nIn===1?'':'s')+' · '+len+' · ♩ = '+drill.bpm:'Test · no chapters in';
@@ -1216,15 +1250,12 @@ function syncLock(){ document.body.classList.toggle('testing',T.on&&T.test); }
 function changed(){ insTest.hidden=true; insTest.textContent=''; syncUI(); if(T.on&&!T.test) run(false); }
 function setString(i){ if(T.test&&T.on) return; if(i===drill.string) return; drill.string=i; changed(); }
 segString.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; setString(+b.dataset.v); });
-segStart.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.start=+b.dataset.v; changed(); });
 segDir.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.dir=b.dataset.v; fixStart(); changed(); });
-segPlant.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.plant=b.dataset.v==='1'; changed(); });
-slideIn.addEventListener('change',()=>{ drill.slide=slideIn.checked; if(drill.slide){ drill.bend=false; drill.ham=drill.pull=false; } fixStart(); changed(); });
-bendIn.addEventListener('change',()=>{ drill.bend=bendIn.checked; if(drill.bend){ drill.slide=false; drill.ham=drill.pull=false; } fixStart(); changed(); });
+segLinks.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.links=+b.dataset.v; changed(); });
 // hammer-ons and pull-offs: independent; either turns slide and bend off (they are the fingered drill, played legato)
 const hamIn=document.getElementById('ham'), pullIn=document.getElementById('pull');
-hamIn.addEventListener('change',()=>{ drill.ham=hamIn.checked; if(drill.ham){ drill.slide=drill.bend=false; } fixStart(); changed(); });
-pullIn.addEventListener('change',()=>{ drill.pull=pullIn.checked; if(drill.pull){ drill.slide=drill.bend=false; } fixStart(); changed(); });
+hamIn.addEventListener('change',()=>{ drill.ham=hamIn.checked; changed(); });
+pullIn.addEventListener('change',()=>{ drill.pull=pullIn.checked; changed(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; insFacts.textContent=factsOf(drill); });
 bpmIn.addEventListener('change',()=>{ syncUI(); if(T.on&&!T.test) run(false); });
 clickIn.addEventListener('change',()=>{ drill.click=clickIn.checked; });
@@ -1279,17 +1310,19 @@ segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)
 syncHand();
 // g(x): off by default (black and white); on, the equation fades up to the button's left and the field comes on. Remembered on this device.
 const gxBtn=document.getElementById('gx'), eqn=document.getElementById('eqn');
-try{ FIELD.on=localStorage.getItem('semitone-gx')==='on'; }catch(err){}
+try{ FIELD.on=localStorage.getItem('chain-gx')!=='off'; }catch(err){}   // g(x) is on by default for the chain
 const listenEl=document.getElementById('listen'), hearSeg=document.getElementById('hearSeg'), hearKnob=document.getElementById('hearKnob');
-try{ const h=localStorage.getItem('tone-hearing'); if(h in HEARINGS) FIELD.hearing=h; }catch(err){}
+try{ const h=localStorage.getItem('chain-hear'); if(DEG[h]!==undefined) drill.hear=h; }catch(err){}
+for(const [v] of HEAR7){ const b=document.createElement('button'); b.type='button'; b.setAttribute('role','radio'); b.dataset.v=v; const n=SYL7[DEG[v]]; b.innerHTML='<b class="s'+n+'">'+n+'</b>'; hearSeg.appendChild(b); }
+function buildHearings(){}
 function syncHearing(){
-  let sel=null; for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===FIELD.hearing; b.setAttribute('aria-checked',on); if(on) sel=b; }
-  if(sel&&sel.offsetWidth){ hearKnob.style.width=sel.offsetWidth+'px'; hearKnob.style.transform='translateX('+sel.offsetLeft+'px)'; }   // the grey box slides to the choice
+  let sel=null; for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===drill.hear; b.setAttribute('aria-checked',on); b.disabled=T.on&&T.test; if(on) sel=b; }
+  if(sel&&sel.offsetWidth){ hearKnob.style.width=sel.offsetWidth+'px'; hearKnob.style.transform='translateX('+sel.offsetLeft+'px)'; }
 }
-hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; FIELD.hearing=b.dataset.v; try{ localStorage.setItem('tone-hearing',FIELD.hearing); }catch(err){} syncHearing(); });
+hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; drill.hear=b.dataset.v; try{ localStorage.setItem('chain-hear',drill.hear); }catch(err){} changed(); });
 window.addEventListener('resize',syncHearing);
-function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; if(FIELD.on){ hearKnob.style.transition='none'; syncHearing(); hearKnob.offsetWidth; hearKnob.style.transition=''; } }
-gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on; try{ localStorage.setItem('semitone-gx',FIELD.on?'on':'off'); }catch(err){} syncGx(); });
+function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; document.body.classList.toggle('gxOn',FIELD.on); }
+gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on; try{ localStorage.setItem('chain-gx',FIELD.on?'on':'off'); }catch(err){} syncGx(); });
 syncGx();
 const segStrobe=document.getElementById('segStrobe');
 function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='show')===showStrobe); }
