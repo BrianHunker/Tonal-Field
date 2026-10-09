@@ -141,7 +141,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 .row{ stroke:var(--mid) } .row.sel{ stroke:var(--ink) }
 .hit{ fill:transparent; cursor:pointer }
 .num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none }
-.knock{ fill:var(--bg) } .knock.on{ fill:var(--faint) }
+.knock{ fill:var(--bg) }   /* the sounding number is marked by its colour bloom, not a box */
 .tsig{ fill:var(--ink); font-size:24px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .bendLbl{ fill:var(--ink); font-size:13px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .curve{ fill:none; stroke:var(--ink); stroke-width:1.3 }
@@ -639,7 +639,7 @@ function paintTabField(st,live,p,amp){
     noteLv[i]=i===cur?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
     const w=L*noteLv[i], c=valRGB(pcOf(drill.string,plan[i].pitch));
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
-    o.num.style.fill=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; });
+    const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
   if(bw>0.003){ const c=valRGB(pcOf(st.s.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
@@ -674,7 +674,7 @@ function buildTabNotes(){
     }else if(n.kind==='pre'){                                         // prebend: the fretted number, a straight arrow up
       mark=numberAt(x,y,String(n.fret));
       el('line',{x1:x,y1:y-9,x2:x,y2:TB.topY+6,class:'inkS','stroke-width':1.3},noteG); arrowHead(x,TB.topY,-1);
-      const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent=amt;
+      const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent=amt; mark.extra=[t];
     }else if(n.kind==='release'){                                     // release: back down to the fret, in parentheses
       el('path',{d:'M'+(x-TB.cw+10)+' '+(TB.topY+2)+' Q'+x+' '+(TB.topY+2)+' '+x+' '+(y-14),class:'curve'},noteG); arrowHead(x,y-9,1);
       mark=numberAt(x,y,'('+n.fret+')');

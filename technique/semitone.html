@@ -137,7 +137,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 .row{ stroke:var(--mid) } .row.sel{ stroke:var(--ink) }
 .hit{ fill:transparent; cursor:pointer }
 .num{ fill:var(--ink); font-weight:700; font-size:14px; text-anchor:middle; dominant-baseline:central; pointer-events:none }
-.knock{ fill:var(--bg) } .knock.on{ fill:var(--faint) }
+.knock{ fill:var(--bg) }   /* the sounding number is marked by its colour bloom, not a box */
 .tsig{ fill:var(--ink); font-size:24px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .bendLbl{ fill:var(--ink); font-size:13px; font-weight:700; text-anchor:middle; dominant-baseline:central }
 .curve{ fill:none; stroke:var(--ink); stroke-width:1.3 }
@@ -585,7 +585,7 @@ function paintTabField(st,live,p,amp){
     noteLv[i]=i===cur?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
     const w=L*noteLv[i], c=valRGB(pcOf(drill.string,notes[i%2].fret));
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
-    o.num.style.fill=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; });
+    const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
   if(bw>0.003){ const c=valRGB(pcOf(st.s.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
@@ -618,7 +618,7 @@ function buildTabNotes(){
       else if(first&&bent){                                             // prebend: picked already bent — a straight arrow up
         mark=numberAt(x,y,String(lo));
         el('line',{x1:x,y1:y-9,x2:x,y2:TB.topY+6,class:'inkS','stroke-width':1.3},noteG); arrowHead(x,TB.topY,-1);
-        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='½';
+        const t=el('text',{x,y:TB.topY-10,class:'bendLbl'},noteG); t.textContent='½'; mark.extra=[t];
       }else if(bent){                                                   // bend: a curve from the string up to above the staff
         const x0=x-TB.cw+10;
         el('path',{d:'M'+x0+' '+(y-2)+' Q'+x+' '+(y-2)+' '+x+' '+(TB.topY+6),class:'curve'},noteG); arrowHead(x,TB.topY,-1);
