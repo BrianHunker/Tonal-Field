@@ -707,6 +707,7 @@ const stringDb=v=>{ if(v<=0) return 'off'; const db=-40*(1-v/100); return (db<=-
    Here the events (pluck, set, glide) carry audio-clock times, so the string runs sample-accurately ahead of the screen. */
 /*CORE-BEGIN*/
 function makeStringCore(){
+  const LEGF=3;                                                        // a legato touch keeps only the harmonics below about 3 × the note
   return class StringCore{
     constructor(sr,gauge){ this.sr=sr; this.N=8192; this.buf=new Float32Array(this.N); this.w=0; this.g=Math.max(0,Math.min(1,+gauge||0));
       this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; this.dampTo=0; this.dampK=1; }
@@ -723,6 +724,11 @@ function makeStringCore(){
       const aT=0.7*(0.45+0.55*v)*(1-0.25*pm), aN=0.12*(0.45+0.55*v), fade=Math.max(2,Math.round(per*0.2));
       for(let k=0;k<per;k++){ const tri=(k<pd)?(k/pd):((per-k)/(per-pd)); const env=k<fade?0.5-0.5*Math.cos(Math.PI*k/fade):1;
         this.ex[k]=((tri-0.5)*aT+(n[k+pd]-n[k])*aN*env)*amp; }
+      if(keep){ // a legato touch: the finger, not a pick — the shape smoothed to its lowest few harmonics, no pick noise
+        const sh=new Float32Array(per); for(let k=0;k<per;k++){ const tri=(k<pd)?(k/pd):((per-k)/(per-pd)); sh[k]=tri-0.5; }
+        const lc=1-Math.exp(-2*Math.PI*Math.min(this.sr/4,LEGF*f0)/this.sr); let y=0;
+        for(let pass=0;pass<3;pass++) for(let k=0;k<per;k++){ y+=lc*(sh[k]-y); sh[k]=y; }
+        let m=0; for(let k=0;k<per;k++) m+=sh[k]; m/=per; for(let k=0;k<per;k++) this.ex[k]=(sh[k]-m)*aT*amp; }
     }
     render(out,t0){
       const sr=this.sr, N=this.N, buf=this.buf, q=this.q; let w=this.w, lp=this.lp, ap=this.ap, apx=this.apx;
@@ -846,7 +852,7 @@ function fadeOut(vg,t,now,release){
 }
 // hammer-on and pull-off: no pick, no choke — the string keeps ringing as the finger changes its length, and the finger adds
 // a touch of its own: darker than a pick, at the same level
-const LEG={v:{H:0.3,P:0.4},a:{H:1.75,P:1.6}};   // as loud as a pick (measured on this string model), darker, and without the pick's choke
+const LEG={v:{H:0.3,P:0.4},a:{H:2.0,P:2.0}};     // a soft, rounded touch about 1–1.5 dB under a pick (measured on this string model), no choke
 const PLUCK_V=Math.pow(100/128,1.4);                                  // the tool's velocity curve, at velocity 100
 
 /* ---------- a run: one or more segments on the audio clock ----------
