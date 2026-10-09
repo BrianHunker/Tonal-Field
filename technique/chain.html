@@ -342,9 +342,12 @@ function planFor(c){
   for(let b=0;b<L;b++){ const F=fr[b], N=fr[b+1];
     (up?[0,1,2]:[2,1,0]).forEach(r=>out.push({string:F.string,r,frame:b,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick'}));
     const r=up?0:2; out.push({string:N.string,r,frame:b+1,shape:N.shape,low:N.low,pitch:N.tones[r].fret,fret:N.tones[r].fret,finger:SHAPES[N.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:true}); }
-  if(c.ret) for(let b=L;b>0;b--){ const F=fr[b], N=fr[b-1];               // and back: the same frames, the figure turned round
-    (up?[2,1,0]:[0,1,2]).forEach(r=>out.push({string:F.string,r,frame:b,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick'}));
-    const r=up?2:0; out.push({string:N.string,r,frame:b-1,shape:N.shape,low:N.low,pitch:N.tones[r].fret,fret:N.tones[r].fret,finger:SHAPES[N.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:true}); }
+  // and back, the way it came — the outbound figure run backwards, so the return sounds the same frames (the same modes): each
+  // bar begins on the tone just held, steps back across the frame before it, and holds that frame's first tone. Up from Do:
+  // Do Re Mi Fa~ | Fa Sol La Ti~ | Ti La Sol Fa~ | Fa Mi Re Do~ — the last frame is never played whole, out or back.
+  if(c.ret){ const ord=up?[0,1,2]:[2,1,0], nt=(F,k,r,land)=>({string:F.string,r,frame:k,shape:F.shape,low:F.low,pitch:F.tones[r].fret,fret:F.tones[r].fret,finger:SHAPES[F.shape].fing[r],pick:true,glide:false,pre:false,kind:'pick',land:!!land});
+    for(let b=L-1;b>=0;b--){ const F=fr[b], N=fr[b+1];
+      out.push(nt(N,b+1,ord[0]), nt(F,b,ord[2]), nt(F,b,ord[1]), nt(F,b,ord[0],true)); } }
   if(c.ham||c.pull) out.forEach((e,i)=>{ const q=out[(i+out.length-1)%out.length];   // legato within a string: hammer-ons rising, pull-offs falling
     if(q.string!==e.string||q.pitch===e.pitch) return;
     if(e.pitch>q.pitch&&c.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&c.pull){ e.pick=false; e.kind='pull'; } });
@@ -1253,7 +1256,7 @@ function howTo(c){
   const pickTxt=legatoTxt(c,'<span>Pick every note.</span>').replace('Pick only the very first note; the fingers sound every note after it.','Pick each new string; the fingers sound the rest.');
   return pickTxt+' <span>Each bar:</span> three eighths '+(up?'up':'down')+' the frame on the '+STRINGS[F.string].name+' string (fingers '+fings+', frets '+frets+'), then the next scale tone — '+SYL7[((next.deg%7)+7)%7]+' — on the '+STRINGS[N.string].name+' string (finger '+nf+', fret '+next.fret+'), held through the bar. '
     +(L>1?'<span>The next bar</span> begins on that tone and does the same, string by string, '+L+' links in all. ':'')
-    +(c.ret?'<span>Then back:</span> the same frames '+(up?'down':'up')+' the strings, each played '+(up?'high to low':'low to high')+' and landing on the next string\'s '+(up?'top':'lowest')+' tone, home to the '+STRINGS[F.string].name+' string — '+L+' bar'+(L>1?'s':'')+' out, '+L+' back, and round again.':(L>1?'':'<span>Then</span> back to the start.'))+' Each frame\'s lower fingers stay down; the hand moves as the frames shift.';
+    +(c.ret?'<span>Then back, the way you came:</span> each bar begins on the tone just held, steps back across the frame before it ('+(up?'high to low':'low to high')+'), and holds that frame\'s '+(up?'lowest':'top')+' tone — the same frames, the same modes, home to the '+STRINGS[F.string].name+' string: '+L+' bar'+(L>1?'s':'')+' out, '+L+' back, and round again.':(L>1?'':'<span>Then</span> back to the start.'))+' Each frame\'s lower fingers stay down; the hand moves as the frames shift.';
 }
 function factsOf(c){
   const fr=chainFrames(c);
@@ -1265,7 +1268,7 @@ function chainLine(c){                                                 // Listen
     +names.slice(1).map((n,i)=>'<span class="lsPair">'+(upStr?B(names[i])+' is the dominant of '+B(n):B(n)+' is the dominant of '+B(names[i]))+'</span>').join('<span class="lsDot">·</span>')+'</p>';
   const UP='up the strings, each a fourth higher: the subdominant of the one before', DN='down the strings, each a fourth lower: the dominant of the one before';
   let h=walk('The first tone of each string walks the dominant chain, '+(up?UP:DN)+'.',fr.map(F=>syl(F.tones[up?0:2])),up);
-  if(c.ret) h+=walk('<span>And back,</span> '+(up?DN:UP)+'.',fr.slice().reverse().map(F=>syl(F.tones[up?2:0])),!up);
+  if(c.ret) h+=walk('<span>And back,</span> the same chain in reverse, '+(up?DN:UP)+'.',fr.map(F=>syl(F.tones[up?0:2])).reverse(),!up);
   return h;
 }
 let testLineKey='';
