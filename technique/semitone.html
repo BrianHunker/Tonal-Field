@@ -351,9 +351,26 @@ function drawVib(snap,fx,fy,bx,by,t){
 // string and the round on top — as a fingertip does under pressure. yc: the centre of the round top.
 const FR=14, PRESS_H=0.75;                                             // pressed, the dome stands 0.75 r below its centre
 function fingerPath(x,yc,k){
-  const r=FR, c=0.5523, hb=r*(1-(1-PRESS_H)*k), cb=c+(0.95-c)*k, f=v=>v.toFixed(2);
+  const r=FR, c=0.5523, hb=r*(1-(1-PRESS_H)*k), cb=Math.min(1,c+(0.95-c)*k), f=v=>v.toFixed(2);
   return 'M'+f(x-r)+' '+f(yc)+' C'+f(x-r)+' '+f(yc-c*r)+' '+f(x-c*r)+' '+f(yc-r)+' '+f(x)+' '+f(yc-r)+' C'+f(x+c*r)+' '+f(yc-r)+' '+f(x+r)+' '+f(yc-c*r)+' '+f(x+r)+' '+f(yc)
     +' C'+f(x+r)+' '+f(yc+cb*hb)+' '+f(x+cb*r)+' '+f(yc+hb)+' '+f(x)+' '+f(yc+hb)+' C'+f(x-cb*r)+' '+f(yc+hb)+' '+f(x-r)+' '+f(yc+cb*hb)+' '+f(x-r)+' '+f(yc)+' Z';
+}
+// legato fingers. A hammer-on: the finger lifts a little above its hover, then drives down, accelerating, to land as the
+// note sounds. A pull-off: the finger about to pull presses a little deeper into the held string, then flicks off at once.
+const legKind=(s,i)=>s.mode==='fingers'?legatoOf(s,i):null, noteFinger=(s,i)=>s.notes[i%2].finger;
+const LIFT=9, FLICK=7;
+function legatoMotion(f,st,t,sy){
+  const s=st.s, idx=st.idx, ni=st.nextIdx, dn=st.nextOnset-t, dur=st.dur, hov=hoverY(sy), press=sy-FR*PRESS_H, sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
+  if(legKind(s,ni)==='H'&&noteFinger(s,ni)===f){ const W1=Math.min(0.24,0.75*dur), W2=Math.min(0.08,0.3*dur);
+    if(dn<W1&&dn>W2) return {y:hov-LIFT*sm((W1-dn)/(W1-W2))};
+    if(dn<=W2&&dn>0){ const x=1-dn/W2; return {y:hov-LIFT+(press-(hov-LIFT))*x*x*x}; } }        // accelerating onto the string
+  if(legKind(s,ni)==='P'&&noteFinger(s,idx)===f){ const W3=Math.min(0.18,0.6*dur);
+    if(dn<W3&&dn>0){ const sq=0.3*sm((W3-dn)/W3); return {y:sy-FR*(1-(1-PRESS_H)*(1+sq)),sq}; } }   // pressing deeper, the tip spreading
+  const a=t-st.onset;
+  if(legKind(s,idx)==='P'&&noteFinger(s,(idx+FIG.length-1)%FIG.length)===f&&a>=0&&a<0.12){
+    if(a<0.04){ const x=a/0.04, e=1-Math.pow(1-x,3); return {y:press+(hov-FLICK-press)*e}; }         // the flick: off the string at once
+    return {y:hov-FLICK+FLICK*sm((a-0.04)/0.08)}; }
+  return null;
 }
 // the hand: four numbered fingers float above the high e in their positions
 const fingers=[];
@@ -682,10 +699,10 @@ function makeStringCore(){
       this.lp=0; this.ap=0; this.apx=0; this.ex=new Float32Array(1); this.exN=0; this.exI=0; this.c=0.3; this.t60=3.5; this.f=220; this.gl=null; this.q=[]; this.dampTo=0; this.dampK=1; }
     push(e){ this.q.push(e); this.q.sort((a,b)=>a.t-b.t); }
     history(len){ const o=new Float32Array(len), N=this.N; for(let k=0;k<len;k++) o[k]=this.buf[(this.w-len+k+N*2)%N]; return o; }
-    excite(f0,v,amp){
+    excite(f0,v,amp,keep){
       const g=this.g, pm=0; v=Math.max(0.05,Math.min(1,v)); amp=amp===undefined?1:amp;
-      const fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);
-      this.t60=(9+5*g)*Math.pow(0.03/(9+5*g),pm);
+      const fc=(2600+3400*(1-g))*(0.6+0.4*v)*Math.max(1,Math.pow(f0/110,0.7)); if(!keep) this.c=1-Math.exp(-2*Math.PI*Math.min(20000,fc*(1-0.85*pm))/this.sr);
+      if(!keep) this.t60=(9+5*g)*Math.pow(0.03/(9+5*g),pm);
       const per=Math.max(2,Math.round(this.sr/f0)); this.exN=per; this.exI=0; this.ex=new Float32Array(per);
       const pick=0.14+0.14*g, pd=Math.max(1,Math.min(per-1,Math.round(per*pick)));
       const efc=(1500+2500*v)*(0.6+0.4*(1-g))*(1-0.6*pm), ec=1-Math.exp(-2*Math.PI*efc/this.sr);
@@ -701,7 +718,7 @@ function makeStringCore(){
         while(q.length&&q[0].t<=t){ const e=q.shift();
           if(e.kind==='damp'){ this.dampTo=e.t1; this.dampK=Math.pow(e.depth||0.03,1/Math.max(1,(e.t1-e.t)*this.f)); }   // per trip round the loop, so the depth holds at any pitch
           else if(e.kind==='glide'){ this.gl={t0:e.t,t1:e.t1,f0:this.f,f1:e.f}; }
-          else{ this.gl=null; this.f=e.f; if(e.kind==='pluck') this.excite(e.f,e.v,e.a); } }
+          else{ this.gl=null; this.f=e.f; if(e.kind==='pluck') this.excite(e.f,e.v,e.a,e.keep); } }
         let f=this.f;
         if(this.gl){ const G=this.gl; if(t>=G.t1){ f=this.f=G.f1; this.gl=null; } else { let u=Math.max(0,(t-G.t0)/(G.t1-G.t0)); u=u*u*(3-2*u); f=G.f0*Math.pow(G.f1/G.f0,u); } }
         const c=this.c, a=1-c;
@@ -815,8 +832,8 @@ function fadeOut(vg,t,now,release){
   setTimeout(()=>{ try{ release(); }catch(err){} },Math.max(0,(t-ctx.currentTime)*1000)+120);
 }
 // hammer-on and pull-off: no pick, no choke — the string keeps ringing as the finger changes its length, and the finger adds
-// only a small, dark touch (a hammer's thud softer than a pull-off's flick)
-const LEG={v:{H:0.2,P:0.3},a:{H:0.22,P:0.32}};
+// a touch of its own: darker than a pick, at the same level
+const LEG={v:{H:0.3,P:0.4},a:{H:1.75,P:1.6}};   // as loud as a pick (measured on this string model), darker, and without the pick's choke
 const PLUCK_V=Math.pow(100/128,1.4);                                  // the tool's velocity curve, at velocity 100
 
 /* ---------- a run: one or more segments on the audio clock ----------
@@ -891,7 +908,7 @@ function note(s,t,i,first){
   const p=pitchOf(s,i), f=fretHz(s.string,p), str=s.str;
   // the pick meets the string before it releases it: 10 ms that stop most of what is ringing, so picks never stack up
   const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
-  if(s.mode==='fingers'&&!first&&legatoOf(s,i)){ const K=legatoOf(s,i); { str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K]}); return; } }   // hammer-on / pull-off: no pick; the finger itself sounds the string, softer
+  if(s.mode==='fingers'&&!first&&legatoOf(s,i)){ const K=legatoOf(s,i); { str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; } }   // hammer-on / pull-off: no pick; the finger itself sounds the string, softer
   if(s.mode==='fingers'||first){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
   // slide: the finger carries the string's length; bend: the finger pushes the string's tension. Either way the pitch moves
   // continuously, arriving on the beat, and only the first note of each bar is picked.
@@ -998,7 +1015,8 @@ function frame(){
     const down=t!==null&&fingerDown(F.f,t), target=down?sy+(onBent?bendDy*(F.home-FB.nut)/(tipX(s.base)-FB.nut):0)-FR*PRESS_H:hoverY(sy);   // pressed: the flat underside on the string
     F.y=reduce?target:F.y+(target-F.y)*0.5; if(Math.abs(F.y-target)<0.3) F.y=target;
     F.x=F.home+shift*FB.cw;
-    const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k);
+    let sq=0; if(live&&!reduce&&st&&!st.count){ const o=legatoMotion(F.f,st,t,sy); if(o){ F.y=o.y; sq=o.sq||0; } }
+    const hov=hoverY(sy), pc=sy-FR*PRESS_H, k=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=k*k*(3-2*k)+sq;
     F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
     F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(sy-3).toFixed(1));
     const pressed=k>0.5||(Math.abs(bendDy)>0&&down);
