@@ -281,12 +281,12 @@ const SEQ=[0,1,2,1,0,1,2,1,0,1,2,1];                                   // which 
 const BAR_START=i=>i===0||i===8;
 const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09;
 const catchT=()=>Math.min(0.06,0.15*T.beat/2);   // how long the pick holds the string before releasing it into the note (s), heard and seen: 60 ms, less at fast tempos          // loop beats, count-in beats, finger lands this far ahead of the pluck (s), slide travel time (s)
-const drill={string:0,shape:'maj',dir:'up',plant:true,slide:false,bend:false,bpm:70,click:true};
+const drill={string:0,shape:'min',dir:'up',plant:true,slide:false,bend:false,bpm:70,click:true};
 const SHAPES={
   dim:{name:'Diminished',short:'Dim',kind:'semitone:tone',steps:[1,2],fing:[1,2,4],home:[5,6,7,8],
        low:2, hear:[['mifasol',0,'MiFa_Sol'],['tidore',-1,'TiDo_Re']], def:'tidore'},
   min:{name:'Minor',short:'Min',kind:'tone:semitone',steps:[2,1],fing:[1,3,4],home:[5,6,7,8],
-       low:0, hear:[['remifa',0,'Re_MiFa'],['latido',-1,'La_TiDo']], def:'latido'},
+       low:0, hear:[['remifa',0,'Re_MiFa'],['latido',-1,'La_TiDo']], def:'remifa'},
   maj:{name:'Major',short:'Maj',kind:'tone:tone',steps:[2,2],fing:[1,2,4],home:[5,7,8,9],
        low:10, hear:[['fasolla',1,'Fa_Sol_La'],['doremi',0,'Do_Re_Mi'],['solati',-1,'Sol_La_Ti']], def:'doremi'}
 };   // home: each finger's fret; low: the frame's lowest tone in places above Re in its first-listed-at-tick-0 hearing; hear: [key, dial tick, name]
@@ -507,7 +507,7 @@ const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700']
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
-const FIELD={on:false,lit:0,re:0,target:0,u:0,m:null,hearBy:{dim:'tidore',min:'latido',maj:'doremi'}};   // re: where the tick-0 hearing's Re sits; u: the dial   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
+const FIELD={on:false,lit:0,re:0,target:0,u:0,m:null,hearBy:{dim:'tidore',min:'remifa',maj:'doremi'}};   // re: where the tick-0 hearing's Re sits; u: the dial   // re: where Do:Re's Re sits (semitones from A); u: the dial, in ticks from Do:Re
 const tickOf=(shape,h)=>{ const e=SHAPES[shape].hear.find(x=>x[0]===h); return e?e[1]:0; };
 const trio=shape=>{ const S=SHAPES[shape]; return [S.low, S.low+S.steps[0], S.low+S.steps[0]+S.steps[1]].map(k=>k%12); };   // the frame's places above Re at tick 0
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
@@ -1203,7 +1203,7 @@ syncHand();
 const gxBtn=document.getElementById('gx'), eqn=document.getElementById('eqn');
 try{ FIELD.on=localStorage.getItem('semitone-gx')==='on'; }catch(err){}
 const listenEl=document.getElementById('listen'), hearSeg=document.getElementById('hearSeg'), hearKnob=document.getElementById('hearKnob');
-try{ const v=JSON.parse(localStorage.getItem('frame-hearing')||'null'); if(v) for(const k in SHAPES) if(SHAPES[k].hear.some(x=>x[0]===v[k])) FIELD.hearBy[k]=v[k]; }catch(err){}
+try{ const v=JSON.parse(localStorage.getItem('frame-hearing-2')||'null'); if(v) for(const k in SHAPES) if(SHAPES[k].hear.some(x=>x[0]===v[k])) FIELD.hearBy[k]=v[k]; }catch(err){}
 const SYL=['Do','Re','Mi','Fa','Sol','La','Ti'];
 let hearShape=null;
 function buildHearings(){                                               // the chooser lists the current frame's hearings, in dial order
@@ -1219,7 +1219,7 @@ function syncHearing(){
   let sel=null; for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===FIELD.hearBy[drill.shape]; b.setAttribute('aria-checked',on); if(on) sel=b; }
   if(sel&&sel.offsetWidth){ hearKnob.style.width=sel.offsetWidth+'px'; hearKnob.style.transform='translateX('+sel.offsetLeft+'px)'; }   // the grey box slides to the choice
 }
-hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; FIELD.hearBy[drill.shape]=b.dataset.v; try{ localStorage.setItem('frame-hearing',JSON.stringify(FIELD.hearBy)); }catch(err){} syncHearing(); });
+hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; FIELD.hearBy[drill.shape]=b.dataset.v; try{ localStorage.setItem('frame-hearing-2',JSON.stringify(FIELD.hearBy)); }catch(err){} syncHearing(); });
 window.addEventListener('resize',syncHearing);
 function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; if(FIELD.on){ hearKnob.style.transition='none'; syncHearing(); hearKnob.offsetWidth; hearKnob.style.transition=''; } }
 gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on; try{ localStorage.setItem('semitone-gx',FIELD.on?'on':'off'); }catch(err){} syncGx(); });
