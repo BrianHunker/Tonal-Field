@@ -325,9 +325,9 @@ const pcOf=(s,fret)=>((STRINGS[s].pc+fret)%12+12)%12;   // fret may be fractiona
 const openMidi=i=>69+12*Math.log2(STRINGS[i].hz/440);
 const midiOf=(s,f)=>Math.round(openMidi(s))+f;
 const FMAX=12;                                                          // the board shows frets 0–12
-const FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}];   // bar 1 eight eighths, bar 2 two halves: the two tones alternate, so the loop reverses
-const BAR_START=i=>i===0||i===8;
-const LOOP=8, COUNT=4, LEAD=0.06, SLIDE_T=0.09, ADV_LOOPS=4;
+let FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}];   // bar 1 eight eighths, bar 2 two halves: the two tones alternate, so the loop reverses
+let BAR_START=i=>i===0||i===8;
+let LOOP=8; const COUNT=4, LEAD=0.06, SLIDE_T=0.09, ADV_LOOPS=4;
 const catchT=()=>Math.min(0.06,0.15*T.beat/2);
 const POSITION=5;
 const drill={dir:'up',plant:true,bpm:70,click:true,hold:false};
@@ -632,7 +632,7 @@ const thumbG=el('g',{class:'thumbG'},fb);
 el('rect',{x:-17,y:-11,width:34,height:22,rx:11,class:'fingerC'},thumbG);
 const thumbT=el('text',{x:0,y:0,class:'fingerN'},thumbG); thumbT.textContent='T';
 let thumbX=null;
-function placeThumb(shift){ const tx=tipXf(HAND.thumb+(shift||0)); thumbX=thumbX===null||reduce?tx:thumbX+(tx-thumbX)*0.25; thumbG.setAttribute('transform','translate('+thumbX.toFixed(1)+' '+(FB.bot+44)+')'); }
+function placeThumb(shift,H){ const tx=tipXf((H||HAND).thumb+(shift||0)); thumbX=thumbX===null||reduce?tx:thumbX+(tx-thumbX)*0.25; thumbG.setAttribute('transform','translate('+thumbX.toFixed(1)+' '+(FB.bot+44)+')'); }
 /* the pick, as in Brian's drawing: it always points down the screen, its tip resting on the string, held at an axis across its
    upper body (the fingers) that hardly moves. Turning about that axis — into the screen on a downstroke, out of it on an
    upstroke — foreshortens it, so the tip shortens and rises; the tip is what travels.
@@ -929,10 +929,24 @@ const vline=(x,w)=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'
 vline(TB.s0,1);                                                       // the system's opening line
 const rs=TB.x0-14; vline(rs,4); vline(rs+6,1);                        // start repeat: thick, thin, dots
 DOTS.map(midY).forEach(y=>el('circle',{cx:rs+12,cy:y,r:2.4,class:'ink'},tab));
-TB.cw=(TB.s1-TB.x0)/16;
-vline(TB.x0+8*TB.cw,1);                                               // the bar line between the two bars
-{ const re=TB.s1; vline(re,4); vline(re-6,1); DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},tab)); }
-for(let b=0;b<8;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},tab);
+// the TAB's width: the loop at a readable spacing (two bars fill the page); a longer loop runs wider than the page, its panel
+// then scrolls and follows the playhead while it plays
+const tabPanel=document.getElementById('tabPanel'), gridG=el('g',{},tab), CW_MIN=23.5;
+function layoutTab(bars){
+  const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw;
+  const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 0 '+W+' 226'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
+  tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
+  rows.forEach(r=>r.setAttribute('x2',TB.s1));
+  while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
+  for(let b=1;b<bars;b++){ const x=TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  const re=TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
+  DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},gridG));
+  for(let b=0;b<4*bars;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG);
+}
+function followHead(x){ if(!tabPanel.classList.contains('wide')) return;
+  const k=tab.clientWidth/(TB.s1+14), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
+  tabPanel.scrollLeft+=Math.abs(d)>0.4*tabPanel.clientWidth?d*0.16:d; }   // at the repeat it sweeps back to the start rather than jumping
+layoutTab(2);
 // the blooms (g(x) on): each TAB number has its own, centred on it, in its own field colour — lit while its tone sounds, as
 // loud as the tone is, and gone a moment after the next tone takes over; the ball has its own too, riding with it
 const tabDefs=el('defs',{},tab), bloomBlur=el('filter',{id:'tabBloomF',x:'-100%',y:'-100%',width:'300%',height:'300%'},tabDefs);
@@ -1314,9 +1328,11 @@ function pitchAt(st,t){
 }
 // a finger is down when it sounds the note; Stay down keeps the placed fingers behind it on that string down too; on a
 // bend every finger behind the bending one pushes with it
+// the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
+function handNow(s,st){ return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
   const st=stateAt(t+LEAD); if(st.idx<0) return false;
-  const s=st.s, e=s.plan[st.idx], h=s.hand.f[f];
+  const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
   if(f===e.finger) return true;
   if(!h||h.string!==e.string||f>e.finger) return false;
   if(s.mode==='bend') return true;
@@ -1379,7 +1395,7 @@ function frame(){
   stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null, st=t!==null?stateAt(t):null, s=st?st.s:null;
   if(s&&T.shown!==s) showSeg(s);
-  const live=!!(st&&!st.count), plan=s?s.plan:(DRILL?DRILL.plan:null), H=s?s.hand:HAND, mode=s?s.mode:(DRILL?DRILL.means:'pick');
+  const live=!!(st&&!st.count), plan=s?s.plan:(DRILL?DRILL.plan:null), H=s?handNow(s,st):HAND, mode=s?s.mode:(DRILL?DRILL.means:'pick');
   const strI=live?plan[st.idx].string:(plan?plan[0].string:H.f[1].string), sy=FB.strY[strI];
   const p=live?pitchAt(st,t):null;
   const shift=(live&&mode==='slide')?p-plan[0].pitch:0;               // the whole hand moves with a slide; the thumb does not
@@ -1411,7 +1427,7 @@ function frame(){
     F.c.classList.toggle('cand',!!cand&&cand.fingers.has(F.f)&&!pressed);
     F.c.classList.toggle('sel',!!SEL&&SEL.finger===F.f);
   }
-  placeThumb(shift);
+  placeThumb(shift,H);
   paintBoard(H,shift,fdt);
   // the sounding tone's level, held through the pick's catch; slides, bends and legato arrivals re-light it a little
   const sstr=(live&&s.strs)?s.strs[strI]:null, ampNow=sstr?Math.min(1,ampOf(sstr.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
@@ -1440,7 +1456,7 @@ function frame(){
   if(live){
     ringLine.setAttribute('x1',fxV); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
-    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); head.setAttribute('visibility','visible');
+    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
     setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx)));
   }else{
