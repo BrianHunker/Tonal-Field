@@ -761,12 +761,12 @@ const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700']
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
 const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12)cos 5x + (5/12)cos 7x; +1 at Re, 0 at Ti and Fa
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
-const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null};   // re: Re's seat on screen (chromatic); reC: on the chain; u: the morph, in ticks
+const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA
 const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey
 const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const morphRGB=(k,u)=>{ const fl=Math.floor(u), f=u-fl, a=relRGB(k+5*fl); return f<1e-6?a:mixRGB(a,relRGB(k+5*(fl+1)),f); };   // each tick, every place's colour steps one station
-const valRGB=pc=>morphRGB(pc+LET.offA-FIELD.re,FIELD.u);                       // the field's colour at a pitch (continuous: a glide passes through)
+const valRGB=pc=>{ const a=relRGB(pc+LET.offA-FIELD.re); return FIELD.mx<0?a:mixRGB(relRGB(pc+LET.offA-FIELD.reA),a,FIELD.mx); };   // mid-morph: the two orientations' colours, blended                       // the field's colour at a pitch (continuous: a glide passes through)
 const rgbS=c=>'rgb('+c.map(v=>Math.round(v)).join(',')+')';
 const VAL={R0:48,K:30,N:180};
 const valG=el('g',{opacity:0},ringSvg), valFills=[], valLines=[], valDots=[]; let valKey='';
@@ -777,36 +777,35 @@ el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':
 }
 // draw the curve for dial u (in Do:Re's frame, Re at 12; the group is turned to the drill)
 const chainRGB=x=>{ const i=Math.floor(x), f=x-i, a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };   // the field's colour round the chain (Re's seat 0)
-function shapeField(u){
-  const chain=RING.m>=0.5, bg=bgColour(), key=u.toFixed(4)+'|'+bg.join()+'|'+chain+'|'+diatonic; if(key===valKey) return; valKey=key;
-  if(chain){                                                           // on the chain: one wave, turned u seats; seat j holds place 7j
-    const at=(j,r)=>{ const a=j*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=j=>VAL.R0+VAL.K*Math.cos((j-u)*Math.PI/6), f2=v=>v.toFixed(2);
-    for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=chainRGB(12*(i+.5)/VAL.N-u);
-      const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0)), [x2,y2]=at(k2,rOf(k2));
-      valFills[i].setAttribute('d','M'+f2(a)+' '+f2(b)+'L'+f2(d)+' '+f2(e)+'L'+f2(f)+' '+f2(g)+'L'+f2(h)+' '+f2(j)+'Z');
-      valFills[i].setAttribute('fill',rgbS(mixRGB(bg,rgb,0.32)));
-      const L=valLines[i]; L.setAttribute('x1',f2(h)); L.setAttribute('y1',f2(j)); L.setAttribute('x2',f2(x2)); L.setAttribute('y2',f2(y2)); L.setAttribute('stroke',rgbS(rgb)); }
-    valDots.forEach((dt,k)=>{ const j=7*k, [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(morphRGB(k,u))); });
-    return; }
-  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*GOf(k*Math.PI/6,u), f2=v=>v.toFixed(2);
-  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=morphRGB(12*(i+.5)/VAL.N,u);   // each wedge overlaps the next a little: opaque, so no seams
+/* THE MORPH: every point of the circle goes straight from its old value to its new one, all at the same rate; the colours
+   blend the same way. A tritone (π) morph is the fold, g → −g, so half way through the circle lies flat. */
+const fieldW=(x,chain)=>chain?Math.cos(x*Math.PI/6):gOf(x*Math.PI/6);
+const fieldD=chain=>chain?FIELD.reC-FIELD.reCA:FIELD.re-FIELD.reA;          // the old Re, in seats from the new one (negated)
+function fieldAt(p,chain){ const m=FIELD.mx; if(m<0) return fieldW(p,chain); const d=fieldD(chain); return (1-m)*fieldW(p+d,chain)+m*fieldW(p,chain); }
+function fieldRGB(p,chain){ const C=chain?chainRGB:relRGB, m=FIELD.mx; if(m<0) return C(p); return mixRGB(C(p+fieldD(chain)),C(p),m); }
+function shapeField(){
+  const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic; if(key===valKey) return; valKey=key;
+  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*fieldAt(k,chain), f2=v=>v.toFixed(2);
+  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=fieldRGB(12*(i+.5)/VAL.N,chain);   // each wedge overlaps the next a little: opaque, so no seams
     const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0)), [x2,y2]=at(k2,rOf(k2));
     valFills[i].setAttribute('d','M'+f2(a)+' '+f2(b)+'L'+f2(d)+' '+f2(e)+'L'+f2(f)+' '+f2(g)+'L'+f2(h)+' '+f2(j)+'Z');
     valFills[i].setAttribute('fill',rgbS(mixRGB(bg,rgb,0.32)));                   // the petals' wash: 32% of the colour over the page
     const L=valLines[i]; L.setAttribute('x1',f2(h)); L.setAttribute('y1',f2(j)); L.setAttribute('x2',f2(x2)); L.setAttribute('y2',f2(y2)); L.setAttribute('stroke',rgbS(rgb)); }
-  valDots.forEach((dt,k)=>{ const [x,y]=at(k,rOf(k)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(morphRGB(k,u))); });
+  valDots.forEach((dt,k)=>{ const j=chain?7*k:k, [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(fieldRGB(j,chain))); });
 }
+
 const valLbls=[0,1,2,3,4,5,6].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
 function placeField(){
   const swing=Math.abs(1-2*RING.m), chain=RING.m>=0.5;                // changing order, the field dips out and back in the new order
   buildWedge();
-  shapeField(FIELD.u); wedge.setAttribute('opacity',((1-0.6*FIELD.lit)*swing).toFixed(3));
+  shapeField(); wedge.setAttribute('opacity',((1-0.6*FIELD.lit)*swing).toFixed(3));
   valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));
-  const u=FIELD.u, fr=u-Math.floor(u), fade=Math.abs(1-2*fr), tick=Math.round(u);   // the names cross over halfway through each tick
-  const TRIO=[]; for(let k=0;k<12;k++) if(!SOLF[(((k+5*tick)%12)+12)%12][0].startsWith('~')) TRIO.push(k);   // the seven diatonic places at this hearing
+  const mx=FIELD.mx, old=mx>=0&&mx<0.5, fade=mx>=0?Math.abs(1-2*mx):1, chainL=RING.m>=0.5;   // the names: the old set fades out as the new fades in
+  const bR=old?FIELD.reA:FIELD.re, bC=old?FIELD.reCA:FIELD.reC;
+  const TRIO=[]; for(let k=0;k<12;k++) if(!SOLF[k][0].startsWith('~')) TRIO.push(k);   // the seven diatonic places
   valDots.forEach((d,k)=>d.setAttribute('r',TRIO.includes(k)?3.2:2.2));
-  TRIO.forEach((k,i)=>{ const pc=lerpPos(FIELD.re+k,FIELD.reC+7*k,RING.m), r=VAL.R0+VAL.K*GOf(k*Math.PI/6,u)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[(((k+5*tick)%12)+12)%12][0];
-    if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(morphRGB(k,u));
+  TRIO.forEach((k,i)=>{ const pc=lerpPos(bR+k,bC+7*k,RING.m), v=fieldAt(chainL?bC+7*k-FIELD.reC:bR+k-FIELD.re,chainL), r=VAL.R0+VAL.K*v-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
+    if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(relRGB(k));
     t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade).toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
@@ -850,15 +849,16 @@ function placeGhost(){
   const re=GHOST.doPc+2;                                                  // the old Re, by pitch: it turns with the letters
   ghostG.setAttribute('transform','rotate('+((chain?7*re+LET.offC:re+LET.offA)*30).toFixed(2)+' '+RG.c+' '+RG.c+')');
 }
+const MORPH_MS=1000;
 let triPos=0, triDir=1; const ARROW={up:false,down:false};
 function tritoneStep(){ let d=ARROW.up&&!ARROW.down?1:(ARROW.down&&!ARROW.up?-1:triDir); triPos+=d;   // held arrows say which way; else it hovers up, down, down, up …
   if(triPos>=1){ triPos=1; triDir=-1; } else if(triPos<=-1){ triPos=-1; triDir=1; } return 6*d; }
 function modulate(d){
   d=Math.round(d); if(!d||!FIELD.on) return; stopForEdit();
   const was=PHI.doPc, reT=was+2+LET.off;
-  if(Math.abs(d)>1&&!reduce){ let n=((-5*d)%12+12)%12; if(n>6) n-=12; if(Math.abs(n)===6) n=-6*Math.sign(d);   // ticks of the dial: u = +1 is Do down 5
-    MORPH={from:0,to:n,t0:performance.now(),dur:900*Math.max(1,0.6*Math.abs(n)),re:reT,reC:fifth(reT)}; }
-  else{ MORPH=null; FIELD.u=0; }                                          // a semitone: the field rotates one seat
+  if(Math.abs(d)>1&&!reduce){
+    MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC}; }
+  else{ MORPH=null; FIELD.mx=-1; }                                          // a semitone: the field rotates one seat
   PHI.doPc=((was+d)%12+12)%12; GHOST.doPc=was; fieldMoved();
 }
 // the ring is selected by clicking it (the number row then moves φ), and stays so until a click elsewhere
@@ -890,7 +890,7 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
     if(drag.inner){ const a=angOf(e).a; drag.acc+=((a-drag.last+6)%12+12)%12-6; drag.last=a;
       if(!DRAGF){ if(Math.abs(drag.acc)<0.35) return;
         stopForEdit(); try{ ringSvg.setPointerCapture(drag.id); }catch(err){}
-        MORPH=null; FIELD.u=0; const re=PHI.doPc+2+LET.off;
+        MORPH=null; FIELD.mx=-1; const re=PHI.doPc+2+LET.off;
         DRAGF={re,reC:fifth(re),x:0,chain:RING.m>=0.5}; }
       DRAGF.x=drag.acc;                                                   // the field turns with the hand, seat for seat
       if(reduce){ const n=Math.round(DRAGF.x); if(n){ PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; drag.acc-=n; DRAGF.x-=n; const re=PHI.doPc+2+LET.off; DRAGF.re=re; DRAGF.reC=fifth(re); fieldMoved(); } }
@@ -1333,18 +1333,19 @@ let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,k
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
 function stepField(){
   const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
-  const goal=FIELD.on?1:0, was=[FIELD.lit,FIELD.re,FIELD.u,FIELD.reC,LET.offA,LET.offC,RING.m].join();
+  const goal=FIELD.on?1:0, was=[FIELD.lit,FIELD.re,FIELD.mx,FIELD.reC,LET.offA,LET.offC,RING.m].join();
   FIELD.lit=reduce?goal:FIELD.lit+(goal-FIELD.lit)*Math.min(1,dt*3.2); if(Math.abs(FIELD.lit-goal)<0.002) FIELD.lit=goal;
   const snap=FIELD.lit<=0.001||reduce, k=Math.min(1,dt*7);
   const oT=LET.off, oC=((7*LET.off)%12+12)%12;
   if(snap){ LET.offA=oT; LET.offC=oC; } else { const a=shortTo(LET.offA,oT), c=shortTo(LET.offC,oC); LET.offA=Math.abs(a)<0.002?oT:LET.offA+a*k; LET.offC=Math.abs(c)<0.002?oC:LET.offC+c*k; }
   const reT=PHI.doPc+2+LET.off, rcT=fifth(reT);
-  if(DRAGF&&!snap){ FIELD.u=0; FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x; }   // turned by hand: a rotation
-  else if(MORPH&&!snap){ const x=Math.min(1,(now-MORPH.t0)/MORPH.dur), f0=MORPH.from||0; FIELD.u=f0+(MORPH.to-f0)*x*x*(3-2*x); FIELD.re=MORPH.re; FIELD.reC=MORPH.reC; if(x>=1){ MORPH=null; FIELD.u=0; FIELD.re=reT; FIELD.reC=rcT; } }
-  else{ MORPH=null; FIELD.u=0;
+  if(DRAGF&&!snap){ MORPH=null; FIELD.mx=-1; FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x; }   // turned by hand: a rotation
+  else if(MORPH&&!snap){ const x=Math.min(1,(now-MORPH.t0)/MORPH.dur);   // a morph: straight from the old values to the new, one rate for all
+    FIELD.re=reT; FIELD.reC=rcT; FIELD.reA=MORPH.reA; FIELD.reCA=MORPH.reCA; FIELD.mx=x; if(x>=1){ MORPH=null; FIELD.mx=-1; } }
+  else{ MORPH=null; FIELD.mx=-1;
     if(snap){ FIELD.re=reT; FIELD.reC=rcT; } else { const d=shortTo(FIELD.re,reT), c=shortTo(FIELD.reC,rcT); FIELD.re=Math.abs(d)<0.002?reT:FIELD.re+d*Math.min(1,dt*5); FIELD.reC=Math.abs(c)<0.002?rcT:FIELD.reC+c*Math.min(1,dt*5); } }
   if(RING.m!==RING.goal){ if(reduce) RING.m=RING.goal; else { RING.t=(RING.t||0)+dt/0.8*(RING.goal>RING.m?1:-1); RING.t=Math.max(0,Math.min(1,RING.t)); RING.m=RING.t*RING.t*(3-2*RING.t); if(Math.abs(RING.m-RING.goal)<1e-4) RING.m=RING.goal; } }
-  const now2=[FIELD.lit,FIELD.re,FIELD.u,FIELD.reC,LET.offA,LET.offC,RING.m].join();
+  const now2=[FIELD.lit,FIELD.re,FIELD.mx,FIELD.reC,LET.offA,LET.offC,RING.m].join();
   if(now2!==was||FIELD.lit>0) placeRing(), placeField(), placeGhost();
 }
 // a segment comes on screen: it becomes the current drill
@@ -1354,7 +1355,7 @@ function showSeg(s){
   if(s.si>=0) SI=s.si; CUSTOM=s.custom; SEL=null; refresh();
 }
 
-/* the sounding tone's name (g(x) on): at each onset it pops up out of the ringing length of the string, rises through the
+/* the sounding tone's name (g(x) on): at each onset it pops up out of the string where the finger stops it, rises through the
    note's time and fades with the string's own decay; when the next tone sounds it lets go quickly. The same name fades up
    and out above the TAB, over the tone, between the high e and the line the ball lands on */
 const sylG=el('g',{'pointer-events':'none'},fb), sylTabG=el('g',{'pointer-events':'none'},tab), SYLS=[]; let sylKey=null;
@@ -1366,14 +1367,14 @@ function stepSyl(st,live,plan,fxV,sy,amp){
       if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
         const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
         tt.textContent=name; tt.style.fill=t.style.fill;
-        SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:(fxV+PICK_X)/2,y0:sy,o:0}); } } }
+        SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
   else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
   for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;
     if(o.cur) o.o=Math.min(1,age/0.05)*(0.2+0.8*Math.min(1,amp));
     else{ o.o*=Math.exp(-(now-(o.tl||o.t1))/0.12); o.tl=now; }
     if(!o.cur&&o.o<0.02){ o.t.remove(); o.tt.remove(); SYLS.splice(i,1); continue; }
     o.tt.setAttribute('opacity',o.o.toFixed(3));
-    const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?14:30*(1-(1-r)*(1-r)));
+    const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?24:46*(1-(1-r)*(1-r)));
     o.t.setAttribute('transform','translate('+o.x.toFixed(1)+' '+y.toFixed(1)+') scale('+k.toFixed(3)+')'); o.t.setAttribute('opacity',o.o.toFixed(3)); }
 }
 function frame(){
@@ -1601,7 +1602,7 @@ function chooseHearing(h){
   stopForEdit(); if(!FIELD.on) return;
   if(DRILL){ const pc=pcOf(DRILL.lo.s,DRILL.lo.f), nd=((pc-HEAR[h].lo)%12+12)%12, dDo=((nd-PHI.doPc)%12+12)%12;
     if(dDo){ let n=((-5*dDo)%12+12)%12; if(n>6) n-=12;
-      MORPH={to:n,t0:performance.now(),dur:900*Math.max(1,0.6*Math.abs(n)),re:FIELD.re,reC:FIELD.reC};
+      MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC};
       const rootPc=PHI.doPc+SYLPC[PHI.root]; GHOST.doPc=PHI.doPc; PHI.doPc=nd; const k=SYLPC.indexOf(relOf(rootPc)); if(k>=0) PHI.root=k; }   // the letters stay: the root keeps its pitch, its function changes (C_Do → C_Fa)
     hearing=h; SAMPLES=sampling(); const i=SAMPLES.findIndex(x=>x.r===DRILL.r||(x.r.lo.s===DRILL.lo.s&&x.r.lo.f===DRILL.lo.f&&x.r.hi.s===DRILL.hi.s&&x.r.hi.f===DRILL.hi.f)); if(i>=0) SI=i;
   }else{ hearing=h; P=[]; SEL=null; MEANS='pick'; SAMPLES=sampling(); settle(); }
