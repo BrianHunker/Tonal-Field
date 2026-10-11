@@ -199,7 +199,8 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .fingerC.sel{ stroke-width:3.4 }
 @keyframes pulse{ 0%,100%{ opacity:.3 } 50%{ opacity:1 } }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
-.valLbl{ pointer-events:auto }
+.valLbl{ pointer-events:auto } .wedge{ pointer-events:none }
+.sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
 [hidden]{display:none !important}
 </style></head><body>
 
@@ -720,7 +721,9 @@ fb.appendChild(thumbG);
 
 /* ---------- the ring: the twelve letters round a circle, the field inside them ----------
    OUTER RING: the anchor — drag the letters round and the field stays where it is (Do moves, magnetic at each semitone).
-   INNER RING: the function — click a syllable of the field to make it the modal root.
+   INNER RING: the function — click a syllable of the field to make it the modal root; drag the field round to turn it
+   under the letters (the letters stay; Do moves). The turn is the morph, tick by tick: on the dominant-chain ring one
+   seat is one tick and the field follows the hand exactly; on the chromatic ring one seat moves Do a semitone, five ticks.
    1|5: chromatic order or the dominant chain. LISTEN morphs the field under the fixed letters, one tick. */
 const LET={off:0,offA:0,offC:0};                                         // the letter ring's turn on screen (semitones), eased; offC: on the chain
 const RG={c:120,R:84,RL:107,RW:58};
@@ -820,16 +823,32 @@ function setHand(pcFloat,litPc){
   rDots.forEach((d,pc)=>d.classList.toggle('on',pc===litPc)); rLbls.forEach((g,pc)=>g.classList.toggle('on',pc===litPc));
 }
 // the inner ring: a syllable clicked becomes the modal root
-valLbls.forEach(t=>{ t.style.cursor='pointer'; t.addEventListener('click',()=>{ if(FIELD.lit<0.5) return; const k=SYL.indexOf(t.textContent); if(k<0) return; PHI.root=k; refresh(); }); });
+let DRAGF=null, dragFEnd=0;                                             // the field being turned by hand
+valLbls.forEach(t=>{ t.style.cursor='pointer'; t.addEventListener('click',()=>{ if(FIELD.lit<0.5||performance.now()-dragFEnd<250) return; const k=SYL.indexOf(t.textContent); if(k<0) return; PHI.root=k; refresh(); }); });
 // the outer ring: drag the letters round
 { let drag=null;
   const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
-  ringSvg.addEventListener('pointerdown',e=>{ if(!FIELD.on) return; const p=angOf(e); if(p.d<0.72) return; if(T.on) stopAll(); drag={a:p.a,off:LET.off}; ringSvg.setPointerCapture(e.pointerId); e.preventDefault(); });
-  ringSvg.addEventListener('pointermove',e=>{ if(!drag) return; let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
+  ringSvg.addEventListener('pointerdown',e=>{ if(!FIELD.on) return; const p=angOf(e);
+    if(p.d<0.72){ if(FIELD.lit>0.5) drag={inner:true,last:p.a,acc:0,id:e.pointerId}; return; }      // the field: a drag only once it moves, so a click still picks a syllable
+    if(T.on) stopAll(); drag={a:p.a,off:LET.off}; ringSvg.setPointerCapture(e.pointerId); e.preventDefault(); });
+  ringSvg.addEventListener('pointermove',e=>{ if(!drag) return;
+    if(drag.inner){ const a=angOf(e).a; drag.acc+=((a-drag.last+6)%12+12)%12-6; drag.last=a;
+      if(!DRAGF){ if(Math.abs(drag.acc)<0.35) return;
+        stopForEdit(); try{ ringSvg.setPointerCapture(drag.id); }catch(err){}
+        MORPH=null; FIELD.u=0; const re=PHI.doPc+2+LET.off;                // a turn still running lands first
+        DRAGF={re,reC:fifth(re),n:0,d:0,chain:RING.m>=0.5}; }
+      if(DRAGF.chain) DRAGF.n=drag.acc;                                   // one seat, one tick: the field turns with the hand
+      else{ const d=Math.round(drag.acc); if(d!==DRAGF.d){ DRAGF.d=d; const c=-5*d; DRAGF.n=c+12*Math.round((FIELD.u-c)/12); } }   // Do a semitone per seat: five ticks, the nearest way round
+      if(reduce){ const n=Math.round(DRAGF.n); if(n){ PHI.doPc=((PHI.doPc-5*n)%12+12)%12; DRAGF.re=PHI.doPc+2+LET.off; DRAGF.reC=fifth(DRAGF.re); DRAGF.n-=n; if(DRAGF.chain) drag.acc-=n; else { drag.acc-=DRAGF.d; DRAGF.d=0; } fieldMoved(); } }
+      return; }
+    let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
     if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is a fifth
     const want=drag.off+Math.round(da), step=want-LET.off; if(!step) return;
     LET.off=want; PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
-  const end=()=>{ drag=null; };
+  const end=()=>{ if(DRAGF){ const n=Math.round(DRAGF.n);                  // let go: the field settles on the nearest tick, and that is φ
+      MORPH={from:FIELD.u,to:n,t0:performance.now(),dur:220+140*Math.abs(n-FIELD.u),re:DRAGF.re,reC:DRAGF.reC};
+      PHI.doPc=((PHI.doPc-5*n)%12+12)%12; DRAGF=null; dragFEnd=performance.now(); fieldMoved(); }
+    drag=null; };
   ringSvg.addEventListener('pointerup',end); ringSvg.addEventListener('pointercancel',end);
 }
 
@@ -1264,7 +1283,8 @@ function stepField(){
   const oT=LET.off, oC=((7*LET.off)%12+12)%12;
   if(snap){ LET.offA=oT; LET.offC=oC; } else { const a=shortTo(LET.offA,oT), c=shortTo(LET.offC,oC); LET.offA=Math.abs(a)<0.002?oT:LET.offA+a*k; LET.offC=Math.abs(c)<0.002?oC:LET.offC+c*k; }
   const reT=PHI.doPc+2+LET.off, rcT=fifth(reT);
-  if(MORPH&&!snap){ const x=Math.min(1,(now-MORPH.t0)/MORPH.dur); FIELD.u=MORPH.to*x*x*(3-2*x); FIELD.re=MORPH.re; FIELD.reC=MORPH.reC; if(x>=1){ MORPH=null; FIELD.u=0; FIELD.re=reT; FIELD.reC=rcT; } }
+  if(DRAGF&&!snap){ FIELD.re=DRAGF.re; FIELD.reC=DRAGF.reC; FIELD.u=DRAGF.chain?DRAGF.n:FIELD.u+(DRAGF.n-FIELD.u)*Math.min(1,dt*9); }
+  else if(MORPH&&!snap){ const x=Math.min(1,(now-MORPH.t0)/MORPH.dur), f0=MORPH.from||0; FIELD.u=f0+(MORPH.to-f0)*x*x*(3-2*x); FIELD.re=MORPH.re; FIELD.reC=MORPH.reC; if(x>=1){ MORPH=null; FIELD.u=0; FIELD.re=reT; FIELD.reC=rcT; } }
   else{ MORPH=null; FIELD.u=0;
     if(snap){ FIELD.re=reT; FIELD.reC=rcT; } else { const d=shortTo(FIELD.re,reT), c=shortTo(FIELD.reC,rcT); FIELD.re=Math.abs(d)<0.002?reT:FIELD.re+d*Math.min(1,dt*5); FIELD.reC=Math.abs(c)<0.002?rcT:FIELD.reC+c*Math.min(1,dt*5); } }
   if(RING.m!==RING.goal){ if(reduce) RING.m=RING.goal; else { RING.t=(RING.t||0)+dt/0.8*(RING.goal>RING.m?1:-1); RING.t=Math.max(0,Math.min(1,RING.t)); RING.m=RING.t*RING.t*(3-2*RING.t); if(Math.abs(RING.m-RING.goal)<1e-4) RING.m=RING.goal; } }
@@ -1278,6 +1298,24 @@ function showSeg(s){
   if(s.si>=0) SI=s.si; CUSTOM=s.custom; SEL=null; refresh();
 }
 
+/* the sounding tone's name (g(x) on): at each onset it pops up out of the ringing length of the string, rises through the
+   note's time and fades with the string's own decay; when the next tone sounds it lets go quickly */
+const sylG=el('g',{'pointer-events':'none'},fb), SYLS=[]; let sylKey=null;
+function stepSyl(st,live,plan,fxV,sy,amp){
+  const now=performance.now()/1000;
+  if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
+    if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
+      SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
+      if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
+        SYLS.push({t,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:(fxV+PICK_X)/2,y0:sy,o:0}); } } }
+  else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
+  for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;
+    if(o.cur) o.o=Math.min(1,age/0.05)*(0.2+0.8*Math.min(1,amp));
+    else{ o.o*=Math.exp(-(now-(o.tl||o.t1))/0.12); o.tl=now; }
+    if(!o.cur&&o.o<0.02){ o.t.remove(); SYLS.splice(i,1); continue; }
+    const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?14:30*(1-(1-r)*(1-r)));
+    o.t.setAttribute('transform','translate('+o.x.toFixed(1)+' '+y.toFixed(1)+') scale('+k.toFixed(3)+')'); o.t.setAttribute('opacity',o.o.toFixed(3)); }
+}
 function frame(){
   stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null, st=t!==null?stateAt(t):null, s=st?st.s:null;
@@ -1326,6 +1364,7 @@ function frame(){
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
   const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
+  stepSyl(st,live,plan,fxV,sy+bendDy,amp);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   const glow=vibOn?amp:0, inkRGB=inkColour(), glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
@@ -1508,6 +1547,17 @@ function chooseHearing(h){
 }
 hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; chooseHearing(b.dataset.v); });
 window.addEventListener('resize',refresh);
+// the field turned by hand: the hand keeps its frequencies when they are still a diatonic semitone (the hearing follows
+// them); otherwise the nearest place of the hearing in use is loaded
+function fieldMoved(){
+  SAMPLES=sampling(); const same=x=>x.r.lo.s===DRILL.lo.s&&x.r.lo.f===DRILL.lo.f&&x.r.hi.s===DRILL.hi.s&&x.r.hi.f===DRILL.hi.f;
+  if(DRILL){ const h=hearingOf(DRILL);
+    if(h){ if(h!==hearing){ hearing=h; SAMPLES=sampling(); } const i=SAMPLES.findIndex(same); if(i>=0) SI=i; DRILL.plan=planOf(DRILL,drill.dir); refresh(); return; }
+    let bi=-1, bc=1e9; SAMPLES.forEach((x,i)=>{ const c=3*Math.abs(x.r.lo.s-DRILL.lo.s)+Math.abs(x.r.lo.f-DRILL.lo.f)+(x.means===DRILL.means?0:0.5)+(x.r.lo.s===x.r.hi.s?0:0.25); if(c<bc){ bc=c; bi=i; } });
+    if(bi>=0){ applySample(bi); return; } }
+  COMP=completions(); if(!COMP.some(c=>c.means===MEANS&&consistent(c))){ P=[]; SEL=null; relayout(); }
+  settle(); refresh();
+}
 function ringMoved(){ SAMPLES=sampling(); if(DRILL){ const i=SAMPLES.findIndex(x=>x.r.lo.s===DRILL.lo.s&&x.r.lo.f===DRILL.lo.f&&x.r.hi.s===DRILL.hi.s&&x.r.hi.f===DRILL.hi.f); if(i>=0) SI=i; } refresh(); }
 orderBtn.addEventListener('click',()=>{ RING.goal=RING.goal===1?0:1; try{ localStorage.setItem('structures-ring',RING.goal?'chain':'chrom'); }catch(err){} refresh(); });
 diatBtn.addEventListener('click',()=>{ diatonic=!diatonic; valKey=''; refresh(); });
