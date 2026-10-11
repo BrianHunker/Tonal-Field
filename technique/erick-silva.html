@@ -206,6 +206,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
+.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -215,7 +216,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 <div class="wrap">
   <header>
     <div class="hd">
-      <p class="eyebrow">Drill exercises for Erick Silva</p>
+      <p class="eyebrow">Drill exercises for Erick Silva 10/08/26</p>
       <button id="structBtn" class="structBtn static" tabindex="-1" type="button" aria-haspopup="menu" aria-expanded="false" title="All the harmonic structures"><span id="structName">Frame Walk</span></button>
       <div class="structMenu" id="structMenu" role="menu" hidden></div>
     </div>
@@ -293,11 +294,10 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
     </div>
   </div>
 
-  <div class="means" id="means">
-    <span class="mLbl">Means</span>
-    <div class="seg" id="segMeans" role="group" aria-label="How the second tone is reached">
-      <button type="button" data-v="pick">Fret</button><button type="button" data-v="ham" title="Up the string, the second tone hammered on (with Pull-off, both ways legato)">Hammer-on</button><button type="button" data-v="pull" title="Down the string, the second tone pulled off">Pull-off</button>
-    </div>
+  <div class="means frameRow" id="means">
+    <span class="mLbl">Frame</span>
+    <span class="frameLbl" id="frameLbl" aria-live="polite"></span>
+    <div id="segMeans" hidden></div>
   </div>
 
   <div class="panel"><svg id="fb" viewBox="0 0 990 304" aria-label="Fretboard with the fretting hand: click or drag a finger and a fret to place it"></svg></div>
@@ -1346,6 +1346,7 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
+let frameHook=null;                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
 function stepField(){
@@ -1442,7 +1443,7 @@ function frame(){
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
   const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
-  stepSyl(st,live,plan,fxV,sy+bendDy,amp);
+  stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   const glow=vibOn?amp:0, inkRGB=inkColour(), glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
@@ -1451,7 +1452,7 @@ function frame(){
   fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
   if(lastStr>=0&&lastStr!==strI){ strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0)); strLines[lastStr].classList.add('strDim'); }
-  strLines[strI].classList.toggle('strDim',!live);
+  strLines[strI].classList.add('strDim');                              // the stopped length stays as dim as the rest: only the ringing length lights
   const fxH=live?fxV:FB.nut;
   if(held!==null&&Math.abs(pickSy-sy)<1) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
   else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,fxH,bendDy));
@@ -1790,8 +1791,6 @@ function refresh(){
   CAND={C:[],fingers:new Set(),cells:new Map()};
   MARKS.forEach(m=>{ m.setAttribute('visibility','hidden'); m.classList.remove('cand','sel'); });
   INST=new Set(); if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));
-  for(const b of segMeans.querySelectorAll('button')){ const v=b.dataset.v; b.disabled=false;
-    b.setAttribute('aria-pressed',v==='pick'?(!WALK.ham&&!WALK.pull):!!WALK[v]); }
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
   playBtn.disabled=!DRILL&&!T.on;
   pageCt.textContent=(PAGE+1)+'/'+PAGES.length;
@@ -1822,14 +1821,47 @@ function buildTabNotes(){
       if(q.leg){ if(g0<0) g0=i-1; if(i===slurPts.length-1||!slurPts[i+1].leg){ arc(slurPts[g0].x2||slurPts[g0].x,q.x,q.y); g0=-1; } } }); }
 }
 // the ring turns φ under the hand; the hand and the walk stay
-function fieldMoved(){ refresh(); }
+function fieldMoved(){ MODE.key=''; refresh(); }
 function ringMoved(){ refresh(); }
 // the hand belongs to the page: no pairing, no dragging
 function clickFinger(){} function clickCell(){} function addPair(){} function dragTo(){} function settle(){} function relayout(){} function edited(){}
 fingers.forEach(F=>{ F.c.style.pointerEvents='none'; F.t.style.pointerEvents='none'; }); thumbG.style.pointerEvents='none';
-// Means: Fret, or hammer-ons rising and pull-offs falling along each string
-$('means').addEventListener('click',e=>{ const b=e.target.closest('#segMeans button'); if(!b) return; e.stopPropagation(); stopForEdit();
-  const v=b.dataset.v; if(v==='pick') WALK.ham=WALK.pull=false; else WALK[v]=!WALK[v]; loadPage(PAGE); refresh(); },true);
+/* ---------- the frame and the mode ----------
+   The FRAME label names the frame the hand is in: its three tones, a whole step marked by the gap between names (TiDo_Re).
+   The MODE is the last tone held for a half note — each bar's fourth tone — and holds until the next: its letter on the ring
+   gets a spotlight in its own colour, and the fretboard takes a gradient tinge of it. Before the first hold, the mode is the
+   last one the loop holds (the page's own start: G♯_Ti). g(x) off: no colour, so neither shows. */
+const frameLbl=$('frameLbl');
+const sylName=pc=>{ const k=((pc-(PHI.doPc+2))%12+12)%12; return SOLF[k][0]; };   // the field's name for a pitch (an anti keeps its ~)
+const spotDefs=el('defs',{},ringSvg), spotF=el('filter',{id:'modeSpotF',x:'-100%',y:'-100%',width:'300%',height:'300%'},spotDefs);
+el('feGaussianBlur',{stdDeviation:5},spotF);
+const modeSpot=el('circle',{r:15,filter:'url(#modeSpotF)',opacity:0,'pointer-events':'none'}); ringSvg.insertBefore(modeSpot,rLbls[0]);
+const fbDefs=el('defs',{},fb), tingeG=el('linearGradient',{id:'modeTinge',x1:0,y1:0,x2:1,y2:0},fbDefs);
+const tingeStops=[[0,0.34],[0.55,0.14],[1,0.04]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},tingeG));
+const boardRect=fb.querySelector('rect.board'), tinge=el('rect',{x:boardRect.getAttribute('x'),y:boardRect.getAttribute('y'),width:boardRect.getAttribute('width'),height:boardRect.getAttribute('height'),fill:'url(#modeTinge)',opacity:0,'pointer-events':'none'});
+fb.insertBefore(tinge,boardRect.nextSibling);
+const MODE={rgb:null,op:0,key:''};
+function modeNow(st,live,plan){                                          // the held tone in force, and the frame sounding
+  const lastHeld=()=>{ for(let i=plan.length-1;i>=0;i--) if(i%4===3) return plan[i]; return plan[0]; };
+  if(!live) return {held:lastHeld(),frame:0};
+  let h=null; for(let i=st.idx;i>=0;i--) if(i%4===3){ h=plan[i]; break; }
+  return {held:h||lastHeld(),frame:plan[st.idx].frame};
+}
+frameHook=(st,live,plan,dt)=>{
+  if(!DRILL||!plan) return;
+  const {held,frame:k}=modeNow(st,live,plan), F=DRILL.frames[k];
+  // the frame's name, in the field's colours
+  const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
+  if(key!==MODE.key&&F){ MODE.key=key;
+    frameLbl.innerHTML=F.tones.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&t.fret-F.tones[i-1].fret===2?'<span class="us">_</span>':'';
+      return gap+'<span style="color:'+(FIELD.on?rgbS(valRGB(pc)):'')+'">'+sylName(pc)+'</span>'; }).join(''); }
+  // the mode: a spotlight on its letter, a tinge on the board
+  const pc=pcOf(held.string,held.pitch), goal=FIELD.lit, c=valRGB(pc), kk=Math.min(1,(dt||0.016)*6);
+  MODE.rgb=MODE.rgb?MODE.rgb.map((v,i)=>v+(c[i]-v)*kk):c.slice(); MODE.op+=(goal-MODE.op)*kk;
+  const col=rgbS(MODE.rgb), [x,y]=pt(RG.RL,pc);
+  modeSpot.setAttribute('cx',x.toFixed(1)); modeSpot.setAttribute('cy',y.toFixed(1)); modeSpot.setAttribute('fill',col); modeSpot.setAttribute('opacity',(0.85*MODE.op).toFixed(3));
+  tingeStops.forEach(s=>s.setAttribute('stop-color',col)); tinge.setAttribute('opacity',MODE.op.toFixed(3));
+};
 // Let Go: the hand lifts off the page's first frame
 document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closest('#clear')) return; e.stopPropagation(); stopForEdit(); P=[]; refresh(); },true);
 

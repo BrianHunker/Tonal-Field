@@ -1343,6 +1343,7 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
+let frameHook=null;                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
 function stepField(){
@@ -1439,7 +1440,7 @@ function frame(){
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
   const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
-  stepSyl(st,live,plan,fxV,sy+bendDy,amp);
+  stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
   const glow=vibOn?amp:0, inkRGB=inkColour(), glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;
   const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
@@ -1448,7 +1449,7 @@ function frame(){
   fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
   if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
   if(lastStr>=0&&lastStr!==strI){ strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0)); strLines[lastStr].classList.add('strDim'); }
-  strLines[strI].classList.toggle('strDim',!live);
+  strLines[strI].classList.add('strDim');                              // the stopped length stays as dim as the rest: only the ringing length lights
   const fxH=live?fxV:FB.nut;
   if(held!==null&&Math.abs(pickSy-sy)<1) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
   else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,fxH,bendDy));
