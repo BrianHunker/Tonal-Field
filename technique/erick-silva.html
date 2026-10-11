@@ -1709,24 +1709,27 @@ syncStrobe();
 syncGx();
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
-   up the strings, one frame a string, the first tone of the next frame held at the end of each bar (the dominant-chain
-   bar: three eighths across a frame, the fourth an eighth tied to a half). At the top it returns, each bar the outbound
-   bar run backwards, so the held tone is always the next frame's first finger. Prev | Next turn the pages; Hold keeps
-   the page looping, otherwise each page plays four times and turns to the next. φ is the page's own: set by its first
-   tone and that tone's function (G♯_Ti). The ring still turns it (the number row, the letters, the field), the hand
-   staying put. */
+   up the strings (or down them), one frame a string, the first tone of the next frame held at the end of each bar (the
+   dominant-chain bar: three eighths across a frame, the fourth an eighth tied to a half). At the far string it returns,
+   each bar the outbound bar run backwards, so the held tone is always the next frame's nearest finger — finger 1 walking
+   up, finger 4 walking down. Prev | Next turn the pages; Hold keeps the page looping, otherwise each page plays four
+   times and turns to the next. φ is the page's own: set by its first tone and that tone's function (G♯_Ti), with Re at
+   12 o'clock. The ring still turns it (the number row, the letters, the field), the hand staying put. */
 const PAGES=[
-  {string:NSTR-1, fret:4, deg:'ti', links:5}                            // G♯_Ti on the low E: Ti frame up all six strings and back
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G♯_Ti on the low E: up the six strings and back (Re = B)
+  {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 2. A_Re on the low E: up and back (Re = A)
+  {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 3. C♯_Mi on the high e: page 1 inverted, down and back (Re = B)
+  {string:0,      fret:10, deg:'sol', dir:'down', links:5}             // 4. D_Sol on the high e: page 2 inverted, down and back (Re = A)
 ];
 let PAGE=0; const WALK={ham:false,pull:false};
 const W_DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, W_MAJ=[0,2,4,5,7,9,11], W_FING={dim:[1,2,4],min:[1,3,4],maj:[1,2,4]};
 const wSemi=d=>12*Math.floor(d/7)+W_MAJ[((d%7)+7)%7];
 const pageCt=$('pageCt');
-// the frames, string by string from the page's string up: each its three tones, its shape and the hand that plays it
+// the frames, string by string from the page's string: each its three tones (low to high), its shape and the hand that plays it
 function walkFrames(pg){
-  const d0=W_DEG[pg.deg], P0=openMidi(pg.string)+pg.fret, out=[];
-  for(let k=0;k<=pg.links&&pg.string-k>=0;k++){ const si=pg.string-k;
-    const tones=[0,1,2].map(j=>{ const d=d0+3*k+j; return {deg:d,fret:Math.round(P0+wSemi(d)-wSemi(d0)-openMidi(si))}; });
+  const d0=W_DEG[pg.deg], P0=openMidi(pg.string)+pg.fret, sg=pg.dir==='down'?-1:1, out=[];
+  for(let k=0;k<=pg.links;k++){ const si=pg.string-sg*k; if(si<0||si>=NSTR) break;
+    const tones=[0,1,2].map(j=>{ const d=d0+sg*(3*k+j); return {deg:d,fret:Math.round(P0+wSemi(d)-wSemi(d0)-openMidi(si))}; }).sort((x,y)=>x.fret-y.fret);
     const a=tones[1].fret-tones[0].fret, b=tones[2].fret-tones[1].fret, shape=a===2&&b===2?'maj':(a===2?'min':'dim');
     const pl=tones.map((t,r)=>({g:W_FING[shape][r],s:si,f:t.fret}));
     out.push({string:si,tones,shape,pl,hand:handFor(pl)}); }
@@ -1734,12 +1737,12 @@ function walkFrames(pg){
 }
 // the notes in playing order: out, four tones a bar; back, each bar the outbound one reversed
 function walkPlan(pg){
-  const fr=walkFrames(pg), d0=W_DEG[pg.deg], L=fr.length-1, at={};
+  const fr=walkFrames(pg), d0=W_DEG[pg.deg], sg=pg.dir==='down'?-1:1, L=fr.length-1, at={};
   fr.forEach((F,k)=>F.tones.forEach((t,r)=>{ at[t.deg]={F,k,r}; }));
   const nt=d=>{ const {F,k,r}=at[d], f=F.tones[r].fret; return {string:F.string,fret:f,pitch:f,push:0,finger:W_FING[F.shape][r],frame:k,pick:true,glide:false,pre:false,kind:'pick',hi:false}; };
   const plan=[];
-  for(let b=0;b<L;b++) for(let j=0;j<4;j++) plan.push(nt(d0+3*b+j));
-  for(let b=L-1;b>=0;b--) for(let j=3;j>=0;j--) plan.push(nt(d0+3*b+j));
+  for(let b=0;b<L;b++) for(let j=0;j<4;j++) plan.push(nt(d0+sg*(3*b+j)));
+  for(let b=L-1;b>=0;b--) for(let j=3;j>=0;j--) plan.push(nt(d0+sg*(3*b+j)));
   if(WALK.ham||WALK.pull) plan.forEach((e,i)=>{ const q=plan[(i+plan.length-1)%plan.length];   // legato along a string: hammer-ons rising, pull-offs falling
     if(q.string!==e.string||q.pitch===e.pitch) return;
     if(e.pitch>q.pitch&&WALK.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&WALK.pull){ e.pick=false; e.kind='pull'; } });
@@ -1751,9 +1754,12 @@ function walkDrill(i){
   return {walk:true,page:i,means:'pick',ham:WALK.ham,pull:WALK.pull,dir:'up',plan:W.plan,frames:W.frames,bars:W.bars,
     lo:{s:a.string,f:a.fret,g:a.finger},hi:{s:b.string,f:b.fret,g:b.finger}};
 }
+// the page's φ: its first tone has its function; the letters turn so its Re stands at 12 o'clock
+function pagePhi(pg){ PHI.doPc=((pcOf(pg.string,pg.fret)-SYLPC[W_DEG[pg.deg]])%12+12)%12;
+  let off=-((PHI.doPc+2)%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=PAGES[PAGE];
-  PHI.doPc=((pcOf(pg.string,pg.fret)-SYLPC[W_DEG[pg.deg]])%12+12)%12;   // the page's φ: its first tone has its function
+  pagePhi(pg);
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
@@ -1778,7 +1784,7 @@ function run(){
 function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:ADV_LOOPS; s.end=s.loopStart+s.loops*LOOP*T.beat; }
 function nextSeg(after){ const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[];
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(PAGES[PAGE]);
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
@@ -1836,8 +1842,8 @@ const sylName=pc=>{ const k=((pc-(PHI.doPc+2))%12+12)%12; return SOLF[k][0]; }; 
 const spotDefs=el('defs',{},ringSvg), spotF=el('filter',{id:'modeSpotF',x:'-100%',y:'-100%',width:'300%',height:'300%'},spotDefs);
 el('feGaussianBlur',{stdDeviation:5},spotF);
 const modeSpot=el('circle',{r:15,filter:'url(#modeSpotF)',opacity:0,'pointer-events':'none'}); ringSvg.insertBefore(modeSpot,rLbls[0]);
-const fbDefs=el('defs',{},fb), tingeG=el('linearGradient',{id:'modeTinge',x1:0,y1:0,x2:1,y2:0},fbDefs);
-const tingeStops=[[0,0.34],[0.55,0.14],[1,0.04]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},tingeG));
+const fbDefs=el('defs',{},fb), tingeG=el('radialGradient',{id:'modeTinge',gradientUnits:'userSpaceOnUse',cx:500,cy:160,r:520},fbDefs);   // centred on the held tone's fret
+const tingeStops=[[0,0.42],[0.35,0.18],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},tingeG));
 const boardRect=fb.querySelector('rect.board'), tinge=el('rect',{x:boardRect.getAttribute('x'),y:boardRect.getAttribute('y'),width:boardRect.getAttribute('width'),height:boardRect.getAttribute('height'),fill:'url(#modeTinge)',opacity:0,'pointer-events':'none'});
 fb.insertBefore(tinge,boardRect.nextSibling);
 const MODE={rgb:null,op:0,key:''};
@@ -1861,6 +1867,9 @@ frameHook=(st,live,plan,dt)=>{
   const col=rgbS(MODE.rgb), [x,y]=pt(RG.RL,pc);
   modeSpot.setAttribute('cx',x.toFixed(1)); modeSpot.setAttribute('cy',y.toFixed(1)); modeSpot.setAttribute('fill',col); modeSpot.setAttribute('opacity',(0.85*MODE.op).toFixed(3));
   tingeStops.forEach(s=>s.setAttribute('stop-color',col)); tinge.setAttribute('opacity',MODE.op.toFixed(3));
+  const hx=held.fret?(cellL(held.fret)+cellR(held.fret))/2:(FB.x0+FB.nut)/2, hy=FB.strY[held.string];
+  MODE.x=MODE.x===undefined?hx:MODE.x+(hx-MODE.x)*kk; MODE.y=MODE.y===undefined?hy:MODE.y+(hy-MODE.y)*kk;
+  tingeG.setAttribute('cx',MODE.x.toFixed(1)); tingeG.setAttribute('cy',MODE.y.toFixed(1));
 };
 // Let Go: the hand lifts off the page's first frame
 document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closest('#clear')) return; e.stopPropagation(); stopForEdit(); P=[]; refresh(); },true);
