@@ -10,7 +10,7 @@
 <script>(function(){ var t="dark"; try{ if(localStorage.getItem("semitone-theme")==="light") t="light"; }catch(e){} document.documentElement.setAttribute("data-theme",t); })();</script>
 <style>
 /* Harmonic Structures: one tool for every structure. Top to bottom: the structure's name (a menu of all of them) and g(x);
-   the controls (Play, Hold, Prev | Next, Clear, tempo, direction; the gear for sound and display); Listen (g(x) on); the TAB
+   the controls (Play, Hold, Prev | Next, Clear, tempo; the gear for sound and display); Listen (g(x) on); the TAB
    beside the ring; the means of the step between tones; the fretboard and the hand. No instruction text: the pulsing
    fingers and frets lead. Grayscale unless g(x) is on. */
 :root{
@@ -184,13 +184,8 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 .play:disabled{ opacity:.35; cursor:default }
 .stage{ align-items:start }
 .tabCol{ min-width:0; display:grid; gap:6px; align-content:start }
-.facts{ margin:0; font-size:13px; color:var(--mid); min-height:1.45em; display:flex; flex-wrap:wrap; gap:0 .35em; align-items:baseline }
-.facts b{ color:var(--ink); font-weight:600 } .facts .where{ margin-left:auto; color:var(--mid) } .facts .dim{ color:var(--mid) }
-.facts b.sTi, .facts b.sDo, .facts b.sMi, .facts b.sFa{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:1.15em }
-body:not(.gxOn) .facts b[class^="s"]{ color:inherit }
 .ringFoot{ display:flex; align-items:center; justify-content:center; gap:14px; width:100% }
-.readout{ font-family:var(--serif); font-style:italic; font-size:17px; color:var(--ink); min-width:3.5em; text-align:center }
-body:not(.gxOn) .readout, body:not(.gxOn) .gxOnly{ visibility:hidden }
+body:not(.gxOn) .gxOnly{ visibility:hidden }
 .order{ display:inline-grid; grid-template-columns:1fr 1fr; width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink); overflow:hidden; padding:0; cursor:pointer; background:var(--bg); font:inherit; font-weight:700; font-size:15px }
 .order span{ display:grid; place-items:center; color:var(--ink) } .order span.on{ background:var(--ink); color:var(--bg) }
 .means{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; font-size:13px; color:var(--mid) }
@@ -205,9 +200,8 @@ body:not(.gxOn) .readout, body:not(.gxOn) .gxOnly{ visibility:hidden }
 @keyframes pulse{ 0%,100%{ opacity:.3 } 50%{ opacity:1 } }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto }
-</style>
-</head>
-<body>
+[hidden]{display:none !important}
+</style></head><body>
 
 <div class="wrap">
   <header>
@@ -230,14 +224,6 @@ body:not(.gxOn) .readout, body:not(.gxOn) .gxOnly{ visibility:hidden }
     <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
     <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
     <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound and display">&#x2699;&#xFE0E;</button>
-    <div class="params">
-      <div class="ctl">Direction
-        <div class="seg" id="segDir" role="group" aria-label="Direction: which tone lands on the downbeat"><button type="button" data-v="up">Up</button><button type="button" data-v="down">Down</button></div>
-      </div>
-      <div class="ctl">Lower fingers
-        <div class="seg" id="segPlant" role="group" aria-label="Lower fingers"><button type="button" data-v="1">Stay down</button><button type="button" data-v="0">Lift</button></div>
-      </div>
-    </div>
   </div>
 
   <div class="mixer" id="mixer" hidden>
@@ -278,21 +264,19 @@ body:not(.gxOn) .readout, body:not(.gxOn) .gxOnly{ visibility:hidden }
   </div>
 
   <div class="listen" id="listen" hidden>
-    <p class="lsLine">Hear these two frequencies as
+    <p class="lsLine">There are 2 diatonic semitones:
       <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="The hearing"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="tido"><b class="sTi">Ti</b> ↔ <b class="sDo">Do</b></button><button type="button" role="radio" data-v="mifa"><b class="sMi">Mi</b> ↔ <b class="sFa">Fa</b></button></span>
     </p>
   </div>
 
   <div class="stage">
     <div class="tabCol">
-      <p class="facts" id="facts"></p>
       <div class="panel" id="tabPanel"><svg id="tab" viewBox="0 0 900 226" aria-label="The drill in TAB, two bars of 4/4, rhythm on stems below"></svg></div>
     </div>
     <div class="ringBox">
       <svg id="ring" viewBox="0 0 240 240" aria-label="The ring: the twelve letters round the outside (drag them to move Do), the field inside (click a syllable to make it the modal root)"></svg>
       <div class="ringFoot">
-        <label class="ctl gxOnly" for="diat"><input type="checkbox" id="diat" checked> Diatonic</label>
-        <span class="readout" id="readout" title="The modal root: its pitch and its function">C_Do</span>
+        <button class="pill gxOnly" id="diat" type="button" aria-pressed="true" title="Diatonic: the anti-pentatonic tones greyed on the ring and unmarked on the fretboard">Diatonic</button>
         <button class="order" id="order" type="button" title="Ring order: 1, chromatic; 5, the dominant chain" aria-label="Ring order"><span>1</span><span>5</span></button>
       </div>
     </div>
@@ -381,33 +365,34 @@ let MEANS='pick', DRILL=null, SEL=null;                                // DRILL:
 let SAMPLES=[], SI=0, CUSTOM=false;                                    // the sampling Advance walks; CUSTOM: the drill was edited
 const paired=g=>P.some(p=>p.g===g);
 function unpair(g){ if(!g) return; const n=P.length; P=P.filter(p=>p.g!==g); if(P.length!==n) DRILL=null; }
-// keep every neighbour within its range of finger k, then keep the hand on the board; fingers moved lose their pairings
-function normalizeFrom(k){
-  const H=HAND.f, was=H.map(x=>x&&x.fret);
-  for(let j=k+1;j<=4;j++){ const same=H[j].string===H[j-1].string, lo=H[j-1].fret+(same?1:0), hi=H[j-1].fret+LIM[j-1]; H[j].fret=Math.min(hi,Math.max(lo,H[j].fret)); }
-  for(let j=k-1;j>=1;j--){ const same=H[j].string===H[j+1].string, hi=H[j+1].fret-(same?1:0), lo=H[j+1].fret-LIM[j]; H[j].fret=Math.min(hi,Math.max(lo,H[j].fret)); }
-  let sh=0; if(H[1].fret<1) sh=1-H[1].fret; if(H[4].fret>FMAX) sh=FMAX-H[4].fret;
-  if(sh) for(let j=1;j<=4;j++) H[j].fret+=sh;
-  for(let j=1;j<=4;j++) if(H[j].fret!==was[j]&&(j!==k||sh)) unpair(j);
-  HAND.thumb=Math.max(H[2].fret-3,Math.min(H[2].fret+3,HAND.thumb));
+// a finger dragged: it is held where it is; placed fingers that can no longer share the hand with it are let go (the
+// farthest first); the hand then forms around what is left — rigid if nothing else is placed, stretched only as needed
+function dragTo(k,s,f){
+  unpair(k);
+  const fits=()=>{ const fx=P.filter(p=>p.g).concat([{g:k,s,f}]); for(let i=0;i<fx.length;i++) for(let j=i+1;j<fx.length;j++) if(!fingersFit(fx[i].g,fx[i].f,fx[i].s,fx[j].g,fx[j].f,fx[j].s)) return false; return true; };
+  while(!fits()){ const far=P.filter(p=>p.g).sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; unpair(far.g); }
+  const H=handFor(P.filter(p=>p.g).concat([{g:k,s,f}])); HAND.f=H.f; HAND.thumb=H.thumb;
 }
+function relayout(){ const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; }
 // a resting hand for a set of placements: the placed fingers where they are, the others one to a fret around them, on the
 // string of the nearest placed finger
-function handFor(pl){
+// the hand as the placements make it: nothing placed, the resting shape — four fingers on four neighbouring frets, at base
+// (or where finger 1 is now); placed fingers where they are, the others one to a fret around the nearest placed one. A
+// stretch appears only where two placed fingers need it, and goes as soon as one of them is let go.
+function handFor(pl,base,str){
   const H={f:[null,null,null,null,null],thumb:0}, fixed={};
+  if(!pl.some(p=>p.g)){ let b=Math.round(base!==undefined?base:HAND.f[1].fret); b=Math.max(1,Math.min(FMAX-3,b)); const s=str!==undefined?str:HAND.f[1].string;
+    for(let k=1;k<=4;k++) H.f[k]={fret:b+k-1,string:s}; H.thumb=b+0.5; return H; }
   pl.forEach(p=>{ if(p.g&&!fixed[p.g]) fixed[p.g]={fret:p.f,string:p.s}; });   // a sliding finger: where it starts
   const ks=Object.keys(fixed).map(Number);
   for(let k=1;k<=4;k++){
     if(fixed[k]){ H.f[k]={fret:fixed[k].fret,string:fixed[k].string}; continue; }
-    if(!ks.length){ H.f[k]={fret:HAND.f[k].fret,string:HAND.f[k].string}; continue; }
     const a=ks.reduce((b,x)=>Math.abs(x-k)<Math.abs(b-k)?x:b,ks[0]);
     H.f[k]={fret:fixed[a].fret+(k-a),string:fixed[a].string};
   }
   for(let k=2;k<=4;k++) if(!fixed[k]){ const same=H.f[k].string===H.f[k-1].string; H.f[k].fret=Math.max(H.f[k].fret,H.f[k-1].fret+(same?1:0)); }
   for(let k=3;k>=1;k--) if(!fixed[k]){ const same=H.f[k].string===H.f[k+1].string; H.f[k].fret=Math.min(H.f[k].fret,H.f[k+1].fret-(same?1:0)); }
-  let lo=Math.min(...[1,2,3,4].map(k=>H.f[k].fret)), hi=Math.max(...[1,2,3,4].map(k=>H.f[k].fret));
-  if(lo<1) for(let k=1;k<=4;k++) if(!fixed[k]) H.f[k].fret=Math.max(1,H.f[k].fret);
-  if(hi>FMAX) for(let k=1;k<=4;k++) if(!fixed[k]) H.f[k].fret=Math.min(FMAX,H.f[k].fret);
+  for(let k=1;k<=4;k++) if(!fixed[k]) H.f[k].fret=Math.max(1,Math.min(FMAX,H.f[k].fret));
   H.thumb=(H.f[1].fret+H.f[2].fret)/2;
   return H;
 }
@@ -512,9 +497,8 @@ function drillOfSample(x){
 }
 function applyDrill(D,custom){
   DRILL=D; drill.dir=D.dir||drill.dir; MEANS=D.means; LEGATO.ham=D.ham; LEGATO.pull=D.pull;
-  P=placementsOf({lo:D.lo,hi:D.hi}).map(q=>({g:q.g,s:q.s,f:q.f}));
-  const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb;
-  if(D.means==='slide'){ const st=drill.dir==='up'?D.lo:D.hi; HAND.f[D.lo.g].fret=st.f; }
+  P=placementsOf({lo:D.lo,hi:D.hi}).map(q=>({g:q.g,s:q.s,f:q.f})); if(drill.dir==='down') P.reverse();   // the leading tone first
+  relayout();
   DRILL.plan=planOf(DRILL,drill.dir); CUSTOM=!!custom; SEL=null;
 }
 function applySample(i){ if(!SAMPLES.length) return; SI=((i%SAMPLES.length)+SAMPLES.length)%SAMPLES.length; applyDrill(drillOfSample(SAMPLES[SI]),false); refresh(); }
@@ -526,7 +510,8 @@ function settle(){
   let done=C.find(realized);
   if(!done&&MEANS!=='pick'&&C.length===1) done=C[0];                    // a slide or bend from the anchored finger: the second tone follows
   if(done){ const D=makeDrill(done); D.dir=drill.dir;
-    if(D.means==='bend'){ P=[{g:D.lo.g,s:D.lo.s,f:D.lo.f}]; HAND.f[D.lo.g]={fret:D.lo.f,string:D.lo.s}; normalizeFrom(D.lo.g); }
+    if(D.means==='bend'){ P=[{g:D.lo.g,s:D.lo.s,f:D.lo.f}]; relayout(); }
+    else{ const f0=P[0]; D.dir=(f0&&samePl(f0,D.hi)&&!samePl(f0,D.lo))?'down':'up'; drill.dir=D.dir; }   // the tone placed first leads
     DRILL=D; DRILL.plan=planOf(DRILL,drill.dir); }
   else DRILL=null;
 }
@@ -536,14 +521,16 @@ function settle(){
 const FB={x0:40,nut:96,cw:66,n:12,top:80,bot:240,hover:36,strY:Array.from({length:NSTR},(_,i)=>BASS?102+i*104/(NSTR-1):98+i*24),gauge:BASS?[1.8,2.3,2.9,3.5,4.1].slice(0,NSTR):[1,1.2,1.5,1.9,2.4,3]};
 FB.right=FB.nut+FB.n*FB.cw;                                             // the 12th fret
 FB.edge=990; const BRIDGE_X=FB.right+(FB.right-FB.nut), PICK_X=940;    // the 12th fret is the string's midpoint (the octave), so the bridge sits as far past it as the nut is before it: off-screen
-const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;
-const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;
+// real fret spacing: the 12th fret is the octave, half the string; each fret a semitone shorter than the last
+const SCALE=2*FB.n*FB.cw, fretX=n=>FB.nut+SCALE*(1-Math.pow(2,-n/12));
+const cellL=n=>n===0?FB.x0:fretX(n-1);
+const cellR=n=>n===0?FB.nut:fretX(n);
 const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
-const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };   // mid-slide, between two fretted cells
+const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };   // mid-slide, between two fretted cells
 const cellM=n=>(cellL(n)+cellR(n))/2;
 const fb=document.getElementById('fb');
 el('rect',{x:FB.x0,y:FB.top,width:FB.edge-FB.x0,height:FB.bot-FB.top,class:'board'},fb);
-for(let k=1;k<=FB.n;k++) el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,class:'midS','stroke-width':1.5},fb);
+for(let k=1;k<=FB.n;k++) el('line',{x1:fretX(k),y1:FB.top,x2:fretX(k),y2:FB.bot,class:'midS','stroke-width':1.5},fb);
 el('line',{x1:FB.nut,y1:FB.top-8,x2:FB.nut,y2:FB.bot+8,class:'inkS','stroke-width':4},fb);   // nut line, past both edges
 for(let k=1;k<=FB.n;k++){ const t=el('text',{x:cellM(k),y:FB.bot-5,class:'fretn'},fb); t.textContent=k; }
 const strPath=(y,dx,dy)=>'M'+FB.x0+' '+y+' L'+FB.nut+' '+y+(dy?' L'+dx.toFixed(1)+' '+(y+dy).toFixed(1):'')+' L'+BRIDGE_X+' '+y;
@@ -563,6 +550,7 @@ for(let s=0;s<NSTR;s++) for(let f=0;f<=FMAX;f++){ const y=FB.strY[s], x1=cellX0(
   CELLS.push({s,f,lv:0,glow:el('line',{x1,y1:y,x2,y2:y,'stroke-width':FB.gauge[s]+7,'stroke-linecap':'round',filter:'url(#cellGlow)',opacity:0},glowG),
     paint:el('line',{x1,y1:y,x2,y2:y,'stroke-width':FB.gauge[s]+0.4,'stroke-linecap':'butt',opacity:0},paintG)}); }
 const cellAt=(s,f)=>CELLS[s*(FMAX+1)+f];
+const fretAt=x=>{ for(let f=1;f<FMAX;f++){ const a=tipX(f), b=tipX(f+1); if(x<b) return Math.max(1,f+(x-a)/(b-a)); } return FMAX; };   // a position along the neck, in frets
 let bentStr=-1;
 function bendString(i,x,dy){                                          // the string itself: straight to the nut, then to the fingertip pushed aside, then to the bridge
   if(bentStr>=0&&bentStr!==i) strLines[bentStr].setAttribute('d',strPath(FB.strY[bentStr],0,0));
@@ -638,7 +626,7 @@ const thumbG=el('g',{class:'thumbG'},fb);
 el('rect',{x:-17,y:-11,width:34,height:22,rx:11,class:'fingerC'},thumbG);
 const thumbT=el('text',{x:0,y:0,class:'fingerN'},thumbG); thumbT.textContent='T';
 let thumbX=null;
-function placeThumb(shift){ const tx=tipXf(HAND.thumb)+(shift||0)*FB.cw; thumbX=thumbX===null||reduce?tx:thumbX+(tx-thumbX)*0.25; thumbG.setAttribute('transform','translate('+thumbX.toFixed(1)+' '+(FB.bot+44)+')'); }
+function placeThumb(shift){ const tx=tipXf(HAND.thumb+(shift||0)); thumbX=thumbX===null||reduce?tx:thumbX+(tx-thumbX)*0.25; thumbG.setAttribute('transform','translate('+thumbX.toFixed(1)+' '+(FB.bot+44)+')'); }
 /* the pick, as in Brian's drawing: it always points down the screen, its tip resting on the string, held at an axis across its
    upper body (the fingers) that hardly moves. Turning about that axis — into the screen on a downstroke, out of it on an
    upstroke — foreshortens it, so the tip shortens and rises; the tip is what travels.
@@ -732,7 +720,7 @@ fb.appendChild(thumbG);
 
 /* ---------- the ring: the twelve letters round a circle, the field inside them ----------
    OUTER RING: the anchor — drag the letters round and the field stays where it is (Do moves, magnetic at each semitone).
-   INNER RING: the function — click a syllable of the field to make it the modal root; the readout names the pair (C_Do).
+   INNER RING: the function — click a syllable of the field to make it the modal root.
    1|5: chromatic order or the dominant chain. LISTEN morphs the field under the fixed letters, one tick. */
 const LET={off:0,offA:0,offC:0};                                         // the letter ring's turn on screen (semitones), eased; offC: on the chain
 const RG={c:120,R:84,RL:107,RW:58};
@@ -1134,7 +1122,7 @@ function layoutOf(D){                                                   // the p
 }
 function mkSeg(D,H,si,custom){
   const dir=D.dir||drill.dir, DD=Object.assign({},D,{dir}); DD.plan=planOf(DD,dir);
-  return {D:DD,plan:DD.plan,hand:cloneHand(H),si,custom,mode:D.means,strs:{},plant:drill.plant,
+  return {D:DD,plan:DD.plan,hand:cloneHand(H),si,custom,mode:D.means,strs:{},plant:true,
     xt:D.means==='slide'?SLIDE_T:(D.means==='bend'?Math.min(0.16,0.4*T.beat/2):0)};
 }
 function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=drill.hold?Infinity:ADV_LOOPS; s.end=s.loopStart+s.loops*LOOP*T.beat; }
@@ -1315,7 +1303,7 @@ function frame(){
     else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }
     else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
       F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }
-    const tx=tipX(h.fret)+shift*FB.cw;
+    const tx=tipXf(h.fret+shift);
     F.x=(reduce||F.x===undefined||F.drag||(live&&mode==='slide'))?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07);
     const hov=hoverY(fsy), pc=fsy-FR*PRESS_H, kk0=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=kk0*kk0*(3-2*kk0)+sq;
     F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
@@ -1385,7 +1373,7 @@ function paintBoard(H,shift,dt){
   const L=FIELD.lit, ink=rgbS(inkColour()), k=Math.min(1,(dt||0.016)*9), near=new Set();
   for(let j=1;j<=4;j++){ const h=H.f[j], f0=Math.round(h.fret+shift); for(let ds=-1;ds<=1;ds++) for(let df=-1;df<=1;df++){ const s=h.string+ds, f=f0+df; if(s>=0&&s<NSTR&&f>=0&&f<=FMAX) near.add(s*(FMAX+1)+f); } }
   CELLS.forEach((c,i)=>{
-    const tgt=near.has(i)?1:0; c.lv+=(tgt-c.lv)*k; if(Math.abs(c.lv-tgt)<0.003) c.lv=tgt;
+    c.lv=1;                                                           // the whole board at the lit level
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti);
     if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
     else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
@@ -1401,9 +1389,9 @@ requestAnimationFrame(frame);
 /* ---------- the controls ---------- */
 let CAND={C:[],fingers:new Set(),cells:new Map()};
 const $=id=>document.getElementById(id);
-const holdBtn=$('hold'), factsEl=$('facts'), readoutEl=$('readout'), segMeans=$('segMeans'), hamIn=$('ham'), pullIn=$('pull');
-const segDir=$('segDir'), segPlant=$('segPlant'), bpmIn=$('bpm'), bpmV=$('bpmv'), clickIn=$('click');
-const listenEl=$('listen'), hearSeg=$('hearSeg'), hearKnob=$('hearKnob'), orderBtn=$('order'), diatIn=$('diat');
+const holdBtn=$('hold'), segMeans=$('segMeans'), hamIn=$('ham'), pullIn=$('pull');
+const bpmIn=$('bpm'), bpmV=$('bpmv'), clickIn=$('click');
+const listenEl=$('listen'), hearSeg=$('hearSeg'), hearKnob=$('hearKnob'), orderBtn=$('order'), diatBtn=$('diat');
 const spell=(pc)=>((PHI.doPc===8||[1,6,11,4].includes(PHI.doPc))?LETTER_B:LETTER)[((pc%12)+12)%12];
 function refresh(){
   COMP=completions();
@@ -1425,21 +1413,8 @@ function refresh(){
     b.setAttribute('aria-pressed',on); b.disabled=!P.length||!(DRILL&&DRILL.means===m||anyOf(m)); }
   const legOK=!!DRILL&&DRILL.means==='pick'&&DRILL.lo.s===DRILL.hi.s;
   hamIn.disabled=pullIn.disabled=!legOK; hamIn.checked=legOK&&!!DRILL.ham; pullIn.checked=legOK&&!!DRILL.pull;
-  for(const b of segDir.querySelectorAll('button')) b.setAttribute('aria-pressed',b.dataset.v===drill.dir);
-  for(const b of segPlant.querySelectorAll('button')) b.setAttribute('aria-pressed',(b.dataset.v==='1')===drill.plant);
-  holdBtn.setAttribute('aria-pressed',drill.hold);
+  holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
   playBtn.disabled=!DRILL&&!T.on;
-  // the readout: the modal root's pitch and function
-  readoutEl.textContent=spell(PHI.doPc+SYLPC[PHI.root])+'_'+SYL[PHI.root];
-  // the facts line: what is being drilled
-  if(DRILL){ const D=DRILL, ml=midiOf(D.lo.s,D.lo.f), nm=FIELD.on&&hearingOf(D)?HEAR[hearingOf(D)].names:null;
-    const where=D.lo.s===D.hi.s?STRINGS[D.lo.s].name+' string, '+(D.lo.f===0?'open':'fret '+D.lo.f)+' & '+(D.means==='bend'?D.lo.f+' bent ½':'fret '+D.hi.f)
-      :STRINGS[D.lo.s].name+' '+D.lo.f+' · '+STRINGS[D.hi.s].name+' '+D.hi.f;
-    const fg=D.means==='pick'?[D.lo.g,D.hi.g].map(g=>g?g:'open').join(' & '):'finger '+D.lo.g;
-    const how=D.means==='pick'?(D.ham&&D.pull?'hammer-on & pull-off':(D.ham?'hammer-on':(D.pull?'pull-off':'picked'))):(D.means==='bend'?(drill.dir==='down'?'prebend & release':'bend & release'):'slide');
-    factsEl.innerHTML=(nm?'<b class="s'+nm[0]+'">'+nm[0]+'</b>–<b class="s'+nm[1]+'">'+nm[1]+'</b> · ':'')+'<b>'+nameOf(ml)+'–'+nameOf(ml+1)+'</b> · '+where+' · '+fg+' · '+how
-      +'<span class="where">'+(CUSTOM?'your fingering':(SAMPLES.length?(SI+1)+' / '+SAMPLES.length:''))+'</span>';
-  }else factsEl.innerHTML=P.length?'<span class="dim">Placing: '+P.length+' of 2 tones</span>':'<span class="dim">Choose a finger and a fret</span>';
   // Listen: the hearing of the frequencies in hand
   const cur=DRILL?hearingOf(DRILL):hearing; let sel=null;
   for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===cur; b.setAttribute('aria-checked',on); if(on) sel=b; }
@@ -1452,13 +1427,11 @@ function stopForEdit(){ if(T.on) stopAll(); }
 // pairing: a finger then a fret, or a fret then a finger; a placed finger clicked is let go
 function addPair(g,s,f){
   P.push({g,s,f});
-  if(g){ HAND.f[g]={fret:f,string:s}; normalizeFrom(g); }
-  SEL=null; DRILL=null; edited(); settle(); if(!DRILL) relayHand(); refresh();
+  SEL=null; DRILL=null; edited(); relayout(); settle(); refresh();
 }
-function relayHand(){ const pl=P.filter(p=>p.g); if(!pl.length) return; const H=handFor(P); for(let k=1;k<=4;k++) if(!P.some(p=>p.g===k)) HAND.f[k]=H.f[k]; }
 function clickFinger(k){
   stopForEdit();
-  if(P.some(p=>p.g===k)){ unpair(k); MEANS=MEANS==='pick'?'pick':MEANS; DRILL=null; SEL=null; edited(); settle(); refresh(); return; }
+  if(P.some(p=>p.g===k)){ unpair(k); DRILL=null; SEL=null; edited(); relayout(); settle(); refresh(); return; }   // let go: the hand relaxes at once
   if(SEL&&SEL.cell&&canPair(k,SEL.cell.s,SEL.cell.f)){ addPair(k,SEL.cell.s,SEL.cell.f); return; }
   if(CAND.fingers.has(k)){ const cells=[...CAND.cells.entries()].filter(([,gs])=>gs.has(k)); if(cells.length===1){ const [s,f]=cells[0][0].split(':').map(Number); addPair(k,s,f); return; } }
   SEL=(SEL&&SEL.finger===k)?null:{finger:k}; refresh();
@@ -1486,9 +1459,12 @@ fingers.forEach(F=>{
       if(!d.moved&&Math.hypot(p.x-d.x0,p.y-d.y0)<7) return;
       if(!d.moved){ d.moved=true; stopForEdit(); F.drag=true; }
       const s=nearString(p.y+HOVER_GAP*0.5), f=nearFret(p.x), h=HAND.f[F.f];
-      if(h.string!==s||h.fret!==f){ const was=P.some(q=>q.g===F.f); unpair(F.f); h.string=s; h.fret=f; normalizeFrom(F.f); if(was){ DRILL=null; edited(); } settle(); refresh(); } });
+      if(h.string!==s||h.fret!==f){ const was=P.some(q=>q.g===F.f); dragTo(F.f,s,f); DRILL=null; if(was) edited(); settle(); refresh(); } });
     const end=e=>{ const d=F.dragState; if(!d) return; F.dragState=null; F.drag=false;
-      if(!d.moved){ clickFinger(F.f); return; }
+      if(!d.moved){   // a hovering finger lies over the next string's frets: with a finger chosen, a click on a fret there is meant for the fret
+        const p=svgPoint(e), s=nearString(p.y);
+        if(SEL&&SEL.finger&&s!==HAND.f[F.f].string&&Math.abs(FB.strY[s]-p.y)<9){ let f=0; for(let k=0;k<=FMAX;k++) if(p.x>=cellL(k)&&p.x<cellR(k)) f=k; clickCell(s,f); return; }
+        clickFinger(F.f); return; }
       const h=HAND.f[F.f]; if(canPair(F.f,h.string,h.fret)&&(FIELD.on||P.length||true)) addPair(F.f,h.string,h.fret); else refresh(); };
     n.addEventListener('pointerup',end); n.addEventListener('pointercancel',()=>{ F.dragState=null; F.drag=false; });
   });
@@ -1496,10 +1472,9 @@ fingers.forEach(F=>{
 { let td=null;
   thumbG.style.cursor='grab';
   thumbG.addEventListener('pointerdown',e=>{ e.preventDefault(); stopForEdit(); td=true; thumbG.setPointerCapture(e.pointerId); });
-  thumbG.addEventListener('pointermove',e=>{ if(!td) return; const x=svgPoint(e).x, fr=Math.max(1,Math.min(FMAX,(x-tipX(1))/FB.cw+1));
-    HAND.thumb=fr; const f2=HAND.f[2].fret;
-    if(fr>f2+3||fr<f2-3){ const nf=Math.round(fr>f2?fr-3:fr+3); if(nf!==f2){ HAND.f[2].fret=nf; unpair(2); normalizeFrom(2); DRILL=null; edited(); settle(); refresh(); } }
-    HAND.thumb=Math.max(HAND.f[2].fret-3,Math.min(HAND.f[2].fret+3,fr)); });
+  thumbG.addEventListener('pointermove',e=>{ if(!td) return; const fr=fretAt(svgPoint(e).x), f2=HAND.f[2].fret;
+    if(!P.some(p=>p.g)){ const b=Math.round(fr-0.5); if(b!==HAND.f[1].fret){ const H=handFor([],b); HAND.f=H.f; } HAND.thumb=Math.max(HAND.f[2].fret-3,Math.min(HAND.f[2].fret+3,fr)); return; }   // nothing placed: the thumb carries the hand
+    HAND.thumb=Math.max(f2-3,Math.min(f2+3,fr)); });
   const end=()=>{ td=null; }; thumbG.addEventListener('pointerup',end); thumbG.addEventListener('pointercancel',end);
 }
 // the means of the step between the tones
@@ -1507,16 +1482,14 @@ segMeans.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b
   const v=b.dataset.v, m=v==='prebend'?'bend':v;
   if(m==='bend') drill.dir=v==='prebend'?'down':'up';
   if(DRILL&&DRILL.means===m){ DRILL.dir=drill.dir; DRILL.plan=planOf(DRILL,drill.dir); edited(); refresh(); return; }
-  const anchor=P.find(p=>p.g)||P[0]; MEANS=m; P=anchor?[anchor]:[]; DRILL=null; edited(); settle(); relayHand(); refresh(); });
+  const anchor=P.find(p=>p.g)||P[0]; MEANS=m; P=anchor?[anchor]:[]; DRILL=null; edited(); relayout(); settle(); relayout(); refresh(); });
 hamIn.addEventListener('change',()=>{ stopForEdit(); LEGATO.ham=hamIn.checked; if(DRILL){ DRILL.ham=LEGATO.ham; DRILL.plan=planOf(DRILL,drill.dir); } edited(); refresh(); });
 pullIn.addEventListener('change',()=>{ stopForEdit(); LEGATO.pull=pullIn.checked; if(DRILL){ DRILL.pull=LEGATO.pull; DRILL.plan=planOf(DRILL,drill.dir); } edited(); refresh(); });
-segDir.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; stopForEdit(); drill.dir=b.dataset.v; if(DRILL){ DRILL.dir=drill.dir; DRILL.plan=planOf(DRILL,drill.dir); } edited(); refresh(); });
-segPlant.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; drill.plant=b.dataset.v==='1'; if(T.on) run(); refresh(); });
 holdBtn.addEventListener('click',()=>{ drill.hold=!drill.hold; holdChanged(); refresh(); });
 $('prev').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
 $('next').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
 $('clear').addEventListener('click',()=>{ stopForEdit(); P=[]; DRILL=null; SEL=null; MEANS='pick'; LEGATO.ham=LEGATO.pull=false; CUSTOM=true; drill.hold=true;
-  for(let k=1;k<=4;k++) HAND.f[k].string=0; normalizeFrom(1); settle(); refresh(); });
+  const H=handFor([],HAND.f[1].fret,0); HAND.f=H.f; HAND.thumb=H.thumb; settle(); refresh(); });
 playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(); });
 window.addEventListener('keydown',e=>{ if(e.code!=='Space') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return; e.preventDefault(); if(T.on) stopAll(); else run(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; });
@@ -1537,7 +1510,7 @@ hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)
 window.addEventListener('resize',refresh);
 function ringMoved(){ SAMPLES=sampling(); if(DRILL){ const i=SAMPLES.findIndex(x=>x.r.lo.s===DRILL.lo.s&&x.r.lo.f===DRILL.lo.f&&x.r.hi.s===DRILL.hi.s&&x.r.hi.f===DRILL.hi.f); if(i>=0) SI=i; } refresh(); }
 orderBtn.addEventListener('click',()=>{ RING.goal=RING.goal===1?0:1; try{ localStorage.setItem('structures-ring',RING.goal?'chain':'chrom'); }catch(err){} refresh(); });
-diatIn.addEventListener('change',()=>{ diatonic=diatIn.checked; valKey=''; refresh(); });
+diatBtn.addEventListener('click',()=>{ diatonic=!diatonic; valKey=''; refresh(); });
 // the structure: its name opens the list of all of them; the others open their own pages until they are merged in
 { const btn=$('structBtn'), menu=$('structMenu'), q=location.search;
   const LIST=[['Semitone',null],['Tone','tone.html'],['Frame','frame.html'],['Dominant Chain','chain.html'],['Interval',''],['Scale',''],['Arpeggio',''],['Block Chord','']];
@@ -1602,5 +1575,4 @@ placeRing();
 })();
 
 </script>
-</body>
-</html>
+</body></html>
