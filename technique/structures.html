@@ -205,6 +205,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 @keyframes pulse{ 0%,100%{ opacity:.3 } 50%{ opacity:1 } }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto } .wedge{ pointer-events:none }
+.sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
 [hidden]{display:none !important}
 </style></head><body>
@@ -832,9 +833,9 @@ valLbls.forEach(t=>{ t.style.cursor='pointer'; t.addEventListener('click',()=>{ 
 
 /* ---------- moving φ ----------
    Every change of orientation is Do moving d semitones under the fixed letters (−6 … 6). The distance decides how it is
-   shown: one tick of the dial (±5, the nearest modulation, neighbours on the dominant chain) MORPHS; every other distance
-   ROTATES the field round the ring (on the chain ring the two are the same motion). Dragging the field always rotates it,
-   one seat per seat. The ghost keeps the orientation just left, a faint outline, for comparison. */
+   shown: a π/6 shift (one semitone) ROTATES the field; anything larger MORPHS, the dial turning the nearest way (on the
+   chain ring a morph is itself a rotation, one seat per tick). Dragging the field rotates it, seat for seat. The ghost
+   keeps the orientation just left, a faint outline, for comparison. */
 const GHOST={on:false,doPc:null};
 try{ GHOST.on=localStorage.getItem('structures-ghost')==='on'; }catch(err){}
 const ghostG=el('g',{'pointer-events':'none',opacity:0}); ringSvg.insertBefore(ghostG,valG.nextSibling);
@@ -855,8 +856,9 @@ function tritoneStep(){ let d=ARROW.up&&!ARROW.down?1:(ARROW.down&&!ARROW.up?-1:
 function modulate(d){
   d=Math.round(d); if(!d||!FIELD.on) return; stopForEdit();
   const was=PHI.doPc, reT=was+2+LET.off;
-  if(Math.abs(d)===5&&!reduce){ MORPH={from:0,to:d<0?1:-1,t0:performance.now(),dur:900,re:reT,reC:fifth(reT)}; }   // one tick: u = +1 is Do down 5
-  else{ MORPH=null; FIELD.u=0; if(Math.abs(d)===6){ FIELD.re+=0.02*Math.sign(d); FIELD.reC+=0.02*Math.sign(d); } }   // the tritone turns the way it was asked
+  if(Math.abs(d)>1&&!reduce){ let n=((-5*d)%12+12)%12; if(n>6) n-=12; if(Math.abs(n)===6) n=-6*Math.sign(d);   // ticks of the dial: u = +1 is Do down 5
+    MORPH={from:0,to:n,t0:performance.now(),dur:900*Math.max(1,0.6*Math.abs(n)),re:reT,reC:fifth(reT)}; }
+  else{ MORPH=null; FIELD.u=0; }                                          // a semitone: the field rotates one seat
   PHI.doPc=((was+d)%12+12)%12; GHOST.doPc=was; fieldMoved();
 }
 // the ring is selected by clicking it (the number row then moves φ), and stays so until a click elsewhere
@@ -1353,20 +1355,24 @@ function showSeg(s){
 }
 
 /* the sounding tone's name (g(x) on): at each onset it pops up out of the ringing length of the string, rises through the
-   note's time and fades with the string's own decay; when the next tone sounds it lets go quickly */
-const sylG=el('g',{'pointer-events':'none'},fb), SYLS=[]; let sylKey=null;
+   note's time and fades with the string's own decay; when the next tone sounds it lets go quickly. The same name fades up
+   and out above the TAB, over the tone, between the high e and the line the ball lands on */
+const sylG=el('g',{'pointer-events':'none'},fb), sylTabG=el('g',{'pointer-events':'none'},tab), SYLS=[]; let sylKey=null;
 function stepSyl(st,live,plan,fxV,sy,amp){
   const now=performance.now()/1000;
   if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
     if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
       SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
       if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
-        SYLS.push({t,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:(fxV+PICK_X)/2,y0:sy,o:0}); } } }
+        const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
+        tt.textContent=name; tt.style.fill=t.style.fill;
+        SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:(fxV+PICK_X)/2,y0:sy,o:0}); } } }
   else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
   for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;
     if(o.cur) o.o=Math.min(1,age/0.05)*(0.2+0.8*Math.min(1,amp));
     else{ o.o*=Math.exp(-(now-(o.tl||o.t1))/0.12); o.tl=now; }
-    if(!o.cur&&o.o<0.02){ o.t.remove(); SYLS.splice(i,1); continue; }
+    if(!o.cur&&o.o<0.02){ o.t.remove(); o.tt.remove(); SYLS.splice(i,1); continue; }
+    o.tt.setAttribute('opacity',o.o.toFixed(3));
     const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?14:30*(1-(1-r)*(1-r)));
     o.t.setAttribute('transform','translate('+o.x.toFixed(1)+' '+y.toFixed(1)+') scale('+k.toFixed(3)+')'); o.t.setAttribute('opacity',o.o.toFixed(3)); }
 }
@@ -1531,6 +1537,8 @@ function clickFinger(k){
 }
 function clickCell(s,f){
   stopForEdit();
+  const here=P.find(p=>p.s===s&&p.f===f);                                 // the circle round a placed fret: let it go, as clicking its finger does
+  if(here){ if(here.g){ clickFinger(here.g); return; } P=P.filter(p=>p!==here); DRILL=null; SEL=null; edited(); relayout(); settle(); refresh(); return; }
   if(DRILL&&!P.some(p=>p.s===s&&p.f===f)) return;                       // a complete drill: fingers are let go first, or Clear
   if(SEL&&SEL.finger&&f>0&&canPair(SEL.finger,s,f)){ addPair(SEL.finger,s,f); return; }
   if(f===0&&canPair(0,s,0)){ addPair(0,s,0); return; }
