@@ -1630,6 +1630,26 @@ function chooseHearing(h){
 }
 hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; chooseHearing(b.dataset.v); });
 window.addEventListener('resize',refresh);
+/* THE SILENT SWITCH (as in the Tonal Field app, v359). A phone or tablet mutes a page's Web Audio while its ring/silent switch
+   is on silent, though a video on the same page would play. The page says it plays media, not alert sounds: newer iOS takes
+   that as navigator.audioSession.type = 'playback'; older iOS switches to media playback while an ordinary <audio> element
+   is playing, so a silent one loops from the first tap. It is paused while the page is hidden. */
+let mediaEl=null;
+function mediaUnlock(){
+  try{ if(navigator.audioSession&&navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(err){}
+  try{
+    if(!mediaEl){
+      const n=8000, buf=new ArrayBuffer(44+n), v=new DataView(buf), str=(o,t)=>{ for(let i=0;i<t.length;i++) v.setUint8(o+i,t.charCodeAt(i)); };
+      str(0,'RIFF'); v.setUint32(4,36+n,true); str(8,'WAVEfmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+      v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); str(36,'data'); v.setUint32(40,n,true);
+      for(let i=0;i<n;i++) v.setUint8(44+i,128);                        // one second of 8-bit silence
+      mediaEl=document.createElement('audio'); mediaEl.setAttribute('playsinline',''); mediaEl.setAttribute('webkit-playsinline','');
+      mediaEl.loop=true; mediaEl.preload='auto'; mediaEl.src=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+      document.addEventListener('visibilitychange',()=>{ if(mediaEl&&document.hidden){ try{ mediaEl.pause(); }catch(err){} } }); }
+    if(mediaEl.paused){ const pr=mediaEl.play(); if(pr&&pr.catch) pr.catch(()=>{}); }
+  }catch(err){}
+}
+['touchend','pointerup','click','keydown'].forEach(t=>document.addEventListener(t,()=>{ mediaUnlock(); if(ctx&&ctx.state!=='running'){ try{ ctx.resume(); }catch(err){} } },true));
 // the field turned by hand: the hand keeps its frequencies when they are still a diatonic semitone (the hearing follows
 // them); otherwise the nearest place of the hearing in use is loaded
 function fieldMoved(){
