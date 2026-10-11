@@ -1779,7 +1779,7 @@ function pagePhi(pg){ PHI.doPc=((pcOf(pg.string,pg.fret)-SYLPC[W_DEG[pg.deg]])%1
   let off=-((PHI.doPc+2)%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=PAGES[PAGE];
-  pagePhi(pg);
+  pagePhi(pg); RING.goal=pg.dir==='down'?1:0;                          // stopped: the order of the page's first half
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
@@ -1873,8 +1873,16 @@ function modeNow(st,live,plan){                                          // the 
   let h=null; for(let i=st.idx;i>=0;i--) if(i%4===3){ h=plan[i]; break; }
   return {held:h||lastHeld(),frame:plan[st.idx].frame};
 }
+/* the ring's order follows the walk: chromatic (1) on the way up, the dominant chain (5) on the way down. It turns on each
+   end's held tone — the turn at the far string and the one back home — so it has settled before the walk sets off again. */
+function orderFor(st,live){
+  const pg=PAGES[PAGE], L=DRILL.bars/2, out=pg.dir==='down'?1:0;
+  if(!live) return out;
+  const back=st.idx>=4*L-1&&st.idx<8*L-1; return back?1-out:out;
+}
 frameHook=(st,live,plan,dt)=>{
   if(!DRILL||!plan) return;
+  if(live){ const g=orderFor(st,live); if(RING.goal!==g){ RING.goal=g; refresh(); } }
   const {held,frame:k}=modeNow(st,live,plan), F=DRILL.frames[k];
   // the frame's name, in the field's colours
   const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
