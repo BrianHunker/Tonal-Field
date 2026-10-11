@@ -10,7 +10,7 @@
 <script>(function(){ var t="dark"; try{ if(localStorage.getItem("semitone-theme")==="light") t="light"; }catch(e){} document.documentElement.setAttribute("data-theme",t); })();</script>
 <style>
 /* Harmonic Structures: one tool for every structure. Top to bottom: the structure's name (a menu of all of them) and g(x);
-   the controls (Play, Hold, Prev | Next, Clear, tempo; the gear for sound and display); Listen (g(x) on); the TAB
+   the controls (Play, Hold, Prev | Next, Let Go, tempo; the gear for sound and display); Listen (g(x) on); the TAB
    beside the ring; the means of the step between tones; the fretboard and the hand. No instruction text: the pulsing
    fingers and frets lead. Grayscale unless g(x) is on. */
 :root{
@@ -227,7 +227,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
     <button id="play" class="play" type="button" disabled>Play</button>
     <button id="hold" class="pill" type="button" aria-pressed="false" title="Hold: keep drilling this place instead of advancing">Hold</button>
     <div class="pillPair"><button id="prev" type="button" title="The previous sample">Prev</button><button id="next" type="button" title="The next sample">Next</button></div>
-    <button id="clear" class="pill" type="button" title="Let go of every finger and start a fingering from nothing">Clear</button>
+    <button id="clear" class="pill" type="button" title="Let go of every finger and start a fingering from nothing">Let Go</button>
     <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
     <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
     <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound and display">&#x2699;&#xFE0E;</button>
@@ -293,10 +293,8 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
   <div class="means" id="means">
     <span class="mLbl">Means</span>
     <div class="seg" id="segMeans" role="group" aria-label="How the second tone is reached">
-      <button type="button" data-v="pick">Fret</button><button type="button" data-v="slide">Slide</button><button type="button" data-v="bend">Bend</button><button type="button" data-v="prebend">Prebend</button>
+      <button type="button" data-v="pick">Fret</button><button type="button" data-v="ham" title="Up the string, the second tone hammered on (with Pull-off, both ways legato)">Hammer-on</button><button type="button" data-v="pull" title="Down the string, the second tone pulled off">Pull-off</button><button type="button" data-v="slide">Slide</button><button type="button" data-v="bend">Bend</button><button type="button" data-v="prebend">Prebend</button>
     </div>
-    <label class="ctl" for="ham"><input type="checkbox" id="ham"> Hammer-on</label>
-    <label class="ctl" for="pull"><input type="checkbox" id="pull"> Pull-off</label>
   </div>
 
   <div class="panel"><svg id="fb" viewBox="0 0 990 304" aria-label="Fretboard with the fretting hand: click or drag a finger and a fret to place it"></svg></div>
@@ -1489,7 +1487,7 @@ requestAnimationFrame(frame);
 /* ---------- the controls ---------- */
 let CAND={C:[],fingers:new Set(),cells:new Map()};
 const $=id=>document.getElementById(id);
-const holdBtn=$('hold'), segMeans=$('segMeans'), hamIn=$('ham'), pullIn=$('pull');
+const holdBtn=$('hold'), segMeans=$('segMeans');
 const bpmIn=$('bpm'), bpmV=$('bpmv'), clickIn=$('click');
 const listenEl=$('listen'), hearSeg=$('hearSeg'), hearKnob=$('hearKnob'), orderBtn=$('order'), diatBtn=$('diat');
 const spell=(pc)=>((PHI.doPc===8||[1,6,11,4].includes(PHI.doPc))?LETTER_B:LETTER)[((pc%12)+12)%12];
@@ -1508,11 +1506,12 @@ function refresh(){
   // the means available from what is placed
   const anchor=P.find(q=>q.g)||P[0], keep=P;   // what the anchored finger can reach, whatever the second tone is now
   const anyOf=m=>{ if(!anchor) return false; P=[anchor]; const ok=COMP.some(c=>c.means===m&&consistent(c)); P=keep; return ok; };
-  for(const b of segMeans.querySelectorAll('button')){ const v=b.dataset.v, m=v==='prebend'?'bend':v;
-    const on=MEANS===m&&(m!=='bend'||((drill.dir==='down')===(v==='prebend')));
+  // Hammer-on and Pull-off: legato on a fretted step along one string, either or both; Fret alone is both steps picked
+  const legOK=!!DRILL&&DRILL.means==='pick'&&DRILL.lo.s===DRILL.hi.s, leg=legOK&&(DRILL.ham||DRILL.pull);
+  for(const b of segMeans.querySelectorAll('button')){ const v=b.dataset.v;
+    if(v==='ham'||v==='pull'){ b.setAttribute('aria-pressed',legOK&&!!DRILL[v]); b.disabled=!legOK; continue; }
+    const m=v==='prebend'?'bend':v, on=MEANS===m&&(m!=='bend'||((drill.dir==='down')===(v==='prebend')))&&!(m==='pick'&&leg);
     b.setAttribute('aria-pressed',on); b.disabled=!P.length||!(DRILL&&DRILL.means===m||anyOf(m)); }
-  const legOK=!!DRILL&&DRILL.means==='pick'&&DRILL.lo.s===DRILL.hi.s;
-  hamIn.disabled=pullIn.disabled=!legOK; hamIn.checked=legOK&&!!DRILL.ham; pullIn.checked=legOK&&!!DRILL.pull;
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
   playBtn.disabled=!DRILL&&!T.on;
   // Listen: the hearing of the frequencies in hand
@@ -1540,7 +1539,7 @@ function clickCell(s,f){
   stopForEdit();
   const here=P.find(p=>p.s===s&&p.f===f);                                 // the circle round a placed fret: let it go, as clicking its finger does
   if(here){ if(here.g){ clickFinger(here.g); return; } P=P.filter(p=>p!==here); DRILL=null; SEL=null; edited(); relayout(); settle(); refresh(); return; }
-  if(DRILL&&!P.some(p=>p.s===s&&p.f===f)) return;                       // a complete drill: fingers are let go first, or Clear
+  if(DRILL&&!P.some(p=>p.s===s&&p.f===f)) return;                       // a complete drill: fingers are let go first, or Let Go
   if(SEL&&SEL.finger&&f>0&&canPair(SEL.finger,s,f)){ addPair(SEL.finger,s,f); return; }
   if(f===0&&canPair(0,s,0)){ addPair(0,s,0); return; }
   const gs=CAND.cells.get(s+':'+f);
@@ -1582,11 +1581,11 @@ fingers.forEach(F=>{
 // the means of the step between the tones
 segMeans.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||b.disabled) return; stopForEdit();
   const v=b.dataset.v, m=v==='prebend'?'bend':v;
+  if(v==='ham'||v==='pull'){ LEGATO[v]=!DRILL[v]; DRILL[v]=LEGATO[v]; DRILL.plan=planOf(DRILL,drill.dir); edited(); refresh(); return; }
   if(m==='bend') drill.dir=v==='prebend'?'down':'up';
+  if(v==='pick'&&DRILL&&DRILL.means==='pick'){ LEGATO.ham=LEGATO.pull=DRILL.ham=DRILL.pull=false; }   // Fret: every step picked
   if(DRILL&&DRILL.means===m){ DRILL.dir=drill.dir; DRILL.plan=planOf(DRILL,drill.dir); edited(); refresh(); return; }
   const anchor=P.find(p=>p.g)||P[0]; MEANS=m; P=anchor?[anchor]:[]; DRILL=null; edited(); relayout(); settle(); relayout(); refresh(); });
-hamIn.addEventListener('change',()=>{ stopForEdit(); LEGATO.ham=hamIn.checked; if(DRILL){ DRILL.ham=LEGATO.ham; DRILL.plan=planOf(DRILL,drill.dir); } edited(); refresh(); });
-pullIn.addEventListener('change',()=>{ stopForEdit(); LEGATO.pull=pullIn.checked; if(DRILL){ DRILL.pull=LEGATO.pull; DRILL.plan=planOf(DRILL,drill.dir); } edited(); refresh(); });
 holdBtn.addEventListener('click',()=>{ drill.hold=!drill.hold; holdChanged(); refresh(); });
 $('prev').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
 $('next').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
@@ -1598,14 +1597,18 @@ bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=dr
 bpmIn.addEventListener('change',()=>{ if(T.on) run(); });
 clickIn.addEventListener('change',()=>{ drill.click=clickIn.checked; });
 // Listen: the two hearings of the frequencies in hand; choosing the other morphs φ one tick, the hand staying put
+// Listen: the orientation stays; the hand moves to the nearest place of the other diatonic semitone, same means if it can
 function chooseHearing(h){
-  stopForEdit(); if(!FIELD.on) return;
-  if(DRILL){ const pc=pcOf(DRILL.lo.s,DRILL.lo.f), nd=((pc-HEAR[h].lo)%12+12)%12, dDo=((nd-PHI.doPc)%12+12)%12;
-    if(dDo){ let n=((-5*dDo)%12+12)%12; if(n>6) n-=12;
-      MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC};
-      const rootPc=PHI.doPc+SYLPC[PHI.root]; GHOST.doPc=PHI.doPc; PHI.doPc=nd; const k=SYLPC.indexOf(relOf(rootPc)); if(k>=0) PHI.root=k; }   // the letters stay: the root keeps its pitch, its function changes (C_Do → C_Fa)
-    hearing=h; SAMPLES=sampling(); const i=SAMPLES.findIndex(x=>x.r===DRILL.r||(x.r.lo.s===DRILL.lo.s&&x.r.lo.f===DRILL.lo.f&&x.r.hi.s===DRILL.hi.s&&x.r.hi.f===DRILL.hi.f)); if(i>=0) SI=i;
-  }else{ hearing=h; P=[]; SEL=null; MEANS='pick'; SAMPLES=sampling(); settle(); }
+  stopForEdit(); if(!FIELD.on||h===hearing&&(!DRILL||hearingOf(DRILL)===h)) return;
+  hearing=h; SAMPLES=sampling();
+  if(!DRILL){ P=[]; SEL=null; MEANS='pick'; settle(); refresh(); return; }
+  const D0=DRILL, same0=D0.lo.s===D0.hi.s;
+  let best=null, bc=1e9; instances().forEach(r=>{ const c=3*Math.abs(r.lo.s-D0.lo.s)+3*Math.abs(r.hi.s-D0.hi.s)+Math.abs(r.lo.f-D0.lo.f)+Math.abs(r.hi.f-D0.hi.f)+((r.lo.s===r.hi.s)===same0?0:2); if(c<bc){ bc=c; best=r; } });
+  if(!best){ refresh(); return; }
+  const oneStr=best.lo.s===best.hi.s, means=(D0.means!=='pick'&&oneStr&&best.lo.f>=1)?D0.means:'pick';
+  const D=drillOfSample({r:best,means,ham:oneStr&&D0.ham,pull:oneStr&&D0.pull,dir:drill.dir});
+  const i=SAMPLES.findIndex(x=>x.r===best&&x.means===means&&!!x.ham===!!D.ham&&!!x.pull===!!D.pull&&(x.dir||'up')===drill.dir);
+  applyDrill(D,i<0); if(i>=0) SI=i; else{ const j=SAMPLES.findIndex(x=>x.r===best); if(j>=0) SI=j; }
   refresh();
 }
 hearSeg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; chooseHearing(b.dataset.v); });
