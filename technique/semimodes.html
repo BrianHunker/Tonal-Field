@@ -208,7 +208,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
 .frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
 .roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
-@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-44px; min-width:0; padding-top:16px } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:86px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:19px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:2px; height:63px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:63.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs, .semiIv{ position:absolute; transform:translateX(-50%); color:var(--mid); white-space:nowrap; pointer-events:none } .semiTriLbl{ top:70px; font-size:12px } .semiIv{ top:44px; font-size:11px } .semiHs{ top:5px; font-size:11px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 } .strSel.vert{ position:absolute; flex-direction:column-reverse; z-index:3; min-width:0 } .strSel.vert button{ min-width:0; padding:0; border-left:0; border-top:1px solid var(--mid); display:flex; align-items:center; justify-content:center; line-height:1 } .strSel.vert button:last-child{ border-top:0 }
+@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-26px; min-width:0; padding-top:16px } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:86px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:19px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:2px; height:63px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:63.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs, .semiIv{ position:absolute; transform:translateX(-50%); color:var(--mid); white-space:nowrap; pointer-events:none } .semiTriLbl{ top:70px; font-size:12px } .semiIv{ top:44px; font-size:11px } .semiHs{ top:5px; font-size:11px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 } .hlHand{ opacity:.62 } .hlSkin{ fill:var(--bg); stroke:none } .hlLine{ fill:none; stroke:var(--ink); stroke-width:1.7; stroke-linejoin:round; stroke-linecap:round } .hlNail{ stroke-width:1.2; opacity:.55 } .hlCrease{ stroke-width:1.1; opacity:.35 } .hlSel{ stroke:var(--ink); stroke-width:3.2 } .gripPanel{ margin-top:14px; border-top:1px solid var(--faint); padding-top:10px } .gripHd{ margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .gripRow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px } .gripGrp{ width:52px; font-size:13px; color:var(--mid) } .gripBtn{ font:inherit; font-size:14px; font-weight:600; padding:5px 11px; border:1.5px solid var(--mid); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer; min-width:44px } .gripBtn sub{ font-size:10px; font-weight:500; color:var(--mid); margin-left:1px } .gripBtn.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .gripBtn.on sub{ color:var(--bg) } body.handOn .fingerC, body.handOn .fingerN, body.handOn .guide, body.handOn .thumbG{ display:none } .strSel.vert{ position:absolute; flex-direction:column-reverse; z-index:3; min-width:0 } .strSel.vert button{ min-width:0; padding:0; border-left:0; border-top:1px solid var(--mid); display:flex; align-items:center; justify-content:center; line-height:1 } .strSel.vert button:last-child{ border-top:0 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1747,7 +1747,7 @@ let ZOOM=1; const afterFit=[];
   const later=()=>{ if(!pend) pend=requestAnimationFrame(fit); };
   window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
-const BOOK={loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
+const BOOK={hand:true, loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
   {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))};
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
@@ -2118,6 +2118,173 @@ const SEMI=BOOK.strings?(()=>{
       if(p>=1){ slide=null; ghosts.forEach(e=>e.remove()); ghosts=[]; shift=0; } }
     paint(shift,e); }};
 })():null;
+
+/* THE HAND (lab), from photographs of the fretting hand as the player sees it: the hand itself is under the neck; each
+   finger comes round the far (high e) edge and arches over the strings — what shows is its middle joint, a rounded hump
+   beyond the edge, and from there the finger coming down toward the player to its tip on the string, the nail facing
+   up at the tip. The thumb is under the neck too, its tip peeking out below the near (low E) edge, the heel of the hand
+   and the forearm going on down toward the player. The fingertips are the dots' places, pressing and hovering with
+   them. Each finger is its own shape, drawn little finger first so the ones in front cover the ones behind; the whole
+   hand semi-transparent. */
+const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
+  const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
+  fb.setAttribute('viewBox','0 4 990 330');                                // headroom for the knuckles, room below for the thumb
+  const defs=mk('defs',{},fb), gid='hl'+Math.random().toString(36).slice(2,6);
+  const lg=mk('linearGradient',{id:gid+'g',gradientUnits:'userSpaceOnUse',x1:0,y1:FB.bot+20,x2:0,y2:FB.bot+92},defs); mk('stop',{offset:0,'stop-color':'#fff'},lg); mk('stop',{offset:1,'stop-color':'#000'},lg);
+  const mask=mk('mask',{id:gid,maskUnits:'userSpaceOnUse',x:-50,y:-200,width:1100,height:700},defs); mk('rect',{x:-50,y:-200,width:1100,height:700,fill:'url(#'+gid+'g)'},mask);
+  const behind=mk('g',{class:'hlHand'}); fb.insertBefore(behind,fb.firstChild);   // thumb and the heel of the hand: under the neck
+  const armFill=mk('path',{class:'hlSkin'},behind), armLine=mk('path',{class:'hlLine'},behind);
+  const thumbFill=mk('path',{class:'hlSkin'},behind), thumbLine=mk('path',{class:'hlLine'},behind), thumbNail=mk('path',{class:'hlLine hlCrease'},behind);
+  const front=mk('g',{class:'hlHand'}); fb.insertBefore(front,fingers[0].guide);
+  const order=[3,2,0,1];                                                  // little, ring, index, middle: the middle finger in front
+  const parts=[0,1,2,3].map(()=>({}));
+  order.forEach(i=>{ const q=parts[i]; q.fill=mk('path',{class:'hlSkin'},front); q.line=mk('path',{class:'hlLine'},front); q.nail=mk('path',{class:'hlLine hlNail'},front); q.joint=mk('path',{class:'hlLine hlCrease'},front); });
+  // each finger: how far its hump stands beyond the high e edge; its lean (the hump's offset from the tip); its widths
+  // at the hump, between the joints, and at the tip (board units: strings 24 apart, frets 66)
+  const SPK=47, HUMP=[40,60,54,30], LEAN=[-18,-5,7,18], WK=[52,53,50,43], WM=[45,46,43,37], WT=[42,43,40,35];
+  let thx=null, sm=null, rot=0, SELK=0; const rots=[0,0,0,0], alpha=[1,1,1,1];
+  const ROT=Math.tan(50*Math.PI/180);                                    // how far a crowded hand turns: its fingers 50° off the frets
+  const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
+  const bump=(t,c,s)=>Math.exp(-((t-c)*(t-c))/(2*s*s));
+  // one finger from its knuckle's crown H to its pad (the round of the tip, on the string): it leaves the knuckle
+  // downward and rounds over toward the tip, so a turned finger curves rather than slanting straight; a barring
+  // finger lies straight along its fret
+  function finger(k,pad,H,kk,flat){
+    const dx=pad.x-H.x, dy=pad.y-H.y, dl=Math.hypot(dx,dy)||1, rT0=WT[k]/2, E={x:pad.x+dx/dl*rT0, y:pad.y+dy/dl*rT0};
+    const C=flat?{x:(H.x+E.x)/2, y:(H.y+E.y)/2}:{x:H.x+(E.x-H.x)*0.12, y:H.y+(E.y-H.y)*0.7};
+    const P=t=>({x:(1-t)*(1-t)*H.x+2*(1-t)*t*C.x+t*t*E.x, y:(1-t)*(1-t)*H.y+2*(1-t)*t*C.y+t*t*E.y});
+    const D=t=>{ const x=2*(1-t)*(C.x-H.x)+2*t*(E.x-C.x), y=2*(1-t)*(C.y-H.y)+2*t*(E.y-C.y), l=Math.hypot(x,y)||1; return {x:x/l,y:y/l}; };
+    // width down the finger: the knuckle broad, the middle bone narrower, a swell at the end joint, the pad (wider pressed)
+    const W=t=>{ const base=t<0.45?WK[k]+(WM[k]-WK[k])*(t/0.45):WM[k]+(WT[k]-WM[k])*((t-0.45)/0.55);
+      return base*(1+0.05*bump(t,0.72,0.06)+0.06*kk*bump(t,0.97,0.06)); };
+    const len=Math.hypot(E.x-H.x,E.y-H.y), rT=W(1)/2, rH=W(0)/2, t0=Math.min(0.4,rH/Math.max(len,1)), t1=Math.max(t0+0.05,1-rT/Math.max(len,1));
+    const L=[], R=[], N=20;
+    for(let i=0;i<=N;i++){ const t=t0+(t1-t0)*i/N, p=P(t), d=D(t), w=W(t)/2; L.push({x:p.x-d.y*w*-1,y:p.y+d.x*w*-1}); R.push({x:p.x+d.y*w*-1,y:p.y-d.x*w*-1}); }
+    // L and R are the two sides; the hump is a half round over the top, the tip a half round at the bottom
+    const sweepTop=L[0].x<R[0].x?1:0;
+    const d='M'+P2(L[0])+' '+L.slice(1).map(p=>'L'+P2(p)).join(' ')+' A'+f(rT)+' '+f(rT)+' 0 0 '+(1-sweepTop)+' '+P2(R[N])+' '
+      +R.slice(0,N).reverse().map(p=>'L'+P2(p)).join(' ')+' A'+f(rH)+' '+f(rH)+' 0 0 '+(1-sweepTop)+' '+P2(L[0])+' Z';
+    // the nail: on the end of the finger, its free edge at the tip, its root (the cuticle's curve) a little way up
+    const dE=D(t1), cE=P(t1), nw=W(1)*0.56, nh=W(1)*0.62, nx=-dE.y, ny=dE.x;
+    const bot={x:cE.x+dE.x*rT*0.72, y:cE.y+dE.y*rT*0.72}, top={x:bot.x-dE.x*nh, y:bot.y-dE.y*nh};
+    const bl={x:bot.x+nx*nw/2, y:bot.y+ny*nw/2}, br={x:bot.x-nx*nw/2, y:bot.y-ny*nw/2}, tl={x:top.x+nx*nw/2, y:top.y+ny*nw/2}, tr={x:top.x-nx*nw/2, y:top.y-ny*nw/2};
+    const nail='M'+P2(tl)+' L'+P2(bl)+' Q'+P2({x:bot.x+dE.x*nw*0.35, y:bot.y+dE.y*nw*0.35})+' '+P2(br)+' L'+P2(tr)+' Q'+P2({x:top.x+dE.x*nw*0.22, y:top.y+dE.y*nw*0.22})+' '+P2(tl);
+    // the end joint's crease, faint, across the back of the finger
+    const tj=t0+(t1-t0)*0.5, pj=P(tj), dj=D(tj), wj=W(tj)*0.3;
+    const joint='M'+P2({x:pj.x-dj.y*wj, y:pj.y+dj.x*wj})+' Q'+P2({x:pj.x+dj.x*4, y:pj.y+dj.y*4})+' '+P2({x:pj.x+dj.y*wj, y:pj.y-dj.x*wj});
+    return {d, nail, joint};
+  }
+  function draw(dt){
+    const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
+    const tips=fingers.map(F=>({x:F.x, y:F.y, kk:F.c.classList.contains('down')?1:0}));
+    if(tips.some(p=>p.x===undefined||isNaN(p.x))) return;
+    const barre=P.some(q=>q.g===1&&q.barre), restPinky=!T.on&&!P.some(q=>q.g===4);
+    // turning goes finger by finger: neighbours stopping one fret on different strings turn together toward the nut,
+    // their knuckles closing into a row; a finger alone on its fret stays square to the frets, so in a barre or a
+    // power-chord shape the 1st, 2nd and 3rd knuckles keep a fret apart
+    const fr=[1,2,3,4].map(g=>HAND.f[g]?Math.round(HAND.f[g].fret):0), grp=[], gOf=[];
+    for(let i=0;i<4;i++){ if(barre&&i===0){ gOf[i]=-1; continue; } if(restPinky&&i===3){ gOf[i]=-1; continue; }
+      const g=grp.length&&grp[grp.length-1].fr===fr[i]&&HAND.f[i].string!==HAND.f[i+1].string?grp[grp.length-1]:(grp.push({fr:fr[i],m:[]}),grp[grp.length-1]); g.m.push(i); gOf[i]=grp.indexOf(g); }
+    const rk=reduce?1:Math.min(1,(dt||0.016)/0.15);
+    for(let i=0;i<4;i++){ const tgt=gOf[i]>=0&&grp[gOf[i]].m.length>1?1:0; rots[i]+=(tgt-rots[i])*rk; alpha[i]+=((tips[i].kk?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
+    rot=Math.max(...rots);
+    const hy=i=>FB.top-HUMP[i]*(1-0.25*rots[i]);
+    // the tip on its string: the round of the tip just short of the fret wire; how far it reaches past the string is
+    // the arch — an arched finger meets the string near the nail, its end only a little past it, never over the next
+    // string; a barring finger lies flat, on the pad
+    const wire=i=>{ const h=HAND.f[i+1]; return h?tips[i].x+cellR(Math.max(1,Math.min(FMAX,fr[i])))-tipX(Math.max(1,Math.min(FMAX,fr[i]))):tips[i].x; };
+    const base=tips.map(p=>p.y+FR*0.75);                                  // the string's line (lifted with the finger when it hovers)
+    const pads=[], humps=[];
+    for(let i=0;i<4;i++){ const r=WT[i]/2; pads[i]={x:wire(i)-2-r, y:base[i]-r*0.4}; }
+    const own=pads.map((p,i)=>p.x+LEAN[i]*(1-rots[i])-rots[i]*(p.y-hy(i))*ROT);
+    for(let i=0;i<4;i++){
+      if(barre&&i===0){ humps[i]={x:pads[i].x, y:FB.top-26}; continue; }
+      const g=gOf[i]>=0?grp[gOf[i]]:null; let x=own[i];
+      if(g&&g.m.length>1){ const mid=g.m.reduce((a,j)=>a+own[j],0)/g.m.length, at=g.m.indexOf(i)-(g.m.length-1)/2; x=own[i]+((mid+at*SPK)-own[i])*rots[i]*0.85; }
+      humps[i]={x, y:hy(i)}; }
+    // the knuckles never collapse past one another: each at least a knuckle's width beyond the one before it — so in a
+    // barre or a power chord the 1st, 2nd and 3rd stand a fret apart and only the crowded fingers turn
+    for(let i=1;i<4;i++) humps[i].x=Math.max(humps[i].x,humps[i-1].x+SPK);
+    // the little finger at rest rides beside the ring finger and a little under it, curled a little shorter
+    if(restPinky){ humps[3]={x:humps[2].x+SPK*0.78, y:humps[2].y+10}; pads[3]={x:pads[2].x+WT[2]*0.55, y:pads[2].y-16}; }
+    // settle each pad so the finger's end lands where the arch puts it (the direction depends on the knuckle)
+    for(let i=0;i<4;i++){ if(restPinky&&i===3) continue; const r=WT[i]/2, reach=(barre&&i===0)?10:7;
+      for(let n=0;n<2;n++){ const dx=pads[i].x-humps[i].x, dy=pads[i].y-humps[i].y, l=Math.hypot(dx,dy)||1; pads[i].y=base[i]+reach-dy/l*r; pads[i].x=wire(i)-2-r+Math.max(0,dx/l)*0; } }
+    tips.forEach((p,i)=>{ const g=finger(i,pads[i],humps[i],p.kk,barre&&i===0), q=parts[i]; q.line.classList.toggle('hlSel',SELK===i+1);
+      q.fill.setAttribute('d',g.d); q.line.setAttribute('d',g.d); q.nail.setAttribute('d',g.nail); q.joint.setAttribute('d',g.joint);
+      const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
+    // the thumb's tip just out from under the near edge, the thumb going back under the neck toward the heel of the hand;
+    // the forearm on down toward the player
+    const k=reduce?1:Math.min(1,(dt||0.016)/0.09), tx=tipXf(HAND.thumb); thx=thx===null||reduce?tx:thx+(tx-thx)*k;
+    const mean=(tips[0].x+tips[1].x+tips[2].x+tips[3].x)/4; sm=sm===null||reduce?mean:sm+(mean-sm)*k;
+    // under the neck, as the player sees it: the thumb's pad, a broad oval just out from under the near edge, its outer
+    // side running up into the neck; and the heel of the hand, a long low line from the pad's foot across under the
+    // fingers, curving up into the neck under the little finger
+    const c={x:thx+10, y:FB.bot+29}, rx=32, ry=29, Rx=tips[3].x+WT[3]*0.5;
+    const pad='M'+f(c.x-rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x+rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x-rx)+' '+f(c.y);
+    thumbLine.setAttribute('d',pad); thumbFill.setAttribute('d',pad+' Z');
+    const S={x:c.x-rx-14, y:FB.bot}, Pf={x:c.x+rx*0.25, y:c.y+ry*0.97}, Q={x:Rx-34, y:FB.bot+37};
+    const heel='M'+P2(S)+' C'+f(S.x+4)+' '+f(FB.bot+8)+' '+f(c.x-rx-2)+' '+f(c.y-16)+' '+f(c.x-rx+1)+' '+f(c.y-2)
+      +' M'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(FB.bot+40)+' '+f(Q.x-90)+' '+f(FB.bot+35)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(FB.bot+38)+' '+f(Rx+2)+' '+f(FB.bot+18)+' '+f(Rx)+' '+f(FB.bot);
+    armLine.setAttribute('d',heel);
+    armFill.setAttribute('d','M'+P2(S)+' L'+f(c.x)+' '+f(c.y)+' L'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(FB.bot+40)+' '+f(Q.x-90)+' '+f(FB.bot+35)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(FB.bot+38)+' '+f(Rx+2)+' '+f(FB.bot+18)+' '+f(Rx)+' '+f(FB.bot)+' Z');
+    // the pad's fold at its foot, two faint arcs
+    thumbNail.setAttribute('d','M'+f(c.x-14)+' '+f(c.y+15)+' Q'+f(c.x-2)+' '+f(c.y+24)+' '+f(c.x+14)+' '+f(c.y+18)+' M'+f(c.x-18)+' '+f(c.y+18)+' Q'+f(c.x-4)+' '+f(c.y+28)+' '+f(c.x+14)+' '+f(c.y+21));
+  }
+  if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw}; }   // the drill pages: the hand in place of the dots, nothing more
+  // posing, free of any harmony: the hand's own rules only (fingers within their reach of each other, never crossing,
+  // two on one string a fret apart). Pick a finger — click it, or press 1–4 — then click where it goes; it stays pinned
+  // there, the hand stretching to keep what is pinned and forming the rest around it. Let Go lifts every pin.
+  parts.forEach((q,i)=>{ q.fill.style.pointerEvents='all'; q.fill.style.cursor='pointer';
+    q.fill.addEventListener('click',e=>{ if(svgPoint(e).y>=FB.top) return; e.stopPropagation(); SELK=SELK===i+1?0:i+1; }); });   // a finger is picked by its knuckle, above the board
+  const fits=(pl)=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
+  function pose(k,s0,f0){
+    stopForEdit(); P=P.filter(p=>p.g&&p.g!==k);
+    while(!fits(P.concat([{g:k,s:s0,f:f0}]))){ const far=P.slice().sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; P=P.filter(p=>p!==far); }
+    P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; refresh(); }
+  fb.addEventListener('click',e=>{ if(!document.body.classList.contains('handOn')) return;
+    const p=svgPoint(e); if(p.y<FB.top) return; let fr=0; for(let n=1;n<=FMAX;n++) if(p.x>=cellL(n)&&p.x<cellR(n)) fr=n; if(!fr) return;
+    let st=0, bd=1e9; FB.strY.forEach((y,i)=>{ if(Math.abs(y-p.y)<bd){ bd=Math.abs(y-p.y); st=i; } }); if(bd>16) return;
+    let k=SELK; if(!k){ let best=1e9; for(let g=1;g<=4;g++){ const c=Math.abs(HAND.f[g].fret-fr)+(HAND.f[g].string===st?0:0.1); if(c<best){ best=c; k=g; } } }
+    pose(k,st,fr); SELK=0; },true);
+  addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey){ SELK=+e.key; } if(e.key==='Escape') SELK=0; });
+  const letGo=document.getElementById('clear'); letGo.hidden=false; letGo.textContent='Let Go';
+  document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
+  // CHORD GRIP: the common open and barre chords; a name poses the hand to grip it. Each is written as a chord chart
+  // is, low E to high e — the frets (x unplayed, 0 open) and the fingers; a finger on more than one string is a barre,
+  // lying along its fret down to the lowest string it holds
+  const GRIPS=[['Open',[['C','x32010','x32010'],['A','x02220','x01230'],['G','320003','210003'],['E','022100','023100'],['D','xx0232','xx0132'],
+      ['Am','x02210','x02310'],['Em','022000','023000'],['Dm','xx0231','xx0231'],['E7','020100','020100'],['A7','x02020','x01020'],['D7','xx0212','xx0213'],
+      ['G7','320001','320001'],['C7','x32310','x32410'],['B7','x21202','x21304'],['Cmaj7','x32000','x32000'],['Fmaj7','xx3210','xx3210']]],
+    ['Barre',[['F','133211','134211'],['Fm','133111','134111'],['F♯m','244222','134111'],['G','355433','134211'],['A','577655','134211'],
+      ['B♭','x13331','x12341'],['B','x24442','x12341'],['Bm','x24432','x13421'],['C','x35553','x12341'],['Cm','x35543','x13421']]]];
+  function grip(frets,fing){
+    const pl=[], by={};
+    for(let i=0;i<6;i++){ const g=+fing[i], f=+frets[i]; if(!(g>=1)||!(f>=1)) continue; const st=NSTR-1-i; (by[g]=by[g]||[]).push({s:st,f}); }
+    for(const g in by){ const a=by[g], lowS=Math.max(...a.map(q=>q.s)); pl.push({g:+g, s:lowS, f:a[0].f, barre:a.length>1}); }
+    return pl; }
+  const panel=document.createElement('div'); panel.className='gripPanel';
+  panel.innerHTML='<p class="gripHd">Chord Grip</p>';
+  GRIPS.forEach(([grp,list])=>{ const row=document.createElement('div'); row.className='gripRow';
+    row.innerHTML='<span class="gripGrp">'+grp+'</span>';
+    list.forEach(([nm,fr,fi])=>{ const b=document.createElement('button'); b.type='button'; b.className='gripBtn';
+      const at=grp==='Barre'?Math.min(...[...fr].filter(c=>c!=='x').map(Number).filter(n=>n>0)):0;
+      b.innerHTML=nm+(at?'<sub>'+at+'</sub>':''); b.title=nm+' — '+fr;
+      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
+        panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
+      row.appendChild(b); });
+    panel.appendChild(row); });
+  fb.parentElement.after(panel);
+  document.addEventListener('click',e=>{ if(e.target.closest&&(e.target.closest('#clear')||e.target.closest('#fb'))) panel.querySelectorAll('.gripBtn.on').forEach(x=>x.classList.remove('on')); },true);
+  // the switch: the drawn hand, or the numbered dots
+  const btn=document.createElement('button'); btn.type='button'; btn.className='pill'; btn.id='handTog';
+  const sync=()=>{ const on=document.body.classList.contains('handOn'); btn.textContent=on?'Dots':'Hand'; btn.setAttribute('aria-pressed',on); };
+  btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
+  document.body.classList.add('handOn'); sync();
+  document.getElementById('pageCt').after(btn);
+  return {draw};
+})():null;
+{ const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt); }; }
 
 applySample(0);
 placeRing();
