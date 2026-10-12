@@ -1771,23 +1771,24 @@ function walkPlan(pg){
   return {plan,frames:fr,bars:2*L};
 }
 function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5}); LOOP=4*bars; BAR_START=i=>i%4===0; }
-// a page written out note by note on one string (Semimodes): bars of four [fret, finger] (finger 0 open), each bar in a
-// group that shares one hand and one name
+// a page written out note by note on one string (Semimodes): bars of four [fret, finger, hand] (finger 0 open; hand a name,
+// the bar's group unless given), each bar in a group that shares one name — its tones, low to high
 function seqPlan(pg){
-  const plan=[];
-  pg.bars.forEach(b=>b.n.forEach(([f,g])=>plan.push({string:pg.string,fret:f,pitch:f,push:0,finger:g,frame:b.g,pick:true,glide:false,pre:false,kind:'pick',hi:false})));
-  const frames=[]; for(let k=0;k<=Math.max(...pg.bars.map(b=>b.g));k++){ const ns=plan.filter(n=>n.frame===k);
-    const tones=[...new Set(ns.map(n=>n.fret))].sort((x,y)=>x-y).map(f=>({fret:f})), pl=[];
-    ns.forEach(n=>{ if(n.finger&&!pl.some(q=>q.g===n.finger)) pl.push({g:n.finger,s:pg.string,f:n.fret}); });
-    frames.push({string:pg.string,tones,pl,hand:handFor(pl)}); }
+  const plan=[], keys=[];
+  pg.bars.forEach(b=>b.n.forEach(([f,g,h])=>{ const hk=h===undefined?'g'+b.g:h; if(!keys.includes(hk)) keys.push(hk);
+    plan.push({string:pg.string,fret:f,pitch:f,push:0,finger:g,frame:keys.indexOf(hk),grp:b.g,pick:true,glide:false,pre:false,kind:'pick',hi:false}); }));
+  const frames=keys.map((hk,k)=>{ const pl=[]; plan.filter(n=>n.frame===k).forEach(n=>{ if(n.finger&&!pl.some(q=>q.g===n.finger)) pl.push({g:n.finger,s:pg.string,f:n.fret}); });
+    return {string:pg.string,tones:[],pl,hand:handFor(pl)}; });
+  const groups=[]; for(let k=0;k<=Math.max(...pg.bars.map(b=>b.g));k++)
+    groups.push({string:pg.string,tones:[...new Set(plan.filter(n=>n.grp===k).map(n=>n.fret))].sort((x,y)=>x-y).map(f=>({fret:f}))});
   if(WALK.ham||WALK.pull) plan.forEach((e,i)=>{ const q=plan[(i+plan.length-1)%plan.length];
     if(q.string!==e.string||q.pitch===e.pitch) return;
     if(e.pitch>q.pitch&&WALK.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&WALK.pull){ e.pick=false; e.kind='pull'; } });
-  return {plan,frames,bars:pg.bars.length};
+  return {plan,frames,groups,bars:pg.bars.length};
 }
 function walkDrill(i){
   const pg=PAGES[i], W=pg.kind==='seq'?seqPlan(pg):walkPlan(pg), a=W.plan[0], b=W.plan[1];
-  return {walk:true,page:i,means:'pick',ham:WALK.ham,pull:WALK.pull,dir:'up',plan:W.plan,frames:W.frames,bars:W.bars,
+  return {walk:true,page:i,means:'pick',ham:WALK.ham,pull:WALK.pull,dir:'up',plan:W.plan,frames:W.frames,groups:W.groups,bars:W.bars,
     lo:{s:a.string,f:a.fret,g:a.finger},hi:{s:b.string,f:b.fret,g:b.finger}};
 }
 // the page's φ: a tone and its function (a walk's first tone, unless the page names another); the letters turn so the
@@ -1879,12 +1880,17 @@ const frameLbl=$('frameLbl');
 const sylName=pc=>{ const k=((pc-(PHI.doPc+2))%12+12)%12; return SOLF[k][0]; };   // the field's name for a pitch (an anti keeps its ~)
 const spotDefs=el('defs',{},ringSvg), spotF=el('filter',{id:'modeSpotF',x:'-100%',y:'-100%',width:'300%',height:'300%'},spotDefs);
 el('feGaussianBlur',{stdDeviation:5},spotF);
-const modeSpot=el('circle',{r:15,filter:'url(#modeSpotF)',opacity:0,'pointer-events':'none'}); ringSvg.insertBefore(modeSpot,rLbls[0]);
-const fbDefs=el('defs',{},fb), tingeG=el('radialGradient',{id:'modeTinge',gradientUnits:'userSpaceOnUse',cx:500,cy:160,r:520},fbDefs);   // centred on the held tone's fret
-const tingeStops=[[0,0.42],[0.35,0.18],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},tingeG));
-const boardRect=fb.querySelector('rect.board'), tinge=el('rect',{x:boardRect.getAttribute('x'),y:boardRect.getAttribute('y'),width:boardRect.getAttribute('width'),height:boardRect.getAttribute('height'),fill:'url(#modeTinge)',opacity:0,'pointer-events':'none'});
-fb.insertBefore(tinge,boardRect.nextSibling);
-const MODE={rgb:null,op:0,key:''};
+// the mode's light, in two layers: when the mode changes the old light fades out where it is as the new one fades in at its
+// own letter and fret — nothing travels
+const boardRect=fb.querySelector('rect.board'), fbDefs=el('defs',{},fb);
+const LIGHTS=[0,1].map(i=>{
+  const spot=el('circle',{r:15,filter:'url(#modeSpotF)',opacity:0,'pointer-events':'none'}); ringSvg.insertBefore(spot,rLbls[0]);
+  const grad=el('radialGradient',{id:'modeTinge'+i,gradientUnits:'userSpaceOnUse',cx:500,cy:160,r:520},fbDefs);
+  const stops=[[0,0.42],[0.35,0.18],[1,0]].map(([o,a])=>el('stop',{offset:o,'stop-opacity':a},grad));
+  const rect=el('rect',{x:boardRect.getAttribute('x'),y:boardRect.getAttribute('y'),width:boardRect.getAttribute('width'),height:boardRect.getAttribute('height'),fill:'url(#modeTinge'+i+')',opacity:0,'pointer-events':'none'});
+  fb.insertBefore(rect,boardRect.nextSibling);
+  return {spot,grad,stops,rect,op:0,note:null}; });
+const MODE={key:'',cur:0};
 function modeNow(st,live,plan){                                          // the held tone in force, and the frame sounding
   // the mode: each bar's first tone, then its held tone from the & of 2 (in a walk the first is the last bar's held tone)
   // the frame in force is the hand's: it changes the moment a finger lands in a new place, either way
@@ -1903,22 +1909,22 @@ function orderFor(st,live){
 frameHook=(st,live,plan,dt)=>{
   if(!DRILL||!plan) return;
   if(live){ const g=orderFor(st,live); if(RING.goal!==g){ RING.goal=g; refresh(); } }
-  const {held,frame:k}=modeNow(st,live,plan), F=DRILL.frames[k];
+  const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
   // the frame's name, in the field's colours
   const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
   if(key!==MODE.key&&F){ MODE.key=key;
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
       return gap+'<span style="color:'+(FIELD.on?rgbS(valRGB(pc)):'')+'">'+sylName(pc)+'</span>'; }).join(''); }
-  // the mode: a spotlight on its letter, a tinge on the board
-  const pc=pcOf(held.string,held.pitch), goal=FIELD.lit, c=valRGB(pc), kk=Math.min(1,(dt||0.016)*6);
-  MODE.rgb=MODE.rgb?MODE.rgb.map((v,i)=>v+(c[i]-v)*kk):c.slice(); MODE.op+=(goal-MODE.op)*kk;
-  const col=rgbS(MODE.rgb), [x,y]=pt(RG.RL,pc);
-  modeSpot.setAttribute('cx',x.toFixed(1)); modeSpot.setAttribute('cy',y.toFixed(1)); modeSpot.setAttribute('fill',col); modeSpot.setAttribute('opacity',(0.85*MODE.op).toFixed(3));
-  tingeStops.forEach(s=>s.setAttribute('stop-color',col)); tinge.setAttribute('opacity',MODE.op.toFixed(3));
-  const hx=held.fret?(cellL(held.fret)+cellR(held.fret))/2:(FB.x0+FB.nut)/2, hy=FB.strY[held.string];
-  MODE.x=MODE.x===undefined?hx:MODE.x+(hx-MODE.x)*kk; MODE.y=MODE.y===undefined?hy:MODE.y+(hy-MODE.y)*kk;
-  tingeG.setAttribute('cx',MODE.x.toFixed(1)); tingeG.setAttribute('cy',MODE.y.toFixed(1));
+  // the mode: a spotlight on its letter, a tinge on the board from its fret; a new mode crossfades in
+  const nk=held.string+':'+held.pitch, kk=Math.min(1,(dt||0.016)*6);
+  if(!LIGHTS[MODE.cur].note||LIGHTS[MODE.cur].note!==nk){ if(LIGHTS[MODE.cur].note) MODE.cur=1-MODE.cur;
+    const L=LIGHTS[MODE.cur]; L.note=nk; L.held=held;
+    const hx=held.fret?(cellL(held.fret)+cellR(held.fret))/2:(FB.x0+FB.nut)/2; L.grad.setAttribute('cx',hx.toFixed(1)); L.grad.setAttribute('cy',FB.strY[held.string].toFixed(1)); }
+  LIGHTS.forEach((L,i)=>{ const goal=i===MODE.cur?FIELD.lit:0; L.op+=(goal-L.op)*kk; if(L.op<0.002&&i!==MODE.cur){ L.op=0; }
+    if(!L.held) return; const pc=pcOf(L.held.string,L.held.pitch), col=rgbS(valRGB(pc)), [x,y]=pt(RG.RL,pc);
+    L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(0.85*L.op).toFixed(3));
+    L.stops.forEach(s=>s.setAttribute('stop-color',col)); L.rect.setAttribute('opacity',L.op.toFixed(3)); });
 };
 // Let Go: the hand lifts off the page's first frame
 document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closest('#clear')) return; e.stopPropagation(); stopForEdit(); P=[]; refresh(); },true);
