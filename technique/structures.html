@@ -1256,7 +1256,9 @@ function tick(){
       T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
     }else break;
   }
-  if(T.segs.length>12) T.segs.splice(0,T.segs.length-6), T.si=Math.min(T.si,T.segs.length);
+  // trim the played segments, keeping the last six; the scheduler's place moves back with them (it used to be clamped
+  // to the new length, which put it past the end: a long run went silent at its 13th segment)
+  if(T.segs.length>12){ const k=T.segs.length-6; T.segs.splice(0,k); T.si=Math.max(0,T.si-k); }
 }
 function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
 function note(s,t,i,first){
