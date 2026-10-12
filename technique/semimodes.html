@@ -208,7 +208,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
 .frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
 .roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
-@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ flex:1; display:flex; align-items:center; justify-content:flex-start; margin-bottom:-52px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
+@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-34px } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:76px; margin-left:0 } .semiName{ position:absolute; top:22px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:10px; height:52px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:52px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs{ position:absolute; top:56px; transform:translateX(-50%); font-size:12px; color:var(--mid); white-space:nowrap; transition:opacity .4s, left .4s } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1948,7 +1948,8 @@ frameHook=(st,live,plan,dt)=>{
   const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
   // the frame's name, in the field's colours
   const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
-  if(ROLL&&key!==MODE.key&&F){ MODE.key=key; rollTo(F); }
+  if(SEMI){ SEMI.step(live?plan[st.idx].grp:plan[0].grp,dt); }
+  else if(ROLL&&key!==MODE.key&&F){ MODE.key=key; rollTo(F); }
   else if(key!==MODE.key&&F){ MODE.key=key;
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
@@ -1980,8 +1981,8 @@ if(BOOK.strings){
 document.querySelector('.tabCol').appendChild($('means')); { const r=document.querySelector('.strRow'); if(r) document.querySelector('.tabCol').appendChild(r); }
 fb.setAttribute('viewBox','0 38 990 266');                               // the board drawn without the headroom over the high e it does not need here
 
-// Semimodes: the label sits just above the string selector (the selector keeps its place, midway down to the fretboard)
-if(BOOK.strings){ $('means').style.marginTop='auto'; const r=document.querySelector('.strRow'); r.style.flex='none'; r.style.marginBottom='-10px'; }
+// Semimodes: the string selector right under the TAB, the mode's line at the foot of the column, just above the fretboard
+if(BOOK.strings){ const col=document.querySelector('.tabCol'), r=document.querySelector('.strRow'); col.insertBefore(r,$('means')); r.style.flex='none'; $('means').style.marginTop='auto'; }
 // Frame Walk: the label centred over the 5th fret, level with the Diatonic button
 if(BOOK.labelAt==='fret5'){
   const lab=$('means'), wrap=document.querySelector('.wrap'); wrap.style.position='relative'; lab.style.position='absolute'; lab.style.margin='0';
@@ -2014,6 +2015,43 @@ const ROLL=BOOK.roll?(()=>{
   return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
+
+/* THE SEMIMODE LINE (Semimodes): the whole mode on one line, from the page's tone to its octave — names spaced by their
+   steps (a half step close, a whole step wide), its two semimodes either side of a marked gap, the tritone. A pill frames
+   the semimode in force: its names at full brightness, its complement's dimmed, "half step" under its half step if it has
+   one. When the semimode changes the pill slides across the gap, each name brightening as the pill takes it in and dimming
+   as the pill leaves it; a semimode that spans the tritone itself stretches the pill over the gap. */
+const SEMI=BOOK.strings?(()=>{
+  const SEMIS={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, U=37, G=150, PAD=36;   // px a semitone, the gap, the pill's reach past a name's centre
+  const host=$('means'); host.innerHTML=''; host.classList.add('semiHost');
+  const box=document.createElement('div'); box.className='semiLine'; host.appendChild(box);
+  let names=[], pill=null, cap=null, hsLbl=null, triLine=null, triLbl=null, built='', cur=null, tgt=null, geo=null;
+  const build=()=>{ const pg=PAGES[PAGE], key=pg.mode+'|'+FIELD.on+'|'+diatonic+'|'+PHI.doPc; if(key===built) return; built=key;
+    box.innerHTML='';
+    const m=W_DEG[pg.mode], seq=[0,1,2,3,4,5,6,7].map(j=>({syl:SYL[(m+j)%7], s:wSemi(m+j)-wSemi(m)}));
+    const lowSpan=seq[3].s, x=[]; seq.forEach((t,i)=>x[i]=PAD+(i<4?t.s*U:lowSpan*U+G+(t.s-seq[4].s)*U));   // name centres
+    const width=x[7]+PAD+4;
+    pill=document.createElement('div'); pill.className='semiPill'; box.appendChild(pill);
+    cap=document.createElement('div'); cap.className='semiCap'; cap.textContent='Semimode'; pill.appendChild(cap);
+    triLine=document.createElement('div'); triLine.className='semiTri'; triLine.style.left=(x[3]+PAD+6).toFixed(0)+'px'; triLine.style.width=(x[4]-x[3]-2*PAD-12).toFixed(0)+'px'; box.appendChild(triLine);
+    triLbl=document.createElement('div'); triLbl.className='semiTriLbl'; triLbl.textContent='tritone'; triLbl.style.left=((x[3]+x[4])/2).toFixed(0)+'px'; box.appendChild(triLbl);
+    hsLbl=document.createElement('div'); hsLbl.className='semiHs'; hsLbl.textContent='half step'; box.appendChild(hsLbl);
+    names=seq.map((t,i)=>{ const e=document.createElement('span'); e.className='semiName'; e.textContent=t.syl; e.style.left=x[i].toFixed(0)+'px';
+      e._rgb=relRGB(SEMIS[t.syl]-2); box.appendChild(e); return e; });
+    box.style.width=width+'px';
+    const span=(a,b)=>seq[b].s-seq[a].s, hs=(a,b)=>{ for(let i=a;i<b;i++) if(seq[i+1].s-seq[i].s===1) return i; return -1; };
+    geo={x, seq, sides:[0,1].map(k=>{ const a=4*k, b=a+3, stretch=span(a,b)===6;
+      return {l:(k===0||!stretch)?x[a]-PAD:x[3]+PAD*0.5, r:(k===1||!stretch)?x[b]+PAD:x[4]-PAD*0.5, hs:hs(a,b)}; })};
+    cur=null; };
+  const paint=()=>{ const L=FIELD.lit, bg=bgColour(), ink=inkColour();
+    names.forEach((e,i)=>{ const cx=geo.x[i], inside=Math.max(0,Math.min(1,Math.min(cx-cur.l,cur.r-cx)/18+0.5));   // in the pill: full; out: dim
+      const col=FIELD.on?e._rgb:ink, dim=mixRGB(bg,col,0.32); e.style.color=rgbS(mixRGB(dim,col,inside)); });
+    pill.style.left=cur.l.toFixed(1)+'px'; pill.style.width=(cur.r-cur.l).toFixed(1)+'px'; };
+  return {step(g,dt){ build(); if(!geo) return; const side=geo.sides[g?1:0];
+    if(!cur){ cur={l:side.l,r:side.r}; }
+    if(tgt!==side){ tgt=side; const h=side.hs; if(h>=0){ hsLbl.style.left=((geo.x[h]+geo.x[h+1])/2).toFixed(0)+'px'; hsLbl.style.opacity=1; } else hsLbl.style.opacity=0; }
+    const k=reduce?1:Math.min(1,(dt||0.016)*5); cur.l+=(side.l-cur.l)*k; cur.r+=(side.r-cur.r)*k; paint(); }};
+})():null;
 
 applySample(0);
 placeRing();
