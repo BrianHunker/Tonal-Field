@@ -2128,7 +2128,7 @@ const SEMI=BOOK.strings?(()=>{
    hand semi-transparent. */
 const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  fb.setAttribute('viewBox','0 4 990 330');                                // headroom for the knuckles, room below for the thumb
+  fb.setAttribute('viewBox','0 4 990 352');                                // headroom for the knuckles, room below for the thumb
   const defs=mk('defs',{},fb), gid='hl'+Math.random().toString(36).slice(2,6);
   const lg=mk('linearGradient',{id:gid+'g',gradientUnits:'userSpaceOnUse',x1:0,y1:FB.bot+20,x2:0,y2:FB.bot+92},defs); mk('stop',{offset:0,'stop-color':'#fff'},lg); mk('stop',{offset:1,'stop-color':'#000'},lg);
   const mask=mk('mask',{id:gid,maskUnits:'userSpaceOnUse',x:-50,y:-200,width:1100,height:700},defs); mk('rect',{x:-50,y:-200,width:1100,height:700,fill:'url(#'+gid+'g)'},mask);
@@ -2222,14 +2222,20 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // under the neck, as the player sees it: the thumb's pad, a broad oval just out from under the near edge, its outer
     // side running up into the neck; and the heel of the hand, a long low line from the pad's foot across under the
     // fingers, curving up into the neck under the little finger
-    const c={x:thx, y:FB.bot+29}, rx=32, ry=29, Rx=tips[3].x+WT[3]*0.5;
-    const pad='M'+f(c.x-rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x+rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x-rx)+' '+f(c.y);
+    // the pad sits clear of the fret markers, a little way below the edge; it is round below and flattened along the
+    // top, where it bears on the back of the neck (the flat rising a little toward the fingers)
+    const c={x:thx, y:FB.bot+52}, rx=32, ry=29, Rx=tips[3].x+WT[3]*0.5, tl=c.y-ry*0.78, tr=c.y-ry*0.86;
+    const pad='M'+f(c.x-rx)+' '+f(c.y)+' C'+f(c.x-rx)+' '+f(c.y-ry*0.55)+' '+f(c.x-rx*0.82)+' '+f(tl)+' '+f(c.x-rx*0.42)+' '+f(tl)
+      +' C'+f(c.x-rx*0.1)+' '+f(tl-1)+' '+f(c.x+rx*0.15)+' '+f(tr)+' '+f(c.x+rx*0.45)+' '+f(tr)
+      +' C'+f(c.x+rx*0.84)+' '+f(tr)+' '+f(c.x+rx)+' '+f(c.y-ry*0.5)+' '+f(c.x+rx)+' '+f(c.y)
+      +' A'+rx+' '+ry+' 0 0 1 '+f(c.x-rx)+' '+f(c.y);
     thumbLine.setAttribute('d',pad); thumbFill.setAttribute('d',pad+' Z');
-    const S={x:c.x-rx-14, y:FB.bot}, Pf={x:c.x+rx*0.25, y:c.y+ry*0.97}, Q={x:Rx-34, y:FB.bot+37};
-    const heel='M'+P2(S)+' C'+f(S.x+4)+' '+f(FB.bot+8)+' '+f(c.x-rx-2)+' '+f(c.y-16)+' '+f(c.x-rx+1)+' '+f(c.y-2)
-      +' M'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(FB.bot+40)+' '+f(Q.x-90)+' '+f(FB.bot+35)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(FB.bot+38)+' '+f(Rx+2)+' '+f(FB.bot+18)+' '+f(Rx)+' '+f(FB.bot);
+    // its outer side running up into the neck; the heel of the hand from the pad's foot across under the fingers and up
+    const S={x:c.x-rx-12, y:FB.bot}, Pf={x:c.x+rx*0.25, y:c.y+ry*0.97}, hy0=c.y+ry*0.55, Q={x:Rx-34, y:hy0};
+    const heel='M'+P2(S)+' C'+f(S.x+3)+' '+f(FB.bot+14)+' '+f(c.x-rx-3)+' '+f(c.y-24)+' '+f(c.x-rx+1)+' '+f(c.y-4)
+      +' M'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(hy0+4)+' '+f(Q.x-90)+' '+f(hy0-2)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(hy0+1)+' '+f(Rx+2)+' '+f(FB.bot+26)+' '+f(Rx)+' '+f(FB.bot);
     armLine.setAttribute('d',heel);
-    armFill.setAttribute('d','M'+P2(S)+' L'+f(c.x)+' '+f(c.y)+' L'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(FB.bot+40)+' '+f(Q.x-90)+' '+f(FB.bot+35)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(FB.bot+38)+' '+f(Rx+2)+' '+f(FB.bot+18)+' '+f(Rx)+' '+f(FB.bot)+' Z');
+    armFill.setAttribute('d','M'+P2(S)+' L'+f(c.x)+' '+f(c.y)+' L'+P2(Pf)+' C'+f(c.x+rx+40)+' '+f(hy0+4)+' '+f(Q.x-90)+' '+f(hy0-2)+' '+P2(Q)+' C'+f(Rx-8)+' '+f(hy0+1)+' '+f(Rx+2)+' '+f(FB.bot+26)+' '+f(Rx)+' '+f(FB.bot)+' Z');
     // the pad's fold at its foot, two faint arcs
     thumbNail.setAttribute('d','M'+f(c.x-14)+' '+f(c.y+15)+' Q'+f(c.x-2)+' '+f(c.y+24)+' '+f(c.x+14)+' '+f(c.y+18)+' M'+f(c.x-18)+' '+f(c.y+18)+' Q'+f(c.x-4)+' '+f(c.y+28)+' '+f(c.x+14)+' '+f(c.y+21));
   }
