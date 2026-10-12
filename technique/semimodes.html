@@ -1955,6 +1955,18 @@ if(BOOK.strings){
 document.querySelector('.tabCol').appendChild($('means')); { const r=document.querySelector('.strRow'); if(r) document.querySelector('.tabCol').appendChild(r); }
 fb.setAttribute('viewBox','0 38 990 266');                               // the board drawn without the headroom over the high e it does not need here
 
+// Semimodes: the label sits just above the string selector (the selector keeps its place, midway down to the fretboard)
+if(BOOK.strings){ $('means').style.marginTop='auto'; const r=document.querySelector('.strRow'); r.style.flex='none'; r.style.marginBottom='-10px'; }
+// Frame Walk: the label centred over the 5th fret, level with the Diatonic button
+if(BOOK.labelAt==='fret5'){
+  const lab=$('means'), wrap=document.querySelector('.wrap'); wrap.style.position='relative'; lab.style.position='absolute'; lab.style.margin='0';
+  const place=()=>{ const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
+    const x=W.left+0, p=fb.createSVGPoint(); p.x=(cellL(5)+cellR(5))/2; p.y=0; const fx=p.matrixTransform(m).x;
+    const r=lab.getBoundingClientRect();
+    lab.style.left=(fx-W.left-r.width/2).toFixed(1)+'px'; lab.style.top=(d.top+d.height/2-W.top-r.height/2).toFixed(1)+'px'; };
+  window.addEventListener('resize',place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
+}
+
 applySample(0);
 placeRing();
 })();
