@@ -206,7 +206,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
-.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
+.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px } .strSel{ margin-left:auto } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1745,7 +1745,9 @@ const BOOK={pages:[
    up, finger 4 walking down. Prev | Next turn the pages; Hold keeps the page looping, otherwise each page plays four
    times and turns to the next. φ is the page's own: set by its first tone and that tone's function (G♯_Ti), with Re at
    12 o'clock. The ring still turns it (the number row, the letters, the field), the hand staying put. */
-const PAGES=BOOK.pages; FLAT_OFF=true;                                                // the book's pages, given by the build
+const PAGES=BOOK.pages; FLAT_OFF=true;
+let STRSEL=NSTR-1;                                                     // Semimodes: the string the page is played on (low E first)
+const effPage=pg=>!BOOK.strings?pg:Object.assign({},pg,{string:STRSEL,anchor:pg.anchor&&Object.assign({},pg.anchor,{s:STRSEL}),paint:pg.paint&&[STRSEL]});                                                // the book's pages, given by the build
 let PAGE=0; const WALK={ham:false,pull:false};
 const W_DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, W_MAJ=[0,2,4,5,7,9,11], W_FING={dim:[1,2,4],min:[1,3,4],maj:[1,2,4]};
 const wSemi=d=>12*Math.floor(d/7)+W_MAJ[((d%7)+7)%7];
@@ -1776,14 +1778,14 @@ function walkPlan(pg){
 function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5}); LOOP=4*bars; BAR_START=i=>i%4===0; }
 // a page written out note by note on one string (Semimodes): bars of four [fret, finger, hand] (finger 0 open; hand a name,
 // the bar's group unless given), each bar in a group that shares one name — its tones, low to high
-// a Semimodes page from its function: up from the open string four tones (open, then a frame in its fingering) and back;
-// down from fret 12 four tones — the top three in their frame, finger 1 shifting down (picked) to the fourth — and back
+// a Semimodes page from its function: up from the open string four tones (open, then a frame in its fingering), on up the
+// upper four to the octave at fret 12 (finger 1 shifting up, picked, into the frame), down those four and up them again
 function semiBars(pg){
   const m=W_DEG[pg.mode], shp=(a,b)=>a===2&&b===2?'maj':(a===2?'min':'dim');
   const up=[1,2,3].map(j=>wSemi(m+j)-wSemi(m)), fu=W_FING[shp(up[1]-up[0],up[2]-up[1])];
   const dn=[0,1,2,3].map(j=>12-(wSemi(m)-wSemi(m-j))), fd=W_FING[shp(dn[1]-dn[2],dn[0]-dn[1])];
   const U=[[0,0],[up[0],fu[0]],[up[1],fu[1]],[up[2],fu[2]]], D=[[dn[0],fd[2]],[dn[1],fd[1]],[dn[2],fd[0]],[dn[3],1,'shift']];
-  return [{g:0,n:U},{g:0,n:U.slice().reverse()},{g:1,n:D},{g:1,n:D.slice().reverse()}];
+  return [{g:0,n:U},{g:1,n:D.slice().reverse()},{g:1,n:D},{g:1,n:D.slice().reverse()}];   // up to the 4th, on up to the octave, down to the 5th, back to the octave
 }
 function seqPlan(pg){
   const plan=[], keys=[], bars=pg.bars||semiBars(pg);
@@ -1799,7 +1801,7 @@ function seqPlan(pg){
   return {plan,frames,groups,bars:bars.length};
 }
 function walkDrill(i){
-  const pg=PAGES[i], W=pg.kind==='seq'?seqPlan(pg):walkPlan(pg), a=W.plan[0], b=W.plan[1];
+  const pg=effPage(PAGES[i]), W=pg.kind==='seq'?seqPlan(pg):walkPlan(pg), a=W.plan[0], b=W.plan[1];
   return {walk:true,page:i,means:'pick',ham:WALK.ham,pull:WALK.pull,dir:'up',plan:W.plan,frames:W.frames,groups:W.groups,bars:W.bars,
     lo:{s:a.string,f:a.fret,g:a.finger},hi:{s:b.string,f:b.fret,g:b.finger}};
 }
@@ -1809,7 +1811,7 @@ function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg};
   PHI.doPc=((pcOf(a.s,a.f)-SYLPC[W_DEG[a.deg]])%12+12)%12;
   let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
-  PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=PAGES[PAGE];
+  PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
   pagePhi(pg); RING.goal=pg.order==='chrom'?0:(pg.dir==='down'?1:0);                          // stopped: the order of the page's first half
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
@@ -1835,7 +1837,7 @@ function run(){
 function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS); s.end=s.loopStart+s.loops*LOOP*T.beat; }
 function nextSeg(after){ const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(PAGES[PAGE]);
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE]));
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
@@ -1886,7 +1888,7 @@ fingers.forEach(F=>{ F.c.style.pointerEvents='none'; F.t.style.pointerEvents='no
 /* ---------- the frame and the mode ----------
    The FRAME label names the frame the hand is on, low to high, a whole step marked by the gap between names (TiDo_Re). It
    changes the moment a finger lands on a new string: walking up on the held tone (the & of 2), walking down on the & of 1.
-   The MODE is each bar's first tone until the & of 2, then the tone held there for a half note: its letter on the ring
+   The MODE is the last tone held for a half note (on the & of 2), lit where it was last played: its letter on the ring
    gets a spotlight in its own colour, and the fretboard a radial tinge of it from its fret. g(x) off: no colour, so neither shows. */
 const frameLbl=$('frameLbl');
 const sylName=pc=>{ const k=((pc-(PHI.doPc+2))%12+12)%12; return SOLF[k][0]; };   // the field's name for a pitch (an anti keeps its ~)
@@ -1904,11 +1906,13 @@ const LIGHTS=[0,1].map(i=>{
   return {spot,grad,stops,rect,op:0,note:null}; });
 const MODE={key:'',cur:0};
 function modeNow(st,live,plan){                                          // the held tone in force, and the frame sounding
-  // the mode: each bar's first tone, then its held tone from the & of 2 (in a walk the first is the last bar's held tone)
-  // the frame in force is the hand's: it changes the moment a finger lands in a new place, either way
-  if(!live) return {held:plan[0],frame:plan[0].frame};
-  let h=plan[0]; for(let i=st.idx;i>=0;i--) if(i%4===3||i%4===0){ h=plan[i]; break; }
-  return {held:h,frame:plan[st.idx].frame};
+  // the mode: the last tone held (the loop's last before the first), lit where that tone was last played — a bar that opens
+  // on it moves its light there; the frame in force is the hand's: it changes the moment a finger lands in a new place
+  const n=plan.length, idx=live?st.idx:0, pcN=q=>pcOf(q.string,q.pitch);
+  let hi=-1; for(let i=idx;i>=0;i--) if(i%4===3){ hi=i; break; }
+  let h=hi>=0?plan[hi]:plan[n-1]; const b0=idx-idx%4;
+  if(b0>hi&&pcN(plan[b0])===pcN(h)) h=plan[b0];
+  return {held:h,frame:plan[idx].frame};
 }
 /* the ring's order follows the walk: chromatic (1) on the way up, the dominant chain (5) on the way down. It turns to the
    return's order on the held tone at the far string, and back only once the last bar has fully sounded, as the loop begins again. */
@@ -1927,7 +1931,7 @@ frameHook=(st,live,plan,dt)=>{
   if(key!==MODE.key&&F){ MODE.key=key;
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
-      return gap+'<span style="color:'+(FIELD.on?rgbS(valRGB(pc)):'')+'">'+sylName(pc)+'</span>'; }).join(''); }
+      return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(pc-(PHI.doPc+2))):'')+'">'+sylName(pc)+'</span>'; }).join(''); }   // the colour of its function under φ, not of the ring mid-turn
   // the mode: a spotlight on its letter, a tinge on the board from its fret; a new mode crossfades in
   const nk=held.string+':'+held.pitch, kk=Math.min(1,(dt||0.016)*6);
   if(!LIGHTS[MODE.cur].note||LIGHTS[MODE.cur].note!==nk){ if(LIGHTS[MODE.cur].note) MODE.cur=1-MODE.cur;
@@ -1940,6 +1944,16 @@ frameHook=(st,live,plan,dt)=>{
 };
 // Let Go: the hand lifts off the page's first frame
 document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closest('#clear')) return; e.stopPropagation(); stopForEdit(); P=[]; refresh(); },true);
+
+// the string selector, just above the fretboard: low to high, as the strings lie under the hand
+if(BOOK.strings){
+  const seg=document.createElement('div'); seg.className='seg strSel'; seg.setAttribute('role','group'); seg.setAttribute('aria-label','String');
+  for(let i=NSTR-1;i>=0;i--){ const b=document.createElement('button'); b.type='button'; b.dataset.s=i; b.textContent=STRINGS[i].lbl; b.title='Play the page on the '+STRINGS[i].name+' string'; seg.appendChild(b); }
+  $('means').appendChild(seg);
+  const sync=()=>seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===STRSEL));
+  seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const was=T.on; stopForEdit(); STRSEL=+b.dataset.s; sync(); loadPage(PAGE); refresh(); if(was) run(); });
+  sync();
+}
 
 applySample(0);
 placeRing();
