@@ -231,7 +231,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
     <button id="hold" class="pill" type="button" aria-pressed="false" title="Hold: keep drilling this place instead of advancing">Hold</button>
     <div class="pillPair"><button id="prev" type="button" title="The previous sample">Prev</button><button id="next" type="button" title="The next sample">Next</button></div>
     <span class="pageCt" id="pageCt" aria-live="polite" title="Page">1/1</span>
-    <button id="clear" class="pill" type="button" title="Let go of every finger and start a fingering from nothing">Let Go</button>
+    <button id="clear" class="pill" hidden type="button" title="Let go of every finger and start a fingering from nothing">Let Go</button>
     <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
     <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
     <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound and display">&#x2699;&#xFE0E;</button>
@@ -338,6 +338,7 @@ const SYL=['Do','Re','Mi','Fa','Sol','La','Ti'], SYLPC=[0,2,4,5,7,9,11];
 const PHI={doPc:3,root:0};                                             // Do's pitch (semitones above A; 3 = C) and the modal root, by syllable
 const HEAR={tido:{lo:11,names:['Ti','Do']},mifa:{lo:4,names:['Mi','Fa']}};
 let hearing='tido', diatonic=true;
+let FLAT_OFF=false;                                                    // a page whose field, g(x) going off, flattens to a grey circle rather than fading
 const relOf=pc=>(((pc-PHI.doPc)%12)+12)%12;
 const sylOf=pc=>{ const k=SYLPC.indexOf(relOf(pc)); return k<0?null:SYL[k]; };
 const hearingOf=D=>{ if(!D) return null; const r=relOf(pcOf(D.lo.s,D.lo.f)); return r===11?'tido':(r===4?'mifa':null); };
@@ -785,14 +786,16 @@ const fieldD=chain=>chain?FIELD.reC-FIELD.reCA:FIELD.re-FIELD.reA;          // t
 function fieldAt(p,chain){ const m=FIELD.mx; if(m<0) return fieldW(p,chain); const d=fieldD(chain); return (1-m)*fieldW(p+d,chain)+m*fieldW(p,chain); }
 function fieldRGB(p,chain){ const C=chain?chainRGB:relRGB, m=FIELD.mx; if(m<0) return C(p); return mixRGB(C(p+fieldD(chain)),C(p),m); }
 function shapeField(){
-  const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic; if(key===valKey) return; valKey=key;
-  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*fieldAt(k,chain), f2=v=>v.toFixed(2);
-  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=fieldRGB(12*(i+.5)/VAL.N,chain);   // each wedge overlaps the next a little: opaque, so no seams
+  const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic+'|'+(FLAT_OFF?FIELD.lit.toFixed(3):''); if(key===valKey) return; valKey=key;
+  // FLAT_OFF: the field's height and colour scale with g(x)'s light — at none, a flat grey circle on the hinge
+  const A=FLAT_OFF?FIELD.lit:1, gry=mixRGB(bg,inkColour(),0.55), cm=c=>FLAT_OFF?mixRGB(gry,c,FIELD.lit):c;
+  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*A*fieldAt(k,chain), f2=v=>v.toFixed(2);
+  for(let i=0;i<VAL.N;i++){ const k0=12*i/VAL.N, k1=12*(i+1.4)/VAL.N, k2=12*(i+1)/VAL.N, rgb=cm(fieldRGB(12*(i+.5)/VAL.N,chain));   // each wedge overlaps the next a little: opaque, so no seams
     const [a,b]=at(k0,VAL.R0), [d,e]=at(k1,VAL.R0), [f,g]=at(k1,rOf(k1)), [h,j]=at(k0,rOf(k0)), [x2,y2]=at(k2,rOf(k2));
     valFills[i].setAttribute('d','M'+f2(a)+' '+f2(b)+'L'+f2(d)+' '+f2(e)+'L'+f2(f)+' '+f2(g)+'L'+f2(h)+' '+f2(j)+'Z');
-    valFills[i].setAttribute('fill',rgbS(mixRGB(bg,rgb,0.32)));                   // the petals' wash: 32% of the colour over the page
+    valFills[i].setAttribute('fill',rgbS(mixRGB(bg,rgb,0.32*A)));                   // the petals' wash: 32% of the colour over the page
     const L=valLines[i]; L.setAttribute('x1',f2(h)); L.setAttribute('y1',f2(j)); L.setAttribute('x2',f2(x2)); L.setAttribute('y2',f2(y2)); L.setAttribute('stroke',rgbS(rgb)); }
-  valDots.forEach((dt,k)=>{ const j=chain?7*k:k, [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(fieldRGB(j,chain))); });
+  valDots.forEach((dt,k)=>{ const j=chain?7*k:k, [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(cm(fieldRGB(j,chain)))); });
 }
 
 const valLbls=[0,1,2,3,4,5,6].map(()=>el('text',{class:'valLbl','font-size':13,opacity:0},ringSvg));   // the pair's two names, in their colours
@@ -800,12 +803,12 @@ function placeField(){
   const swing=Math.abs(1-2*RING.m), chain=RING.m>=0.5;                // changing order, the field dips out and back in the new order
   buildWedge();
   shapeField(); wedge.setAttribute('opacity',((1-0.6*FIELD.lit)*swing).toFixed(3));
-  valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));
+  valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',((FLAT_OFF?1:FIELD.lit)*swing).toFixed(3));
   const mx=FIELD.mx, old=mx>=0&&mx<0.5, fade=mx>=0?Math.abs(1-2*mx):1, chainL=RING.m>=0.5;   // the names: the old set fades out as the new fades in
   const bR=old?FIELD.reA:FIELD.re, bC=old?FIELD.reCA:FIELD.reC;
   const TRIO=[]; for(let k=0;k<12;k++) if(!SOLF[k][0].startsWith('~')) TRIO.push(k);   // the seven diatonic places
   valDots.forEach((d,k)=>d.setAttribute('r',TRIO.includes(k)?3.2:2.2));
-  TRIO.forEach((k,i)=>{ const pc=lerpPos(bR+k,bC+7*k,RING.m), v=fieldAt(chainL?bC+7*k-FIELD.reC:bR+k-FIELD.re,chainL), r=VAL.R0+VAL.K*v-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
+  TRIO.forEach((k,i)=>{ const pc=lerpPos(bR+k,bC+7*k,RING.m), v=fieldAt(chainL?bC+7*k-FIELD.reC:bR+k-FIELD.re,chainL), r=VAL.R0+VAL.K*v*(FLAT_OFF?FIELD.lit:1)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
     if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(relRGB(k));
     t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade).toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
@@ -1728,14 +1731,8 @@ function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.se
 segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
 syncStrobe();
 syncGx();
-const BOOK={pages:[
-  {kind:'seq', string:NSTR-1, anchor:{s:NSTR-1,f:0,deg:'do'}, top:'do', order:'chrom', paint:[NSTR-1], bars:[   // 1. E_Do on the low E
-    {g:0, n:[[0,0],[2,1],[4,3],[5,4]]},   // Do Re Mi Fa~   (F#_Re position: fingers 1 3 4, Do open)
-    {g:0, n:[[5,4],[4,3],[2,1],[0,0]]},   // Fa Mi Re Do~
-    {g:1, n:[[12,4],[11,3],[9,1],[7,1,'sol']]}, // Do Ti La (La frame: fingers 1 3 4) then Sol~: the hand shifts down, finger 1 slides (picked)
-    {g:1, n:[[7,1,'sol'],[9,1],[11,3],[12,4]]}  // Sol, then finger 1 back up to La, and the La frame again: Ti Do~ (still Sol mode till Do)
-  ]}
-]};
+const BOOK={loops:2, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
+  {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'chrom', paint:[NSTR-1]}))};
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
    up the strings (or down them), one frame a string, the first tone of the next frame held at the end of each bar (the
@@ -1744,7 +1741,7 @@ const BOOK={pages:[
    up, finger 4 walking down. Prev | Next turn the pages; Hold keeps the page looping, otherwise each page plays four
    times and turns to the next. φ is the page's own: set by its first tone and that tone's function (G♯_Ti), with Re at
    12 o'clock. The ring still turns it (the number row, the letters, the field), the hand staying put. */
-const PAGES=BOOK.pages;                                                // the book's pages, given by the build
+const PAGES=BOOK.pages; FLAT_OFF=true;                                                // the book's pages, given by the build
 let PAGE=0; const WALK={ham:false,pull:false};
 const W_DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, W_MAJ=[0,2,4,5,7,9,11], W_FING={dim:[1,2,4],min:[1,3,4],maj:[1,2,4]};
 const wSemi=d=>12*Math.floor(d/7)+W_MAJ[((d%7)+7)%7];
@@ -1775,18 +1772,27 @@ function walkPlan(pg){
 function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5}); LOOP=4*bars; BAR_START=i=>i%4===0; }
 // a page written out note by note on one string (Semimodes): bars of four [fret, finger, hand] (finger 0 open; hand a name,
 // the bar's group unless given), each bar in a group that shares one name — its tones, low to high
+// a Semimodes page from its function: up from the open string four tones (open, then a frame in its fingering) and back;
+// down from fret 12 four tones — the top three in their frame, finger 1 shifting down (picked) to the fourth — and back
+function semiBars(pg){
+  const m=W_DEG[pg.mode], shp=(a,b)=>a===2&&b===2?'maj':(a===2?'min':'dim');
+  const up=[1,2,3].map(j=>wSemi(m+j)-wSemi(m)), fu=W_FING[shp(up[1]-up[0],up[2]-up[1])];
+  const dn=[0,1,2,3].map(j=>12-(wSemi(m)-wSemi(m-j))), fd=W_FING[shp(dn[1]-dn[2],dn[0]-dn[1])];
+  const U=[[0,0],[up[0],fu[0]],[up[1],fu[1]],[up[2],fu[2]]], D=[[dn[0],fd[2]],[dn[1],fd[1]],[dn[2],fd[0]],[dn[3],1,'shift']];
+  return [{g:0,n:U},{g:0,n:U.slice().reverse()},{g:1,n:D},{g:1,n:D.slice().reverse()}];
+}
 function seqPlan(pg){
-  const plan=[], keys=[];
-  pg.bars.forEach(b=>b.n.forEach(([f,g,h])=>{ const hk=h===undefined?'g'+b.g:h; if(!keys.includes(hk)) keys.push(hk);
+  const plan=[], keys=[], bars=pg.bars||semiBars(pg);
+  bars.forEach(b=>b.n.forEach(([f,g,h])=>{ const hk=h===undefined?'g'+b.g:h; if(!keys.includes(hk)) keys.push(hk);
     plan.push({string:pg.string,fret:f,pitch:f,push:0,finger:g,frame:keys.indexOf(hk),grp:b.g,pick:true,glide:false,pre:false,kind:'pick',hi:false}); }));
   const frames=keys.map((hk,k)=>{ const pl=[]; plan.filter(n=>n.frame===k).forEach(n=>{ if(n.finger&&!pl.some(q=>q.g===n.finger)) pl.push({g:n.finger,s:pg.string,f:n.fret}); });
     return {string:pg.string,tones:[],pl,hand:handFor(pl)}; });
-  const groups=[]; for(let k=0;k<=Math.max(...pg.bars.map(b=>b.g));k++)
+  const groups=[]; for(let k=0;k<=Math.max(...bars.map(b=>b.g));k++)
     groups.push({string:pg.string,tones:[...new Set(plan.filter(n=>n.grp===k).map(n=>n.fret))].sort((x,y)=>x-y).map(f=>({fret:f}))});
   if(WALK.ham||WALK.pull) plan.forEach((e,i)=>{ const q=plan[(i+plan.length-1)%plan.length];
     if(q.string!==e.string||q.pitch===e.pitch) return;
     if(e.pitch>q.pitch&&WALK.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&WALK.pull){ e.pick=false; e.kind='pull'; } });
-  return {plan,frames,groups,bars:pg.bars.length};
+  return {plan,frames,groups,bars:bars.length};
 }
 function walkDrill(i){
   const pg=PAGES[i], W=pg.kind==='seq'?seqPlan(pg):walkPlan(pg), a=W.plan[0], b=W.plan[1];
@@ -1822,7 +1828,7 @@ function run(){
     playBtn.textContent='Stop'; playBtn.classList.add('on');
   });
 }
-function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:ADV_LOOPS; s.end=s.loopStart+s.loops*LOOP*T.beat; }
+function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS); s.end=s.loopStart+s.loops*LOOP*T.beat; }
 function nextSeg(after){ const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
   T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(PAGES[PAGE]);
@@ -1832,7 +1838,7 @@ function holdChanged(){
   if(!T.on||PAGES.length<2) return;
   const now=ctx.currentTime, s=segAt(now);
   if(drill.hold){ const k=T.segs.indexOf(s); if(T.si===k){ s.loops=Infinity; s.end=Infinity; } }
-  else if(!isFinite(s.loops)){ const cyc=Math.max(0,Math.floor((now-s.loopStart)/(LOOP*T.beat))); s.loops=Math.max(ADV_LOOPS,cyc+1); s.end=s.loopStart+s.loops*LOOP*T.beat; }
+  else if(!isFinite(s.loops)){ const cyc=Math.max(0,Math.floor((now-s.loopStart)/(LOOP*T.beat))); s.loops=Math.max(BOOK.loops||ADV_LOOPS,cyc+1); s.end=s.loopStart+s.loops*LOOP*T.beat; }
 }
 function refresh(){
   CAND={C:[],fingers:new Set(),cells:new Map()};
