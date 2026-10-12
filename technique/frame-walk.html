@@ -2222,8 +2222,9 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // the thumb's tip just out from under the near edge, the thumb going back under the neck toward the heel of the hand;
     // the forearm on down toward the player
     // the thumb checks in: whenever every finger is off the strings it moves to sit between the index and the middle
-    // finger; while any finger presses it stays where it is, the hand working around it
-    if(thT===null||!tips.some(p=>p.kk)) thT=(pads[0].x+pads[1].x)/2;
+    // finger; while any finger presses during play it stays where it is, the hand working around it
+    // (stopped, or posing, it is always there: nothing is moving the hand around it)
+    if(thT===null||!T.on||!tips.some(p=>p.kk)) thT=(pads[0].x+pads[1].x)/2;
     const k=reduce?1:Math.min(1,(dt||0.016)/0.12); thx=thx===null||reduce?thT:thx+(thT-thx)*k;
     const mean=(tips[0].x+tips[1].x+tips[2].x+tips[3].x)/4; sm=sm===null||reduce?mean:sm+(mean-sm)*k;
     // under the neck, as the player sees it: the thumb's pad, a broad oval just out from under the near edge, its outer
