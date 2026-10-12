@@ -2021,7 +2021,7 @@ function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','
    the semimode in force: its names at full brightness, its complement's dimmed, "half step" under its half step if it has
    one. When the semimode changes the pill slides across the gap, each name brightening as the pill takes it in and dimming
    as the pill leaves it. Where a semimode spans the tritone itself (Fa to Ti, on the Ti and Fa pages) there is no gap: the
-   two halves meet at a half step, and the tritone mark runs under that semimode's names.
+   two halves meet at a half step, and the tritone mark sits under the root's tritone — Fa on the Ti page, Ti on the Fa page.
    A page turn is a step along the chain: each page's upper semimode is the next page's lower one (the seventh closes the
    loop back to the first). So a turn slides the whole line left — the dimmed semimode and its tritone leave to the left,
    the framed one rides the pill into the lower place, a new tritone and the coming semimode arrive from the right. Prev
@@ -2035,7 +2035,7 @@ const SEMI=BOOK.strings?(()=>{
   const lineOf=mode=>{ const m=W_DEG[mode], seq=[0,1,2,3,4,5,6,7].map(j=>({syl:SYL[(m+j)%7], s:wSemi(m+j)-wSemi(m)}));
     const lowSpan=seq[3].s, tt=lowSpan===6?0:seq[7].s-seq[4].s===6?4:-1, x=[];   // tt: the half that is itself the tritone, if one is
     seq.forEach((t,i)=>x[i]=PAD+(tt>=0?t.s*U:i<4?t.s*U:lowSpan*U+G+(t.s-seq[4].s)*U));
-    const tri=tt>=0?{l:x[tt]-4, r:x[tt+3]+4}:{l:x[3]+PAD+6, r:x[4]-PAD-6};   // under the tritone's names, or across the gap
+    const tw=G-2*PAD-12, tc=tt>=0?x[seq.findIndex(t=>t.s===6)]:(x[3]+x[4])/2, tri={l:tc-tw/2, r:tc+tw/2};   // one size everywhere: across the gap, or under the root's tritone (Fa of Ti, Ti of Fa)
     return {m,seq,x,tri}; };
   const el=(cls,txt,left)=>{ const e=document.createElement('div'); e.className=cls; if(txt) e.textContent=txt; e.style.left=left.toFixed(1)+'px'; track.appendChild(e); return e; };
   const name=(syl,left)=>{ const e=document.createElement('span'); e.className='semiName'; e.textContent=syl; e.style.left=left.toFixed(1)+'px'; e._x=left; e._rgb=relRGB(SEMIS[syl]-2); track.appendChild(e); return e; };
@@ -2052,7 +2052,8 @@ const SEMI=BOOK.strings?(()=>{
       if(dir&&!reduce){ const off=dir>0?O.x[4]-L.x[0]:O.x[0]-L.x[4], keep=geo.sides[dir>0?1:0];
         // the pill rides with its names when it frames the half that stays; it lets go only once the line has settled
         const carry=!!cur&&Math.abs(cur.l-keep.l)+Math.abs(cur.r-keep.r)<24;
-        slide={old:O, off, dir, p:0, carry}; if(cur){ cur.l-=off; cur.r-=off; } }
+        const tcN=(L.tri.l+L.tri.r)/2, tcO=(O.tri.l+O.tri.r)/2-off, wN=L.x[7]+PAD+4;
+        slide={old:O, off, dir, p:0, carry, popIn:tcN+off>-10&&tcN+off<wN+10, popOut:tcO>-10&&tcO<wN+10}; if(cur){ cur.l-=off; cur.r-=off; } }
       else { slide=null; cur=null; }
     }
     const hsX=hsLbl&&hsLbl._x!==undefined?hsLbl._x-(slide&&slide.p===0?slide.off:0):0; if(!hsLbl||hsLbl._x===undefined) hsOn=0;
@@ -2067,11 +2068,14 @@ const SEMI=BOOK.strings?(()=>{
     tgt=null; };
   const clamp=v=>Math.max(0,Math.min(1,v));
   const edge=x=>clamp((x+40)/50)*clamp((width+70-x)/60);   // things leave the line to the left and arrive from the right
-  const paint=shift=>{ const bg=bgColour(), ink=inkColour();
+  const paint=(shift,e)=>{ const bg=bgColour(), ink=inkColour();
     track.style.transform=shift?'translateX('+shift.toFixed(1)+'px)':'';
     names.concat(ghosts.filter(e=>e.className==='semiName')).forEach(e=>{ const cx=e._x, inside=clamp(Math.min(cx-cur.l,cur.r-cx)/18+0.5);   // in the pill: full; out: dim
       const col=FIELD.on?e._rgb:ink, dim=mixRGB(bg,col,0.32); e.style.color=rgbS(mixRGB(dim,col,inside)); e.style.opacity=edge(cx+shift).toFixed(3); });
-    geo.extras.concat(ghosts.filter(e=>e.className!=='semiName')).forEach(e=>{ e.style.opacity=edge(e._x+shift).toFixed(3); });
+    // a tritone mark that changes place within the line fades across the slide rather than popping
+    const fin=slide&&slide.popIn?e:1, fout=slide&&slide.popOut?1-e:1;
+    geo.extras.forEach(x=>{ x.style.opacity=(fin*edge(x._x+shift)).toFixed(3); });
+    ghosts.filter(x=>x.className!=='semiName').forEach(x=>{ x.style.opacity=(fout*edge(x._x+shift)).toFixed(3); });
     hsLbl.style.opacity=(hsOn*edge(hsLbl._x+shift)).toFixed(3);
     pill.style.left=cur.l.toFixed(1)+'px'; pill.style.width=(cur.r-cur.l).toFixed(1)+'px'; };
   return {step(g,dt){ build(); if(!geo) return; const side=geo.sides[g?1:0]; dt=dt||0.016;
@@ -2079,10 +2083,10 @@ const SEMI=BOOK.strings?(()=>{
     if(tgt!==side){ tgt=side; const h=side.hs; if(h>=0){ hsLbl._x=(geo.x[h]+geo.x[h+1])/2; hsLbl.style.left=hsLbl._x.toFixed(1)+'px'; } }
     const hsGoal=side.hs>=0&&Math.abs(cur.l-side.l)+Math.abs(cur.r-side.r)<24?1:0; hsOn+=(hsGoal-hsOn)*(reduce?1:Math.min(1,dt*6));
     const k=reduce?1:slide&&slide.carry?0:Math.min(1,dt*5); cur.l+=(side.l-cur.l)*k; cur.r+=(side.r-cur.r)*k;
-    let shift=0;
-    if(slide){ slide.p=Math.min(1,slide.p+dt/SLIDE); const p=slide.p, e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2; shift=slide.off*(1-e);
+    let shift=0, e=1;
+    if(slide){ slide.p=Math.min(1,slide.p+dt/SLIDE); const p=slide.p; e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2; shift=slide.off*(1-e);
       if(p>=1){ slide=null; ghosts.forEach(e=>e.remove()); ghosts=[]; shift=0; } }
-    paint(shift); }};
+    paint(shift,e); }};
 })():null;
 
 applySample(0);
