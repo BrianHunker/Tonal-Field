@@ -1853,7 +1853,8 @@ function ringMoved(){ refresh(); }
 function clickFinger(){} function clickCell(){} function addPair(){} function dragTo(){} function settle(){} function relayout(){} function edited(){}
 fingers.forEach(F=>{ F.c.style.pointerEvents='none'; F.t.style.pointerEvents='none'; }); thumbG.style.pointerEvents='none';
 /* ---------- the frame and the mode ----------
-   The FRAME label names the frame the hand is in: its three tones, a whole step marked by the gap between names (TiDo_Re).
+   The FRAME label names the frame of the held tone, from the held tone (so its first name is the mode), changing with the
+   mode on the & of 2; a whole step is marked by the gap between names (TiDo_Re; walking down, Ti_La_Sol).
    The MODE is the last tone held for a half note — each bar's fourth tone — and holds until the next: its letter on the ring
    gets a spotlight in its own colour, and the fretboard takes a gradient tinge of it. Before the first hold, the mode is the
    last one the loop holds (the page's own start: G♯_Ti). g(x) off: no colour, so neither shows. */
@@ -1869,13 +1870,10 @@ fb.insertBefore(tinge,boardRect.nextSibling);
 const MODE={rgb:null,op:0,key:''};
 function modeNow(st,live,plan){                                          // the held tone in force, and the frame sounding
   const lastHeld=()=>{ for(let i=plan.length-1;i>=0;i--) if(i%4===3) return plan[i]; return plan[0]; };
-  // the frame a bar walks is its second tone's (going up the bar's first three tones share it, coming down its last three);
-  // the label turns to the next bar's frame on the held tone, the same way up and down
-  const walked=bar=>plan[((4*bar+1)%plan.length+plan.length)%plan.length].frame;
-  if(!live) return {held:lastHeld(),frame:walked(0)};
+  // the frame in force is the held tone's: it changes on the & of 2 with the mode, and is named from the held tone
+  if(!live){ const h=lastHeld(); return {held:h,frame:h.frame}; }
   let h=null; for(let i=st.idx;i>=0;i--) if(i%4===3){ h=plan[i]; break; }
-  const bar=Math.floor(st.idx/4);
-  return {held:h||lastHeld(),frame:walked(st.idx%4===3?bar+1:bar)};
+  h=h||lastHeld(); return {held:h,frame:h.frame};
 }
 /* the ring's order follows the walk: chromatic (1) on the way up, the dominant chain (5) on the way down. It turns to the
    return's order on the held tone at the far string, and back only once the last bar has fully sounded, as the loop begins again. */
@@ -1889,9 +1887,10 @@ frameHook=(st,live,plan,dt)=>{
   if(live){ const g=orderFor(st,live); if(RING.goal!==g){ RING.goal=g; refresh(); } }
   const {held,frame:k}=modeNow(st,live,plan), F=DRILL.frames[k];
   // the frame's name, in the field's colours
-  const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
+  const key=k+'|'+held.fret+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
   if(key!==MODE.key&&F){ MODE.key=key;
-    frameLbl.innerHTML=F.tones.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&t.fret-F.tones[i-1].fret===2?'<span class="us">_</span>':'';
+    const T3=held.fret===F.tones[0].fret?F.tones:F.tones.slice().reverse();   // from the held tone: the mode first
+    frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
       return gap+'<span style="color:'+(FIELD.on?rgbS(valRGB(pc)):'')+'">'+sylName(pc)+'</span>'; }).join(''); }
   // the mode: a spotlight on its letter, a tinge on the board
   const pc=pcOf(held.string,held.pitch), goal=FIELD.lit, c=valRGB(pc), kk=Math.min(1,(dt||0.016)*6);
