@@ -338,7 +338,7 @@ const SYL=['Do','Re','Mi','Fa','Sol','La','Ti'], SYLPC=[0,2,4,5,7,9,11];
 const PHI={doPc:3,root:0};                                             // Do's pitch (semitones above A; 3 = C) and the modal root, by syllable
 const HEAR={tido:{lo:11,names:['Ti','Do']},mifa:{lo:4,names:['Mi','Fa']}};
 let hearing='tido', diatonic=true;
-let FLAT_OFF=false;                                                    // a page whose field, g(x) going off, flattens to a grey circle rather than fading
+let FLAT_OFF=false, SEG_EACH=false;                                     // SEG_EACH: every pass of a drill is its own segment, with its own count-in                                                    // a page whose field, g(x) going off, flattens to a grey circle rather than fading
 const relOf=pc=>(((pc-PHI.doPc)%12)+12)%12;
 const sylOf=pc=>{ const k=SYLPC.indexOf(relOf(pc)); return k<0?null:SYL[k]; };
 const hearingOf=D=>{ if(!D) return null; const r=relOf(pcOf(D.lo.s,D.lo.f)); return r===11?'tido':(r===4?'mifa':null); };
@@ -1255,7 +1255,7 @@ function tick(){
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){
       for(const k in s.strs) s.strs[k].stopAt(s.end);
-      if(T.si===T.segs.length-1&&!drill.hold){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
+      if(T.si===T.segs.length-1&&(!drill.hold||SEG_EACH)){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
       T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
     }else break;
   }
@@ -1757,7 +1757,7 @@ const BOOK={labelAt:'fret5', pages:[
    up, finger 4 walking down. Prev | Next turn the pages; Hold keeps the page looping, otherwise each page plays four
    times and turns to the next. φ is the page's own: set by its first tone and that tone's function (G♯_Ti), with Re at
    12 o'clock. The ring still turns it (the number row, the letters, the field), the hand staying put. */
-const PAGES=BOOK.pages; FLAT_OFF=true;
+const PAGES=BOOK.pages; FLAT_OFF=true; SEG_EACH=!!BOOK.countEach;
 let STRSEL=NSTR-1;                                                     // Semimodes: the string the page is played on (low E first)
 const effPage=pg=>!BOOK.strings?pg:Object.assign({},pg,{string:STRSEL,anchor:pg.anchor&&Object.assign({},pg.anchor,{s:STRSEL}),paint:pg.paint&&[STRSEL]});                                                // the book's pages, given by the build
 let PAGE=0; const WALK={ham:false,pull:false};
@@ -1835,9 +1835,9 @@ function loadPage(i){
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
 }
-function walkSeg(i){
+function walkSeg(i,pass){
   const D=walkDrill(i);
-  return {D,plan:D.plan,hand:cloneHand(D.frames[0].hand),hands:D.frames.map(F=>F.hand),si:i,custom:false,mode:'pick',strs:{},plant:true,xt:0};
+  return {D,pass:pass||0,plan:D.plan,hand:cloneHand(D.frames[0].hand),hands:D.frames.map(F=>F.hand),si:i,custom:false,mode:'pick',strs:{},plant:true,xt:0};
 }
 // the tool's own functions, given to the pages
 function applySample(i){ loadPage(i); refresh(); }
@@ -1852,14 +1852,17 @@ function run(){
     playBtn.textContent='Stop'; playBtn.classList.add('on');
   });
 }
-function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS); s.end=s.loopStart+s.loops*LOOP*T.beat; }
-function nextSeg(after){ const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
+function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=SEG_EACH?1:((drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS)); s.end=s.loopStart+s.loops*LOOP*T.beat; }
+function nextSeg(after){
+  if(SEG_EACH){ const last=T.segs[T.segs.length-1], pass=last?last.pass+1:0;   // a count-in before every pass: the page again until its passes are done (or always, on Hold)
+    if(drill.hold||PAGES.length<2||pass<(BOOK.loops||1)){ const s=walkSeg(after,pass); walkFig(s.D.bars); return s; } }
+  const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); if(PAGES[PAGE].order==='alt') RING.goal=0;
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); if(PAGES[PAGE].order==='alt') RING.goal=s.pass%2;   // the next pass's order shows through its count-in
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
-  if(!T.on||PAGES.length<2) return;
+  if(!T.on||PAGES.length<2||SEG_EACH) return;
   const now=ctx.currentTime, s=segAt(now);
   if(drill.hold){ const k=T.segs.indexOf(s); if(T.si===k){ s.loops=Infinity; s.end=Infinity; } }
   else if(!isFinite(s.loops)){ const cyc=Math.max(0,Math.floor((now-s.loopStart)/(LOOP*T.beat))); s.loops=Math.max(BOOK.loops||ADV_LOOPS,cyc+1); s.end=s.loopStart+s.loops*LOOP*T.beat; }
@@ -1937,7 +1940,7 @@ function modeNow(st,live,plan){                                          // the 
 function orderFor(st,live){
   const pg=PAGES[PAGE], L=DRILL.bars/2, out=pg.dir==='down'?1:0;
   if(pg.order==='chrom') return 0;
-  if(pg.order==='alt'){ if(!live) return 0; const s=st.s, cyc=Math.floor((ctx.currentTime-s.loopStart)/(LOOP*T.beat)); return cyc%2; }   // Semimodes: 1 the first time through, 5 for the repeat
+  if(pg.order==='alt'){ if(!live) return T.on&&T.shown?T.shown.pass%2:0; const s=st.s, cyc=SEG_EACH?s.pass:Math.floor((ctx.currentTime-s.loopStart)/(LOOP*T.beat)); return cyc%2; }   // Semimodes: 1 the first time through, 5 for the repeat
   if(!live) return out;
   const back=st.idx>=4*L-1; return back?1-out:out;
 }

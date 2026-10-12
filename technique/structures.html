@@ -335,7 +335,7 @@ const SYL=['Do','Re','Mi','Fa','Sol','La','Ti'], SYLPC=[0,2,4,5,7,9,11];
 const PHI={doPc:3,root:0};                                             // Do's pitch (semitones above A; 3 = C) and the modal root, by syllable
 const HEAR={tido:{lo:11,names:['Ti','Do']},mifa:{lo:4,names:['Mi','Fa']}};
 let hearing='tido', diatonic=true;
-let FLAT_OFF=false;                                                    // a page whose field, g(x) going off, flattens to a grey circle rather than fading
+let FLAT_OFF=false, SEG_EACH=false;                                     // SEG_EACH: every pass of a drill is its own segment, with its own count-in                                                    // a page whose field, g(x) going off, flattens to a grey circle rather than fading
 const relOf=pc=>(((pc-PHI.doPc)%12)+12)%12;
 const sylOf=pc=>{ const k=SYLPC.indexOf(relOf(pc)); return k<0?null:SYL[k]; };
 const hearingOf=D=>{ if(!D) return null; const r=relOf(pcOf(D.lo.s,D.lo.f)); return r===11?'tido':(r===4?'mifa':null); };
@@ -1252,7 +1252,7 @@ function tick(){
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){
       for(const k in s.strs) s.strs[k].stopAt(s.end);
-      if(T.si===T.segs.length-1&&!drill.hold){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
+      if(T.si===T.segs.length-1&&(!drill.hold||SEG_EACH)){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
       T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
     }else break;
   }
