@@ -1744,7 +1744,7 @@ let ZOOM=1; const afterFit=[];
   window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
 const BOOK={loops:2, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
-  {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'chrom', paint:[NSTR-1]}))};
+  {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))};
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
    up the strings (or down them), one frame a string, the first tone of the next frame held at the end of each bar (the
@@ -1826,7 +1826,7 @@ function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg}, was
   let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
-  pagePhi(pg); RING.goal=pg.order==='chrom'?0:(pg.dir==='down'?1:0);                          // stopped: the order of the page's first half
+  pagePhi(pg); RING.goal=(pg.order==='chrom'||pg.order==='alt')?0:(pg.dir==='down'?1:0);                          // stopped: the order of the page's first half
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
@@ -1851,7 +1851,7 @@ function run(){
 function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=(drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS); s.end=s.loopStart+s.loops*LOOP*T.beat; }
 function nextSeg(after){ const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE]));
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); if(PAGES[PAGE].order==='alt') RING.goal=0;
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
@@ -1933,6 +1933,7 @@ function modeNow(st,live,plan){                                          // the 
 function orderFor(st,live){
   const pg=PAGES[PAGE], L=DRILL.bars/2, out=pg.dir==='down'?1:0;
   if(pg.order==='chrom') return 0;
+  if(pg.order==='alt'){ if(!live) return 0; const s=st.s, cyc=Math.floor((ctx.currentTime-s.loopStart)/(LOOP*T.beat)); return cyc%2; }   // Semimodes: 1 the first time through, 5 for the repeat
   if(!live) return out;
   const back=st.idx>=4*L-1; return back?1-out:out;
 }
