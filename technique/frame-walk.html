@@ -2148,7 +2148,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // each finger: how far its hump stands beyond the high e edge; its lean (the hump's offset from the tip); its widths
   // at the hump, between the joints, and at the tip (board units: strings 24 apart, frets 66)
   const SPK=47, HUMP=[40,60,54,30], LEAN=[-18,-5,7,18], WK=[52,53,50,43], WM=[45,46,43,37], WT=[42,43,40,35];
-  let thx=null, sm=null, rot=0, SELK=0; const rots=[0,0,0,0], alpha=[1,1,1,1];
+  let thx=null, thT=null, sm=null, rot=0, SELK=0; const rots=[0,0,0,0], alpha=[1,1,1,1];
   const ROT=Math.tan(50*Math.PI/180);                                    // how far a crowded hand turns: its fingers 50° off the frets
   const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
   const bump=(t,c,s)=>Math.exp(-((t-c)*(t-c))/(2*s*s));
@@ -2221,12 +2221,15 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
     // the thumb's tip just out from under the near edge, the thumb going back under the neck toward the heel of the hand;
     // the forearm on down toward the player
-    const k=reduce?1:Math.min(1,(dt||0.016)/0.09), tx=tipXf(HAND.thumb); thx=thx===null||reduce?tx:thx+(tx-thx)*k;
+    // the thumb checks in: whenever every finger is off the strings it moves to sit between the index and the middle
+    // finger; while any finger presses it stays where it is, the hand working around it
+    if(thT===null||!tips.some(p=>p.kk)) thT=(pads[0].x+pads[1].x)/2;
+    const k=reduce?1:Math.min(1,(dt||0.016)/0.12); thx=thx===null||reduce?thT:thx+(thT-thx)*k;
     const mean=(tips[0].x+tips[1].x+tips[2].x+tips[3].x)/4; sm=sm===null||reduce?mean:sm+(mean-sm)*k;
     // under the neck, as the player sees it: the thumb's pad, a broad oval just out from under the near edge, its outer
     // side running up into the neck; and the heel of the hand, a long low line from the pad's foot across under the
     // fingers, curving up into the neck under the little finger
-    const c={x:thx+10, y:FB.bot+29}, rx=32, ry=29, Rx=tips[3].x+WT[3]*0.5;
+    const c={x:thx, y:FB.bot+29}, rx=32, ry=29, Rx=tips[3].x+WT[3]*0.5;
     const pad='M'+f(c.x-rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x+rx)+' '+f(c.y)+' A'+rx+' '+ry+' 0 1 0 '+f(c.x-rx)+' '+f(c.y);
     thumbLine.setAttribute('d',pad); thumbFill.setAttribute('d',pad+' Z');
     const S={x:c.x-rx-14, y:FB.bot}, Pf={x:c.x+rx*0.25, y:c.y+ry*0.97}, Q={x:Rx-34, y:FB.bot+37};
