@@ -1834,7 +1834,7 @@ function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg}, was
   let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
-  pagePhi(pg); RING.goal=(pg.order==='chrom'||pg.order==='alt')?0:(pg.dir==='down'?1:0);                          // stopped: the order of the page's first half
+  pagePhi(pg); RING.goal=0;                          // stopped: the order of the page's first half
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
@@ -1862,7 +1862,7 @@ function nextSeg(after){
     if(drill.hold||PAGES.length<2||pass<(BOOK.loops||1)){ const s=walkSeg(after,pass); walkFig(s.D.bars); return s; } }
   const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); { const pg=PAGES[PAGE]; RING.goal=pg.order==='alt'?s.pass%2:(pg.order==='chrom'?0:(pg.dir==='down'?1:0)); }   // the next pass's order shows through its count-in
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); { const pg=PAGES[PAGE]; RING.goal=pg.order==='alt'?s.pass%2:0; }   // the next pass's order shows through its count-in
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
@@ -1939,10 +1939,10 @@ function modeNow(st,live,plan){                                          // the 
   if(b0>hi&&pcN(plan[b0])===pcN(h)) h=plan[b0];
   return {held:h,frame:plan[idx].frame};
 }
-/* the ring's order follows the walk: chromatic (1) on the way up, the dominant chain (5) on the way down. It turns to the
-   return's order on the held tone at the far string, and back only once the last bar has fully sounded, as the loop begins again. */
+/* the ring's order follows the walk: chromatic (1) for the first half, the dominant chain (5) for the second — it turns on
+   the held tone at the far string, and back to 1 only once the last bar has fully sounded. */
 function orderFor(st,live){
-  const pg=PAGES[PAGE], L=DRILL.bars/2, out=pg.dir==='down'?1:0;
+  const pg=PAGES[PAGE], L=DRILL.bars/2, out=0;                     // every page opens on 1 and turns to 5 half way, at the turn
   if(pg.order==='chrom') return 0;
   if(pg.order==='alt'){ if(!live) return T.on&&T.shown?T.shown.pass%2:0; const s=st.s, cyc=SEG_EACH?s.pass:Math.floor((ctx.currentTime-s.loopStart)/(LOOP*T.beat)); return cyc%2; }   // Semimodes: 1 the first time through, 5 for the repeat
   if(!live) return out;
