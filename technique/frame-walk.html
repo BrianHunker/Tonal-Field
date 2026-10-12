@@ -1819,8 +1819,14 @@ function walkDrill(i){
 }
 // the page's φ: a tone and its function (a walk's first tone, unless the page names another); the letters turn so the
 // page's chosen function (Re unless it says) stands at 12 o'clock
-function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg};
+// A change of φ from one page to the next is a modulation like any other: the page left becomes the ghost, and a move of more
+// than π/6 morphs (a semitone rotates). Where the letters turn with it (Frame Walk keeps Re at 12) the field holds its place.
+let phiReady=false;
+function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg}, was=PHI.doPc;
   PHI.doPc=((pcOf(a.s,a.f)-SYLPC[W_DEG[a.deg]])%12+12)%12;
+  if(phiReady&&was!==PHI.doPc){ let d=((PHI.doPc-was)%12+12)%12; if(d>6) d-=12; GHOST.doPc=was;
+    if(Math.abs(d)>1&&!reduce&&FIELD.lit>0.001) MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC}; else MORPH=null; }
+  phiReady=true;
   let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
