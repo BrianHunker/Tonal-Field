@@ -206,7 +206,9 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
-.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px } .strRow{ flex:1; display:flex; align-items:center; justify-content:flex-start; margin-bottom:-52px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
+.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
+.roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
+@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ flex:1; display:flex; align-items:center; justify-content:flex-start; margin-bottom:-52px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1743,7 +1745,7 @@ let ZOOM=1; const afterFit=[];
   const later=()=>{ if(!pend) pend=requestAnimationFrame(fit); };
   window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
-const BOOK={labelAt:'fret5', pages:[
+const BOOK={labelAt:'fret5', roll:true, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G#_Ti on the low E: up the six strings and back (Re = B)
   {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 2. A_Re on the low E: up and back (Re = A)
   {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 3. C#_Mi on the high e: page 1 inverted, down and back (Re = B)
@@ -1950,7 +1952,8 @@ frameHook=(st,live,plan,dt)=>{
   const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
   // the frame's name, in the field's colours
   const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
-  if(key!==MODE.key&&F){ MODE.key=key;
+  if(ROLL&&key!==MODE.key&&F){ MODE.key=key; rollTo(F); }
+  else if(key!==MODE.key&&F){ MODE.key=key;
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
       return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(pc-(PHI.doPc+2))):'')+'">'+sylName(pc)+'</span>'; }).join(''); }   // the colour of its function under φ, not of the ring mid-turn
@@ -1992,6 +1995,29 @@ if(BOOK.labelAt==='fret5'){
     lab.style.left=((fx-W.left-r.width/2)/ZOOM).toFixed(1)+'px'; lab.style.top=((d.top+d.height/2-W.top-r.height/2)/ZOOM).toFixed(1)+'px'; };   // in the page's own (unzoomed) pixels
   afterFit.push(place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
 }
+
+/* THE ROLL (Frame Walk): the seven frames on a drum in fourths order — Ti Mi La Re Sol Do Fa, round again — the order the
+   walk climbs the strings, so the next frame up the strings stands above, as the higher string does on the board. The
+   frame in force sits in the middle; the one before and the one after show dimly below and above; a change rolls the
+   drum the short way round. */
+const ROLL=BOOK.roll?(()=>{
+  const FR=[['Ti','Do','Re'],['Mi','Fa','Sol'],['La','Ti','Do'],['Re','Mi','Fa'],['Sol','La','Ti'],['Do','Re','Mi'],['Fa','Sol','La']];
+  const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11};
+  const box=document.createElement('div'); box.className='roll'; const inner=document.createElement('div'); inner.className='rollIn'; box.appendChild(inner);
+  frameLbl.replaceWith(box); box.id='frameLbl';
+  const rows=[]; let R=10, built='';                                       // R: the row in the middle (21 rows: the seven, three times)
+  const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
+    for(let r=0;r<21;r++){ const k=6-(r%7), names=FR[k], d=document.createElement('div'); d.className='rollRow';
+      d.innerHTML=names.map((n,i)=>{ const gap=i&&((SEMI[n]-SEMI[names[i-1]]+12)%12)===2?'<span class="us">_</span>':'';
+        return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>'; }).join('');
+      inner.appendChild(d); rows.push(d); } };
+  const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
+    rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
+  inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
+  build(); show(false);
+  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
+})():null;
+function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
 applySample(0);
 placeRing();
