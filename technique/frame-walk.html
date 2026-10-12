@@ -1731,6 +1731,18 @@ function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.se
 segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
 syncStrobe();
 syncGx();
+/* FIT: on a screen wider than the page, the whole page — title to fretboard — scales up to the window, until it meets the
+   width or the height, whichever comes first (the settings panel, when open, is left out of the measure). Narrower
+   windows keep the page as it is. */
+let ZOOM=1; const afterFit=[];
+{ const wrapEl=document.querySelector('.wrap'), mixerEl=document.getElementById('mixer'); let pend=0;
+  const fit=()=>{ pend=0; const r=wrapEl.getBoundingClientRect(), h=r.height/ZOOM-(mixerEl&&!mixerEl.hidden?mixerEl.getBoundingClientRect().height/ZOOM+18:0);
+    const s=window.innerWidth<=980?1:Math.max(1,Math.min(3,window.innerWidth/980,(window.innerHeight-4)/Math.max(300,h)));
+    if(Math.abs(s-ZOOM)>0.004){ ZOOM=s; wrapEl.style.zoom=s===1?'':s.toFixed(4); }
+    afterFit.forEach(f=>f()); };
+  const later=()=>{ if(!pend) pend=requestAnimationFrame(fit); };
+  window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
 const BOOK={labelAt:'fret5', pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G#_Ti on the low E: up the six strings and back (Re = B)
   {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 2. A_Re on the low E: up and back (Re = A)
@@ -1967,8 +1979,8 @@ if(BOOK.labelAt==='fret5'){
   const place=()=>{ const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
     const x=W.left+0, p=fb.createSVGPoint(); p.x=(cellL(5)+cellR(5))/2; p.y=0; const fx=p.matrixTransform(m).x;
     const r=lab.getBoundingClientRect();
-    lab.style.left=(fx-W.left-r.width/2).toFixed(1)+'px'; lab.style.top=(d.top+d.height/2-W.top-r.height/2).toFixed(1)+'px'; };
-  window.addEventListener('resize',place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
+    lab.style.left=((fx-W.left-r.width/2)/ZOOM).toFixed(1)+'px'; lab.style.top=((d.top+d.height/2-W.top-r.height/2)/ZOOM).toFixed(1)+'px'; };   // in the page's own (unzoomed) pixels
+  afterFit.push(place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
 }
 
 applySample(0);
