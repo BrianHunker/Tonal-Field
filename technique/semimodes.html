@@ -206,7 +206,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 @media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
 .valLbl{ pointer-events:auto }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
-.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px } .strSel{ margin-left:auto } .strSel button{ min-width:2.3em; font-weight:600 }
+.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px } .strRow{ display:flex; justify-content:flex-start; margin:-6px 0 -10px } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1945,7 +1945,7 @@ document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closes
 if(BOOK.strings){
   const seg=document.createElement('div'); seg.className='seg strSel'; seg.setAttribute('role','group'); seg.setAttribute('aria-label','String');
   for(let i=NSTR-1;i>=0;i--){ const b=document.createElement('button'); b.type='button'; b.dataset.s=i; b.textContent=STRINGS[i].lbl; b.title='Play the page on the '+STRINGS[i].name+' string'; seg.appendChild(b); }
-  $('means').appendChild(seg);
+  const row=document.createElement('div'); row.className='strRow'; row.appendChild(seg); $('means').after(row);   // its own row, at the left, just above the fretboard
   const sync=()=>seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===STRSEL));
   seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const was=T.on; stopForEdit(); STRSEL=+b.dataset.s; sync(); loadPage(PAGE); refresh(); if(was) run(); });
   sync();
