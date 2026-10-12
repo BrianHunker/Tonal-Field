@@ -1346,7 +1346,8 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let frameHook=null;                                                    // a page's own display, run each frame after the board
+let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
+                                                   // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
 function stepField(){
@@ -1492,7 +1493,7 @@ function paintBoard(H,shift,dt){
   for(let j=1;j<=4;j++){ const h=H.f[j], f0=Math.round(h.fret+shift); for(let ds=-1;ds<=1;ds++) for(let df=-1;df<=1;df++){ const s=h.string+ds, f=f0+df; if(s>=0&&s<NSTR&&f>=0&&f<=FMAX) near.add(s*(FMAX+1)+f); } }
   CELLS.forEach((c,i)=>{
     c.lv=1;                                                           // the whole board at the lit level
-    const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti);
+    const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
     if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
     else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
@@ -1727,6 +1728,12 @@ function syncStrobe(){ for(const b of segStrobe.querySelectorAll('button')) b.se
 segStrobe.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showStrobe=b.dataset.v==='show'; try{ localStorage.setItem('semitone-strobe',showStrobe?'show':'hide'); }catch(err){} syncStrobe(); });
 syncStrobe();
 syncGx();
+const BOOK={pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G#_Ti on the low E: up the six strings and back (Re = B)
+  {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 2. A_Re on the low E: up and back (Re = A)
+  {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 3. C#_Mi on the high e: page 1 inverted, down and back (Re = B)
+  {string:0,      fret:10, deg:'sol', dir:'down', links:5}             // 4. D_Sol on the high e: page 2 inverted, down and back (Re = A)
+]};
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
    up the strings (or down them), one frame a string, the first tone of the next frame held at the end of each bar (the
@@ -1735,12 +1742,7 @@ syncGx();
    up, finger 4 walking down. Prev | Next turn the pages; Hold keeps the page looping, otherwise each page plays four
    times and turns to the next. φ is the page's own: set by its first tone and that tone's function (G♯_Ti), with Re at
    12 o'clock. The ring still turns it (the number row, the letters, the field), the hand staying put. */
-const PAGES=[
-  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G♯_Ti on the low E: up the six strings and back (Re = B)
-  {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 2. A_Re on the low E: up and back (Re = A)
-  {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 3. C♯_Mi on the high e: page 1 inverted, down and back (Re = B)
-  {string:0,      fret:10, deg:'sol', dir:'down', links:5}             // 4. D_Sol on the high e: page 2 inverted, down and back (Re = A)
-];
+const PAGES=BOOK.pages;                                                // the book's pages, given by the build
 let PAGE=0; const WALK={ham:false,pull:false};
 const W_DEG={do:0,re:1,mi:2,fa:3,sol:4,la:5,ti:6}, W_MAJ=[0,2,4,5,7,9,11], W_FING={dim:[1,2,4],min:[1,3,4],maj:[1,2,4]};
 const wSemi=d=>12*Math.floor(d/7)+W_MAJ[((d%7)+7)%7];
@@ -1769,17 +1771,33 @@ function walkPlan(pg){
   return {plan,frames:fr,bars:2*L};
 }
 function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s:4*b+.5,d:.5},{s:4*b+1,d:.5},{s:4*b+1.5,d:2.5}); LOOP=4*bars; BAR_START=i=>i%4===0; }
+// a page written out note by note on one string (Semimodes): bars of four [fret, finger] (finger 0 open), each bar in a
+// group that shares one hand and one name
+function seqPlan(pg){
+  const plan=[];
+  pg.bars.forEach(b=>b.n.forEach(([f,g])=>plan.push({string:pg.string,fret:f,pitch:f,push:0,finger:g,frame:b.g,pick:true,glide:false,pre:false,kind:'pick',hi:false})));
+  const frames=[]; for(let k=0;k<=Math.max(...pg.bars.map(b=>b.g));k++){ const ns=plan.filter(n=>n.frame===k);
+    const tones=[...new Set(ns.map(n=>n.fret))].sort((x,y)=>x-y).map(f=>({fret:f})), pl=[];
+    ns.forEach(n=>{ if(n.finger&&!pl.some(q=>q.g===n.finger)) pl.push({g:n.finger,s:pg.string,f:n.fret}); });
+    frames.push({string:pg.string,tones,pl,hand:handFor(pl)}); }
+  if(WALK.ham||WALK.pull) plan.forEach((e,i)=>{ const q=plan[(i+plan.length-1)%plan.length];
+    if(q.string!==e.string||q.pitch===e.pitch) return;
+    if(e.pitch>q.pitch&&WALK.ham){ e.pick=false; e.kind='ham'; } else if(e.pitch<q.pitch&&WALK.pull){ e.pick=false; e.kind='pull'; } });
+  return {plan,frames,bars:pg.bars.length};
+}
 function walkDrill(i){
-  const pg=PAGES[i], W=walkPlan(pg), a=W.plan[0], b=W.plan[1];
+  const pg=PAGES[i], W=pg.kind==='seq'?seqPlan(pg):walkPlan(pg), a=W.plan[0], b=W.plan[1];
   return {walk:true,page:i,means:'pick',ham:WALK.ham,pull:WALK.pull,dir:'up',plan:W.plan,frames:W.frames,bars:W.bars,
     lo:{s:a.string,f:a.fret,g:a.finger},hi:{s:b.string,f:b.fret,g:b.finger}};
 }
-// the page's φ: its first tone has its function; the letters turn so its Re stands at 12 o'clock
-function pagePhi(pg){ PHI.doPc=((pcOf(pg.string,pg.fret)-SYLPC[W_DEG[pg.deg]])%12+12)%12;
-  let off=-((PHI.doPc+2)%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; }
+// the page's φ: a tone and its function (a walk's first tone, unless the page names another); the letters turn so the
+// page's chosen function (Re unless it says) stands at 12 o'clock
+function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg};
+  PHI.doPc=((pcOf(a.s,a.f)-SYLPC[W_DEG[a.deg]])%12+12)%12;
+  let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=PAGES[PAGE];
-  pagePhi(pg); RING.goal=pg.dir==='down'?1:0;                          // stopped: the order of the page's first half
+  pagePhi(pg); RING.goal=pg.order==='chrom'?0:(pg.dir==='down'?1:0);                          // stopped: the order of the page's first half
   DRILL=walkDrill(PAGE); walkFig(DRILL.bars); layoutTab(DRILL.bars); MEANS='pick'; CUSTOM=false; SEL=null;
   const F0=DRILL.frames[0]; HAND.f=cloneHand(F0.hand).f; HAND.thumb=F0.hand.thumb;
   P=F0.pl.map(q=>Object.assign({},q));                                  // stopped, the hand rests on its first frame
@@ -1855,9 +1873,8 @@ fingers.forEach(F=>{ F.c.style.pointerEvents='none'; F.t.style.pointerEvents='no
 /* ---------- the frame and the mode ----------
    The FRAME label names the frame the hand is on, low to high, a whole step marked by the gap between names (TiDo_Re). It
    changes the moment a finger lands on a new string: walking up on the held tone (the & of 2), walking down on the & of 1.
-   The MODE is the last tone held for a half note — each bar's fourth tone — and holds until the next: its letter on the ring
-   gets a spotlight in its own colour, and the fretboard takes a gradient tinge of it. Before the first hold, the mode is the
-   last one the loop holds (the page's own start: G♯_Ti). g(x) off: no colour, so neither shows. */
+   The MODE is each bar's first tone until the & of 2, then the tone held there for a half note: its letter on the ring
+   gets a spotlight in its own colour, and the fretboard a radial tinge of it from its fret. g(x) off: no colour, so neither shows. */
 const frameLbl=$('frameLbl');
 const sylName=pc=>{ const k=((pc-(PHI.doPc+2))%12+12)%12; return SOLF[k][0]; };   // the field's name for a pitch (an anti keeps its ~)
 const spotDefs=el('defs',{},ringSvg), spotF=el('filter',{id:'modeSpotF',x:'-100%',y:'-100%',width:'300%',height:'300%'},spotDefs);
@@ -1869,16 +1886,17 @@ const boardRect=fb.querySelector('rect.board'), tinge=el('rect',{x:boardRect.get
 fb.insertBefore(tinge,boardRect.nextSibling);
 const MODE={rgb:null,op:0,key:''};
 function modeNow(st,live,plan){                                          // the held tone in force, and the frame sounding
-  const lastHeld=()=>{ for(let i=plan.length-1;i>=0;i--) if(i%4===3) return plan[i]; return plan[0]; };
-  // the frame in force is the string the hand is on: it changes the moment a finger lands on a new string, either way
-  if(!live) return {held:lastHeld(),frame:plan[0].frame};
-  let h=null; for(let i=st.idx;i>=0;i--) if(i%4===3){ h=plan[i]; break; }
-  return {held:h||lastHeld(),frame:plan[st.idx].frame};
+  // the mode: each bar's first tone, then its held tone from the & of 2 (in a walk the first is the last bar's held tone)
+  // the frame in force is the hand's: it changes the moment a finger lands in a new place, either way
+  if(!live) return {held:plan[0],frame:plan[0].frame};
+  let h=plan[0]; for(let i=st.idx;i>=0;i--) if(i%4===3||i%4===0){ h=plan[i]; break; }
+  return {held:h,frame:plan[st.idx].frame};
 }
 /* the ring's order follows the walk: chromatic (1) on the way up, the dominant chain (5) on the way down. It turns to the
    return's order on the held tone at the far string, and back only once the last bar has fully sounded, as the loop begins again. */
 function orderFor(st,live){
   const pg=PAGES[PAGE], L=DRILL.bars/2, out=pg.dir==='down'?1:0;
+  if(pg.order==='chrom') return 0;
   if(!live) return out;
   const back=st.idx>=4*L-1; return back?1-out:out;
 }
