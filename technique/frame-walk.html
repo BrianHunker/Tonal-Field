@@ -1745,15 +1745,13 @@ let ZOOM=1; const afterFit=[];
   const later=()=>{ if(!pend) pend=requestAnimationFrame(fit); };
   window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
-const BOOK={labelAt:'fret5', roll:true, pages:[                                                            // up the strings and its mirror, in pairs
+const BOOK={labelAt:'fret5', roll:true, loops:1, pages:[                      // each page once, then the next (Hold repeats it)                                                            // up the strings and its mirror, in pairs
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G#_Ti on the low E: the TiDo_Re frame up and back (Re = B)
   {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 2. C#_Mi on the high e: page 1 inverted, down and back (Re = B)
   {string:NSTR-1, fret:5,  deg:'la',  dir:'up',   links:5},            // 3. A_La on the low E: the La_TiDo frame up and back (Re = D)
   {string:0,      fret:10, deg:'re',  dir:'down', links:5},            // 4. D_Re on the high e: page 3 inverted, down and back (Re = D)
-  {string:NSTR-1, fret:5,  deg:'re',  dir:'up',   links:5},            // 5. A_Re on the low E: the Re_MiFa frame up and back (Re = A)
-  {string:0,      fret:10, deg:'sol', dir:'down', links:5},            // 6. D_Sol on the high e: page 5 inverted, down and back (Re = A)
-  {string:NSTR-1, fret:5,  deg:'sol', dir:'up',   links:5},            // 7. A_Sol on the low E: the Sol_La_Ti frame up and back (Re = E)
-  {string:0,      fret:10, deg:'do',  dir:'down', links:5}             // 8. D_Do on the high e, in the La_TiDo frame: page 7 inverted, down and back (Re = E)
+  {string:NSTR-1, fret:5,  deg:'sol', dir:'up',   links:5},            // 5. A_Sol on the low E: the Sol_La_Ti frame up and back (Re = E)
+  {string:0,      fret:10, deg:'do',  dir:'down', links:5}             // 6. D_Do on the high e, in the La_TiDo frame: page 5 inverted, down and back (Re = E)
 ]};
 /* ---------- a student's drill book: pages of walks ----------
    The same tool, its controls turned to a set of pages. Each page is a walk of FRAMES — three diatonic tones on a string —
@@ -1864,7 +1862,7 @@ function nextSeg(after){
     if(drill.hold||PAGES.length<2||pass<(BOOK.loops||1)){ const s=walkSeg(after,pass); walkFig(s.D.bars); return s; } }
   const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); if(PAGES[PAGE].order==='alt') RING.goal=s.pass%2;   // the next pass's order shows through its count-in
+  T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); { const pg=PAGES[PAGE]; RING.goal=pg.order==='alt'?s.pass%2:(pg.order==='chrom'?0:(pg.dir==='down'?1:0)); }   // the next pass's order shows through its count-in
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
 function holdChanged(){
