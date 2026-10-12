@@ -208,7 +208,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
 .frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
 .roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
-@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ flex:1; display:flex; align-items:center; justify-content:flex-start; margin-bottom:-52px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
+@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-42px; min-width:0 } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:84px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:22px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:10px; height:52px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:60.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs{ position:absolute; top:67px; transform:translateX(-50%); font-size:12px; color:var(--mid); white-space:nowrap; } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1954,7 +1954,8 @@ frameHook=(st,live,plan,dt)=>{
   const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
   // the frame's name, in the field's colours
   const key=k+'|'+PHI.doPc+'|'+FIELD.on+'|'+diatonic;
-  if(ROLL&&key!==MODE.key&&F){ MODE.key=key; rollTo(F); }
+  if(SEMI){ SEMI.step(live?plan[st.idx].grp:plan[0].grp,dt); }
+  else if(ROLL&&key!==MODE.key&&F){ MODE.key=key; rollTo(F); }
   else if(key!==MODE.key&&F){ MODE.key=key;
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
@@ -1986,16 +1987,18 @@ if(BOOK.strings){
 document.querySelector('.tabCol').appendChild($('means')); { const r=document.querySelector('.strRow'); if(r) document.querySelector('.tabCol').appendChild(r); }
 fb.setAttribute('viewBox','0 38 990 266');                               // the board drawn without the headroom over the high e it does not need here
 
-// Semimodes: the label sits just above the string selector (the selector keeps its place, midway down to the fretboard)
-if(BOOK.strings){ $('means').style.marginTop='auto'; const r=document.querySelector('.strRow'); r.style.flex='none'; r.style.marginBottom='-10px'; }
+// Semimodes: the string selector right under the TAB, the mode's line at the foot of the column, just above the fretboard
+if(BOOK.strings){ const col=document.querySelector('.tabCol'), r=document.querySelector('.strRow'); col.insertBefore(r,$('means')); r.style.flex='none'; $('means').style.marginTop='auto'; }
 // Frame Walk: the label centred over the 5th fret, level with the Diatonic button
 if(BOOK.labelAt==='fret5'){
   const lab=$('means'), wrap=document.querySelector('.wrap'); wrap.style.position='relative'; lab.style.position='absolute'; lab.style.margin='0';
-  const place=()=>{ const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
+  const narrow=matchMedia('(max-width:640px)');   // a phone upright: the column stacks, so the label stays in the flow under the TAB
+  const place=()=>{ if(narrow.matches){ lab.style.position=''; lab.style.left=lab.style.top=''; return; } lab.style.position='absolute';
+    const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
     const x=W.left+0, p=fb.createSVGPoint(); p.x=(cellL(5)+cellR(5))/2; p.y=0; const fx=p.matrixTransform(m).x;
     const r=lab.getBoundingClientRect();
     lab.style.left=((fx-W.left-r.width/2)/ZOOM).toFixed(1)+'px'; lab.style.top=((d.top+d.height/2-W.top-r.height/2)/ZOOM).toFixed(1)+'px'; };   // in the page's own (unzoomed) pixels
-  afterFit.push(place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
+  afterFit.push(place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
 }
 
 /* THE ROLL (Frame Walk): the seven frames on a drum in fourths order — Ti Mi La Re Sol Do Fa, round again — the order the
@@ -2020,6 +2023,82 @@ const ROLL=BOOK.roll?(()=>{
   return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
+
+/* THE SEMIMODE LINE (Semimodes): the whole mode on one line, from the page's tone to its octave — names spaced by their
+   steps (a half step close, a whole step wide), its two semimodes either side of a marked gap, the tritone. A pill frames
+   the semimode in force: its names at full brightness, its complement's dimmed, "half step" under its half step if it has
+   one. When the semimode changes the pill slides across the gap, each name brightening as the pill takes it in and dimming
+   as the pill leaves it. Where a semimode spans the tritone itself (Fa to Ti, on the Ti and Fa pages) there is no gap: the
+   two halves meet at a half step, and the tritone mark sits under the root's tritone — Fa on the Ti page, Ti on the Fa page.
+   A page turn is a step along the chain: each page's upper semimode is the next page's lower one (the seventh closes the
+   loop back to the first). So a turn slides the whole line left — the dimmed semimode and its tritone leave to the left,
+   the framed one rides the pill into the lower place, a new tritone and the coming semimode arrive from the right. Prev
+   runs the same slide the other way. */
+const SEMI=BOOK.strings?(()=>{
+  const SEMIS={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, U=37, G=150, PAD=36, SLIDE=0.9;   // px a semitone, the gap, the pill's reach past a name's centre; s a turn
+  const host=$('means'); host.innerHTML=''; host.classList.add('semiHost'); host.style.overflowX='clip';
+  const box=document.createElement('div'); box.className='semiLine'; host.appendChild(box);
+  const track=document.createElement('div'); track.className='semiTrack'; box.appendChild(track);
+  let names=[], ghosts=[], pill=null, cap=null, hsLbl=null, built='', builtMode=null, cur=null, tgt=null, geo=null, slide=null, hsOn=0, width=0;
+  const lineOf=mode=>{ const m=W_DEG[mode], seq=[0,1,2,3,4,5,6,7].map(j=>({syl:SYL[(m+j)%7], s:wSemi(m+j)-wSemi(m)}));
+    const lowSpan=seq[3].s, tt=lowSpan===6?0:seq[7].s-seq[4].s===6?4:-1, x=[];   // tt: the half that is itself the tritone, if one is
+    seq.forEach((t,i)=>x[i]=PAD+(tt>=0?t.s*U:i<4?t.s*U:lowSpan*U+G+(t.s-seq[4].s)*U));
+    const tw=G-2*PAD-12, tc=tt>=0?x[seq.findIndex(t=>t.s===6)]:(x[3]+x[4])/2, tri={l:tc-tw/2, r:tc+tw/2};   // one size everywhere: across the gap, or under the root's tritone (Fa of Ti, Ti of Fa)
+    return {m,seq,x,tri}; };
+  const el=(cls,txt,left)=>{ const e=document.createElement('div'); e.className=cls; if(txt) e.textContent=txt; e.style.left=left.toFixed(1)+'px'; track.appendChild(e); return e; };
+  const name=(syl,left)=>{ const e=document.createElement('span'); e.className='semiName'; e.textContent=syl; e.style.left=left.toFixed(1)+'px'; e._x=left; e._rgb=relRGB(SEMIS[syl]-2); track.appendChild(e); return e; };
+  const tri=(L,off)=>{ const l=L.tri.l-off, w=L.tri.r-L.tri.l, a=el('semiTri','',l); a.style.width=w.toFixed(1)+'px'; a._x=l+w/2;
+    const b=el('semiTriLbl','tritone',l+w/2); b._x=l+w/2; return [a,b]; };
+  // the old line's half that leaves, placed in the new line's coordinates
+  const ghostsFor=()=>{ if(!slide) return []; const O=slide.old, off=slide.off, out=[];
+    const idx=slide.dir>0?[0,1,2,3]:[4,5,6,7]; idx.forEach(i=>{ const e=name(O.seq[i].syl,O.x[i]-off); e._ghost=1; out.push(e); });
+    tri(O,off).forEach(e=>{ e._ghost=1; out.push(e); }); return out; };
+  const build=()=>{ const pg=PAGES[PAGE], key=pg.mode+'|'+FIELD.on+'|'+diatonic+'|'+PHI.doPc; if(key===built) return; built=key;
+    const L=lineOf(pg.mode);
+    if(builtMode&&builtMode!==pg.mode&&geo){   // a page turn: along the chain, either way, slides; anything else snaps
+      const O={seq:geo.seq,x:geo.x,tri:geo.tri}, dm=(L.m-W_DEG[builtMode]+7)%7, dir=dm===4?1:dm===3?-1:0;
+      if(dir&&!reduce){ const off=dir>0?O.x[4]-L.x[0]:O.x[0]-L.x[4], keep=geo.sides[dir>0?1:0];
+        // the pill rides with its names when it frames the half that stays; it lets go only once the line has settled
+        const carry=!!cur&&Math.abs(cur.l-keep.l)+Math.abs(cur.r-keep.r)<24;
+        const tcN=(L.tri.l+L.tri.r)/2, tcO=(O.tri.l+O.tri.r)/2-off, wN=L.x[7]+PAD+4;
+        slide={old:O, off, dir, p:0, carry, popIn:tcN+off>-10&&tcN+off<wN+10, popOut:tcO>-10&&tcO<wN+10}; if(cur){ cur.l-=off; cur.r-=off; } }
+      else { slide=null; cur=null; }
+    }
+    const hsX=hsLbl&&hsLbl._x!==undefined?hsLbl._x-(slide&&slide.p===0?slide.off:0):0; if(!hsLbl||hsLbl._x===undefined) hsOn=0;
+    builtMode=pg.mode; track.innerHTML='';
+    pill=el('semiPill','',0); cap=document.createElement('div'); cap.className='semiCap'; cap.textContent='Semimode'; pill.appendChild(cap);
+    const own=tri(L,0); hsLbl=el('semiHs','half step',hsX); hsLbl._x=hsX; hsLbl.style.transition='none';
+    names=L.seq.map((t,i)=>name(t.syl,L.x[i])); ghosts=ghostsFor();
+    width=L.x[7]+PAD+4; box.style.width=width+'px'; fit();
+    const span=(a,b)=>L.seq[b].s-L.seq[a].s, hs=(a,b)=>{ for(let i=a;i<b;i++) if(L.seq[i+1].s-L.seq[i].s===1) return i; return -1; };
+    geo={x:L.x, seq:L.seq, tri:L.tri, extras:own, sides:[0,1].map(k=>{ const a=4*k, b=a+3; const X=L.x, reach=(i,j)=>j<0||j>7?PAD:Math.min(PAD,Math.abs(X[j]-X[i])/2);   // where the halves meet at a half step, the pill closes halfway
+      return {l:X[a]-reach(a,a-1), r:X[b]+reach(b,b+1), hs:hs(a,b)}; })};
+    tgt=null; };
+  // on a narrow screen the line shrinks to its column rather than run under the ring or off the page
+  function fit(){ const avail=host.clientWidth; box.style.zoom=avail&&width>avail?(avail/width).toFixed(3):''; }
+  addEventListener('resize',fit);
+  const clamp=v=>Math.max(0,Math.min(1,v));
+  const edge=x=>clamp((x+40)/50)*clamp((width+70-x)/60);   // things leave the line to the left and arrive from the right
+  const paint=(shift,e)=>{ const bg=bgColour(), ink=inkColour();
+    track.style.transform=shift?'translateX('+shift.toFixed(1)+'px)':'';
+    names.concat(ghosts.filter(e=>e.className==='semiName')).forEach(e=>{ const cx=e._x, inside=clamp(Math.min(cx-cur.l,cur.r-cx)/18+0.5);   // in the pill: full; out: dim
+      const col=FIELD.on?e._rgb:ink, dim=mixRGB(bg,col,0.32); e.style.color=rgbS(mixRGB(dim,col,inside)); e.style.opacity=edge(cx+shift).toFixed(3); });
+    // a tritone mark that changes place within the line fades across the slide rather than popping
+    const fin=slide&&slide.popIn?e:1, fout=slide&&slide.popOut?1-e:1;
+    geo.extras.forEach(x=>{ x.style.opacity=(fin*edge(x._x+shift)).toFixed(3); });
+    ghosts.filter(x=>x.className!=='semiName').forEach(x=>{ x.style.opacity=(fout*edge(x._x+shift)).toFixed(3); });
+    hsLbl.style.opacity=(hsOn*edge(hsLbl._x+shift)).toFixed(3);
+    pill.style.left=cur.l.toFixed(1)+'px'; pill.style.width=(cur.r-cur.l).toFixed(1)+'px'; };
+  return {step(g,dt){ build(); if(!geo) return; const side=geo.sides[g?1:0]; dt=dt||0.016;
+    if(!cur){ cur={l:side.l,r:side.r}; }
+    if(tgt!==side){ tgt=side; const h=side.hs; if(h>=0){ hsLbl._x=(geo.x[h]+geo.x[h+1])/2; hsLbl.style.left=hsLbl._x.toFixed(1)+'px'; } }
+    const hsGoal=side.hs>=0&&Math.abs(cur.l-side.l)+Math.abs(cur.r-side.r)<24?1:0; hsOn+=(hsGoal-hsOn)*(reduce?1:Math.min(1,dt*6));
+    const k=reduce?1:slide&&slide.carry?0:Math.min(1,dt*5); cur.l+=(side.l-cur.l)*k; cur.r+=(side.r-cur.r)*k;
+    let shift=0, e=1;
+    if(slide){ slide.p=Math.min(1,slide.p+dt/SLIDE); const p=slide.p; e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2; shift=slide.off*(1-e);
+      if(p>=1){ slide=null; ghosts.forEach(e=>e.remove()); ghosts=[]; shift=0; } }
+    paint(shift,e); }};
+})():null;
 
 applySample(0);
 placeRing();

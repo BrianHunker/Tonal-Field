@@ -208,7 +208,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
 .frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
 .roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
-@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-42px } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:84px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:22px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:10px; height:52px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:60.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs{ position:absolute; top:67px; transform:translateX(-50%); font-size:12px; color:var(--mid); white-space:nowrap; } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
+@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-42px; min-width:0 } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:84px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:22px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:10px; height:52px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:60.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs{ position:absolute; top:67px; transform:translateX(-50%); font-size:12px; color:var(--mid); white-space:nowrap; } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
 .sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
@@ -1986,11 +1986,13 @@ if(BOOK.strings){ const col=document.querySelector('.tabCol'), r=document.queryS
 // Frame Walk: the label centred over the 5th fret, level with the Diatonic button
 if(BOOK.labelAt==='fret5'){
   const lab=$('means'), wrap=document.querySelector('.wrap'); wrap.style.position='relative'; lab.style.position='absolute'; lab.style.margin='0';
-  const place=()=>{ const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
+  const narrow=matchMedia('(max-width:640px)');   // a phone upright: the column stacks, so the label stays in the flow under the TAB
+  const place=()=>{ if(narrow.matches){ lab.style.position=''; lab.style.left=lab.style.top=''; return; } lab.style.position='absolute';
+    const W=wrap.getBoundingClientRect(), d=diatBtn.getBoundingClientRect(), m=fb.getScreenCTM(); if(!m) return;
     const x=W.left+0, p=fb.createSVGPoint(); p.x=(cellL(5)+cellR(5))/2; p.y=0; const fx=p.matrixTransform(m).x;
     const r=lab.getBoundingClientRect();
     lab.style.left=((fx-W.left-r.width/2)/ZOOM).toFixed(1)+'px'; lab.style.top=((d.top+d.height/2-W.top-r.height/2)/ZOOM).toFixed(1)+'px'; };   // in the page's own (unzoomed) pixels
-  afterFit.push(place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
+  afterFit.push(place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(lab); setTimeout(place,0); setTimeout(place,600);
 }
 
 /* THE ROLL (Frame Walk): the seven frames on a drum in fourths order — Ti Mi La Re Sol Do Fa, round again — the order the
@@ -2028,7 +2030,7 @@ function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','
    runs the same slide the other way. */
 const SEMI=BOOK.strings?(()=>{
   const SEMIS={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, U=37, G=150, PAD=36, SLIDE=0.9;   // px a semitone, the gap, the pill's reach past a name's centre; s a turn
-  const host=$('means'); host.innerHTML=''; host.classList.add('semiHost');
+  const host=$('means'); host.innerHTML=''; host.classList.add('semiHost'); host.style.overflowX='clip';
   const box=document.createElement('div'); box.className='semiLine'; host.appendChild(box);
   const track=document.createElement('div'); track.className='semiTrack'; box.appendChild(track);
   let names=[], ghosts=[], pill=null, cap=null, hsLbl=null, built='', builtMode=null, cur=null, tgt=null, geo=null, slide=null, hsOn=0, width=0;
@@ -2061,11 +2063,14 @@ const SEMI=BOOK.strings?(()=>{
     pill=el('semiPill','',0); cap=document.createElement('div'); cap.className='semiCap'; cap.textContent='Semimode'; pill.appendChild(cap);
     const own=tri(L,0); hsLbl=el('semiHs','half step',hsX); hsLbl._x=hsX; hsLbl.style.transition='none';
     names=L.seq.map((t,i)=>name(t.syl,L.x[i])); ghosts=ghostsFor();
-    width=L.x[7]+PAD+4; box.style.width=width+'px';
+    width=L.x[7]+PAD+4; box.style.width=width+'px'; fit();
     const span=(a,b)=>L.seq[b].s-L.seq[a].s, hs=(a,b)=>{ for(let i=a;i<b;i++) if(L.seq[i+1].s-L.seq[i].s===1) return i; return -1; };
     geo={x:L.x, seq:L.seq, tri:L.tri, extras:own, sides:[0,1].map(k=>{ const a=4*k, b=a+3; const X=L.x, reach=(i,j)=>j<0||j>7?PAD:Math.min(PAD,Math.abs(X[j]-X[i])/2);   // where the halves meet at a half step, the pill closes halfway
       return {l:X[a]-reach(a,a-1), r:X[b]+reach(b,b+1), hs:hs(a,b)}; })};
     tgt=null; };
+  // on a narrow screen the line shrinks to its column rather than run under the ring or off the page
+  function fit(){ const avail=host.clientWidth; box.style.zoom=avail&&width>avail?(avail/width).toFixed(3):''; }
+  addEventListener('resize',fit);
   const clamp=v=>Math.max(0,Math.min(1,v));
   const edge=x=>clamp((x+40)/50)*clamp((width+70-x)/60);   // things leave the line to the left and arrive from the right
   const paint=(shift,e)=>{ const bg=bgColour(), ink=inkColour();
