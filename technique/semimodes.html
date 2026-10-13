@@ -2141,6 +2141,11 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const front=mk('g',{class:'hlHand'}); fb.insertBefore(front,fingers[0].guide);
   const order=[3,2,0,1];                                                  // little, ring, index, middle: the middle finger in front
   const parts=[0,1,2,3].map(()=>({}));
+  // each finger's tone: a gradient along the finger, the tone's colour at the tip fading back to the outline's white
+  // half way up toward the knuckle
+  const tg=[0,1,2,3].map(i=>{ const g=mk('linearGradient',{id:gid+'t'+i,gradientUnits:'userSpaceOnUse'},defs);
+    return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g)}; });
+  const tone=[0,0,0,0], toneCol=[null,null,null,null];
   order.forEach(i=>{ const q=parts[i]; q.fill=mk('path',{class:'hlSkin'},front); q.line=mk('path',{class:'hlLine'},front); q.nail=mk('path',{class:'hlLine hlNail'},front); q.joint=mk('path',{class:'hlLine hlCrease'},front); });
   // each finger: how far its hump stands beyond the high e edge; its lean (the hump's offset from the tip); its widths
   // at the hump, between the joints, and at the tip (board units: strings 24 apart, frets 66)
@@ -2220,6 +2225,17 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     tips.forEach((p,i)=>{ const g=finger(i,pads[i],humps[i],p.kk,barre&&i===0), q=parts[i]; q.line.classList.toggle('hlSel',SELK===i+1);
       q.fill.setAttribute('d',g.d); q.line.setAttribute('d',g.d); q.nail.setAttribute('d',g.nail); q.joint.setAttribute('d',g.joint);
       const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
+    // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
+    const ink=inkColour(), lit=[0,1,2,3].map(i=>{ const h=HAND.f[i+1]; if(!FIELD.on||!tips[i].kk||!h) return false;
+      return ![0,1,2,3].some(j=>j!==i&&tips[j].kk&&HAND.f[j+1]&&HAND.f[j+1].string===h.string&&HAND.f[j+1].fret>h.fret); });
+    for(let i=0;i<4;i++){ const h=HAND.f[i+1], q=parts[i], G=tg[i];
+      if(lit[i]) toneCol[i]=valRGB(pcOf(h.string,Math.round(h.fret)));
+      tone[i]+=((lit[i]?1:0)-tone[i])*Math.min(1,(dt||0.016)/(lit[i]?0.05:0.25));
+      if(tone[i]<0.01||!toneCol[i]){ q.line.style.stroke=''; continue; }
+      const col=rgbS(mixRGB(ink,toneCol[i],tone[i])), w=rgbS(ink);
+      G.g.setAttribute('x1',f(pads[i].x)); G.g.setAttribute('y1',f(pads[i].y+WT[i]*0.5)); G.g.setAttribute('x2',f(humps[i].x)); G.g.setAttribute('y2',f(humps[i].y));
+      G.a.setAttribute('stop-color',col); G.b.setAttribute('stop-color',col); G.c.setAttribute('stop-color',w); G.d.setAttribute('stop-color',w);
+      q.line.style.stroke='url(#'+gid+'t'+i+')'; }
     // the thumb's tip just out from under the near edge, the thumb going back under the neck toward the heel of the hand;
     // the forearm on down toward the player
     // the thumb stays between the index and the middle finger, following the hand wherever it goes
