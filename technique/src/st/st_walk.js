@@ -379,7 +379,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.25;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
   const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
-  const NECK={yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
+  const NECK={nstr:NSTR, strY:(s,X)=>s*gapAt(X), yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
   const xs=X=>FB.nut+SCALE*X/LMM, Xof=x=>(x-FB.nut)*LMM/SCALE;
   const proj=P=>({x:xs(P[0]), y:FB.strY[0]+(P[1]-K*P[2])*U/gapAt(P[0])}), depth=P=>P[2]+K*P[1];
   const scl=X=>Math.sqrt((SCALE/LMM)*(U/gapAt(X)));                      // board units per millimetre, for a bone's thickness
@@ -400,7 +400,9 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1];
-  let SELK=0, fresh=true, lastFresh=-1e9, clock=0;
+  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null;
+  const rank=[...Array(12).keys()];                                         // the bones' drawing order last frame
+  const openStr=new Set();                                                 // open strings meant to ring (a chord chart's 0s)
   const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
   // a bone seen from the side: two circles (its ends, their thickness) and the lines tangent to both
   function bone(A,B,ra,rb){
@@ -419,30 +421,49 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {d:'M'+f(b.x+nx)+' '+f(b.y+ny)+' L'+f(a.x+nx*0.9)+' '+f(a.y+ny*0.9)+' Q'+f(a.x+ux*w*0.5)+' '+f(a.y+uy*w*0.5)+' '+f(a.x-nx*0.9)+' '+f(a.y-ny*0.9)+' L'+f(b.x-nx)+' '+f(b.y-ny)+' Q'+f(C.x)+' '+f(C.y)+' '+f(b.x+nx)+' '+f(b.y+ny), vis}; }
   // what the hand is asked, read off the dots: where each tip is, whether it presses (and then anywhere in its fret's
   // cell will do), a barre laid along its fret; the thumb on the back of the neck between the first two fingers
-  function ask(dt){
+  // which strings are sounding, and from where: a stopped string from its stopping fret's wire, an open one from the nut
+  function ringing(fs,live,now){
+    const ring=Array(NSTR).fill(null), stop=(s,x)=>{ if(s>=0&&s<NSTR) ring[s]=Math.max(ring[s]===null?0:ring[s],x); };
+    fs.forEach((g,i)=>{ if(g.barre) for(let s=0;s<=g.lowS;s++) stop(s,g.barre.w); else if(g.press) stop(g.s,g.cell[1]); });
+    openStr.forEach(s=>{ if(ring[s]===null) ring[s]=0; });
+    if(live&&now&&now.finger===0&&ring[now.string]===null) ring[now.string]=0;
+    return ring; }
+  function ask(dt,live,now){
     const bar=P.find(q=>q.g===1&&q.barre), hov=(HOVER_GAP-FR*PRESS_H)/(K*U)*gapAt(150);
     const fs=fingers.map((F,i)=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
-      const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z, fg=(LMM-X)*0.0561;
-      if(i===0&&bar&&down){ const x=Math.min(X+0.15*fg,X+0.34*fg-2); return {barre:{x,y0:0,y1:bar.s*g+1.5}}; }
-      return down?{p:[X,Y,Z],press:true,cell:[X-0.6*fg+2.5,X+0.34*fg-2]}:{p:[X,Y,Z],press:false}; });
-    const xs2=fs.map(g=>g.barre?g.barre.x:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
-    return {f:fs, th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
+      const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
+      // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
+      const fg=(LMM-X)*0.0561/(1-0.66*0.0561), wire=X+0.34*fg, s=HAND.f[i+1]?HAND.f[i+1].string:0;
+      if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
+      return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire]}:{s,p:[X,Y,Z],press:false}; });
+    const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
+    return {f:fs, ring:ringing(fs,live,now), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
+  // how far the asked places moved since the last frame (mm): the hand at rest is still
+  const moved=(a,b)=>{ if(!a||!b) return 1e9; let m=0; a.f.forEach((g,i)=>{ const h=b.f[i], p=g.barre?[g.barre.w,g.barre.y1,0]:g.p, o=h.barre?[h.barre.w,h.barre.y1,0]:h.p; if(!o||!p) { m=1e9; return; } m=Math.max(m,Math.abs(p[0]-o[0]),Math.abs(p[1]-o[1]),Math.abs(p[2]-o[2])); }); return m; };
   function draw(dt,st,live,plan){
     const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
     if(fingers.some(F=>F.x===undefined||isNaN(F.x))) return;
     clock+=dt||0.016;
-    const TGT=ask(dt);
+    const nowN=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, TGT=ask(dt,live,nowN);
     // the hand follows from where it was; from scratch when it is new, or has lost its way (not more than once a second)
     if(fresh){ HM.solveFresh(TGT); fresh=false; lastFresh=clock; } else HM.solve(TGT,reduce?6:2);
     if(clock-lastFresh>1&&Math.max(...HM.errs().map((e,i)=>(TGT.f[i].press||TGT.f[i].barre)?e:0))>4){ HM.solveFresh(TGT); lastFresh=clock; }
-    const S=HM.pose();
+    // what is drawn follows the solved hand smoothly: closely while the hand is moving, gently once it has come to rest, so
+    // the hand at rest breathes rather than flickers
+    still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT;
+    const qs=HM.q, tau=reduce?0:(still>0.25?0.35:0.04), kq=tau?Math.min(1,(dt||0.016)/tau):1;
+    if(!qd||qd.length!==qs.length) qd=qs.slice(); else for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq;
+    const S=HM.poseAt(qd);
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
     // the fingers' bones, farthest first
     const segs=[];
     S.F.forEach((Fk,k)=>{ for(let s=0;s<3;s++){ const A=Fk.j[s], B=Fk.j[s+1]; segs.push({k,s,A,B,dp:depth([(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2])}); } });
-    segs.sort((a,b)=>a.dp-b.dp);
+    // farthest first; two bones at nearly the same depth keep the order they had, so their outlines do not blink
+    segs.forEach(g=>{ g.r=rank[g.k*3+g.s]; });
+    segs.sort((a,b)=>Math.abs(a.dp-b.dp)<1.5?a.r-b.r:a.dp-b.dp);
+    segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
     segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?1:0.96)*scl(g.B[0]);
       const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
@@ -481,12 +502,12 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   function reach(pl){
     const tg2=[null,null,null,null], H=handFor(pl);
     for(let k=1;k<=4;k++){ const q=pl.find(o=>o.g===k), h=H.f[k], n=Math.max(1,Math.round(h.fret)), X=fretMM(n)-0.3*(fretMM(n)-fretMM(n-1)), g=gapAt(X);
-      if(q&&q.barre&&k===1) tg2[0]={barre:{x:fretMM(n)-0.2*(fretMM(n)-fretMM(n-1)),y0:0,y1:q.s*g+1.5}};
-      else if(q) tg2[k-1]={p:[X,q.s*g,0.5],press:true,cell:[fretMM(n-1)+2.5,fretMM(n)-2]};
-      else tg2[k-1]={p:[X,h.string*g,5],press:false}; }
-    const xs2=tg2.map(g=>g.barre?g.barre.x:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
-    const TG={f:tg2, th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
-    HM2.reset(); HM2.solveFresh(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
+      if(q&&q.barre&&k===1) tg2[0]={s:q.s, lowS:q.s, barre:{w:fretMM(n),y0:0,y1:q.s*g+1.5}};
+      else if(q) tg2[k-1]={s:q.s,p:[X,q.s*g,0.5],press:true,cell:[fretMM(n-1)+2.5,fretMM(n)]};
+      else tg2[k-1]={s:h.string,p:[X,h.string*g,5],press:false}; }
+    const xs2=tg2.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
+    const TG={f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
+    HM2.q=HM.q; HM2.quick(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
   if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw}; }   // the drill pages: the hand in place of the dots, nothing more
   // posing, free of any harmony: the hand's own rules only (fingers within their reach of each other, never crossing,
   // two on one string a fret apart). Pick a finger — click it, or press 1–4 — then click where it goes; it stays pinned
@@ -495,7 +516,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     q.fill.addEventListener('click',e=>{ if(svgPoint(e).y>=FB.top) return; e.stopPropagation(); SELK=SELK===q.k+1?0:q.k+1; }); });   // a finger is picked by its knuckles, above the board
   const fits=(pl)=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
   function pose(k,s0,f0){
-    stopForEdit(); P=P.filter(p=>p.g&&p.g!==k);
+    stopForEdit(); openStr.clear(); P=P.filter(p=>p.g&&p.g!==k);
     // what the bones cannot hold together is let go, the finger farthest from the new one first
     while(P.length&&(!fits(P.concat([{g:k,s:s0,f:f0}]))||reach(P.concat([{g:k,s:s0,f:f0}]))>4)){ const far=P.slice().sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; P=P.filter(p=>p!==far); }
     P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; refresh(); }
@@ -506,7 +527,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     pose(k,st,fr); SELK=0; },true);
   addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey){ SELK=+e.key; } if(e.key==='Escape') SELK=0; });
   const letGo=document.getElementById('clear'); letGo.hidden=false; letGo.textContent='Let Go';
-  document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
+  document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; openStr.clear(); const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
   // CHORD GRIP: the common open and barre chords; a name poses the hand to grip it. Each is written as a chord chart
   // is, low E to high e — the frets (x unplayed, 0 open) and the fingers; a finger on more than one string is a barre,
   // lying along its fret down to the lowest string it holds
@@ -527,7 +548,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     list.forEach(([nm,fr,fi])=>{ const b=document.createElement('button'); b.type='button'; b.className='gripBtn';
       const at=grp==='Barre'?Math.min(...[...fr].filter(c=>c!=='x').map(Number).filter(n=>n>0)):0;
       b.innerHTML=nm+(at?'<sub>'+at+'</sub>':''); b.title=nm+' — '+fr;
-      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
+      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); openStr.clear(); [...fr].forEach((c,i)=>{ if(c==='0') openStr.add(NSTR-1-i); }); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });

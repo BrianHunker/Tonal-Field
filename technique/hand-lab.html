@@ -1782,7 +1782,7 @@ function makeHand(G){
   // ranges: spread at the knuckle, bend at the knuckle, bend at the middle joint; thumb base (two ways), its two joints
   const LO=[], HI=[];
   const set=(i,a,b)=>{ LO[i]=a; HI[i]=b; };
-  for(let i=0;i<3;i++){ set(i,-1e4,1e4); set(3+i,-1.4,1.4); }
+  for(let i=0;i<3;i++){ set(i,-1e4,1e4); set(3+i,-1,1); }   // the palm turns from its resting turn only as far as wrist and forearm allow
   const SPR=[[-22,24],[-17,17],[-17,17],[-26,18]];
   for(let k=0;k<4;k++){ set(6+4*k,SPR[k][0]*D2R,SPR[k][1]*D2R); set(7+4*k,-25*D2R,92*D2R); set(8+4*k,0,112*D2R); set(9+4*k,-8*D2R,85*D2R); }
   set(22,-0.75,0.75); set(23,-0.75,0.75); set(24,-12*D2R,65*D2R); set(25,-25*D2R,85*D2R);
@@ -1826,8 +1826,10 @@ function makeHand(G){
   }
 
   // the neck in section at x: the fretboard's face (z = 0) between its edges, the back a half ellipse depth D below
+  // a neck tapers evenly: its edges and depth are straight lines along it, read once
+  const lin=f=>{ const a=f(0), b=f(600); return [a,(b-a)/600]; }, NF=lin(G.yFar), NN=lin(G.yNear), ND=lin(G.depth);
   function neckSD(P){
-    const x=P[0], yf=G.yFar(x), yn=G.yNear(x), hw=(yn-yf)/2, yc=(yn+yf)/2, Dp=G.depth(x), dy=P[1]-yc, z=P[2];
+    const x=P[0], yf=NF[0]+NF[1]*x, yn=NN[0]+NN[1]*x, hw=(yn-yf)/2, yc=(yn+yf)/2, Dp=ND[0]+ND[1]*x, dy=P[1]-yc, z=P[2];
     if(z>=0) return Math.abs(dy)<=hw?z:Math.hypot(Math.abs(dy)-hw,z);
     const a=dy/hw, bb=z/Dp, rho=Math.hypot(a,bb), gr=Math.hypot(a/hw,bb/Dp)/(rho||1);
     if(Math.abs(dy)>hw&&z>-2) return Math.max(Math.abs(dy)-hw,(rho-1)/(gr||1));
@@ -1841,25 +1843,35 @@ function makeHand(G){
   const lerp=(a,b,s)=>[a[0]+(b[0]-a[0])*s,a[1]+(b[1]-a[1])*s,a[2]+(b[2]-a[2])*s];
 
   const PAIRS=[[0,0],[1,1],[2,2],[1,2],[2,1]];
-  // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), press, barre:{x,y0,y1}?} and the thumb's place
-  let TG=null;
+  // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
+  // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
+  // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
+  let TG=null, RINGW=1, PULL=0.25;
   function resid(q,out){
     const S=fk(q); let n=0; const put=v=>{ out[n++]=v; };
     const pen=(v,w)=>put(v>0?v*w:0);
     for(let k=0;k<4;k++){ const g=TG.f[k], Fk=S.F[k];
-      if(g.barre){ const B=g.barre, z=RAD[k][1];            // a barre: the finger laid straight along its fret, across the strings it holds
-        put((Fk.pad[0]-B.x)*1.2); put((Fk.pad[1]-B.y1)*1.0); put((Fk.pad[2]-0.5)*1.2);
-        put((Fk.dip[0]-B.x)*1.0); put((Fk.dip[2]-z)*1.0); put((Fk.pip[0]-B.x)*0.8); put((Fk.pip[2]-z-1)*0.8); put(Math.max(0,Fk.pip[1]-B.y0)*0.8); }
+      // the fingertip's flesh, all of it, stays behind its fret wire, as close to it as it can
+      const R=RAD[k], fl=[[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]],[Fk.end,R[2]]], front=Math.max(...fl.map(([P,r])=>P[0]+r));
+      if(g.barre){ const B=g.barre, z=R[1], bx=B.w-R[1]-1.5;   // a barre: the finger laid straight along its fret, across the strings it holds
+        put((Fk.pad[1]-B.y1)); put((Fk.pad[2]-0.5)*1.2);
+        put((Fk.dip[0]-bx)*1.0); put((Fk.dip[2]-z)*1.0); put((Fk.pip[0]-bx)*0.8); put((Fk.pip[2]-z-1)*0.8); put(Math.max(0,Fk.pip[1]-B.y0)*0.8);
+        put(Math.max(0,Math.max(front,Fk.pip[0]+R[0])-(B.w+0.5))*4); }
       else if(g.press&&g.cell){ const C=g.cell, x=Fk.pad[0];   // pressing: anywhere in its fret's cell sounds the note, nearer the wire is cleaner
-        put(x<C[0]?(C[0]-x)*1.4:(x>C[1]?(x-C[1])*1.4:0)); put((x-C[1])*0.12); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
+        put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(front-(C[1]-1))*PULL); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
       else { const w=g.press?1.4:0.35; put((Fk.pad[0]-g.p[0])*w); put((Fk.pad[1]-g.p[1])*w); put((Fk.pad[2]-g.p[2])*w); for(let j=0;j<5;j++) put(0); }
       // the bones keep out of the neck (the pressing pad only touches it)
       for(let s=0;s<3;s++) for(const tt of [0.15,0.6,1]){ const pt=lerp(Fk.j[s],Fk.j[s+1],tt), need=RAD[k][s]*THK*(s===2&&(g.press||g.barre)?0.9:1);
         pen(need-neckSD(pt),4); }
-      if(g.press||g.barre) pen(Fk.pal3[2]-0.25,20); }
+      if(g.press||g.barre) pen(Fk.pal3[2]-0.25,20);
+      // and does not touch a neighbouring string where that string is sounding (past its stopping fret; anywhere, open)
+      for(const ds of [-1,1]){ const s2=g.s+ds, st=!g.barre&&TG.ring&&s2>=0&&s2<G.nstr?TG.ring[s2]:null;
+        for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
+          if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
+          pen(r+0.4-Math.hypot(P[1]-G.strY(s2,P[0]),P[2]-2),0.75*RINGW); } } }
     // fingers side by side, never through one another
     for(let k=0;k<3;k++) for(const [s,s2] of PAIRS){
-      const A=S.F[k].j, B=S.F[k+1].j; pen(RAD[k][s]+RAD[k+1][s2]-2.5-segDist(A[s],A[s+1],B[s2],B[s2+1]),3); }
+      const A=S.F[k].j, B=S.F[k+1].j; pen(RAD[k][s]+RAD[k+1][s2]-(s===2&&s2===2?4:2.5)-segDist(A[s],A[s+1],B[s2],B[s2+1]),3); }   // fingertip pads squeeze a little more
     // the thumb on the back of the neck
     put((S.Th.pad[0]-TG.th[0])*TG.thw); put((S.Th.pad[1]-TG.th[1])*TG.thw); put((S.Th.pad[2]-TG.th[2])*TG.thw);
     for(let s=0;s<3;s++) for(const tt of [0.3,0.8]){ if(s===2&&tt===0.8) continue; pen(TRAD[s]-neckSD(lerp(S.Th.j[s],S.Th.j[s+1],tt)),4); }
@@ -1879,7 +1891,7 @@ function makeHand(G){
   let q=null, buf=new Float64Array(400), buf2=new Float64Array(400);
   function cost(qq){ const n=resid(qq,buf2); let s=0; for(let i=0;i<n;i++) s+=buf2[i]*buf2[i]; return s; }
   function initQ(){
-    const xs=TG.f.map(g=>g.barre?g.barre.x:g.p[0]), x0=(xs[0]+xs[1]+xs[2]+xs[3])/4;
+    const xs=TG.f.map(g=>g.barre?g.barre.w:g.p[0]), x0=(xs[0]+xs[1]+xs[2]+xs[3])/4;
     const z=new Array(NQ).fill(0); z[0]=x0; z[1]=G.yFar(x0)-17; z[2]=-9; for(let i=6;i<NQ;i++) z[i]=NEUT[i]; return z; }
   // Levenberg–Marquardt from where the hand was
   // one finger straight to its place, given the palm: its spread is the place's direction across the palm, its middle
@@ -1898,13 +1910,13 @@ function makeHand(G){
     const P=padAt(k,0,f2), f1=Math.atan2(tp,rho)-Math.atan2(P[1],P[0]);
     qq[6+4*k]=a; qq[7+4*k]=Math.max(LO[7+4*k],Math.min(HI[7+4*k],f1)); qq[8+4*k]=f2; qq[9+4*k]=Math.min(HI[9+4*k],DIPK*f2); }
   function aimAll(qq){ for(let k=0;k<4;k++){ const g=TG.f[k]; let T;
-      if(g.barre) T=[g.barre.x,g.barre.y1,0.5]; else if(g.press&&g.cell) T=[g.cell[1]-0.3*(g.cell[1]-g.cell[0]),g.p[1],g.p[2]]; else T=g.p;
+      if(g.barre) T=[g.barre.w-RAD[k][1]-1.5,g.barre.y1,0.5]; else if(g.press&&g.cell) T=[g.cell[1]-RAD[k][2]-1.5,g.p[1],g.p[2]]; else T=g.p;
       aim(qq,k,T); } }
   // Levenberg–Marquardt over some of the parameters (pre: a step run on the hand before it is scored)
-  function lm(idx,iters,pre){
+  function lm(idx,iters,pre,guard){
     const NP=idx.length, ev=(qq,out)=>{ if(pre){ qq=qq.slice(); pre(qq); } return resid(qq,out); };
     const n=ev(q,buf); let c0=0; for(let i=0;i<n;i++) c0+=buf[i]*buf[i];
-    const J=new Float64Array(n*NP), rr=new Float64Array(n); let lam=0.3;
+    const J=new Float64Array(n*NP), rr=new Float64Array(n); let lam=0.3, stall=0;
     for(let it=0;it<iters;it++){
       ev(q,buf); for(let i=0;i<n;i++) rr[i]=buf[i];
       for(let jj=0;jj<NP;jj++){ const j=idx[jj], h=j<3?0.05:1e-3, s=q[j]; q[j]=s+h; ev(q,buf); q[j]=s; for(let i=0;i<n;i++) J[i*NP+jj]=(buf[i]-rr[i])/h; }
@@ -1918,29 +1930,46 @@ function makeHand(G){
         const d=gauss(M,v,NP); let sc=1; for(let a=0;a<NP;a++){ const lim=idx[a]<3?8:0.25; if(Math.abs(d[a])*sc>lim) sc=lim/Math.abs(d[a]); }   // small steps: the hand moves, it does not jump
         const qn=q.slice(); idx.forEach((j,a)=>{ qn[j]+=d[a]*sc; }); clamp(qn);
         const nn=ev(qn,buf2); let cn=0; for(let i=0;i<nn;i++) cn+=buf2[i]*buf2[i];
-        if(cn<c0){ q=qn; c0=cn; lam=Math.max(1e-5,lam*0.35); improved=true; } else lam*=5; }
-      if(!improved||c0<1e-6) break; }
+        if(cn<c0&&(!guard||guard(qn))){ stall=c0-cn<1e-4*c0+1e-6?stall+1:0; q=qn; c0=cn; lam=Math.max(1e-5,lam*0.35); improved=true; } else lam*=5; }
+      if(!improved||c0<1e-6||stall>=3) break; }   // settled: it has stopped getting better
     if(pre) pre(q);
     return c0; }
   const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25];
   // from scratch: the palm (and thumb) found with every finger aimed straight at its place, from a few starting hands
   // (along the neck, turned toward the nut or the body); the best carried on, then everything settled together
   function solveFresh(targets,iters){
-    TG=targets; const base=initQ(); let best=null, bc=1e99;
-    for(const dx of [0,-15,15]) for(const tw of [0,-0.3,0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; const c=lm(PALM,18,aimAll); if(c<bc){ bc=c; best=q.slice(); } }
-    q=best; lm(PALM,30,aimAll); return lm(ALL,iters||40); }
+    TG=targets; RINGW=0; const base=initQ(), starts=[];
+    for(const dx of [0,-30,-15,15,30]) for(const tw of [0,-0.3,0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; const c=lm(PALM,18,aimAll); starts.push({c,q:q.slice()}); }
+    // the three most promising carried all the way: the notes found, then the ringing strings kept clear without
+    // letting a note slip; the hand that holds its notes best (then the easiest) is the one
+    starts.sort((a,b)=>a.c-b.c); let best=null, bs=null;
+    for(const st of starts.slice(0,3)){ q=st.q; RINGW=0; lm(PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; const c=lm(ALL,40,null,keepNotes(q));
+      const sc=[Math.max(0,noteErr(q)-1.5),c]; if(!bs||sc[0]<bs[0]-1e-9||(Math.abs(sc[0]-bs[0])<1e-9&&sc[1]<bs[1])){ bs=sc; best=q.slice(); } }
+    q=best; RINGW=1; return bs[1]; }
   // from where the hand was
-  function solve(targets,iters){ TG=targets; if(!q) return solveFresh(targets); return lm(ALL,iters); }
+  // a quick look from where the hand already is (the notes only); the full search only if that falls short
+  function quick(targets){ TG=targets; RINGW=0; if(!q) return solveFresh(targets); lm(ALL,40); if(noteErr(q)>4) solveFresh(targets); RINGW=1; return noteErr(q); }
+  function solve(targets,iters){ TG=targets; if(!q) return solveFresh(targets); return lm(ALL,iters,null,keepNotes(q)); }
   function gauss(M,v,N){
     for(let c=0;c<N;c++){ let piv=c; for(let r=c+1;r<N;r++) if(Math.abs(M[r*N+c])>Math.abs(M[piv*N+c])) piv=r;
       if(piv!==c){ for(let k=0;k<N;k++){ const t=M[c*N+k]; M[c*N+k]=M[piv*N+k]; M[piv*N+k]=t; } const t=v[c]; v[c]=v[piv]; v[piv]=t; }
       const d=M[c*N+c]||1e-12; for(let r=c+1;r<N;r++){ const f=M[r*N+c]/d; if(!f) continue; for(let k=c;k<N;k++) M[r*N+k]-=f*M[c*N+k]; v[r]-=f*v[c]; } }
     const x=new Array(N).fill(0); for(let r=N-1;r>=0;r--){ let s=v[r]; for(let k=r+1;k<N;k++) s-=M[r*N+k]*x[k]; x[r]=s/(M[r*N+r]||1e-12); } return x; }
   // how far each pressing finger stops short of its place (mm)
-  function errs(){ const S=fk(q); return TG.f.map((g,k)=>{ const P=S.F[k].pad; if(g.barre) return Math.hypot(P[0]-g.barre.x,P[1]-g.barre.y1,P[2]-0.5);
+  // the notes come first: a step is taken only if no pressing tip ends farther from its note than 1 mm (or than it was)
+  const noteErr=qq=>{ const e=errsAt(qq); let m=0; TG.f.forEach((g,k)=>{ if(g.press||g.barre) m=Math.max(m,e[k]); }); return m; };
+  const keepNotes=q0=>{ const lim=Math.max(1,noteErr(q0))+1e-6; return qn=>noteErr(qn)<=lim; };
+  const errs=()=>errsAt(q);
+  function errsAt(qq){ const S=fk(qq); return TG.f.map((g,k)=>{ const P=S.F[k].pad; if(g.barre) return Math.hypot(Math.max(0,P[0]-g.barre.w),P[1]-g.barre.y1,P[2]-0.5);
     if(g.press&&g.cell){ const dx=P[0]<g.cell[0]?g.cell[0]-P[0]:Math.max(0,P[0]-g.cell[1]), dy=Math.max(0,Math.abs(P[1]-g.p[1])-1.2); return Math.hypot(dx,dy,P[2]-g.p[2]); }
     return Math.hypot(P[0]-g.p[0],P[1]-g.p[1],P[2]-g.p[2]); }); }
-  return {solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  // per finger: how far its tip's flesh passes its wire (mm, + over), and its least clearance from a sounding neighbour string
+  function audit(){ const S=fk(q); return TG.f.map((g,k)=>{ const Fk=S.F[k], R=RAD[k], fl=[[lerp(Fk.pip,Fk.dip,0.6),R[1]],[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]],[Fk.end,R[2]]];
+      const front=Math.max(...fl.slice(1).map(([P,r])=>P[0]+r)), wire=g.barre?g.barre.w:(g.cell?g.cell[1]:null); let clr=null;
+      if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
+        for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.hypot(P[1]-G.strY(s2,P[0]),P[2]-2)-r; clr=clr===null?c:Math.min(clr,c); } }
+      return {over:wire===null?null:front-wire, clr}; }); }
+  return {quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }
 
 /* ---------- a student's drill book: pages of walks ----------
@@ -2324,7 +2353,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.25;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
   const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
-  const NECK={yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
+  const NECK={nstr:NSTR, strY:(s,X)=>s*gapAt(X), yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
   const xs=X=>FB.nut+SCALE*X/LMM, Xof=x=>(x-FB.nut)*LMM/SCALE;
   const proj=P=>({x:xs(P[0]), y:FB.strY[0]+(P[1]-K*P[2])*U/gapAt(P[0])}), depth=P=>P[2]+K*P[1];
   const scl=X=>Math.sqrt((SCALE/LMM)*(U/gapAt(X)));                      // board units per millimetre, for a bone's thickness
@@ -2345,7 +2374,9 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1];
-  let SELK=0, fresh=true, lastFresh=-1e9, clock=0;
+  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null;
+  const rank=[...Array(12).keys()];                                         // the bones' drawing order last frame
+  const openStr=new Set();                                                 // open strings meant to ring (a chord chart's 0s)
   const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
   // a bone seen from the side: two circles (its ends, their thickness) and the lines tangent to both
   function bone(A,B,ra,rb){
@@ -2364,30 +2395,49 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {d:'M'+f(b.x+nx)+' '+f(b.y+ny)+' L'+f(a.x+nx*0.9)+' '+f(a.y+ny*0.9)+' Q'+f(a.x+ux*w*0.5)+' '+f(a.y+uy*w*0.5)+' '+f(a.x-nx*0.9)+' '+f(a.y-ny*0.9)+' L'+f(b.x-nx)+' '+f(b.y-ny)+' Q'+f(C.x)+' '+f(C.y)+' '+f(b.x+nx)+' '+f(b.y+ny), vis}; }
   // what the hand is asked, read off the dots: where each tip is, whether it presses (and then anywhere in its fret's
   // cell will do), a barre laid along its fret; the thumb on the back of the neck between the first two fingers
-  function ask(dt){
+  // which strings are sounding, and from where: a stopped string from its stopping fret's wire, an open one from the nut
+  function ringing(fs,live,now){
+    const ring=Array(NSTR).fill(null), stop=(s,x)=>{ if(s>=0&&s<NSTR) ring[s]=Math.max(ring[s]===null?0:ring[s],x); };
+    fs.forEach((g,i)=>{ if(g.barre) for(let s=0;s<=g.lowS;s++) stop(s,g.barre.w); else if(g.press) stop(g.s,g.cell[1]); });
+    openStr.forEach(s=>{ if(ring[s]===null) ring[s]=0; });
+    if(live&&now&&now.finger===0&&ring[now.string]===null) ring[now.string]=0;
+    return ring; }
+  function ask(dt,live,now){
     const bar=P.find(q=>q.g===1&&q.barre), hov=(HOVER_GAP-FR*PRESS_H)/(K*U)*gapAt(150);
     const fs=fingers.map((F,i)=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
-      const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z, fg=(LMM-X)*0.0561;
-      if(i===0&&bar&&down){ const x=Math.min(X+0.15*fg,X+0.34*fg-2); return {barre:{x,y0:0,y1:bar.s*g+1.5}}; }
-      return down?{p:[X,Y,Z],press:true,cell:[X-0.6*fg+2.5,X+0.34*fg-2]}:{p:[X,Y,Z],press:false}; });
-    const xs2=fs.map(g=>g.barre?g.barre.x:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
-    return {f:fs, th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
+      const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
+      // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
+      const fg=(LMM-X)*0.0561/(1-0.66*0.0561), wire=X+0.34*fg, s=HAND.f[i+1]?HAND.f[i+1].string:0;
+      if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
+      return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire]}:{s,p:[X,Y,Z],press:false}; });
+    const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
+    return {f:fs, ring:ringing(fs,live,now), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
+  // how far the asked places moved since the last frame (mm): the hand at rest is still
+  const moved=(a,b)=>{ if(!a||!b) return 1e9; let m=0; a.f.forEach((g,i)=>{ const h=b.f[i], p=g.barre?[g.barre.w,g.barre.y1,0]:g.p, o=h.barre?[h.barre.w,h.barre.y1,0]:h.p; if(!o||!p) { m=1e9; return; } m=Math.max(m,Math.abs(p[0]-o[0]),Math.abs(p[1]-o[1]),Math.abs(p[2]-o[2])); }); return m; };
   function draw(dt,st,live,plan){
     const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
     if(fingers.some(F=>F.x===undefined||isNaN(F.x))) return;
     clock+=dt||0.016;
-    const TGT=ask(dt);
+    const nowN=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, TGT=ask(dt,live,nowN);
     // the hand follows from where it was; from scratch when it is new, or has lost its way (not more than once a second)
     if(fresh){ HM.solveFresh(TGT); fresh=false; lastFresh=clock; } else HM.solve(TGT,reduce?6:2);
     if(clock-lastFresh>1&&Math.max(...HM.errs().map((e,i)=>(TGT.f[i].press||TGT.f[i].barre)?e:0))>4){ HM.solveFresh(TGT); lastFresh=clock; }
-    const S=HM.pose();
+    // what is drawn follows the solved hand smoothly: closely while the hand is moving, gently once it has come to rest, so
+    // the hand at rest breathes rather than flickers
+    still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT;
+    const qs=HM.q, tau=reduce?0:(still>0.25?0.35:0.04), kq=tau?Math.min(1,(dt||0.016)/tau):1;
+    if(!qd||qd.length!==qs.length) qd=qs.slice(); else for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq;
+    const S=HM.poseAt(qd);
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
     // the fingers' bones, farthest first
     const segs=[];
     S.F.forEach((Fk,k)=>{ for(let s=0;s<3;s++){ const A=Fk.j[s], B=Fk.j[s+1]; segs.push({k,s,A,B,dp:depth([(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2])}); } });
-    segs.sort((a,b)=>a.dp-b.dp);
+    // farthest first; two bones at nearly the same depth keep the order they had, so their outlines do not blink
+    segs.forEach(g=>{ g.r=rank[g.k*3+g.s]; });
+    segs.sort((a,b)=>Math.abs(a.dp-b.dp)<1.5?a.r-b.r:a.dp-b.dp);
+    segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
     segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?1:0.96)*scl(g.B[0]);
       const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
@@ -2426,12 +2476,12 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   function reach(pl){
     const tg2=[null,null,null,null], H=handFor(pl);
     for(let k=1;k<=4;k++){ const q=pl.find(o=>o.g===k), h=H.f[k], n=Math.max(1,Math.round(h.fret)), X=fretMM(n)-0.3*(fretMM(n)-fretMM(n-1)), g=gapAt(X);
-      if(q&&q.barre&&k===1) tg2[0]={barre:{x:fretMM(n)-0.2*(fretMM(n)-fretMM(n-1)),y0:0,y1:q.s*g+1.5}};
-      else if(q) tg2[k-1]={p:[X,q.s*g,0.5],press:true,cell:[fretMM(n-1)+2.5,fretMM(n)-2]};
-      else tg2[k-1]={p:[X,h.string*g,5],press:false}; }
-    const xs2=tg2.map(g=>g.barre?g.barre.x:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
-    const TG={f:tg2, th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
-    HM2.reset(); HM2.solveFresh(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
+      if(q&&q.barre&&k===1) tg2[0]={s:q.s, lowS:q.s, barre:{w:fretMM(n),y0:0,y1:q.s*g+1.5}};
+      else if(q) tg2[k-1]={s:q.s,p:[X,q.s*g,0.5],press:true,cell:[fretMM(n-1)+2.5,fretMM(n)]};
+      else tg2[k-1]={s:h.string,p:[X,h.string*g,5],press:false}; }
+    const xs2=tg2.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
+    const TG={f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
+    HM2.q=HM.q; HM2.quick(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
   if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw}; }   // the drill pages: the hand in place of the dots, nothing more
   // posing, free of any harmony: the hand's own rules only (fingers within their reach of each other, never crossing,
   // two on one string a fret apart). Pick a finger — click it, or press 1–4 — then click where it goes; it stays pinned
@@ -2440,7 +2490,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     q.fill.addEventListener('click',e=>{ if(svgPoint(e).y>=FB.top) return; e.stopPropagation(); SELK=SELK===q.k+1?0:q.k+1; }); });   // a finger is picked by its knuckles, above the board
   const fits=(pl)=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
   function pose(k,s0,f0){
-    stopForEdit(); P=P.filter(p=>p.g&&p.g!==k);
+    stopForEdit(); openStr.clear(); P=P.filter(p=>p.g&&p.g!==k);
     // what the bones cannot hold together is let go, the finger farthest from the new one first
     while(P.length&&(!fits(P.concat([{g:k,s:s0,f:f0}]))||reach(P.concat([{g:k,s:s0,f:f0}]))>4)){ const far=P.slice().sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; P=P.filter(p=>p!==far); }
     P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; refresh(); }
@@ -2451,7 +2501,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     pose(k,st,fr); SELK=0; },true);
   addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey){ SELK=+e.key; } if(e.key==='Escape') SELK=0; });
   const letGo=document.getElementById('clear'); letGo.hidden=false; letGo.textContent='Let Go';
-  document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
+  document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; openStr.clear(); const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
   // CHORD GRIP: the common open and barre chords; a name poses the hand to grip it. Each is written as a chord chart
   // is, low E to high e — the frets (x unplayed, 0 open) and the fingers; a finger on more than one string is a barre,
   // lying along its fret down to the lowest string it holds
@@ -2472,7 +2522,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     list.forEach(([nm,fr,fi])=>{ const b=document.createElement('button'); b.type='button'; b.className='gripBtn';
       const at=grp==='Barre'?Math.min(...[...fr].filter(c=>c!=='x').map(Number).filter(n=>n>0)):0;
       b.innerHTML=nm+(at?'<sub>'+at+'</sub>':''); b.title=nm+' — '+fr;
-      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
+      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); openStr.clear(); [...fr].forEach((c,i)=>{ if(c==='0') openStr.add(NSTR-1-i); }); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });
