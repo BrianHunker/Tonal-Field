@@ -666,7 +666,7 @@ const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
 function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<16;e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
 // every eighth is a stroke, sounding or not: [prev, next] around time t, each {t, up, struck}
 function around(s,t){
-  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:n%2===1, struck:n===0||pickedAt(s,n%(LOOP*2))};
+  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:(s.upAt?s.upAt(n%(LOOP*2)):n%2===1), struck:n===0||pickedAt(s,n%(LOOP*2))};
   return [at(n0), at(n0+1)];
 }
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
@@ -1248,7 +1248,7 @@ function tick(){
       const e=FIG[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
       const sn=s.plan[T.nextI].string; if(!s.strs[sn]) s.strs[sn]=makeString(GAUGE(sn));
       note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
-      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
+      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; if(s.swap) s.swap(); }   // a chord page may change its figure at the loop's end
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){
       for(const k in s.strs) s.strs[k].stopAt(s.end);
@@ -1264,7 +1264,7 @@ function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{con
 function note(s,t,i,first){
   const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
   const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to the other string: the last one is let go
-  if(!first&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});
+  if(!first&&!s.chord&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});   // a chord's tones ring on
   const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
   if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
   if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
@@ -1336,7 +1336,8 @@ function pitchAt(st,t){
 // the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
 function handNow(s,st){ return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
-  const st=stateAt(t+LEAD); if(st.idx<0) return false;
+  const st=stateAt(t+LEAD); if(st.s&&st.s.chord) return st.s.chord.has(f);   // a chord: its fingers stay down throughout
+  if(st.idx<0) return false;
   const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
   if(f===e.finger) return true;
   if(!h||h.string!==e.string||f>e.finger) return false;
@@ -1613,11 +1614,11 @@ segMeans.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b
   if(DRILL&&DRILL.means===m){ DRILL.dir=drill.dir; DRILL.plan=planOf(DRILL,drill.dir); edited(); refresh(); return; }
   const anchor=P.find(p=>p.g)||P[0]; MEANS=m; P=anchor?[anchor]:[]; DRILL=null; edited(); relayout(); settle(); relayout(); refresh(); });
 holdBtn.addEventListener('click',()=>{ drill.hold=!drill.hold; holdChanged(); refresh(); });
-$('prev').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
-$('next').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
+$('prev').addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ applySample(SI-1); return; } const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
+$('next').addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ applySample(SI+1); return; } const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
 $('clear').addEventListener('click',()=>{ stopForEdit(); P=[]; DRILL=null; SEL=null; MEANS='pick'; LEGATO.ham=LEGATO.pull=false; CUSTOM=true; drill.hold=true;
   const H=handFor([],HAND.f[1].fret,0); HAND.f=H.f; HAND.thumb=H.thumb; settle(); refresh(); });
-playBtn.addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ CHORDS.toggle(); return; } if(T.on) stopAll(); else run(); });
+playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(); });
 window.addEventListener('keydown',e=>{ if(e.code!=='Space') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return; e.preventDefault(); if(T.on) stopAll(); else run(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; });
 bpmIn.addEventListener('change',()=>{ if(T.on) run(); });

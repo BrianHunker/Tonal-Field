@@ -102,11 +102,11 @@ segMeans.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b
   if(DRILL&&DRILL.means===m){ DRILL.dir=drill.dir; DRILL.plan=planOf(DRILL,drill.dir); edited(); refresh(); return; }
   const anchor=P.find(p=>p.g)||P[0]; MEANS=m; P=anchor?[anchor]:[]; DRILL=null; edited(); relayout(); settle(); relayout(); refresh(); });
 holdBtn.addEventListener('click',()=>{ drill.hold=!drill.hold; holdChanged(); refresh(); });
-$('prev').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
-$('next').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
+$('prev').addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ applySample(SI-1); return; } const was=T.on; if(was) stopAll(); applySample(SI-1); if(was) run(); });
+$('next').addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ applySample(SI+1); return; } const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
 $('clear').addEventListener('click',()=>{ stopForEdit(); P=[]; DRILL=null; SEL=null; MEANS='pick'; LEGATO.ham=LEGATO.pull=false; CUSTOM=true; drill.hold=true;
   const H=handFor([],HAND.f[1].fret,0); HAND.f=H.f; HAND.thumb=H.thumb; settle(); refresh(); });
-playBtn.addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ CHORDS.toggle(); return; } if(T.on) stopAll(); else run(); });
+playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(); });
 window.addEventListener('keydown',e=>{ if(e.code!=='Space') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return; e.preventDefault(); if(T.on) stopAll(); else run(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; });
 bpmIn.addEventListener('change',()=>{ if(T.on) run(); });

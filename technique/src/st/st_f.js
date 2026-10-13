@@ -47,7 +47,7 @@ function tick(){
       const e=FIG[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
       const sn=s.plan[T.nextI].string; if(!s.strs[sn]) s.strs[sn]=makeString(GAUGE(sn));
       note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
-      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
+      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; if(s.swap) s.swap(); }   // a chord page may change its figure at the loop's end
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){
       for(const k in s.strs) s.strs[k].stopAt(s.end);
@@ -63,7 +63,7 @@ function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{con
 function note(s,t,i,first){
   const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
   const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to the other string: the last one is let go
-  if(!first&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});
+  if(!first&&!s.chord&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});   // a chord's tones ring on
   const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
   if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
   if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
@@ -117,7 +117,8 @@ function pitchAt(st,t){
 // the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
 function handNow(s,st){ return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
-  const st=stateAt(t+LEAD); if(st.idx<0) return false;
+  const st=stateAt(t+LEAD); if(st.s&&st.s.chord) return st.s.chord.has(f);   // a chord: its fingers stay down throughout
+  if(st.idx<0) return false;
   const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
   if(f===e.finger) return true;
   if(!h||h.string!==e.string||f>e.finger) return false;

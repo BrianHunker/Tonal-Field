@@ -91,7 +91,7 @@ function walkSeg(i,pass){
 // the tool's own functions, given to the pages
 function applySample(i){ if(CHORDS){ CHORDS.show(i,i<SI?-1:1); return; } loadPage(i); refresh(); }
 function run(){
-  if(CHORDS){ CHORDS.strum(); return; }                                  // the Chords page: Play strums the shape
+  if(CHORDS){ CHORDS.run(); return; }                                    // the Chords page plays its own figure
   if(!DRILL) return;
   ensureCtx().then(()=>{
     if(T.on) stopAll();
@@ -108,6 +108,7 @@ function nextSeg(after){
     if(drill.hold||PAGES.length<2||pass<(BOOK.loops||1)){ const s=walkSeg(after,pass); walkFig(s.D.bars); return s; } }
   const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
+  if(s.chord){ T.shown=s; DRILL=s.D; layoutTab(s.D.bars); refresh(); return; }   // a chord: the Ring stays as the listener left it
   T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); { const pg=PAGES[PAGE]; RING.goal=pg.order==='alt'?s.pass%2:0; }   // the next pass's order shows through its count-in
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
@@ -133,6 +134,7 @@ function buildTabNotes(){
   while(noteG.firstChild) noteG.removeChild(noteG.firstChild);
   tabNotes=[]; const D=(T.on&&T.shown)?T.shown.D:DRILL; rows.forEach(r=>r.classList.add('sel')); rowLbls.forEach(l=>l.classList.add('sel'));
   if(!D) return;
+  if(D.chord&&CHORDS){ CHORDS.tab(D); return; }
   const plan=D.plan, stemTop=TB.rowY[NSTR-1]+10, stemLong=26, stemShort=13, slurPts=[];
   FIG.forEach((e,i)=>{ const n=plan[i]; if(!n) return; const x=xBeat(e.s), y=TB.rowY[n.string];
     const o=numberAt(x,y,String(n.fret)); tabNotes.push(o);
@@ -405,7 +407,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1];
-  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null;
+  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false;   // resettle: form the hand afresh once a new grip's dots have come to rest
   const rank=[...Array(12).keys()];                                         // the bones' drawing order last frame
   const openStr=new Set();                                                 // open strings meant to ring (a chord chart's 0s)
   const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
@@ -475,6 +477,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // what is drawn follows the solved hand smoothly: closely while the hand is moving, gently once it has come to rest, so
     // the hand at rest breathes rather than flickers
     still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT;
+    // a new grip, the fingers arrived: the hand forms it from scratch (following the dots there can leave it in a poorer shape)
+    if(resettle&&still>0.2){ HM.solveFresh(TGT); resettle=false; lastFresh=clock; }
     const qs=HM.q, tau=reduce?0:(still>0.25?0.35:0.04), kq=tau?Math.min(1,(dt||0.016)/tau):1;
     if(!qd||qd.length!==qs.length) qd=qs.slice(); else for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq;
     const S=HM.poseAt(qd);
@@ -547,7 +551,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     stopForEdit(); openStr.clear(); P=P.filter(p=>p.g&&p.g!==k);
     // what the bones cannot hold together is let go, the finger farthest from the new one first
     while(P.length&&(!fits(P.concat([{g:k,s:s0,f:f0}]))||reach(P.concat([{g:k,s:s0,f:f0}]))>4)){ const far=P.slice().sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; P=P.filter(p=>p!==far); }
-    P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; refresh(); }
+    P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; resettle=true; refresh(); }
   fb.addEventListener('click',e=>{ if(!document.body.classList.contains('handOn')) return;
     const p=svgPoint(e); if(p.y<FB.top) return; let fr=0; for(let n=1;n<=FMAX;n++) if(p.x>=cellL(n)&&p.x<cellR(n)) fr=n; if(!fr) return;
     let st=0, bd=1e9; FB.strY.forEach((y,i)=>{ if(Math.abs(y-p.y)<bd){ bd=Math.abs(y-p.y); st=i; } }); if(bd>16) return;
@@ -576,7 +580,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     list.forEach(([nm,fr,fi])=>{ const b=document.createElement('button'); b.type='button'; b.className='gripBtn';
       const at=grp==='Barre'?Math.min(...[...fr].filter(c=>c!=='x').map(Number).filter(n=>n>0)):0;
       b.innerHTML=nm+(at?'<sub>'+at+'</sub>':''); b.title=nm+' — '+fr;
-      b.addEventListener('click',()=>{ stopForEdit(); P=grip(fr,fi); openStr.clear(); [...fr].forEach((c,i)=>{ if(c==='0') openStr.add(NSTR-1-i); }); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
+      b.addEventListener('click',()=>{ stopForEdit(); resettle=true; P=grip(fr,fi); openStr.clear(); [...fr].forEach((c,i)=>{ if(c==='0') openStr.add(NSTR-1-i); }); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SELK=0;
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });
@@ -588,6 +592,6 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw, reach, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
+  return {draw, reach, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }

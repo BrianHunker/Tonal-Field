@@ -540,7 +540,7 @@ const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
 function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<16;e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
 // every eighth is a stroke, sounding or not: [prev, next] around time t, each {t, up, struck}
 function around(s,t){
-  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:n%2===1, struck:n===0||pickedAt(s,n%(LOOP*2))};
+  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:(s.upAt?s.upAt(n%(LOOP*2)):n%2===1), struck:n===0||pickedAt(s,n%(LOOP*2))};
   return [at(n0), at(n0+1)];
 }
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far
