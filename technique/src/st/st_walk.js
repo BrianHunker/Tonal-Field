@@ -416,7 +416,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // a nail on a bone's end, on its back, if its back is turned toward the eye
   function nail(end,dir,back,r,len){
     const vis=(back[2]+K*back[1])/Math.hypot(1,K); if(vis<0.15) return null;
-    const c=[end[0]-dir[0]*len*0.32+back[0]*r*0.8, end[1]-dir[1]*len*0.32+back[1]*r*0.8, end[2]-dir[2]*len*0.32+back[2]*r*0.8];
+    // its free edge a few millimetres short of the fingertip's end (the round of the tip, r past the bone's end)
+    const sh=r-2.5-len*0.26, c=[end[0]+dir[0]*sh+back[0]*r*0.8, end[1]+dir[1]*sh+back[1]*r*0.8, end[2]+dir[2]*sh+back[2]*r*0.8];
     const a=proj([c[0]+dir[0]*len*0.26,c[1]+dir[1]*len*0.26,c[2]+dir[2]*len*0.26]), b=proj([c[0]-dir[0]*len*0.26,c[1]-dir[1]*len*0.26,c[2]-dir[2]*len*0.26]);
     const C=proj(c), w=r*0.62*scl(c[0]); let ux=a.x-b.x, uy=a.y-b.y; const l=Math.hypot(ux,uy)||1; ux/=l; uy/=l; const nx=-uy*w, ny=ux*w;
     return {d:'M'+f(b.x+nx)+' '+f(b.y+ny)+' L'+f(a.x+nx*0.9)+' '+f(a.y+ny*0.9)+' Q'+f(a.x+ux*w*0.5)+' '+f(a.y+uy*w*0.5)+' '+f(a.x-nx*0.9)+' '+f(a.y-ny*0.9)+' L'+f(b.x-nx)+' '+f(b.y-ny)+' Q'+f(C.x)+' '+f(C.y)+' '+f(b.x+nx)+' '+f(b.y+ny), vis}; }
@@ -465,10 +466,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     segs.forEach(g=>{ g.r=rank[g.k*3+g.s]; });
     segs.sort((a,b)=>Math.abs(a.dp-b.dp)<1.5?a.r-b.r:a.dp-b.dp);
     segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
-    segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?1:0.96)*scl(g.B[0]);
+    segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?HM.TIPK:0.96)*scl(g.B[0]);
       const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
-      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(Fk.end,Fk.dir3,Fk.back,R[2],HM.LEN[g.k][2]); }
+      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(Fk.end,Fk.dir3,Fk.back,R[2]*HM.TIPK,HM.LEN[g.k][2]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
       const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)

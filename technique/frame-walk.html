@@ -1778,7 +1778,7 @@ function makeHand(G){
   // and the row arched a little toward the palm at its ends
   const MCP=[[21,-3,2.5],[0,0,0],[-19,-4,2],[-36,-13,5]];
   const SPLAY=[7,0,-6,-13].map(d=>d*D2R);                       // each finger's ray in the palm, straight out
-  const THK=0.8;                                                  // a finger is flatter than it is wide: its thickness, front to back
+  const THK=0.8, TIPK=0.72;                                       // TIPK: the very end of a finger, narrower than its pad                                                  // a finger is flatter than it is wide: its thickness, front to back
   const DIPK=0.38;                                               // the end joint's share of the middle's bend, aiming a finger
   // thumb: its base on the palm, its metacarpal, the two phalanges
   const TB=[25,-55,13], TLEN=[46,32,27], TRAD=[12,10,9];
@@ -1812,7 +1812,7 @@ function makeHand(G){
       const T1=f1, T2=f1+f2, T3=T2+f3, L=LEN[k], c3=Math.cos(T3), s3=Math.sin(T3), d3=[d[0]*c3+p[0]*s3, d[1]*c3+p[1]*s3, d[2]*c3+p[2]*s3], pl3=[-d[0]*s3+p[0]*c3, -d[1]*s3+p[1]*c3, -d[2]*s3+p[2]*c3];
       const mcp=at(MCP[k]), pip=add(mcp,dir(T1),L[0]), dip=add(pip,dir(T2),L[1]), end=add(dip,d3,L[2]);
       // what touches is the fingertip's lowest flesh: its end when it points down at the board, the pad further back as it flattens
-      const pt=d3[2]<0?end:add(dip,d3,L[2]*0.55), pad=[pt[0],pt[1],pt[2]-RAD[k][2]*THK];
+      const pt=d3[2]<0?end:add(dip,d3,L[2]*0.55), pad=[pt[0],pt[1],pt[2]-RAD[k][2]*(d3[2]<0?TIPK:1)*THK];
       F.push({mcp,pip,dip,end,pad,j:[mcp,pip,dip,end],back:[-pl3[0],-pl3[1],-pl3[2]],dir3:d3,pal3:pl3}); }
     // the thumb: its metacarpal out from the base, then its two joints bending it toward the fingers
     const b=at(TB), m0=nrm(add(add(add([0,0,0],r,0.25),u,0.45),p,0.85)), e1=nrm(add(r,m0,-dot(r,m0)));
@@ -1850,12 +1850,16 @@ function makeHand(G){
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
   let TG=null, RINGW=1, PULL=0.25;
+  // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
+  // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
+  // above it)
+  const BAND=4, band=(P,r)=>{ const dz=Math.max(0,P[2]-BAND,-P[2]), t=THK*r; return dz>=t?0:r*(1-(dz/t)*(dz/t)); };   // (the oval's side, rounded off at the top so the search can feel its way over)
   function resid(q,out){
     const S=fk(q); let n=0; const put=v=>{ out[n++]=v; };
     const pen=(v,w)=>put(v>0?v*w:0);
     for(let k=0;k<4;k++){ const g=TG.f[k], Fk=S.F[k];
       // the fingertip's flesh, all of it, stays behind its fret wire, as close to it as it can
-      const R=RAD[k], fl=[[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]],[Fk.end,R[2]]], front=Math.max(...fl.map(([P,r])=>P[0]+r));
+      const R=RAD[k], fl=[[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]*(1+TIPK)/2],[Fk.end,R[2]*TIPK]], front=Math.max(...fl.map(([P,r])=>P[0]+r));
       if(g.barre){ const B=g.barre, z=R[1], bx=B.w-R[1]-1.5;   // a barre: the finger laid straight along its fret, across the strings it holds
         put((Fk.pad[1]-B.y1)); put((Fk.pad[2]-0.5)*1.2);
         put((Fk.dip[0]-bx)*1.0); put((Fk.dip[2]-z)*1.0); put((Fk.pip[0]-bx)*0.8); put((Fk.pip[2]-z-1)*0.8); put(Math.max(0,Fk.pip[1]-B.y0)*0.8);
@@ -1871,7 +1875,7 @@ function makeHand(G){
       for(const ds of [-1,1]){ const s2=g.s+ds, st=!g.barre&&TG.ring&&s2>=0&&s2<G.nstr?TG.ring[s2]:null;
         for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
           if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
-          pen(r+0.4-Math.hypot(P[1]-G.strY(s2,P[0]),P[2]-2),0.75*RINGW); } } }
+          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW); } } }
     // fingers side by side, never through one another
     for(let k=0;k<3;k++) for(const [s,s2] of PAIRS){
       const A=S.F[k].j, B=S.F[k+1].j; pen(RAD[k][s]+RAD[k+1][s2]-(s===2&&s2===2?4:2.5)-segDist(A[s],A[s+1],B[s2],B[s2+1]),3); }   // fingertip pads squeeze a little more
@@ -1937,7 +1941,7 @@ function makeHand(G){
       if(!improved||c0<1e-6||stall>=3) break; }   // settled: it has stopped getting better
     if(pre) pre(q);
     return c0; }
-  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25];
+  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25], FING=[...Array(16).keys()].map(i=>6+i);
   // from scratch: the palm (and thumb) found with every finger aimed straight at its place, from a few starting hands
   // (along the neck, turned toward the nut or the body); the best carried on, then everything settled together
   function solveFresh(targets,iters){
@@ -1946,7 +1950,7 @@ function makeHand(G){
     // the three most promising carried all the way: the notes found, then the ringing strings kept clear without
     // letting a note slip; the hand that holds its notes best (then the easiest) is the one
     starts.sort((a,b)=>a.c-b.c); let best=null, bs=null;
-    for(const st of starts.slice(0,3)){ q=st.q; RINGW=0; lm(PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; const c=lm(ALL,40,null,keepNotes(q));
+    for(const st of starts.slice(0,3)){ q=st.q; RINGW=0; lm(PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; lm(ALL,40,null,keepNotes(q)); const c=lm(FING,60,null,keepNotes(q));   // the palm settled, each finger's own joints settle last
       const sc=[Math.max(0,noteErr(q)-1.5),c]; if(!bs||sc[0]<bs[0]-1e-9||(Math.abs(sc[0]-bs[0])<1e-9&&sc[1]<bs[1])){ bs=sc; best=q.slice(); } }
     q=best; RINGW=1; return bs[1]; }
   // from where the hand was
@@ -1959,20 +1963,21 @@ function makeHand(G){
       const d=M[c*N+c]||1e-12; for(let r=c+1;r<N;r++){ const f=M[r*N+c]/d; if(!f) continue; for(let k=c;k<N;k++) M[r*N+k]-=f*M[c*N+k]; v[r]-=f*v[c]; } }
     const x=new Array(N).fill(0); for(let r=N-1;r>=0;r--){ let s=v[r]; for(let k=r+1;k<N;k++) s-=M[r*N+k]*x[k]; x[r]=s/(M[r*N+r]||1e-12); } return x; }
   // how far each pressing finger stops short of its place (mm)
-  // the notes come first: a step is taken only if no pressing tip ends farther from its note than 1 mm (or than it was)
+  // the notes come first: a step is taken only if no pressing tip ends farther from its note than 1.5 mm (or a little past
+  // where it was) — room to pass through on the way to a better grip
   const noteErr=qq=>{ const e=errsAt(qq); let m=0; TG.f.forEach((g,k)=>{ if(g.press||g.barre) m=Math.max(m,e[k]); }); return m; };
-  const keepNotes=q0=>{ const lim=Math.max(1,noteErr(q0))+1e-6; return qn=>noteErr(qn)<=lim; };
+  const keepNotes=q0=>{ const lim=Math.max(1.5,noteErr(q0)+0.3); return qn=>noteErr(qn)<=lim; };
   const errs=()=>errsAt(q);
   function errsAt(qq){ const S=fk(qq); return TG.f.map((g,k)=>{ const P=S.F[k].pad; if(g.barre) return Math.hypot(Math.max(0,P[0]-g.barre.w),P[1]-g.barre.y1,P[2]-0.5);
     if(g.press&&g.cell){ const dx=P[0]<g.cell[0]?g.cell[0]-P[0]:Math.max(0,P[0]-g.cell[1]), dy=Math.max(0,Math.abs(P[1]-g.p[1])-1.2); return Math.hypot(dx,dy,P[2]-g.p[2]); }
     return Math.hypot(P[0]-g.p[0],P[1]-g.p[1],P[2]-g.p[2]); }); }
   // per finger: how far its tip's flesh passes its wire (mm, + over), and its least clearance from a sounding neighbour string
-  function audit(){ const S=fk(q); return TG.f.map((g,k)=>{ const Fk=S.F[k], R=RAD[k], fl=[[lerp(Fk.pip,Fk.dip,0.6),R[1]],[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]],[Fk.end,R[2]]];
+  function audit(){ const S=fk(q); return TG.f.map((g,k)=>{ const Fk=S.F[k], R=RAD[k], fl=[[lerp(Fk.pip,Fk.dip,0.6),R[1]],[Fk.dip,R[1]],[lerp(Fk.dip,Fk.end,0.5),R[2]*(1+TIPK)/2],[Fk.end,R[2]*TIPK]];
       const front=Math.max(...fl.slice(1).map(([P,r])=>P[0]+r)), wire=g.barre?g.barre.w:(g.cell?g.cell[1]:null); let clr=null;
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
-        for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.hypot(P[1]-G.strY(s2,P[0]),P[2]-2)-r; clr=clr===null?c:Math.min(clr,c); } }
+        for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }
 
 /* ---------- a student's drill book: pages of walks ----------
@@ -2393,7 +2398,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // a nail on a bone's end, on its back, if its back is turned toward the eye
   function nail(end,dir,back,r,len){
     const vis=(back[2]+K*back[1])/Math.hypot(1,K); if(vis<0.15) return null;
-    const c=[end[0]-dir[0]*len*0.32+back[0]*r*0.8, end[1]-dir[1]*len*0.32+back[1]*r*0.8, end[2]-dir[2]*len*0.32+back[2]*r*0.8];
+    // its free edge a few millimetres short of the fingertip's end (the round of the tip, r past the bone's end)
+    const sh=r-2.5-len*0.26, c=[end[0]+dir[0]*sh+back[0]*r*0.8, end[1]+dir[1]*sh+back[1]*r*0.8, end[2]+dir[2]*sh+back[2]*r*0.8];
     const a=proj([c[0]+dir[0]*len*0.26,c[1]+dir[1]*len*0.26,c[2]+dir[2]*len*0.26]), b=proj([c[0]-dir[0]*len*0.26,c[1]-dir[1]*len*0.26,c[2]-dir[2]*len*0.26]);
     const C=proj(c), w=r*0.62*scl(c[0]); let ux=a.x-b.x, uy=a.y-b.y; const l=Math.hypot(ux,uy)||1; ux/=l; uy/=l; const nx=-uy*w, ny=ux*w;
     return {d:'M'+f(b.x+nx)+' '+f(b.y+ny)+' L'+f(a.x+nx*0.9)+' '+f(a.y+ny*0.9)+' Q'+f(a.x+ux*w*0.5)+' '+f(a.y+uy*w*0.5)+' '+f(a.x-nx*0.9)+' '+f(a.y-ny*0.9)+' L'+f(b.x-nx)+' '+f(b.y-ny)+' Q'+f(C.x)+' '+f(C.y)+' '+f(b.x+nx)+' '+f(b.y+ny), vis}; }
@@ -2442,10 +2448,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     segs.forEach(g=>{ g.r=rank[g.k*3+g.s]; });
     segs.sort((a,b)=>Math.abs(a.dp-b.dp)<1.5?a.r-b.r:a.dp-b.dp);
     segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
-    segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?1:0.96)*scl(g.B[0]);
+    segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?HM.TIPK:0.96)*scl(g.B[0]);
       const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
-      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(Fk.end,Fk.dir3,Fk.back,R[2],HM.LEN[g.k][2]); }
+      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(Fk.end,Fk.dir3,Fk.back,R[2]*HM.TIPK,HM.LEN[g.k][2]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
       const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
