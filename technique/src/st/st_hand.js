@@ -18,7 +18,7 @@ function makeHand(G){
   // and the row arched a little toward the palm at its ends
   const MCP=[[21,-3,2.5],[0,0,0],[-19,-4,2],[-36,-13,5]];
   const SPLAY=[7,0,-6,-13].map(d=>d*D2R);                       // each finger's ray in the palm, straight out
-  const THK=0.8, TIPK=0.72;                                       // TIPK: the very end of a finger, narrower than its pad                                                  // a finger is flatter than it is wide: its thickness, front to back
+  const THK=0.8, TIPK=0.86;                                       // TIPK: the fingertip's width across the strings as it is drawn                                                  // a finger is flatter than it is wide: its thickness, front to back
   const DIPK=0.38;                                               // the end joint's share of the middle's bend, aiming a finger
   // thumb: its base on the palm, its metacarpal, the two phalanges
   const TB=[25,-55,13], TLEN=[46,32,27], TRAD=[12,10,9];
