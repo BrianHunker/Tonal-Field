@@ -2186,7 +2186,7 @@ function buildTabNotes(){
 // the ring turns φ under the hand; the hand and the walk stay
 function fieldMoved(){ MODE.key=''; refresh(); }
 function ringMoved(){ refresh(); }
-// the hand belongs to the page: no pairing, no dragging
+// the dots belong to the page (no dragging); the drawn hand pairs its own way (THE HAND, below)
 function clickFinger(){} function clickCell(){} function addPair(){} function dragTo(){} function settle(){} function relayout(){} function edited(){}
 fingers.forEach(F=>{ F.c.style.pointerEvents='none'; F.t.style.pointerEvents='none'; }); thumbG.style.pointerEvents='none';
 /* ---------- the frame and the mode ----------
@@ -2430,7 +2430,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const thumbNail=mk('path',{class:'hlLine hlNail'},behind);
   const front=mk('g',{class:'hlHand'}); fb.insertBefore(front,fingers[0].guide);
   // twelve places for the fingers' bones, filled nearest last each frame; a bone carries its finger's look with it
-  const slots=Array.from({length:12},()=>({fill:mk('path',{class:'hlSkin'},front), tint:mk('path',{stroke:'none'},front), line:mk('path',{class:'hlLine'},front), nail:mk('path',{class:'hlLine hlNail'},front), k:0}));
+  const slots=Array.from({length:12},()=>({fill:mk('path',{class:'hlSkin'},front), tint:mk('path',{stroke:'none','pointer-events':'none'},front), line:mk('path',{class:'hlLine','pointer-events':'none'},front), nail:mk('path',{class:'hlLine hlNail','pointer-events':'none'},front), k:0}));   // only the skin takes a click
   // and for Solid: each bone's skin and outline in the masks, its visible outline in front
   // HAND DRAWING, Solid (default) or Wire (the gear). Wire: every outline seen through the translucent skin. Solid: the same
   // skin, and of the outlines only what can be seen from here — each drawn opaque through a mask in which every bone, in
@@ -2447,7 +2447,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const behindLines=mk('g',{}); fb.insertBefore(behindLines,behind.nextSibling);
   const vPalm=mk('path',{class:'hlLine',mask:'url(#'+gid+'mP)'},behindLines);
   const vThumbG=mk('g',{mask:'url(#'+gid+'mT)'},behindLines), vThumb=[0,1,2].map(()=>mk('path',{class:'hlLine'},vThumbG)), vThumbNail=mk('path',{class:'hlLine hlNail'},vThumbG);
-  const frontLines=mk('g',{mask:'url(#'+gid+'mF)'}); fb.insertBefore(frontLines,fingers[0].guide);
+  const frontLines=mk('g',{mask:'url(#'+gid+'mF)','pointer-events':'none'}); fb.insertBefore(frontLines,fingers[0].guide);
   let SOLID=true; try{ SOLID=localStorage.getItem('hand-look')!=='wire'; }catch(err){}
   const solidOf=()=>slots.forEach(q=>{ q.mFill=mk('path',{fill:'#000',stroke:'#fff','stroke-width':1.7,'stroke-linejoin':'round'},mF); q.mNail=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.2},mF);
       q.tFill=mk('path',{fill:'#000'},mT); q.pFill=mk('path',{fill:'#000'},mP);
@@ -2545,6 +2545,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const qs=HM.q, tau=reduce?0:(still>0.25?0.35:0.04), kq=tau?Math.min(1,(dt||0.016)/tau):1;
     if(!qd||qd.length!==qs.length) qd=qs.slice(); else for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq;
     const S=HM.poseAt(qd);
+    if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
     // the fingers' bones, farthest first
     const segs=[];
@@ -2554,7 +2555,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     segs.sort((a,b)=>Math.abs(a.dp-b.dp)<1.5?a.r-b.r:a.dp-b.dp);
     segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
     segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?HM.TIPK:0.96)*scl(g.B[0]);
-      const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
+      const d=bone(proj(g.A),proj(g.B),ra,rb); if(q.k!==g.k||!q.fill.hasAttribute('data-k')) q.fill.setAttribute('data-k',g.k); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
       let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(proj(g.A),proj(g.B),rb,Fk.end,Fk.dir3,Fk.back,g.B[0]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
@@ -2614,24 +2615,37 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const xs2=tg2.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
     const TG={f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
     HM2.q=HM.q; HM2.quick(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
-  if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw}; }   // the drill pages: the hand in place of the dots, nothing more
-  // posing, free of any harmony: the hand's own rules only (fingers within their reach of each other, never crossing,
-  // two on one string a fret apart). Pick a finger — click it, or press 1–4 — then click where it goes; it stays pinned
-  // there, the hand stretching to keep what is pinned and forming the rest around it. Let Go lifts every pin.
-  slots.forEach(q=>{ q.fill.style.pointerEvents='all'; q.fill.style.cursor='pointer';
-    q.fill.addEventListener('click',e=>{ if(svgPoint(e).y>=FB.top) return; e.stopPropagation(); SELK=SELK===q.k+1?0:q.k+1; }); });   // a finger is picked by its knuckles, above the board
+  // PAIRING, on every page with the drawn hand, the hand's own rules only (fingers within their reach of each other, never
+  // crossing, two on one string a fret apart). A knuckle clicked (above the board): its finger is picked — let go first if
+  // it was placed. The frets it can then reach pulse; one clicked, the finger is placed there and stays, the hand stretching
+  // to keep what is placed and forming the rest around it. (Keys 1–4 pick a finger too; Escape drops the pick.) In the Hand
+  // lab a fret clicked with no finger picked takes the nearest finger.
   const fits=(pl)=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
+  const reachable=(k,s,f)=>f>=1&&!P.some(p=>p.g!==k&&p.s===s&&p.f===f)&&fits(P.filter(p=>p.g&&p.g!==k).concat([{g:k,s,f}]));
+  let marked=false;
+  function marks(){ if(!SELK&&!marked) return; marked=!!SELK;
+    MARKS.forEach((m,i)=>{ const c=CELLS[i], on=!!SELK&&reachable(SELK,c.s,c.f);
+      m.setAttribute('visibility',on?'visible':'hidden'); m.classList.toggle('cand',on); m.style.stroke=on&&FIELD.lit>0.5?rgbS(valRGB(pcOf(c.s,c.f))):''; }); }
+  function rehand(){ const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; resettle=true; refresh(); }
+  slots.forEach(q=>{ q.fill.style.pointerEvents='all'; q.fill.style.cursor='pointer';
+    q.fill.addEventListener('click',e=>{ if(svgPoint(e).y>=FB.top) return; e.stopPropagation(); const k=q.k+1;
+      if(P.some(p=>p.g===k)){ stopForEdit(); P=P.filter(p=>p.g!==k); rehand(); SELK=k; }   // placed: let go, and picked to place again
+      else SELK=SELK===k?0:k;
+      marks(); }); });
   function pose(k,s0,f0){
     stopForEdit(); openStr.clear(); P=P.filter(p=>p.g&&p.g!==k);
     // what the bones cannot hold together is let go, the finger farthest from the new one first
     while(P.length&&(!fits(P.concat([{g:k,s:s0,f:f0}]))||reach(P.concat([{g:k,s:s0,f:f0}]))>4)){ const far=P.slice().sort((a,b)=>Math.abs(b.g-k)-Math.abs(a.g-k))[0]; P=P.filter(p=>p!==far); }
-    P.push({g:k,s:s0,f:f0}); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; resettle=true; refresh(); }
+    P.push({g:k,s:s0,f:f0}); rehand(); }
   fb.addEventListener('click',e=>{ if(!document.body.classList.contains('handOn')) return;
     const p=svgPoint(e); if(p.y<FB.top) return; let fr=0; for(let n=1;n<=FMAX;n++) if(p.x>=cellL(n)&&p.x<cellR(n)) fr=n; if(!fr) return;
     let st=0, bd=1e9; FB.strY.forEach((y,i)=>{ if(Math.abs(y-p.y)<bd){ bd=Math.abs(y-p.y); st=i; } }); if(bd>16) return;
-    let k=SELK; if(!k){ let best=1e9; for(let g=1;g<=4;g++){ const c=Math.abs(HAND.f[g].fret-fr)+(HAND.f[g].string===st?0:0.1); if(c<best){ best=c; k=g; } } }
-    pose(k,st,fr); SELK=0; },true);
-  addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey){ SELK=+e.key; } if(e.key==='Escape') SELK=0; });
+    let k=SELK;
+    if(k&&!reachable(k,st,fr)) return;                                     // only a fret the picked finger can reach
+    if(!k){ if(!BOOK.handLab) return; let best=1e9; for(let g=1;g<=4;g++){ const c=Math.abs(HAND.f[g].fret-fr)+(HAND.f[g].string===st?0:0.1); if(c<best){ best=c; k=g; } } }
+    e.stopPropagation(); pose(k,st,fr); SELK=0; marks(); },true);
+  addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey&&!RINGSEL){ SELK=+e.key; marks(); } if(e.key==='Escape'){ SELK=0; marks(); } });
+  if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw, marks}; }   // the drill pages: the hand in place of the dots, and pairing
   const letGo=document.getElementById('clear'); letGo.hidden=false; letGo.textContent='Let Go';
   document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#clear')) return; P=[]; openStr.clear(); const H=handFor([]); HAND.f=H.f; HAND.thumb=H.thumb; SELK=0; },true);   // before the page's own Let Go, which stops the click
   // CHORD GRIP: the common open and barre chords; a name poses the hand to grip it. Each is written as a chord chart
@@ -2666,7 +2680,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw, reach, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
+  return {draw, marks, reach, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }
 
