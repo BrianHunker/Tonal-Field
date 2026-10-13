@@ -1,5 +1,5 @@
 """Copy built pages into technique/ as site pages: the site page's own head (viewport, favicon, theme) over the build.
-   Usage: python3 st/build.py && python3 publish.py frame-walk semimodes structures hand-lab"""
+   Usage: python3 st/build.py && python3 publish.py frame-walk semimodes structures hand-lab chords"""
 import sys, os
 S=os.path.dirname(os.path.abspath(__file__)); T=os.path.dirname(S)
 for n in sys.argv[1:]:

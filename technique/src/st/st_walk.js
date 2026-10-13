@@ -89,8 +89,9 @@ function walkSeg(i,pass){
   return {D,pass:pass||0,plan:D.plan,hand:cloneHand(D.frames[0].hand),hands:D.frames.map(F=>F.hand),si:i,custom:false,mode:'pick',strs:{},plant:true,xt:0};
 }
 // the tool's own functions, given to the pages
-function applySample(i){ loadPage(i); refresh(); }
+function applySample(i){ if(CHORDS){ CHORDS.show(i,i<SI?-1:1); return; } loadPage(i); refresh(); }
 function run(){
+  if(CHORDS){ CHORDS.strum(); return; }                                  // the Chords page: Play strums the shape
   if(!DRILL) return;
   ensureCtx().then(()=>{
     if(T.on) stopAll();
@@ -121,7 +122,7 @@ function refresh(){
   MARKS.forEach(m=>{ m.setAttribute('visibility','hidden'); m.classList.remove('cand','sel'); });
   INST=new Set(); if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
-  playBtn.disabled=!DRILL&&!T.on;
+  playBtn.disabled=!DRILL&&!T.on&&!(CHORDS&&P.length);
   pageCt.textContent=(PAGE+1)+'/'+PAGES.length;
   orderBtn.querySelectorAll('span').forEach((x,i)=>x.classList.toggle('on',(i===1)===(RING.goal===1)));
   buildTabNotes(); buildWedge();
@@ -552,7 +553,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });
-  fb.parentElement.after(panel);
+  fb.parentElement.after(panel); if(BOOK.chords) panel.style.display='none';   // the Chords page has its own panel
   document.addEventListener('click',e=>{ if(e.target.closest&&(e.target.closest('#clear')||e.target.closest('#fb'))) panel.querySelectorAll('.gripBtn.on').forEach(x=>x.classList.remove('on')); },true);
   // the switch: the drawn hand, or the numbered dots
   const btn=document.createElement('button'); btn.type='button'; btn.className='pill'; btn.id='handTog';
@@ -560,6 +561,6 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw};
+  return {draw, reach, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }

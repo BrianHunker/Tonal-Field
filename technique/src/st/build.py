@@ -61,7 +61,7 @@ def walk_page(eyebrow,title,label,book):
     parts=[fill(open(os.path.join(D,f)).read()) for f in ['st_a.js','st_b.js','st_c.js','st_d.js','st_e.js','st_f.js','st_g.js']]
     g=parts[-1]; init="SAMPLES=sampling(); COMP=completions(); applySample(0);"
     assert g.count(init)==1
-    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_hand.js')).read()+'\n'+open(os.path.join(D,'st_walk.js')).read()+"\napplySample(0);")
+    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_hand.js')).read()+'\n'+open(os.path.join(D,'st_walk.js')).read()+'\n'+open(os.path.join(D,'st_chordgen.js')).read()+'\n'+open(os.path.join(D,'st_chords.js')).read()+"\napplySample(0);")
     a="try{ FIELD.on=localStorage.getItem('structures-gx')==='on'; }catch(err){}"; assert g.count(a)==1
     g=g.replace(a,"FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book")
     g=g.replace("localStorage.setItem('structures-gx',","localStorage.setItem('walk-gx',")
@@ -88,5 +88,8 @@ book('hand-lab','Lab','Hand','Frame',"""{handLab:true, roll:true, loops:1, pages
   {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},
   {string:NSTR-1, fret:5,  deg:'la',  dir:'up',   links:5},
   {string:0,      fret:10, deg:'re',  dir:'down', links:5}]}""")
+# Chords: a chord's shapes found on the strings, the hand gripping each
+book('chords','Tool','Chords','Chord',"""{handLab:true, chords:true, loops:1, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
 book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true, loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
   {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))}""")

@@ -1544,7 +1544,7 @@ function refresh(){
     const m=v==='prebend'?'bend':v, on=MEANS===m&&(m!=='bend'||((drill.dir==='down')===(v==='prebend')))&&!(m==='pick'&&leg);
     b.setAttribute('aria-pressed',on); b.disabled=!P.length||!(DRILL&&DRILL.means===m||anyOf(m)); }
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
-  playBtn.disabled=!DRILL&&!T.on;
+  playBtn.disabled=!DRILL&&!T.on&&!(typeof CHORDS!=="undefined"&&CHORDS&&P.length);
   // Listen: the hearing of the frequencies in hand
   const cur=DRILL?hearingOf(DRILL):hearing; let sel=null;
   for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===cur; b.setAttribute('aria-checked',on); if(on) sel=b; }
@@ -2063,8 +2063,9 @@ function walkSeg(i,pass){
   return {D,pass:pass||0,plan:D.plan,hand:cloneHand(D.frames[0].hand),hands:D.frames.map(F=>F.hand),si:i,custom:false,mode:'pick',strs:{},plant:true,xt:0};
 }
 // the tool's own functions, given to the pages
-function applySample(i){ loadPage(i); refresh(); }
+function applySample(i){ if(CHORDS){ CHORDS.show(i,i<SI?-1:1); return; } loadPage(i); refresh(); }
 function run(){
+  if(CHORDS){ CHORDS.strum(); return; }                                  // the Chords page: Play strums the shape
   if(!DRILL) return;
   ensureCtx().then(()=>{
     if(T.on) stopAll();
@@ -2095,7 +2096,7 @@ function refresh(){
   MARKS.forEach(m=>{ m.setAttribute('visibility','hidden'); m.classList.remove('cand','sel'); });
   INST=new Set(); if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
-  playBtn.disabled=!DRILL&&!T.on;
+  playBtn.disabled=!DRILL&&!T.on&&!(CHORDS&&P.length);
   pageCt.textContent=(PAGE+1)+'/'+PAGES.length;
   orderBtn.querySelectorAll('span').forEach((x,i)=>x.classList.toggle('on',(i===1)===(RING.goal===1)));
   buildTabNotes(); buildWedge();
@@ -2526,7 +2527,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });
-  fb.parentElement.after(panel);
+  fb.parentElement.after(panel); if(BOOK.chords) panel.style.display='none';   // the Chords page has its own panel
   document.addEventListener('click',e=>{ if(e.target.closest&&(e.target.closest('#clear')||e.target.closest('#fb'))) panel.querySelectorAll('.gripBtn.on').forEach(x=>x.classList.remove('on')); },true);
   // the switch: the drawn hand, or the numbered dots
   const btn=document.createElement('button'); btn.type='button'; btn.className='pill'; btn.id='handTog';
@@ -2534,9 +2535,127 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw};
+  return {draw, reach, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }
+
+/* CHORD SHAPES, found rather than listed. A chord is a root and a set of intervals above it. A shape is one way to stop
+   it on the strings: each string either unplayed or stopped at a fret (0 open) on one of the chord's tones; the strings
+   played run unbroken from the lowest to the highest (unplayed strings only at the edges); the lowest sounds the root;
+   every tone is present (a seventh chord may leave out its fifth); the stopped frets lie within four frets. Each is then
+   fingered as a hand would: fingers in order of fret, low strings first on a shared fret, a finger's number following
+   its fret where it can; when four fingers are not enough, the first finger lays a barre across its fret. Ordered up the
+   neck; at one place, the lowest bass first, then fewest fingers, then most strings. Strings: index 0 the highest; pcs
+   their open pitch classes; opt.open their open pitches (midi), for the bass. */
+function chordShapes(rootPc,ivs,pcs,opt){
+  opt=opt||{}; const NS=pcs.length, maxFret=opt.maxFret||15, minStr=opt.minStrings||Math.min(4,NS), SPAN=opt.span||3;
+  const tones=new Set(ivs.map(i=>((rootPc+i)%12+12)%12)), five=((rootPc+7)%12), need=new Set(tones);
+  if(ivs.length>=4&&ivs.includes(7)) need.delete(five);                // a seventh chord may leave its fifth out
+  const opts=pcs.map(pc=>{ const o=[]; for(let f=0;f<=maxFret;f++) if(tones.has((pc+f)%12)) o.push(f); return o; });
+  const out=[];
+  // lo: the lowest string played (highest index), hi: the highest played; every string between them is played
+  for(let lo=NS-1;lo>=0;lo--) for(let hi=lo-(minStr-1);hi>=0;hi--){
+    const strs=[]; for(let s=lo;s>=hi;s--) strs.push(s);
+    const rootF=opts[lo].filter(f=>(pcs[lo]+f)%12===rootPc);
+    const rec=(i,fr,mn,mx)=>{
+      if(i===strs.length){ const got=new Set(strs.map((s,k)=>(pcs[s]+fr[k])%12)); for(const t of need) if(!got.has(t)) return;
+        out.push(strs.map((s,k)=>({s,f:fr[k]}))); return; }
+      const s=strs[i], cand=i===0?rootF:opts[s];
+      for(const f of cand){ let a=mn, b=mx; if(f>0){ a=Math.min(a,f); b=Math.max(b,f); if(b-a>SPAN) continue; } fr.push(f); rec(i+1,fr,a,b); fr.pop(); } };
+    rec(0,[],99,-1); }
+  // finger each; keep those four fingers (and a barre) can stop
+  const shapes=[];
+  for(const v of out){ const fing=fingerShape(v); if(fing) shapes.push({bass:(opt.open?opt.open[v[0].s]:0)+v[0].f,notes:v,pl:fing.pl,barre:fing.barre,pos:Math.min(99,...v.filter(n=>n.f>0).map(n=>n.f)),chart:chartOf(v,NS)}); }
+  // a shape is dropped when another stops the same notes, rings more strings and needs no more fingers: the fuller one costs
+  // the hand nothing more
+  const key=sh=>new Set(sh.notes.map(n=>n.s+':'+n.f));
+  const K=shapes.map(key);
+  const keep=shapes.filter((a,i)=>!shapes.some((b,j)=>j!==i&&b.notes.length>a.notes.length&&b.pl.length<=a.pl.length&&[...K[i]].every(k=>K[j].has(k))));
+  keep.forEach(sh=>{ if(sh.pos===99) sh.pos=0; });
+  shapes.length=0; shapes.push(...keep);
+  shapes.sort((a,b)=>a.pos-b.pos||a.bass-b.bass||a.pl.length-b.pl.length||b.notes.length-a.notes.length||(a.barre?1:0)-(b.barre?1:0));
+  return shapes;
+}
+// the chart, as chord charts are written: low string to high, x unplayed
+function chartOf(v,NS){ const c=Array(NS).fill('x'); v.forEach(n=>{ c[NS-1-n.s]=n.f>9?'('+n.f+')':String(n.f); }); return c.join(''); }
+// fingers for a shape's stopped notes: in order of fret, the lower string first on a shared fret; finger n tries for fret
+// (lowest + n − 1); a barre when more than four notes are stopped or the order runs past the fourth finger
+function fingerShape(v){
+  const st=v.filter(n=>n.f>0).sort((a,b)=>a.f-b.f||b.s-a.s);
+  if(!st.length) return {pl:[],barre:false};
+  const mn=st[0].f, assign=list=>{ const out=[]; let prev=0; for(const n of list){ const g=Math.max(prev+1,1+n.f-mn); if(g>4) return null; out.push({g,s:n.s,f:n.f}); prev=g; } return out; };
+  const plain=st.length<=4?assign(st):null;
+  if(plain) return {pl:plain,barre:false};
+  // a barre: the first finger across the lowest fret, from the lowest string stopped there up through the highest strings;
+  // every string it crosses must be played and stopped at that fret or above
+  const atMn=st.filter(n=>n.f===mn), lowS=Math.max(...atMn.map(n=>n.s));
+  if(v.some(n=>n.s<=lowS&&n.f<mn)) return null;
+  const rest=assign2(st.filter(n=>n.f>mn),mn); if(!rest) return null;
+  return {pl:[{g:1,s:lowS,f:mn,barre:true}].concat(rest),barre:true};
+}
+function assign2(list,mn){ const out=[]; let prev=1; for(const n of list){ const g=Math.max(prev+1,1+n.f-mn); if(g>4) return null; out.push({g,s:n.s,f:n.f}); prev=g; } return out; }
+if(typeof module!=='undefined') module.exports={chordShapes};
+
+/* CHORDS (explorer). Choose a root and a quality; the chord's shapes are found on the strings (st_chordgen.js), in order up
+   the neck. Prev | Next step through them; each is offered only if the hand's bones can hold it — its span rules, then
+   the mechanism reaching every note — and the hand grips it, keeping the chord's open strings clear. Play strums it,
+   low string to high. */
+const CHORDS=BOOK.chords?(()=>{
+  // pitch classes here count from A (as the strings do): 0 A … 3 C … 11 A♭
+  const ROOTS=[[3,'C'],[4,'C♯','D♭'],[5,'D'],[6,'D♯','E♭'],[7,'E'],[8,'F'],[9,'F♯','G♭'],[10,'G'],[11,'G♯','A♭'],[0,'A'],[1,'A♯','B♭'],[2,'B']];
+  const NAME={3:'C',4:'D♭',5:'D',6:'E♭',7:'E',8:'F',9:'F♯',10:'G',11:'A♭',0:'A',1:'B♭',2:'B'};
+  const QUAL=[['','maj',[0,4,7]],['m','m',[0,3,7]],['7','7',[0,4,7,10]],['maj7','maj7',[0,4,7,11]],['m7','m7',[0,3,7,10]],['m7♭5','m7♭5',[0,3,6,10]],
+    ['dim','dim',[0,3,6]],['dim7','dim7',[0,3,6,9]],['aug','aug',[0,4,8]],['sus2','sus2',[0,2,7]],['sus4','sus4',[0,5,7]],['6','6',[0,4,7,9]],['m6','m6',[0,3,7,9]]];
+  const pcs=STRINGS.map(s=>s.pc), open=STRINGS.map((s,i)=>openMidi(i));
+  let root=3, qi=0, shapes=[], idx=0, started=false, voices=[];
+  const fits=pl=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
+  // can the hand hold it? decided once per shape, the first time it is reached
+  function holds(sh){
+    if(sh.ok!==undefined) return sh.ok;
+    if(!fits(sh.pl)) return sh.ok=false;
+    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s));
+    sh.err=HANDLAB.reach(sh.pl); return sh.ok=sh.err<=3; }
+  function grip(sh){
+    stopForEdit(); P=sh.pl.map(q=>Object.assign({},q)); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SEL=null;
+    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); refresh(); }
+  // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
+  function show(i,dir){
+    if(!started){ loadPage(0); started=true; }
+    if(!shapes.length){ label(); return; }
+    const N=shapes.length; dir=dir||1;
+    for(let k=0;k<N;k++){ const j=(((i+dir*k)%N)+N)%N; if(holds(shapes[j])){ idx=SI=j; grip(shapes[j]); label(); return; } }
+    P=[]; refresh(); label(); }
+  function choose(){ shapes=chordShapes(root,QUAL[qi][2],pcs,{open}); idx=0; show(0,1); }
+  // the strum: each played string its own voice, low to high a moment apart, ringing until the next strum
+  function strum(){
+    const sh=shapes[idx]; if(!sh) return;
+    ensureCtx().then(()=>{ const t0=ctx.currentTime+0.04;
+      voices.forEach(v=>v.stopAt(t0,true)); voices=[];
+      sh.notes.slice().sort((a,b)=>b.s-a.s).forEach((n,k)=>{ const v=makeString(GAUGE(n.s)); v.send({kind:'pluck',t:t0+k*0.022,f:fretHz(n.s,n.f),v:PLUCK_V}); voices.push(v); });
+      const mine=voices; setTimeout(()=>{ if(voices===mine){ mine.forEach(v=>v.stopAt(ctx.currentTime,true)); voices=[]; } },6000); }); }
+  // the panel: the chord's name and chart above, the roots and qualities below
+  const panel=document.createElement('div'); panel.className='gripPanel chordPanel';
+  panel.innerHTML='<div class="chordHead"><span class="chordName" id="chordName"></span><span class="chordChart" id="chordChart"></span><span class="chordCt" id="chordCt"></span></div>'
+    +'<div class="gripRow" id="chordRoots"></div><div class="gripRow" id="chordQuals"></div>';
+  fb.parentElement.after(panel);
+  const rootsEl=panel.querySelector('#chordRoots'), qualsEl=panel.querySelector('#chordQuals');
+  ROOTS.forEach(([pc,a,b])=>{ const e=document.createElement('button'); e.type='button'; e.className='gripBtn rootBtn'; e.innerHTML=b?a+'<span class="alt">'+b+'</span>':a; e.dataset.pc=pc;
+    e.addEventListener('click',()=>{ root=pc; mark(); choose(); }); rootsEl.appendChild(e); });
+  QUAL.forEach(([sfx,lbl],i)=>{ const e=document.createElement('button'); e.type='button'; e.className='gripBtn'; e.textContent=lbl; e.dataset.q=i;
+    e.addEventListener('click',()=>{ qi=i; mark(); choose(); }); qualsEl.appendChild(e); });
+  function mark(){ rootsEl.querySelectorAll('button').forEach(e=>e.classList.toggle('on',+e.dataset.pc===root)); qualsEl.querySelectorAll('button').forEach(e=>e.classList.toggle('on',+e.dataset.q===qi)); }
+  function label(){
+    const sh=shapes[idx];
+    $('chordName').innerHTML=NAME[root]+'<span class="q">'+QUAL[qi][0]+'</span>';
+    $('chordChart').textContent=sh&&sh.ok?sh.chart:'—';
+    $('chordCt').textContent=sh&&sh.ok?'shape '+(idx+1)+' of '+shapes.length:'no shape the hand can hold'; }
+  // the page's own: the frame label, the TAB and the page count give way to the chord
+  ['means','tabPanel','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) }';
+  document.head.appendChild(css);
+  mark(); shapes=chordShapes(root,QUAL[qi][2],pcs,{open});
+  return {show:(i,dir)=>show(i,dir), strum};
+})():null;
 
 applySample(0);
 placeRing();

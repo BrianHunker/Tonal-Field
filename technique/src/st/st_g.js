@@ -28,7 +28,7 @@ function refresh(){
     const m=v==='prebend'?'bend':v, on=MEANS===m&&(m!=='bend'||((drill.dir==='down')===(v==='prebend')))&&!(m==='pick'&&leg);
     b.setAttribute('aria-pressed',on); b.disabled=!P.length||!(DRILL&&DRILL.means===m||anyOf(m)); }
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
-  playBtn.disabled=!DRILL&&!T.on;
+  playBtn.disabled=!DRILL&&!T.on&&!(typeof CHORDS!=="undefined"&&CHORDS&&P.length);
   // Listen: the hearing of the frequencies in hand
   const cur=DRILL?hearingOf(DRILL):hearing; let sel=null;
   for(const b of hearSeg.querySelectorAll('button')){ const on=b.dataset.v===cur; b.setAttribute('aria-checked',on); if(on) sel=b; }
