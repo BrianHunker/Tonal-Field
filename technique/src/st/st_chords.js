@@ -17,9 +17,20 @@ const CHORDS=BOOK.chords?(()=>{
     if(!fits(sh.pl)) return sh.ok=false;
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s));
     sh.err=HANDLAB.reach(sh.pl); return sh.ok=sh.err<=3; }
+  // the chord's mode: its root heard as the function its quality most plainly gives it
+  const FUNC={'':'do',maj7:'do','6':'do',sus2:'do',aug:'do',m:'la',m7:'la',m6:'re','7':'sol',sus4:'sol','m7♭5':'ti',dim:'ti',dim7:'ti'};
+  // MODAL LIGHTING: the board lit from the voicing's lowest root outward, the light spreading out from it when a shape is
+  // gripped and settling to a glow that fades with distance (measured on the real neck, in millimetres)
+  let src=null, spread=0;
+  const LMM=648, fmm=n=>LMM*(1-Math.pow(2,-n/12)), cx=f=>f<=0?-12:(fmm(f-1)+fmm(f))/2, gy=(s,X)=>s*(35.5+17*X/LMM)/5;
+  LIGHT=(c,dt)=>{ if(!src) return 1; const X=cx(c.f), d=Math.hypot(X-src.x,gy(c.s,X)-src.y), R=12+150*spread;
+    return d<=R?Math.exp(-(d*d)/(2*70*70)):Math.exp(-(d*d)/(2*70*70))*Math.exp(-(d-R)/12); };
+  (function grow(){ spread=Math.min(1,spread+0.016/0.9); requestAnimationFrame(grow); })();
+  function light(sh){ const r=sh.notes[0]; src={x:cx(r.f), y:gy(r.s,cx(r.f))}; spread=0;
+    pagePhi({anchor:{s:r.s,f:r.f,deg:FUNC[QUAL[qi][0]]}}); }
   function grip(sh){
     stopForEdit(); P=sh.pl.map(q=>Object.assign({},q)); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SEL=null;
-    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); refresh(); }
+    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); light(sh); refresh(); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
     if(!started){ loadPage(0); started=true; }

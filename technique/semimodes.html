@@ -1356,7 +1356,7 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
+let frameHook=null, paintOnly=null, LIGHT=null;                         // LIGHT: a page may light the board cell by cell (0–1)                                     // paintOnly: a page may paint only some strings
                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
@@ -1502,9 +1502,9 @@ function paintBoard(H,shift,dt){
   const L=FIELD.lit, ink=rgbS(inkColour()), k=Math.min(1,(dt||0.016)*9), near=new Set();
   for(let j=1;j<=4;j++){ const h=H.f[j], f0=Math.round(h.fret+shift); for(let ds=-1;ds<=1;ds++) for(let df=-1;df<=1;df++){ const s=h.string+ds, f=f0+df; if(s>=0&&s<NSTR&&f>=0&&f<=FMAX) near.add(s*(FMAX+1)+f); } }
   CELLS.forEach((c,i)=>{
-    c.lv=1;                                                           // the whole board at the lit level
+    c.lv=LIGHT?LIGHT(c,dt):1;                                         // the whole board at the lit level, unless the page lights it
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
-    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
+    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*((LIGHT?0.05:0.28)+(LIGHT?0.95:0.72)*c.lv)).toFixed(3)); }
     else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
     const g=L>0.001&&INST.has(i)?L*0.55:0;
@@ -2390,13 +2390,29 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return 'M'+f(A.x+ra*n1.x)+' '+f(A.y+ra*n1.y)+' L'+f(B.x+rb*n1.x)+' '+f(B.y+rb*n1.y)+' A'+f(rb)+' '+f(rb)+' 0 '+(sp<0?1:0)+' '+sw+' '+f(B.x+rb*n2.x)+' '+f(B.y+rb*n2.y)
       +' L'+f(A.x+ra*n2.x)+' '+f(A.y+ra*n2.y)+' A'+f(ra)+' '+f(ra)+' 0 '+(sp>0?1:0)+' '+sw+' '+f(A.x+ra*n1.x)+' '+f(A.y+ra*n1.y)+' Z'; }
   // a nail on a bone's end, on its back, if its back is turned toward the eye
-  function nail(end,dir,back,r,len){
+  // a nail, drawn on the fingertip as it is drawn: on its axis, its free edge a few millimetres inside the round of the tip,
+  // its length foreshortened as the finger turns, about three quarters the tip's width; shown when its back faces the eye
+  function nail(A,B,rb,end,dir,back,X){
     const vis=(back[2]+K*back[1])/Math.hypot(1,K); if(vis<0.15) return null;
-    // its free edge a few millimetres short of the fingertip's end (the round of the tip, r past the bone's end)
-    const sh=r-2.5-len*0.26, c=[end[0]+dir[0]*sh+back[0]*r*0.8, end[1]+dir[1]*sh+back[1]*r*0.8, end[2]+dir[2]*sh+back[2]*r*0.8];
-    const a=proj([c[0]+dir[0]*len*0.26,c[1]+dir[1]*len*0.26,c[2]+dir[2]*len*0.26]), b=proj([c[0]-dir[0]*len*0.26,c[1]-dir[1]*len*0.26,c[2]-dir[2]*len*0.26]);
-    const C=proj(c), w=r*0.62*scl(c[0]); let ux=a.x-b.x, uy=a.y-b.y; const l=Math.hypot(ux,uy)||1; ux/=l; uy/=l; const nx=-uy*w, ny=ux*w;
-    return {d:'M'+f(b.x+nx)+' '+f(b.y+ny)+' L'+f(a.x+nx*0.9)+' '+f(a.y+ny*0.9)+' Q'+f(a.x+ux*w*0.5)+' '+f(a.y+uy*w*0.5)+' '+f(a.x-nx*0.9)+' '+f(a.y-ny*0.9)+' L'+f(b.x-nx)+' '+f(b.y-ny)+' Q'+f(C.x)+' '+f(C.y)+' '+f(b.x+nx)+' '+f(b.y+ny), vis}; }
+    let ux=B.x-A.x, uy=B.y-A.y, l=Math.hypot(ux,uy); if(l<1e-3) return null; ux/=l; uy/=l;
+    const s=scl(X), e=proj(end), c11=proj([end[0]-dir[0]*11,end[1]-dir[1]*11,end[2]-dir[2]*11]), ln=Math.max(4,Math.hypot(e.x-c11.x,e.y-c11.y));
+    const tip={x:B.x+ux*Math.max(0,rb-2.5*s), y:B.y+uy*Math.max(0,rb-2.5*s)}, cut={x:tip.x-ux*ln, y:tip.y-uy*ln}, w=rb*0.75, nx=-uy*w, ny=ux*w;
+    const P=(p,k,m)=>f(p.x+nx*k+ux*m)+' '+f(p.y+ny*k+uy*m);
+    return {d:'M'+P(cut,1,0)+' L'+P(tip,0.92,-w*0.35)+' Q'+P(tip,0,w*0.25)+' '+P(tip,-0.92,-w*0.35)+' L'+P(cut,-1,0)+' Q'+P(cut,0,-w*0.45)+' '+P(cut,1,0), vis}; }
+  // a gradient's stops rebuilt: [offset, colour, opacity]
+  function setStops(g,list){ while(g.firstChild) g.removeChild(g.firstChild); list.forEach(([o,c,a])=>mk('stop',{offset:Math.max(0,Math.min(1,o)).toFixed(4),'stop-color':c,'stop-opacity':a},g)); }
+  // the barring finger: along it from its tip to its knuckle, a band of each sounding string's colour where it crosses it
+  function barreTint(G,F,bands,ink){
+    const A=proj(F.end), B=proj(F.mcp), dy=B.y-A.y||1, w=rgbS(ink), T0=tone[0], hw=0.35*U/Math.abs(dy);
+    G.g.setAttribute('x1',f(A.x)); G.g.setAttribute('y1',f(A.y)); G.g.setAttribute('x2',f(B.x)); G.g.setAttribute('y2',f(B.y));
+    for(const k of ['x1','y1','x2','y2']) G.fg.setAttribute(k,G.g.getAttribute(k));
+    const st=[[0,w,1]], fs=[[0,w,0]];
+    bands.map(b=>({t:(FB.strY[b.s]-A.y)/dy,c:rgbS(mixRGB(ink,b.col,T0)),tc:rgbS(b.col)})).sort((a,b)=>a.t-b.t).forEach(b=>{
+      st.push([b.t-hw,w,1],[b.t-hw*0.4,b.c,1],[b.t+hw*0.4,b.c,1],[b.t+hw,w,1]); fs.push([b.t-hw,b.tc,0],[b.t,b.tc,0.34*T0],[b.t+hw,b.tc,0]); });
+    st.push([1,w,1]); fs.push([1,w,0]); setStops(G.g,st); setStops(G.fg,fs); G.barred=true; }
+  function plainStops(G){ if(!G.barred) return; G.barred=false;
+    setStops(G.g,[[0,'#fff',1],[0.2,'#fff',1],[0.55,'#fff',1],[1,'#fff',1]]); [G.a,G.b,G.c,G.d]=[...G.g.children];
+    setStops(G.fg,[[0,'#fff',0],[0.2,'#fff',0],[0.55,'#fff',0]]); [G.fa,G.fb,G.fc]=[...G.fg.children]; }
   // what the hand is asked, read off the dots: where each tip is, whether it presses (and then anywhere in its fret's
   // cell will do), a barre laid along its fret; the thumb on the back of the neck between the first two fingers
   // which strings are sounding, and from where: a stopped string from its stopping fret's wire, an open one from the nut
@@ -2445,7 +2461,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     segs.forEach((g,n)=>{ const q=slots[n], R=HM.RAD[g.k], ra=(g.s===0?R[0]*1.08:R[g.s-1]*0.98)*scl(g.A[0]), rb=R[g.s]*(g.s===2?HM.TIPK:0.96)*scl(g.B[0]);
       const d=bone(proj(g.A),proj(g.B),ra,rb); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
-      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(Fk.end,Fk.dir3,Fk.back,R[2]*HM.TIPK,HM.LEN[g.k][2]); }
+      let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(proj(g.A),proj(g.B),rb,Fk.end,Fk.dir3,Fk.back,g.B[0]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
       const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
@@ -2454,12 +2470,18 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const ink=inkColour(), now=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, lit=[false,false,false,false], at=[];
     if(now){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
     else if(!T.on) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
+    // a barre sounds every string it holds where nothing stops that string higher: its finger takes each one's colour there
+    const bar=!now&&!T.on&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
+    if(bar) for(let s2=0;s2<=bar.s;s2++){ if(P.some(o=>o!==bar&&o.g&&o.s===s2&&o.f>bar.f)) continue; bands.push({s:s2,col:valRGB(pcOf(s2,bar.f))}); }
     for(let i=0;i<4;i++){ const G=tg[i];
       if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));
+      if(i===0&&bands.length){ lit[0]=true; toneCol[0]=bands[0].col; }
       tone[i]+=((lit[i]?1:0)-tone[i])*Math.min(1,(dt||0.016)/(lit[i]?0.05:0.25));
       const mine=slots.filter(q=>q.k===i);
       if(tone[i]<0.01||!toneCol[i]){ mine.forEach(q=>{ q.line.style.stroke=''; q.nail.style.stroke=''; q.tint.style.display='none'; }); continue; }
       const col=rgbS(mixRGB(ink,toneCol[i],tone[i])), w=rgbS(ink), tip=proj(S.F[i].pad), kn=proj(S.F[i].pip);
+      if(i===0&&bands.length){ barreTint(G,S.F[0],bands,ink); mine.forEach(q=>{ q.line.style.stroke='url(#'+gid+'t0)'; q.nail.style.stroke=col; q.tint.style.display=''; }); continue; }
+      plainStops(G);
       G.g.setAttribute('x1',f(tip.x)); G.g.setAttribute('y1',f(tip.y)); G.g.setAttribute('x2',f(kn.x)); G.g.setAttribute('y2',f(kn.y));
       G.a.setAttribute('stop-color',col); G.b.setAttribute('stop-color',col); G.c.setAttribute('stop-color',w); G.d.setAttribute('stop-color',w);
       for(const k of ['x1','y1','x2','y2']) G.fg.setAttribute(k,G.g.getAttribute(k));
@@ -2473,7 +2495,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     for(let i=0;i<n;i++){ const a=pts[i], b=pts[(i+1)%n]; d+=' Q'+P2(a)+' '+P2({x:(a.x+b.x)/2,y:(a.y+b.y)/2}); }
     palmFill.setAttribute('d',d+' Z'); palmLine.setAttribute('d',d+' Z');
     const tj=S.Th.j; for(let s=0;s<3;s++){ const ra=HM.TRAD[Math.max(0,s-1)]*scl(tj[s][0])*(s===0?1.05:1), rb=HM.TRAD[s]*scl(tj[s+1][0]); const dd=bone(proj(tj[s]),proj(tj[s+1]),ra,rb); thumbSeg[s].fill.setAttribute('d',dd); thumbSeg[s].line.setAttribute('d',dd); }
-    const tn=nail(S.Th.end,[S.Th.end[0]-S.Th.ip[0],S.Th.end[1]-S.Th.ip[1],S.Th.end[2]-S.Th.ip[2]].map(v=>v/27),S.Th.back,HM.TRAD[2],27);
+    const tdir=[0,1,2].map(i=>(S.Th.end[i]-S.Th.ip[i])/27), tn=nail(proj(S.Th.ip),proj(S.Th.end),HM.TRAD[2]*scl(S.Th.end[0]),S.Th.end,tdir,S.Th.back,S.Th.end[0]);
     thumbNail.setAttribute('d',tn?tn.d:''); thumbNail.style.display=tn?'':'none';
   }
   // can the hand hold this placing? how far the farthest pressing tip stops short (mm)
@@ -2618,9 +2640,20 @@ const CHORDS=BOOK.chords?(()=>{
     if(!fits(sh.pl)) return sh.ok=false;
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s));
     sh.err=HANDLAB.reach(sh.pl); return sh.ok=sh.err<=3; }
+  // the chord's mode: its root heard as the function its quality most plainly gives it
+  const FUNC={'':'do',maj7:'do','6':'do',sus2:'do',aug:'do',m:'la',m7:'la',m6:'re','7':'sol',sus4:'sol','m7♭5':'ti',dim:'ti',dim7:'ti'};
+  // MODAL LIGHTING: the board lit from the voicing's lowest root outward, the light spreading out from it when a shape is
+  // gripped and settling to a glow that fades with distance (measured on the real neck, in millimetres)
+  let src=null, spread=0;
+  const LMM=648, fmm=n=>LMM*(1-Math.pow(2,-n/12)), cx=f=>f<=0?-12:(fmm(f-1)+fmm(f))/2, gy=(s,X)=>s*(35.5+17*X/LMM)/5;
+  LIGHT=(c,dt)=>{ if(!src) return 1; const X=cx(c.f), d=Math.hypot(X-src.x,gy(c.s,X)-src.y), R=12+150*spread;
+    return d<=R?Math.exp(-(d*d)/(2*70*70)):Math.exp(-(d*d)/(2*70*70))*Math.exp(-(d-R)/12); };
+  (function grow(){ spread=Math.min(1,spread+0.016/0.9); requestAnimationFrame(grow); })();
+  function light(sh){ const r=sh.notes[0]; src={x:cx(r.f), y:gy(r.s,cx(r.f))}; spread=0;
+    pagePhi({anchor:{s:r.s,f:r.f,deg:FUNC[QUAL[qi][0]]}}); }
   function grip(sh){
     stopForEdit(); P=sh.pl.map(q=>Object.assign({},q)); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; DRILL=null; SEL=null;
-    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); refresh(); }
+    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); light(sh); refresh(); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
     if(!started){ loadPage(0); started=true; }
