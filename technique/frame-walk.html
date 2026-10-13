@@ -2150,9 +2150,11 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // each finger's tone: a gradient along the finger, the tone's colour at the tip fading back to the outline's white
   // half way up toward the knuckle
   const tg=[0,1,2,3].map(i=>{ const g=mk('linearGradient',{id:gid+'t'+i,gradientUnits:'userSpaceOnUse'},defs);
-    return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g)}; });
+    const fg=mk('linearGradient',{id:gid+'f'+i,gradientUnits:'userSpaceOnUse'},defs);   // and a wash of it inside, clear by half way
+    return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
+      fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
   const tone=[0,0,0,0], toneCol=[null,null,null,null];
-  order.forEach(i=>{ const q=parts[i]; q.fill=mk('path',{class:'hlSkin'},front); q.line=mk('path',{class:'hlLine'},front); q.nail=mk('path',{class:'hlLine hlNail'},front); q.joint=mk('path',{class:'hlLine hlCrease'},front); });
+  order.forEach(i=>{ const q=parts[i]; q.fill=mk('path',{class:'hlSkin'},front); q.tint=mk('path',{'fill':'url(#'+gid+'f'+i+')',stroke:'none'},front); q.line=mk('path',{class:'hlLine'},front); q.nail=mk('path',{class:'hlLine hlNail'},front); q.joint=mk('path',{class:'hlLine hlCrease'},front); });
   // each finger: how far its hump stands beyond the high e edge; its lean (the hump's offset from the tip); its widths
   // at the hump, between the joints, and at the tip (board units: strings 24 apart, frets 66)
   const SPK=47, HUMP=[40,60,54,30], LEAN=[-18,-5,7,18], WK=[52,53,50,43], WM=[45,46,43,37], WT=[42,43,40,35];
@@ -2229,8 +2231,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     for(let i=0;i<4;i++){ if(restPinky&&i===3) continue; const r=WT[i]/2, reach=(barre&&i===0)?10:7;
       for(let n=0;n<2;n++){ const dx=pads[i].x-humps[i].x, dy=pads[i].y-humps[i].y, l=Math.hypot(dx,dy)||1; pads[i].y=base[i]+reach-dy/l*r; pads[i].x=wire(i)-2-r+Math.max(0,dx/l)*0; } }
     tips.forEach((p,i)=>{ const g=finger(i,pads[i],humps[i],p.kk,barre&&i===0), q=parts[i]; q.line.classList.toggle('hlSel',SELK===i+1);
-      q.fill.setAttribute('d',g.d); q.line.setAttribute('d',g.d); q.nail.setAttribute('d',g.nail); q.joint.setAttribute('d',g.joint);
-      const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
+      q.fill.setAttribute('d',g.d); q.tint.setAttribute('d',g.d); q.line.setAttribute('d',g.d); q.nail.setAttribute('d',g.nail); q.joint.setAttribute('d',g.joint);
+      const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
     // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
     // highest stop on its string
@@ -2240,11 +2242,16 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     for(let i=0;i<4;i++){ const q=parts[i], G=tg[i];
       if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));
       tone[i]+=((lit[i]?1:0)-tone[i])*Math.min(1,(dt||0.016)/(lit[i]?0.05:0.25));
-      if(tone[i]<0.01||!toneCol[i]){ q.line.style.stroke=''; continue; }
+      if(tone[i]<0.01||!toneCol[i]){ q.line.style.stroke=''; q.nail.style.stroke=''; q.tint.style.display='none'; continue; }
       const col=rgbS(mixRGB(ink,toneCol[i],tone[i])), w=rgbS(ink);
       G.g.setAttribute('x1',f(pads[i].x)); G.g.setAttribute('y1',f(pads[i].y+WT[i]*0.5)); G.g.setAttribute('x2',f(humps[i].x)); G.g.setAttribute('y2',f(humps[i].y));
       G.a.setAttribute('stop-color',col); G.b.setAttribute('stop-color',col); G.c.setAttribute('stop-color',w); G.d.setAttribute('stop-color',w);
-      q.line.style.stroke='url(#'+gid+'t'+i+')'; }
+      q.line.style.stroke='url(#'+gid+'t'+i+')';
+      // the nail, at the tip, takes the colour whole; the fill a translucent wash, strongest at the tip
+      q.nail.style.stroke=col;
+      for(const k of ['x1','y1','x2','y2']) G.fg.setAttribute(k,G.g.getAttribute(k));
+      const tc=rgbS(toneCol[i]); G.fa.setAttribute('stop-color',tc); G.fb.setAttribute('stop-color',tc); G.fc.setAttribute('stop-color',tc);
+      G.fa.setAttribute('stop-opacity',(0.32*tone[i]).toFixed(3)); G.fb.setAttribute('stop-opacity',(0.26*tone[i]).toFixed(3)); q.tint.style.display=''; }
     // the thumb's tip just out from under the near edge, the thumb going back under the neck toward the heel of the hand;
     // the forearm on down toward the player
     // the thumb stays between the index and the middle finger, following the hand wherever it goes

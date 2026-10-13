@@ -1,0 +1,92 @@
+import re, sys, os
+D=os.path.dirname(os.path.abspath(__file__))
+src=open(os.path.join(D,'..','chain-drills.html')).read().split('\n')
+def L(a,b): return '\n'.join(src[a-1:b])
+def must(s,a,b,n=1):
+    assert s.count(a)==n,(s.count(a),a[:70]); return s.replace(a,b)
+def block(a,b):
+    t=L(a,b)
+    if (a,b)==(378,394):
+        t=must(t,"const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;","// real fret spacing: the 12th fret is the octave, half the string; each fret a semitone shorter than the last\nconst SCALE=2*FB.n*FB.cw, fretX=n=>FB.nut+SCALE*(1-Math.pow(2,-n/12));\nconst cellL=n=>n===0?FB.x0:fretX(n-1);")
+        t=must(t,"const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;","const cellR=n=>n===0?FB.nut:fretX(n);")
+        t=must(t,"const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };","const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };")
+        t=must(t,"el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,","el('line',{x1:fretX(k),y1:FB.top,x2:fretX(k),y2:FB.bot,")
+    if (a,b)==(599,622):
+        t=must(t,"const ringPos=pc=>RING.m<=0?pc:lerpPos(pc,fifth(pc),RING.m);",
+          "const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return RING.m<=0?a:(RING.m>=1?c:lerpPos(a,c,RING.m)); };   // a pitch's seat on screen: the letters turned by LET")
+    if (a,b)==(630,641):
+        t=re.sub(r"const FIELD=\{on:true[^\n]*","const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA",t)
+        t=re.sub(r"const tickOf=[^\n]*\n","",t); t=re.sub(r"const trio=[^\n]*\n","",t)
+        t=must(t,"const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12];",
+          "const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey\nconst relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12];")
+        t=must(t,"const valRGB=pc=>morphRGB(pc-FIELD.re,FIELD.u);","const valRGB=pc=>{ const a=relRGB(pc+LET.offA-FIELD.re); return FIELD.mx<0?a:mixRGB(relRGB(pc+LET.offA-FIELD.reA),a,FIELD.mx); };   // mid-morph: the two orientations' colours, blended")
+    if (a,b)==(644,671):
+        i0=t.index('function shapeField(u){'); i1=t.index('\n}',i0)+2
+        t=t[:i0]+open(os.path.join(D,'st_shape.js')).read()+t[i1:]
+    if (a,b)==(672,688):
+        t=must(t,"  if(chain!==wedgeChain) buildWedge();\n","  buildWedge();\n")
+        t=must(t,"shapeField(FIELD.u);","shapeField();")
+        t=must(t,"valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));","valG.setAttribute('opacity',((FLAT_OFF?1:FIELD.lit)*swing).toFixed(3));")
+        i0=t.index('  const u=FIELD.u, fr='); i1=t.index("toFixed(3)); });",i0)+len("toFixed(3)); });")
+        t=t[:i0]+open(os.path.join(D,'st_lbl.js')).read().rstrip('\n')+t[i1:]
+    if (a,b)==(755,793):
+        t=must(t,"plan=planFor(cfgOf(drill))","plan=curPlan()")
+    return t
+def fill(s):
+    return re.sub(r"/\*@COPY:(\d+)-(\d+)\*/",lambda m:block(int(m.group(1)),int(m.group(2))),s)
+js='\n'.join(fill(open(os.path.join(D,f)).read()) for f in ['st_a.js','st_b.js','st_c.js','st_d.js','st_e.js','st_f.js','st_g.js'])
+page=fill(open(os.path.join(D,'st_page.html')).read().replace('/*@COPY:7-167*/','/*@COPY:12-167*/'))
+page=page.replace('/*@JS*/',js)
+open(os.path.join(D,'..','structures.html'),'w').write(page)
+print(len(page.split('\n')),'lines')
+dbg=page.replace('placeRing();\n})();',"placeRing(); window.__st=()=>{ const d=DRILL; return (d?('D '+d.lo.s+':'+d.lo.f+'g'+d.lo.g+' '+d.hi.s+':'+d.hi.f+'g'+d.hi.g+(d.hi.push?'^':'')+' '+d.means+(d.ham?' H':'')+(d.pull?' P':'')+' dir='+(d.dir||drill.dir)+(CUSTOM?' custom':' '+(SI+1)+'/'+SAMPLES.length)):'no drill')+' | P '+P.map(p=>p.g+'@'+p.s+':'+p.f).join(',')+' | hand '+[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret).join(' ')+' | hear '+(DRILL?hearingOf(DRILL):hearing); };\n})();")
+assert dbg!=page
+open(os.path.join(D,'..','structures-dbg.html'),'w').write(dbg)
+
+# ---------- drill books: the same tool turned to a set of pages ----------
+def walk_page(eyebrow,title,label,book):
+    p=open(os.path.join(D,'st_page.html')).read().replace('/*@COPY:7-167*/','/*@COPY:12-167*/')
+    def rep(a,b):
+        nonlocal p
+        assert p.count(a)==1,(a[:60],p.count(a)); p=p.replace(a,b)
+    rep('<title>Harmonic Structures</title>','<title>'+title+'</title>')
+    rep('<p class="eyebrow">Harmonic structure</p>','<p class="eyebrow">'+eyebrow+'</p>')
+    i0=p.index('  <div class="means" id="means">'); i1=p.index('  </div>\n',p.index('</div>',p.index('id="segMeans"')))+9
+    p=p[:i0]+'  <div class="means frameRow" id="means">\n    <span class="mLbl">'+label+'</span>\n    <span class="frameLbl" id="frameLbl" aria-live="polite"></span>\n    <div id="segMeans" hidden></div>\n  </div>\n'+p[i0+len(p[i0:i1]):]
+    rep('<span id="structName">Semitone</span><span class="caret" aria-hidden="true"></span>','<span id="structName">'+title+'</span>')
+    rep('id="structBtn" class="structBtn"','id="structBtn" class="structBtn static" tabindex="-1"')
+    rep('<button id="clear" class="pill"','<span class="pageCt" id="pageCt" aria-live="polite" title="Page">1/1</span>\n    <button id="clear" class="pill" hidden')
+    rep('.valLbl{ pointer-events:auto }','.valLbl{ pointer-events:auto }\n.structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }\n.frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }\n.roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }\n@media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-26px; min-width:0; padding-top:16px } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:86px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:19px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:2px; height:63px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:63.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs, .semiIv{ position:absolute; transform:translateX(-50%); color:var(--mid); white-space:nowrap; pointer-events:none } .semiTriLbl{ top:70px; font-size:12px } .semiIv{ top:44px; font-size:11px } .semiHs{ top:5px; font-size:11px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 } .hlHand{ opacity:.62 } .hlSkin{ fill:var(--bg); stroke:none } .hlLine{ fill:none; stroke:var(--ink); stroke-width:1.7; stroke-linejoin:round; stroke-linecap:round } .hlNail{ stroke-width:1.2; opacity:.55 } .hlCrease{ stroke-width:1.1; opacity:.35 } .hlSel{ stroke:var(--ink); stroke-width:3.2 } .gripPanel{ margin-top:14px; border-top:1px solid var(--faint); padding-top:10px } .gripHd{ margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .gripRow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px } .gripGrp{ width:52px; font-size:13px; color:var(--mid) } .gripBtn{ font:inherit; font-size:14px; font-weight:600; padding:5px 11px; border:1.5px solid var(--mid); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer; min-width:44px } .gripBtn sub{ font-size:10px; font-weight:500; color:var(--mid); margin-left:1px } .gripBtn.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .gripBtn.on sub{ color:var(--bg) } body.handOn .fingerC, body.handOn .fingerN, body.handOn .guide, body.handOn .thumbG{ display:none } .strSel.vert{ position:absolute; flex-direction:column-reverse; z-index:3; min-width:0 } .strSel.vert button{ min-width:0; padding:0; border-left:0; border-top:1px solid var(--mid); display:flex; align-items:center; justify-content:center; line-height:1 } .strSel.vert button:last-child{ border-top:0 }\n.pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums }')
+    p=fill(p)
+    parts=[fill(open(os.path.join(D,f)).read()) for f in ['st_a.js','st_b.js','st_c.js','st_d.js','st_e.js','st_f.js','st_g.js']]
+    g=parts[-1]; init="SAMPLES=sampling(); COMP=completions(); applySample(0);"
+    assert g.count(init)==1
+    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_walk.js')).read()+"\napplySample(0);")
+    a="try{ FIELD.on=localStorage.getItem('structures-gx')==='on'; }catch(err){}"; assert g.count(a)==1
+    g=g.replace(a,"FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book")
+    g=g.replace("localStorage.setItem('structures-gx',","localStorage.setItem('walk-gx',")
+    parts[-1]=g
+    return p.replace('/*@JS*/','\n'.join(parts))
+DBG="\napplySample(0); window.__T=()=>({si:T.si,n:T.segs.length,on:T.on,ahead:T.segs.length?T.segs[T.segs.length-1].end-ctx.currentTime:0}); window.__w=()=>({page:PAGE,doPc:PHI.doPc,off:LET.off,goal:RING.goal,bars:DRILL&&DRILL.bars,frames:DRILL&&DRILL.frames.map(F=>F.string+':'+F.tones.map(t=>t.fret).join(',')),plan:DRILL&&DRILL.plan.map(n=>n.string+':'+n.fret+'g'+n.finger).join(' '),P:P.map(p=>p.g+'@'+p.s+':'+p.f).join(','),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret).join(' '),gx:FIELD.on,label:document.getElementById('frameLbl').textContent});"
+def book(name,eyebrow,title,label,pages):
+    wp=walk_page(eyebrow,title,label,pages)
+    open(os.path.join(D,'..',name+'.html'),'w').write(wp)
+    open(os.path.join(D,'..',name+'-dbg.html'),'w').write(wp.replace("\napplySample(0);",DBG,1))
+    print(name,len(wp.split('\n')),'lines')
+# Frame Walk: walks of frames up the strings and back, or down and back
+book('frame-walk','Drill Exercise 10/11/26','Frame Walk','Frame',"""{hand:true, labelAt:'fret5', roll:true, loops:1, pages:[                      // each page once, then the next (Hold repeats it)                                                            // up the strings and its mirror, in pairs
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},            // 1. G#_Ti on the low E: the TiDo_Re frame up and back (Re = B)
+  {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},            // 2. C#_Mi on the high e: page 1 inverted, down and back (Re = B)
+  {string:NSTR-1, fret:5,  deg:'la',  dir:'up',   links:5},            // 3. A_La on the low E: the La_TiDo frame up and back (Re = D)
+  {string:0,      fret:10, deg:'re',  dir:'down', links:5},            // 4. D_Re on the high e: page 3 inverted, down and back (Re = D)
+  {string:NSTR-1, fret:5,  deg:'sol', dir:'up',   links:5},            // 5. A_Sol on the low E: the Sol_La_Ti frame up and back (Re = E)
+  {string:0,      fret:10, deg:'do',  dir:'down', links:5}             // 6. D_Do on the high e, in the La_TiDo frame: page 5 inverted, down and back (Re = E)
+]}""")
+# Semimodes: four-tone modal walks on one string, out to the semitone and back, the mode lit at each end
+book('hand-lab','Lab','Hand','Frame',"""{handLab:true, roll:true, loops:1, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5},
+  {string:0,      fret:9,  deg:'mi',  dir:'down', links:5},
+  {string:NSTR-1, fret:5,  deg:'la',  dir:'up',   links:5},
+  {string:0,      fret:10, deg:'re',  dir:'down', links:5}]}""")
+book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true, loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
+  {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))}""")

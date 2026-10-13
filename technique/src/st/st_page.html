@@ -1,0 +1,107 @@
+<title>Harmonic Structures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@1,500&display=swap" rel="stylesheet">
+<script>(function(){ var t="dark"; try{ if(localStorage.getItem("semitone-theme")==="light") t="light"; }catch(e){} document.documentElement.setAttribute("data-theme",t); })();</script>
+<style>
+/* Harmonic Structures: one tool for every structure. Top to bottom: the structure's name (a menu of all of them) and g(x);
+   the controls (Play, Hold, Prev | Next, Let Go, tempo; the gear for sound and display); Listen (g(x) on); the TAB
+   beside the ring; the means of the step between tones; the fretboard and the hand. No instruction text: the pulsing
+   fingers and frets lead. Grayscale unless g(x) is on. */
+/*@COPY:7-167*/
+.hd{ display:grid; gap:2px; margin-right:auto; position:relative }
+.structBtn{ font:inherit; font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1; color:var(--ink); background:none; border:0; padding:0; cursor:pointer; display:inline-flex; align-items:center; gap:12px; text-align:left }
+.caret{ width:9px; height:9px; border-right:2px solid var(--mid); border-bottom:2px solid var(--mid); transform:rotate(45deg); margin-top:-7px }
+.structMenu{ position:absolute; z-index:5; top:100%; left:0; margin-top:6px; min-width:230px; background:var(--bg); border:1px solid var(--mid); border-radius:8px; padding:6px; display:grid; gap:2px; box-shadow:0 10px 28px rgba(0,0,0,.35) }
+.structMenu a, .structMenu span{ display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:7px 10px; border-radius:6px; color:var(--ink); text-decoration:none; font-size:14px }
+.structMenu a:hover{ background:var(--faint) } .structMenu .cur{ font-weight:700 } .structMenu .soon{ color:var(--mid) } .structMenu small{ color:var(--mid); font-size:11px }
+.pill{ font:inherit; font-weight:600; font-size:13px; padding:6px 14px; border:1.5px solid var(--ink); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer }
+.pill[aria-pressed="true"]{ background:var(--ink); color:var(--bg) }
+.pillPair{ display:inline-flex; border:1.5px solid var(--ink); border-radius:999px; overflow:hidden }
+.pillPair button{ font:inherit; font-weight:600; font-size:13px; padding:6px 13px; border:0; background:var(--bg); color:var(--ink); cursor:pointer }
+.pillPair button+button{ border-left:1.5px solid var(--ink) }
+.play:disabled{ opacity:.35; cursor:default }
+.stage{ align-items:start }
+.tabCol{ min-width:0; display:grid; gap:6px; align-content:start }
+.ringFoot{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; width:100% }
+.ringFoot > :first-child{ justify-self:end } .ringFoot > :last-child{ justify-self:start }
+.ghostBtn{ display:grid; place-items:center; width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink); padding:0; cursor:pointer; background:var(--bg); color:var(--ink) }
+.ghostBtn svg{ width:24px; height:24px } .ghostBtn[aria-pressed="true"]{ background:var(--ink); color:var(--bg) }
+.ghostLine{ fill:none; stroke:var(--ink); stroke-width:1.3; stroke-dasharray:3 3; opacity:.5 }
+#ring{ border-radius:50%; outline:none; transition:box-shadow .2s }
+.ringBox.sel #ring{ box-shadow:0 0 0 1.5px var(--mid), 0 0 22px -6px var(--ink) }
+body:not(.gxOn) .gxOnly{ visibility:hidden }
+.order{ display:inline-grid; grid-template-columns:1fr 1fr; width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink); overflow:hidden; padding:0; cursor:pointer; background:var(--bg); font:inherit; font-weight:700; font-size:15px }
+.order span{ display:grid; place-items:center; color:var(--ink) } .order span.on{ background:var(--ink); color:var(--bg) }
+.means{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; font-size:13px; color:var(--mid) }
+.mLbl{ text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:600 }
+.listen{ margin-top:-4px }
+.cellMk{ fill:none; stroke:var(--ink); stroke-width:1.8; pointer-events:none }
+.cellMk.sel{ stroke-width:3.2 }
+.cand{ animation:pulse 1.3s ease-in-out infinite }
+.fingerC.cand{ stroke-width:2.8 }
+.fingerC.sel{ stroke-width:3.4 }
+@keyframes pulse{ 0%,100%{ opacity:.3 } 50%{ opacity:1 } }
+@media (prefers-reduced-motion: reduce){ .cand{ animation:none; opacity:.85 } }
+.valLbl{ pointer-events:auto } .wedge{ pointer-events:none }
+.sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
+.sylPop{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:var(--bg); stroke-width:4px; stroke-linejoin:round }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="hd">
+      <p class="eyebrow">Harmonic structure</p>
+      <button id="structBtn" class="structBtn" type="button" aria-haspopup="menu" aria-expanded="false" title="All the harmonic structures"><span id="structName">Semitone</span><span class="caret" aria-hidden="true"></span></button>
+      <div class="structMenu" id="structMenu" role="menu" hidden></div>
+    </div>
+    <div class="gxRow">
+/*@COPY:177-177*/
+      <button id="gx" class="gx" type="button" aria-pressed="false" title="g(x): the tonal field — valence on the ring and in the tone colours">g(x)</button>
+    </div>
+  </header>
+
+  <div class="bar">
+    <button id="play" class="play" type="button" disabled>Play</button>
+    <button id="hold" class="pill" type="button" aria-pressed="false" title="Hold: keep drilling this place instead of advancing">Hold</button>
+    <div class="pillPair"><button id="prev" type="button" title="The previous sample">Prev</button><button id="next" type="button" title="The next sample">Next</button></div>
+    <button id="clear" class="pill" type="button" title="Let go of every finger and start a fingering from nothing">Let Go</button>
+    <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="40" max="140" value="70"> <b id="bpmv">70</b></label>
+    <label class="ctl" for="click"><input type="checkbox" id="click" checked> Click</label>
+    <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="mixer" title="Sound and display">&#x2699;&#xFE0E;</button>
+  </div>
+
+/*@COPY:224-259*/
+
+  <div class="listen" id="listen" hidden>
+    <p class="lsLine">There are 2 diatonic semitones:
+      <span class="hearSeg" id="hearSeg" role="radiogroup" aria-label="The hearing"><span class="hearKnob" id="hearKnob"></span><button type="button" role="radio" data-v="tido"><b class="sTi">Ti</b> ↔ <b class="sDo">Do</b></button><button type="button" role="radio" data-v="mifa"><b class="sMi">Mi</b> ↔ <b class="sFa">Fa</b></button></span>
+    </p>
+  </div>
+
+  <div class="stage">
+    <div class="tabCol">
+      <div class="panel" id="tabPanel"><svg id="tab" viewBox="0 0 900 226" aria-label="The drill in TAB, two bars of 4/4, rhythm on stems below"></svg></div>
+    </div>
+    <div class="ringBox">
+      <svg id="ring" viewBox="0 0 240 240" tabindex="0" aria-label="The ring: the twelve letters round the outside (drag them to move Do), the field inside (drag it round to rotate it; click a syllable to make it the modal root). Selected, the number row moves the orientation; hold d r m f s l or t and click a letter to give it that function."></svg>
+      <div class="ringFoot">
+        <button class="pill gxOnly" id="diat" type="button" aria-pressed="true" title="Diatonic: the anti-pentatonic tones greyed on the ring and unmarked on the fretboard">Diatonic</button>
+        <button class="order" id="order" type="button" title="Ring order: 1, chromatic; 5, the dominant chain" aria-label="Ring order"><span>1</span><span>5</span></button>
+        <button class="ghostBtn gxOnly" id="ghost" type="button" aria-pressed="false" title="Ghost: a faint outline of the orientation just left, for comparison after a modulation" aria-label="Ghost"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M4 21V11a8 8 0 0 1 16 0v10l-2.67-2-2.66 2L12 19l-2.67 2L6.67 19z M8.6 9.2a1.9 2.2 0 1 0 0.01 0z M15.4 9.2a1.9 2.2 0 1 0 0.01 0z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="means" id="means">
+    <span class="mLbl">Means</span>
+    <div class="seg" id="segMeans" role="group" aria-label="How the second tone is reached">
+      <button type="button" data-v="pick">Fret</button><button type="button" data-v="ham" title="Up the string, the second tone hammered on (with Pull-off, both ways legato)">Hammer-on</button><button type="button" data-v="pull" title="Down the string, the second tone pulled off">Pull-off</button><button type="button" data-v="slide">Slide</button><button type="button" data-v="bend">Bend</button><button type="button" data-v="prebend">Prebend</button>
+    </div>
+  </div>
+
+  <div class="panel"><svg id="fb" viewBox="0 0 990 304" aria-label="Fretboard with the fretting hand: click or drag a finger and a fret to place it"></svg></div>
+</div>
+
+<script>
+/*@JS*/
+</script>

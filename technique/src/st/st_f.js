@@ -1,0 +1,289 @@
+
+/* ---------- a run: segments on the audio clock, one per drill ----------
+   Each segment: a one-bar count-in (the hand moves to the new place while it goes by), then the figure, 4 loops when
+   advancing, endless on Hold. Advancing appends the next sample's segment as the current one finishes. */
+const T={on:false,beat:60/70,segs:[],si:0,nextI:0,nextCycle:0,nextBeat:0,timer:null,live:[],shown:null};
+const playBtn=document.getElementById('play');
+function layoutOf(D){                                                   // the pairings and resting hand a drill implies
+  const pl=placementsOf({lo:D.lo,hi:D.hi}).map(q=>({g:q.g,s:q.s,f:q.f})), H=handFor(pl);
+  if(D.means==='slide'){ const st=(D.dir||drill.dir)==='up'?D.lo:D.hi; H.f[D.lo.g].fret=st.f; }
+  return {pl,H};
+}
+function mkSeg(D,H,si,custom){
+  const dir=D.dir||drill.dir, DD=Object.assign({},D,{dir}); DD.plan=planOf(DD,dir);
+  return {D:DD,plan:DD.plan,hand:cloneHand(H),si,custom,mode:D.means,strs:{},plant:true,
+    xt:D.means==='slide'?SLIDE_T:(D.means==='bend'?Math.min(0.16,0.4*T.beat/2):0)};
+}
+function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=drill.hold?Infinity:ADV_LOOPS; s.end=s.loopStart+s.loops*LOOP*T.beat; }
+function nextSeg(after){
+  if(!SAMPLES.length) return null;
+  const i=(((after<0?SI:after)+1)%SAMPLES.length+SAMPLES.length)%SAMPLES.length, D=drillOfSample(SAMPLES[i]);
+  return mkSeg(D,layoutOf(D).H,i,false);
+}
+function run(){
+  if(!DRILL) return;
+  ensureCtx().then(()=>{
+    if(T.on) stopAll();
+    T.beat=60/drill.bpm;
+    const s=mkSeg(Object.assign({},DRILL,{dir:drill.dir}),HAND,CUSTOM?-1:SI,CUSTOM); placeSeg(s,ctx.currentTime+0.1);
+    T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.shown=null; T.on=true;
+    tick(); T.timer=setInterval(tick,25);
+    playBtn.textContent='Stop'; playBtn.classList.add('on');
+  });
+}
+function tick(){
+  const horizon=ctx.currentTime+0.18;
+  while(T.si<T.segs.length){
+    const s=T.segs[T.si], total=s.loops*LOOP;
+    for(;;){
+      if(T.nextBeat>=total) break;
+      const t=s.loopStart+T.nextBeat*T.beat; if(t>=horizon) break;
+      const counting=T.nextBeat<0;
+      if(counting||drill.click) click(t,((T.nextBeat%4)+4)%4===0);
+      T.nextBeat++;
+    }
+    for(;;){
+      if(T.nextCycle>=s.loops) break;
+      const e=FIG[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
+      const sn=s.plan[T.nextI].string; if(!s.strs[sn]) s.strs[sn]=makeString(GAUGE(sn));
+      note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
+      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; }
+    }
+    if(T.nextBeat>=total&&T.nextCycle>=s.loops){
+      for(const k in s.strs) s.strs[k].stopAt(s.end);
+      if(T.si===T.segs.length-1&&(!drill.hold||SEG_EACH)){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
+      T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
+    }else break;
+  }
+  // trim the played segments, keeping the last six; the scheduler's place moves back with them (it used to be clamped
+  // to the new length, which put it past the end: a long run went silent at its 13th segment)
+  if(T.segs.length>12){ const k=T.segs.length-6; T.segs.splice(0,k); T.si=Math.max(0,T.si-k); }
+}
+function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
+function note(s,t,i,first){
+  const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
+  const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to the other string: the last one is let go
+  if(!first&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});
+  const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
+  if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
+  if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
+  const g0=Math.max(ctx.currentTime,t-s.xt);
+  if(e.pre) str.send({kind:'damp',t:g0,t1:t,depth:0.003});
+  str.send({kind:'glide',t:g0,t1:t,f});
+  if(e.pick){ if(!e.pre) choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); }
+}
+/*@COPY:1072-1090*/
+function stopAll(){
+  if(T.timer){ clearInterval(T.timer); T.timer=null; }
+  T.on=false;
+  if(ctx){
+    const now=ctx.currentTime;
+    for(const r of T.live){ try{ r.g.gain.cancelScheduledValues(now); r.g.gain.setValueAtTime(r.g.gain.value,now); r.g.gain.linearRampToValueAtTime(0,now+0.03); r.src.stop(now+0.05); }catch(err){} }
+    for(const s of T.segs) for(const k in s.strs) s.strs[k].stopAt(now,true);
+  }
+  T.live=[]; T.segs=[]; T.shown=null;
+  playBtn.textContent='Play'; playBtn.classList.remove('on');
+  refresh();
+}
+// Hold switched during playback: on, the current drill loops on; off, it finishes the loop it is in (at least 4) and moves on
+function holdChanged(){
+  if(!T.on) return;
+  const now=ctx.currentTime, s=segAt(now);
+  if(drill.hold){ const k=T.segs.indexOf(s); if(T.si===k){ s.loops=Infinity; s.end=Infinity; } }
+  else if(!isFinite(s.loops)){ const cyc=Math.max(0,Math.floor((now-s.loopStart)/(LOOP*T.beat))); s.loops=Math.max(ADV_LOOPS,cyc+1); s.end=s.loopStart+s.loops*LOOP*T.beat; }
+}
+
+/* ---------- what the screen shows at audio time t ---------- */
+function segAt(t){ let s=T.segs[0]; for(const x of T.segs){ if(x.countStart<=t) s=x; else break; } return s; }
+function stateAt(t){
+  const s=segAt(t), b=(t-s.loopStart)/T.beat;
+  if(b<0){ const k=Math.floor(b); return {s,count:true,idx:-1,beatIdx:((k%LOOP)+LOOP)%LOOP,beatT:s.loopStart+k*T.beat}; }
+  if(b>=s.loops*LOOP) return {s,count:true,done:true,idx:-1,beatIdx:-1,beatT:0};
+  const cyc=Math.floor(b/LOOP), ph=b-cyc*LOOP, base=s.loopStart+cyc*LOOP*T.beat;
+  let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
+  const e=FIG[idx], onset=base+e.s*T.beat, dur=e.d*T.beat;
+  return {s,count:false,ph,idx,onset,dur,nextIdx:(idx+1)%FIG.length,nextOnset:onset+dur,beatIdx:Math.floor(ph),beatT:base+Math.floor(ph)*T.beat};
+}
+const pitchOf=(s,i)=>s.plan[i].pitch;
+function pitchAt(st,t){
+  const s=st.s, e=s.plan[st.idx], cur=e.pitch, pn=s.plan[st.nextIdx];
+  if(!(pn.glide||pn.pre)||pn.string!==e.string) return cur;
+  const g0=st.nextOnset-s.xt; if(t<g0) return cur;
+  let u=Math.min(1,(t-g0)/s.xt); u=u*u*(3-2*u);
+  return cur+(pn.pitch-cur)*u;
+}
+// a finger is down when it sounds the note; Stay down keeps the placed fingers behind it on that string down too; on a
+// bend every finger behind the bending one pushes with it
+// the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
+function handNow(s,st){ return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
+function fingerDown(f,t){
+  const st=stateAt(t+LEAD); if(st.idx<0) return false;
+  const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
+  if(f===e.finger) return true;
+  if(!h||h.string!==e.string||f>e.finger) return false;
+  if(s.mode==='bend') return true;
+  if(s.mode==='slide') return false;
+  // playing in position, only the frame's own fingers stay down behind the one sounding: a finger the frame does not
+  // use (the middle finger in Re_MiFa) stays up, so what is down always spells the frame
+  if(e.frame!==undefined&&!s.plan.some(n=>n.frame===e.frame&&n.string===e.string&&n.finger===f)) return false;
+  return s.plant&&h.fret<e.fret;
+}
+const BEND_PX=16;
+/*@COPY:1136-1138*/
+let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
+                                                   // a page's own display, run each frame after the board
+let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
+const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
+function stepField(){
+  const now=performance.now(), dt=fieldClock?Math.min(0.1,(now-fieldClock)/1000):0; fieldClock=now;
+  const goal=FIELD.on?1:0, was=[FIELD.lit,FIELD.re,FIELD.mx,FIELD.reC,LET.offA,LET.offC,RING.m].join();
+  FIELD.lit=reduce?goal:FIELD.lit+(goal-FIELD.lit)*Math.min(1,dt*3.2); if(Math.abs(FIELD.lit-goal)<0.002) FIELD.lit=goal;
+  const snap=FIELD.lit<=0.001||reduce, k=Math.min(1,dt*7);
+  const oT=LET.off, oC=((7*LET.off)%12+12)%12;
+  if(snap){ LET.offA=oT; LET.offC=oC; } else { const a=shortTo(LET.offA,oT), c=shortTo(LET.offC,oC); LET.offA=Math.abs(a)<0.002?oT:LET.offA+a*k; LET.offC=Math.abs(c)<0.002?oC:LET.offC+c*k; }
+  const reT=PHI.doPc+2+LET.off, rcT=fifth(reT);
+  if(DRAGF&&!snap){ MORPH=null; FIELD.mx=-1; FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x; }   // turned by hand: a rotation
+  else if(MORPH&&!snap){ const x=Math.min(1,(now-MORPH.t0)/MORPH.dur);   // a morph: straight from the old values to the new, one rate for all
+    FIELD.re=reT; FIELD.reC=rcT; FIELD.reA=MORPH.reA; FIELD.reCA=MORPH.reCA; FIELD.mx=x; if(x>=1){ MORPH=null; FIELD.mx=-1; } }
+  else{ MORPH=null; FIELD.mx=-1;
+    if(snap){ FIELD.re=reT; FIELD.reC=rcT; } else { const d=shortTo(FIELD.re,reT), c=shortTo(FIELD.reC,rcT); FIELD.re=Math.abs(d)<0.002?reT:FIELD.re+d*Math.min(1,dt*5); FIELD.reC=Math.abs(c)<0.002?rcT:FIELD.reC+c*Math.min(1,dt*5); } }
+  if(RING.m!==RING.goal){ if(reduce) RING.m=RING.goal; else { RING.t=(RING.t||0)+dt/0.8*(RING.goal>RING.m?1:-1); RING.t=Math.max(0,Math.min(1,RING.t)); RING.m=RING.t*RING.t*(3-2*RING.t); if(Math.abs(RING.m-RING.goal)<1e-4) RING.m=RING.goal; } }
+  const now2=[FIELD.lit,FIELD.re,FIELD.mx,FIELD.reC,LET.offA,LET.offC,RING.m].join();
+  if(now2!==was||FIELD.lit>0) placeRing(), placeField(), placeGhost();
+}
+// a segment comes on screen: it becomes the current drill
+function showSeg(s){
+  T.shown=s; DRILL=s.D; MEANS=s.D.means; LEGATO.ham=s.D.ham; LEGATO.pull=s.D.pull; drill.dir=s.D.dir;
+  HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; P=placementsOf({lo:s.D.lo,hi:s.D.hi}).map(q=>({g:q.g,s:q.s,f:q.f}));
+  if(s.si>=0) SI=s.si; CUSTOM=s.custom; SEL=null; refresh();
+}
+
+/* the sounding tone's name (g(x) on): at each onset it pops up out of the string where the finger stops it, rises through the
+   note's time and fades with the string's own decay; when the next tone sounds it lets go quickly. The same name fades up
+   and out above the TAB, over the tone, between the high e and the line the ball lands on */
+const sylG=el('g',{'pointer-events':'none'},fb), sylTabG=el('g',{'pointer-events':'none'},tab), SYLS=[]; let sylKey=null;
+function stepSyl(st,live,plan,fxV,sy,amp){
+  const now=performance.now()/1000;
+  if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
+    if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
+      SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
+      if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
+        const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
+        tt.textContent=name; tt.style.fill=t.style.fill;
+        SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
+  else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
+  for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;
+    if(o.cur) o.o=Math.min(1,age/0.05)*(0.2+0.8*Math.min(1,amp));
+    else{ o.o*=Math.exp(-(now-(o.tl||o.t1))/0.12); o.tl=now; }
+    if(!o.cur&&o.o<0.02){ o.t.remove(); o.tt.remove(); SYLS.splice(i,1); continue; }
+    o.tt.setAttribute('opacity',o.o.toFixed(3));
+    const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?24:46*(1-(1-r)*(1-r)));
+    o.t.setAttribute('transform','translate('+o.x.toFixed(1)+' '+y.toFixed(1)+') scale('+k.toFixed(3)+')'); o.t.setAttribute('opacity',o.o.toFixed(3)); }
+}
+function frame(){
+  stepField();
+  const t=(T.on&&ctx)?ctx.currentTime:null, st=t!==null?stateAt(t):null, s=st?st.s:null;
+  if(s&&T.shown!==s) showSeg(s);
+  const live=!!(st&&!st.count), plan=s?s.plan:(DRILL?DRILL.plan:null), H=s?handNow(s,st):HAND, mode=s?s.mode:(DRILL?DRILL.means:'pick');
+  const strI=live?plan[st.idx].string:(plan?plan[0].string:H.f[1].string), sy=FB.strY[strI];
+  const p=live?pitchAt(st,t):null;
+  const shift=(live&&mode==='slide')?p-plan[0].pitch:0;               // the whole hand moves with a slide; the thumb does not
+  const bendAmt=(live&&mode==='bend')?Math.max(0,p-s.D.lo.f):0, bendDy=bendAmt*BEND_PX*(strI<NSTR/2?1:-1);
+  const fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
+  const ydt=fdt||0.016;
+  const cand=(!T.on&&!DRILL)?CAND:null;
+  for(const F of fingers){
+    const h=H.f[F.f], fsy=FB.strY[h.string];
+    const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
+    const down=(t!==null&&fingerDown(F.f,t))||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
+    const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
+    const lm=(live&&!reduce)?legatoMotion(F,st,t,fsy):null; let sq=0;
+    const tgt=(lm&&lm.target!==undefined&&!down)?lm.target:target;
+    if(reduce||F.drag) F.y=tgt;
+    else if(lm&&lm.y!==undefined){ F.y=lm.y; F.vy=0; sq=lm.sq||0; }
+    else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }
+    else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
+      F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }
+    const tx=tipXf(h.fret+shift);
+    F.x=(reduce||F.x===undefined||F.drag||(live&&mode==='slide'))?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07);
+    const hov=hoverY(fsy), pc=fsy-FR*PRESS_H, kk0=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=kk0*kk0*(3-2*kk0)+sq;
+    F.c.setAttribute('d',fingerPath(F.x,F.y,kk)); F.t.setAttribute('x',F.x); F.t.setAttribute('y',(F.y+1.5*kk).toFixed(2));
+    F.guide.setAttribute('x1',F.x); F.guide.setAttribute('x2',F.x); F.guide.setAttribute('y1',(F.y+FR+1).toFixed(1)); F.guide.setAttribute('y2',(fsy-3).toFixed(1));
+    const pressed=kk0>0.5;
+    F.c.classList.toggle('down',pressed); F.t.classList.toggle('down',pressed);
+    F.guide.setAttribute('visibility',down?'hidden':'visible');
+    F.c.classList.toggle('cand',!!cand&&cand.fingers.has(F.f)&&!pressed);
+    F.c.classList.toggle('sel',!!SEL&&SEL.finger===F.f);
+  }
+  placeThumb(shift,H);
+  paintBoard(H,shift,fdt);
+  // the sounding tone's level, held through the pick's catch; slides, bends and legato arrivals re-light it a little
+  const sstr=(live&&s.strs)?s.strs[strI]:null, ampNow=sstr?Math.min(1,ampOf(sstr.snap)/0.3):0, now=performance.now()/1000, adt=Math.min(0.1,now-(ampHold.t||now));
+  ampHold.t=now; ampHold.v=live?Math.max(ampNow,ampHold.v*Math.exp(-adt/0.15)):0;
+  if(live&&(mode!=='pick'||s.D.ham||s.D.pull)){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!s.plan[st.idx].pick) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
+  else { boost.key=null; boost.v=0; }
+  boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
+  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null, ts=FB.strY[(sa&&sa.idx>=0)?sa.s.plan[sa.idx].string:strI];
+    pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
+  const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
+  const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
+  stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
+  const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
+  const glow=vibOn?amp:0, inkRGB=inkColour(), glowRGB=live?toneColour(pcOf(strI,p)):inkRGB;
+  const tint=a=>'rgb('+inkRGB.map((v,i)=>Math.round(v+(glowRGB[i]-v)*a)).join(',')+')';
+  blurEl.style.fill=tint(glow); strobeEl.style.stroke=tint(glow);
+  const holder=live?plan[st.idx].finger:0;
+  fingers.forEach(F=>{ F.c.style.fill=(F.f===holder&&glow>0.01&&F.c.classList.contains('down'))?tint(glow):''; });
+  if(!vibOn){ blurEl.setAttribute('visibility','hidden'); strobeEl.setAttribute('visibility','hidden'); }
+  if(lastStr>=0&&lastStr!==strI){ strLines[lastStr].setAttribute('d',strPath(FB.strY[lastStr],0,0)); strLines[lastStr].classList.add('strDim'); }
+  strLines[strI].classList.add('strDim');                              // the stopped length stays as dim as the rest: only the ringing length lights
+  const fxH=live?fxV:FB.nut;
+  if(held!==null&&Math.abs(pickSy-sy)<1) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
+  else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,fxH,bendDy));
+  lastStr=strI;
+  if(live){
+    ringLine.setAttribute('x1',fxV); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
+    tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
+    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
+    countLbl.setAttribute('visibility','hidden');
+    setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx)));
+  }else{
+    ringLine.setAttribute('visibility','hidden');
+    tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
+    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
+    else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
+    setHand(null,-1);
+  }
+  let bx=xBeat(0), u=0;
+  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
+  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
+  ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
+  let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
+  if(st&&!st.done&&!st.count&&!reduce){
+    const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
+    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
+    else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
+  }
+  ball.setAttribute('opacity',(DRILL||T.on?b1o:0.25).toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));
+  if(b2o>0){ ball2.setAttribute('cx',b2x.toFixed(1)); ball2.setAttribute('cy',(TB.floor-TB.ballR-TB.ballH*4*b2u*(1-b2u)).toFixed(1)); }
+  paintTabField(st,live,p,amp);
+  requestAnimationFrame(frame);
+}
+// the board: paint, glow, spotlight; the pulsing marks
+let INST=new Set();
+function paintBoard(H,shift,dt){
+  const L=FIELD.lit, ink=rgbS(inkColour()), k=Math.min(1,(dt||0.016)*9), near=new Set();
+  for(let j=1;j<=4;j++){ const h=H.f[j], f0=Math.round(h.fret+shift); for(let ds=-1;ds<=1;ds++) for(let df=-1;df<=1;df++){ const s=h.string+ds, f=f0+df; if(s>=0&&s<NSTR&&f>=0&&f<=FMAX) near.add(s*(FMAX+1)+f); } }
+  CELLS.forEach((c,i)=>{
+    c.lv=1;                                                           // the whole board at the lit level
+    const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
+    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
+    else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
+    else c.paint.setAttribute('opacity',0);
+    const g=L>0.001&&INST.has(i)?L*0.55:0;
+    if(g){ c.glow.setAttribute('stroke',rgbS(valRGB(pc))); }
+    c.glow.setAttribute('opacity',g.toFixed(3));
+  });
+}
+requestAnimationFrame(frame);
