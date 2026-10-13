@@ -1421,7 +1421,7 @@ function frame(){
   for(const F of fingers){
     const h=H.f[F.f], fsy=FB.strY[h.string];
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&fingerDown(F.f,t))||rest;
+    const down=(t!==null&&fingerDown(F.f,t))||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
     const lm=(live&&!reduce)?legatoMotion(F,st,t,fsy):null; let sq=0;
@@ -2185,7 +2185,9 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   }
   function draw(dt){
     const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
-    const tips=fingers.map(F=>({x:F.x, y:F.y, kk:F.c.classList.contains('down')?1:0}));
+    // pressing is what the finger is doing, not where it is: a finger hovering over one string sits where the next
+    // string's press would be, and read from its place it would flash down as the hand crosses strings
+    const tips=fingers.map(F=>({x:F.x, y:F.y, kk:(F.isDown!==undefined?F.isDown:F.c.classList.contains('down'))?1:0}));
     if(tips.some(p=>p.x===undefined||isNaN(p.x))) return;
     const barre=P.some(q=>q.g===1&&q.barre), restPinky=!T.on&&!P.some(q=>q.g===4);
     // turning goes finger by finger: neighbours stopping one fret on different strings turn together toward the nut,
@@ -2214,8 +2216,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // the knuckles never collapse past one another: each at least a knuckle's width beyond the one before it — so in a
     // barre or a power chord the 1st, 2nd and 3rd stand a fret apart and only the crowded fingers turn
     for(let i=1;i<4;i++) humps[i].x=Math.max(humps[i].x,humps[i-1].x+SPK);
-    // the little finger at rest rides beside the ring finger and a little under it, curled a little shorter
-    if(restPinky){ humps[3]={x:humps[2].x+SPK*0.78, y:humps[2].y+10}; pads[3]={x:pads[2].x+WT[2]*0.55, y:pads[2].y-16}; }
+    // the little finger at rest lies right alongside the ring finger, the joints touching all the way to the tips, a
+    // little shorter
+    if(restPinky){ const side=(WK[2]+WK[3])/2-1, sideT=(WT[2]+WT[3])/2-1;   // side by side with the ring finger, joint against joint down to the tips
+      humps[3]={x:humps[2].x+side, y:humps[2].y+6}; pads[3]={x:pads[2].x+sideT, y:pads[2].y-8}; }
     // settle each pad so the finger's end lands where the arch puts it (the direction depends on the knuckle)
     for(let i=0;i<4;i++){ if(restPinky&&i===3) continue; const r=WT[i]/2, reach=(barre&&i===0)?10:7;
       for(let n=0;n<2;n++){ const dx=pads[i].x-humps[i].x, dy=pads[i].y-humps[i].y, l=Math.hypot(dx,dy)||1; pads[i].y=base[i]+reach-dy/l*r; pads[i].x=wire(i)-2-r+Math.max(0,dx/l)*0; } }

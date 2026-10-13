@@ -1342,6 +1342,9 @@ function fingerDown(f,t){
   if(!h||h.string!==e.string||f>e.finger) return false;
   if(s.mode==='bend') return true;
   if(s.mode==='slide') return false;
+  // playing in position, only the frame's own fingers stay down behind the one sounding: a finger the frame does not
+  // use (the middle finger in Re_MiFa) stays up, so what is down always spells the frame
+  if(e.frame!==undefined&&!s.plan.some(n=>n.frame===e.frame&&n.string===e.string&&n.finger===f)) return false;
   return s.plant&&h.fret<e.fret;
 }
 const BEND_PX=16;
@@ -1413,7 +1416,7 @@ function frame(){
   for(const F of fingers){
     const h=H.f[F.f], fsy=FB.strY[h.string];
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&fingerDown(F.f,t))||rest;
+    const down=(t!==null&&fingerDown(F.f,t))||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
     const lm=(live&&!reduce)?legatoMotion(F,st,t,fsy):null; let sq=0;
