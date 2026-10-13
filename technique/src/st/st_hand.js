@@ -87,14 +87,16 @@ function makeHand(G){
   const lerp=(a,b,s)=>[a[0]+(b[0]-a[0])*s,a[1]+(b[1]-a[1])*s,a[2]+(b[2]-a[2])*s];
 
   const PAIRS=[[0,0],[1,1],[2,2],[1,2],[2,1]];
-  // which neighbour may tuck under which (pair k is fingers k and k+1): who, 0 the first of the pair, 1 the second; segs, its bones that may (1 middle, 2 end)
-  const TUCK=[{who:0,segs:new Set([2]),pull:0.6},null,{who:1,segs:new Set([1,2]),pull:1.2}];   // pull: how firmly the pair keeps to its wire
-  // how firmly finger k keeps to its wire: more when it is one of a tucking pair (both on one fret, the one
-  // that tucks on the next string toward the high e)
-  const tuckPull=k=>{ const g=TG.f[k]; let w=PULL; if(!(g.press&&g.cell)) return w;
-    for(const [j,T] of [[k-1,TUCK[k-1]],[k+1,TUCK[k]]]){ if(!T||j<0||j>3) continue; const h=TG.f[j];
-      if(h.press&&h.cell&&Math.abs(h.cell[1]-g.cell[1])<0.5&&((T.who===0)===(j<k)?h.s===g.s-1:h.s===g.s+1)) w=Math.max(w,T.pull); }
-    return w; };
+  // which neighbour may tuck under which (pair k is fingers k and k+1). Two fingers on one fret: the one on the string
+  // nearer the high e may lie under the other's arch — with these of its bones (1 middle, 2 end): of the index and middle
+  // fingers, either's end bone; of the ring and little fingers, the little finger's middle and end bones, never the ring
+  // finger's; of the middle and ring fingers, none. pull: how firmly a tucking pair keeps to its wire
+  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:0.6},null,{segs:[new Set(),new Set([1,2])],pull:1.2}];
+  // the pair's tucking finger (0 the first, 1 the second) and its bones, when it tucks: both pressing on one fret
+  const tucker=k=>{ const T=TUCK[k], a=TG.f[k], b=TG.f[k+1]; if(!T||!(a.press&&a.cell&&b.press&&b.cell)||Math.abs(a.cell[1]-b.cell[1])>0.5||a.s===b.s) return null;
+    const w=a.s<b.s?0:1; return T.segs[w].size?{who:w,segs:T.segs[w],pull:T.pull}:null; };
+  // how firmly finger k keeps to its wire: more when it is one of a tucking pair
+  const tuckPull=k=>{ let w=PULL; for(const j of [k-1,k]){ if(j<0||j>2) continue; const t=tucker(j); if(t) w=Math.max(w,t.pull); } return w; };
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
@@ -117,7 +119,7 @@ function makeHand(G){
         // (the nearness is the tip's: a finger does not get there by hooking its end joint forward); a finger a neighbour
         // tucks under has nothing in its way, so it keeps to its wire as a finger alone would
         put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(tip-(C[1]-1))*tuckPull(k)); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
-      else { const w=g.press?1.4:0.35; put((Fk.pad[0]-g.p[0])*w); put((Fk.pad[1]-g.p[1])*w); put((Fk.pad[2]-g.p[2])*w); for(let j=0;j<5;j++) put(0); }
+      else { const w=g.press?1.4:0.2; put((Fk.pad[0]-g.p[0])*w); put((Fk.pad[1]-g.p[1])*w); put((Fk.pad[2]-g.p[2])*w); for(let j=0;j<5;j++) put(0); }
       // the bones keep out of the neck (the pressing pad only touches it)
       for(let s=0;s<3;s++) for(const tt of [0.15,0.6,1]){ const pt=lerp(Fk.j[s],Fk.j[s+1],tt), need=RAD[k][s]*THK*(s===2&&(g.press||g.barre)?0.9:1);
         pen(need-neckSD(pt),4); }
@@ -132,9 +134,10 @@ function makeHand(G){
     // little finger's end and middle bones under the ring finger, the index's end bone under the middle finger; the middle
     // and ring fingers never. Where a bone may tuck and lies lower, the two are stacked, so they need only their thickness
     // between them (a finger is flatter than it is wide); otherwise their width
+    const TK=[0,1,2].map(tucker);
     for(let k=0;k<3;k++) for(const [s,s2] of PAIRS){
       const A=S.F[k].j, B=S.F[k+1].j, [pa,pc,ta,tc]=segPts(A[s],A[s+1],B[s2],B[s2+1]), dx=pa[0]-pc[0], dy=pa[1]-pc[1], dz=pa[2]-pc[2], d=Math.hypot(dx,dy,dz)||1e-6;
-      const T=TUCK[k], under=T&&(T.who===0?T.segs.has(s)&&dz<0:T.segs.has(s2)&&dz>0), nar=(s_,t_)=>s_===2?1-(1-TIPK)*t_:1, r=RAD[k][s]*nar(s,ta)+RAD[k+1][s2]*nar(s2,tc), sq=s===2&&s2===2?4:2.5;   // fingertip pads squeeze a little more, and narrow toward their ends
+      const T=TK[k], under=T&&(T.who===0?T.segs.has(s)&&dz<0:T.segs.has(s2)&&dz>0), nar=(s_,t_)=>s_===2?1-(1-TIPK)*t_:1, r=RAD[k][s]*nar(s,ta)+RAD[k+1][s2]*nar(s2,tc), sq=s===2&&s2===2?4:2.5;   // fingertip pads squeeze a little more, and narrow toward their ends
       const need=under?r*Math.sqrt((dx*dx+dy*dy)/(d*d)+THK*THK*dz*dz/(d*d))-sq:r-sq;
       pen(need-d,3); }
     // the thumb on the back of the neck
@@ -149,7 +152,7 @@ function makeHand(G){
     for(let k=0;k<4;k++) pen(q[9+4*k]-(0.9*q[8+4*k]+12*D2R),12);   // the end joint does not bend far past the middle one
     // ease: every joint near its middle, the palm near its resting turn
     for(let i=6;i<NQ;i++) put((q[i]-NEUT[i])*3);
-    const u=S.axes.u, p=S.axes.p; put((u[0]-U0[0])*10); put((u[1]-U0[1])*10); put((u[2]-U0[2])*10); put((p[0]-P0[0])*10); put((p[1]-P0[1])*10); put((p[2]-P0[2])*10);
+    const u=S.axes.u, p=S.axes.p; put((u[0]-U0[0])*4); put((u[1]-U0[1])*4); put((u[2]-U0[2])*4); put((p[0]-P0[0])*4); put((p[1]-P0[1])*4); put((p[2]-P0[2])*4);
     return n;
   }
   const clamp=q=>{ for(let i=0;i<NQ;i++) q[i]=Math.max(LO[i],Math.min(HI[i],q[i])); return q; };
@@ -199,16 +202,20 @@ function makeHand(G){
       if(!improved||c0<1e-6||stall>=3) break; }   // settled: it has stopped getting better
     if(pre) pre(q);
     return c0; }
-  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25], FING=[...Array(16).keys()].map(i=>6+i);
+  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25], PALM5=[0,1,2,3,4,22,23,24,25], TURN=-0.75, FING=[...Array(16).keys()].map(i=>6+i);
   // from scratch: the palm (and thumb) found with every finger aimed straight at its place, from a few starting hands
   // (along the neck, turned toward the nut or the body); the best carried on, then everything settled together
   function solveFresh(targets,iters){
     TG=targets; RINGW=0; const base=initQ(), starts=[];
     for(const dx of [0,-30,-15,15,30]) for(const tw of [0,-0.3,0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; const c=lm(PALM,18,aimAll); starts.push({c,q:q.slice()}); }
-    // the three most promising carried all the way: the notes found, then the ringing strings kept clear without
-    // letting a note slip; the hand that holds its notes best (then the easiest) is the one
-    starts.sort((a,b)=>a.c-b.c); let best=null, bs=null;
-    for(const st of starts.slice(0,3)){ q=st.q; RINGW=0; lm(PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; lm(ALL,40,null,keepNotes(q)); const c=lm(FING,60,null,keepNotes(q));   // the palm settled, each finger's own joints settle last
+    // and the hand turned: its fingers slanting toward the body as they reach across, the index coming at its fret from
+    // behind its neighbours (the turn held while the palm finds its place, then free)
+    const turned=[];
+    for(const dx of [0,-15,15]) for(const tw of [0,-0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; q[5]=TURN; const c=lm(PALM5,18,aimAll); turned.push({c,q:q.slice(),turn:true}); }
+    // the three most promising carried all the way, and the most promising turned hand: the notes found, then the ringing
+    // strings kept clear without letting a note slip; the hand that holds its notes best (then the easiest) is the one
+    starts.sort((a,b)=>a.c-b.c); turned.sort((a,b)=>a.c-b.c); let best=null, bs=null;
+    for(const st of starts.slice(0,3).concat(turned.slice(0,1))){ q=st.q; RINGW=0; lm(st.turn?PALM5:PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; lm(ALL,40,null,keepNotes(q)); const c=lm(FING,60,null,keepNotes(q));   // the palm settled, each finger's own joints settle last
       const sc=[Math.max(0,noteErr(q)-1.5),c]; if(!bs||sc[0]<bs[0]-1e-9||(Math.abs(sc[0]-bs[0])<1e-9&&sc[1]<bs[1])){ bs=sc; best=q.slice(); } }
     q=best; RINGW=1; return bs[1]; }
   // from where the hand was

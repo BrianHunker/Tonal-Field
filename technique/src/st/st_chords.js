@@ -9,7 +9,7 @@ const CHORDS=BOOK.chords?(()=>{
   const NAME={3:'C',4:'D♭',5:'D',6:'E♭',7:'E',8:'F',9:'F♯',10:'G',11:'A♭',0:'A',1:'B♭',2:'B'};
   const QUAL=[['','maj',[0,4,7]],['m','m',[0,3,7]],['7','7',[0,4,7,10]],['maj7','maj7',[0,4,7,11]],['m7','m7',[0,3,7,10]],['m7♭5','m7♭5',[0,3,6,10]],
     ['dim','dim',[0,3,6]],['dim7','dim7',[0,3,6,9]],['aug','aug',[0,4,8]],['sus2','sus2',[0,2,7]],['sus4','sus4',[0,5,7]],['6','6',[0,4,7,9]],['m6','m6',[0,3,7,9]]];
-  const pcs=STRINGS.map(s=>s.pc), open=STRINGS.map((s,i)=>openMidi(i));
+  const pcs=STRINGS.map(s=>s.pc), open=STRINGS.map((s,i)=>Math.round(openMidi(i)));   // whole semitones: the same pitch on two strings is the same
   let root=3, qi=0, shapes=[], idx=0, started=false;
   const fits=pl=>{ for(let i=0;i<pl.length;i++) for(let j=i+1;j<pl.length;j++) if(!fingersFit(pl[i].g,pl[i].f,pl[i].s,pl[j].g,pl[j].f,pl[j].s)) return false; return true; };
   // can the hand hold it? decided once per shape, the first time it is reached

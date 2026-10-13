@@ -593,7 +593,9 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       else tg2[k-1]={s:h.string,p:[X,h.string*g,5],press:false}; }
     const xs2=tg2.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
     const TG={f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
-    HM2.q=HM.q; HM2.quick(TG); return Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0)); }
+    const worst=()=>Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0));
+    // a quick look from where the hand is; if that falls short, the full search before saying no
+    HM2.q=HM.q; HM2.quick(TG); let e=worst(); if(e>3){ HM2.solveFresh(TG); e=Math.min(e,worst()); } return e; }
   // PAIRING, on every page with the drawn hand, the hand's own rules only (fingers within their reach of each other, never
   // crossing, two on one string a fret apart). A knuckle clicked (above the board): its finger is picked — let go first if
   // it was placed. The frets it can then reach pulse; one clicked, the finger is placed there and stays, the hand stretching

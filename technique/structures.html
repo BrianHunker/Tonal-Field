@@ -1579,8 +1579,10 @@ const SURF=(()=>{
     if(kind==='tab'){ const svg=cur.querySelector('svg'), w=vbOf(svg).w; if(!svg.style.width.endsWith('px')||w!==tabW){ tabW=w; size(); } }
     if(kind==='fb'){ const hx=handX(); if(lastHx===null||Math.abs(hx-lastHx)>40) follow(true); }
     // the TAB: while it plays, the playhead is kept in view, a third of the way in
-    else if(kind==='tab'&&T.on&&typeof head!=='undefined'){ const svg=cur.querySelector('svg'), v=vbOf(svg), x=(+head.getAttribute('x1')-v.x)/v.w*svg.getBoundingClientRect().width, sl=layer.scrollLeft;
-      if(x<sl+innerWidth*0.15||x>sl+innerWidth*0.75) layer.scrollTo({left:Math.max(0,x-innerWidth/3),behavior:reduce?'auto':'smooth'}); }
+    // (each frame, a third of the way in; at the repeat it sweeps back to the start rather than jumping)
+    else if(kind==='tab'&&T.on&&typeof head!=='undefined'){ const svg=cur.querySelector('svg'), v=vbOf(svg), R=svg.getBoundingClientRect(), sl=layer.scrollLeft;
+      const x=R.left+sl+(+head.getAttribute('x1')-v.x)/v.w*R.width, want=Math.max(0,x-innerWidth/3), d=want-sl;
+      if(Math.abs(d)>0.5) layer.scrollLeft=sl+(Math.abs(d)>0.4*innerWidth&&!reduce?d*0.16:d); }
     requestAnimationFrame(watch); })();
   return {close, open, get kind(){ return kind; }};
 })();
