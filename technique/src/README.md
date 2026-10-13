@@ -4,7 +4,8 @@ The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html
 
 - `chain-drills.html`: the base tool; `st/build.py` copies line ranges from it (`/*@COPY:a-b*/`).
 - `st/st_a.js` … `st_g.js`, `st_shape.js`, `st_lbl.js`, `st_page.html`: Harmonic Structures.
-- `st/st_walk.js`: the drill books (pages, semimode line, roll, the drawn hand, Hand lab posing and Chord Grip).
+- `st/st_hand.js`: the hand's mechanism — palm, knuckles, finger and thumb bones in millimetres on a real neck, joint ranges, and the solver that places them.
+- `st/st_walk.js`: the drill books (pages, semimode line, roll, the hand drawn from that skeleton, Hand lab posing and Chord Grip).
 - `st/build.py`: builds every page into this folder (plus `-dbg` versions); the books are defined at its end.
 - `publish.py`: copies built pages up into `technique/` with the site's head.
 

@@ -61,7 +61,7 @@ def walk_page(eyebrow,title,label,book):
     parts=[fill(open(os.path.join(D,f)).read()) for f in ['st_a.js','st_b.js','st_c.js','st_d.js','st_e.js','st_f.js','st_g.js']]
     g=parts[-1]; init="SAMPLES=sampling(); COMP=completions(); applySample(0);"
     assert g.count(init)==1
-    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_walk.js')).read()+"\napplySample(0);")
+    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_hand.js')).read()+'\n'+open(os.path.join(D,'st_walk.js')).read()+"\napplySample(0);")
     a="try{ FIELD.on=localStorage.getItem('structures-gx')==='on'; }catch(err){}"; assert g.count(a)==1
     g=g.replace(a,"FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book")
     g=g.replace("localStorage.setItem('structures-gx',","localStorage.setItem('walk-gx',")
