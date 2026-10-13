@@ -2515,7 +2515,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1];
-  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false;   // resettle: form the hand afresh once a new grip's dots have come to rest
+  let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false, settled=false, ease=null; const EASE=0.45;   // resettle: form the hand afresh once a new grip's dots have come to rest
   const rank=[...Array(12).keys()];                                         // the bones' drawing order last frame
   const openStr=new Set();                                                 // open strings meant to ring (a chord chart's 0s)
   const f=v=>v.toFixed(1), P2=p=>f(p.x)+' '+f(p.y);
@@ -2580,15 +2580,25 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     clock+=dt||0.016;
     const nowN=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, TGT=ask(dt,live,nowN);
     // the hand follows from where it was; from scratch when it is new, or has lost its way (not more than once a second)
-    if(fresh){ HM.solveFresh(TGT); fresh=false; lastFresh=clock; } else HM.solve(TGT,reduce?6:2);
-    if(clock-lastFresh>1&&Math.max(...HM.errs().map((e,i)=>(TGT.f[i].press||TGT.f[i].barre)?e:0))>4){ HM.solveFresh(TGT); lastFresh=clock; }
-    // what is drawn follows the solved hand smoothly: closely while the hand is moving, gently once it has come to rest, so
-    // the hand at rest breathes rather than flickers
-    still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT;
+    // SETTLING: while what is asked moves, the hand follows it a step a frame; once it is still, the hand is formed whole —
+    // the search carried to its end in one go — and then left alone until something is asked of it again. What is drawn
+    // eases onto that one pose and stops there: nothing goes on searching (or rounding) at rest, so nothing jiggles
+    still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT; if(!still) settled=false;
+    if(fresh){ HM.solveFresh(TGT); fresh=false; lastFresh=clock; }
+    else if(!settled){ const q0=HM.q; HM.solve(TGT,reduce?6:2);
+      if(still>0.25&&!resettle){ HM.solve(TGT,80); settled=true; }                        // at rest: carried to the end
+      else if(q0&&still>0.1){ const q1=HM.q; let m=0; for(let i=0;i<q1.length;i++) m=Math.max(m,Math.abs(q1[i]-q0[i])); if(m<1e-4) settled=true; } }
+    if(clock-lastFresh>1&&Math.max(...HM.errs().map((e,i)=>(TGT.f[i].press||TGT.f[i].barre)?e:0))>4){ HM.solveFresh(TGT); lastFresh=clock; settled=false; }
     // a new grip, the fingers arrived: the hand forms it from scratch (following the dots there can leave it in a poorer shape)
-    if(resettle&&still>0.2){ HM.solveFresh(TGT); resettle=false; lastFresh=clock; }
-    const qs=HM.q, tau=reduce?0:(still>0.25?0.35:0.04), kq=tau?Math.min(1,(dt||0.016)/tau):1;
-    if(!qd||qd.length!==qs.length) qd=qs.slice(); else for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq;
+    if(resettle&&still>0.2){ HM.solveFresh(TGT); HM.solve(TGT,80); resettle=false; settled=true; lastFresh=clock; }
+    // what is drawn follows the solved hand: closely while the hand is moving; at rest it eases onto the pose in a set time
+    const qs=HM.q;
+    if(!qd||qd.length!==qs.length||reduce){ qd=qs.slice(); ease=null; }
+    else if(settled){ // onto the resting pose in one smooth move of fixed length, ending on it exactly
+      if(!ease||ease.to.some((v,i)=>v!==qs[i])) ease={from:qd.slice(),to:qs.slice(),t:0};
+      ease.t=Math.min(1,ease.t+(dt||0.016)/EASE); const u=ease.t*ease.t*(3-2*ease.t);
+      for(let i=0;i<qs.length;i++) qd[i]=ease.t>=1?qs[i]:ease.from[i]+(qs[i]-ease.from[i])*u; }
+    else { ease=null; const kq=Math.min(1,(dt||0.016)/0.04); for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq; }
     const S=HM.poseAt(qd);
     if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
