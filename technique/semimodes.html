@@ -2182,7 +2182,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const joint='M'+P2({x:pj.x-dj.y*wj, y:pj.y+dj.x*wj})+' Q'+P2({x:pj.x+dj.x*4, y:pj.y+dj.y*4})+' '+P2({x:pj.x+dj.y*wj, y:pj.y-dj.x*wj});
     return {d, nail, joint};
   }
-  function draw(dt){
+  function draw(dt,st,live,plan){
     const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
     // pressing is what the finger is doing, not where it is: a finger hovering over one string sits where the next
     // string's press would be, and read from its place it would flash down as the hand crosses strings
@@ -2226,10 +2226,13 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       q.fill.setAttribute('d',g.d); q.line.setAttribute('d',g.d); q.nail.setAttribute('d',g.nail); q.joint.setAttribute('d',g.joint);
       const a=alpha[i].toFixed(3); q.fill.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=a; q.joint.style.opacity=a; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
-    const ink=inkColour(), lit=[0,1,2,3].map(i=>{ const h=HAND.f[i+1]; if(!FIELD.on||!tips[i].kk||!h) return false;
-      return ![0,1,2,3].some(j=>j!==i&&tips[j].kk&&HAND.f[j+1]&&HAND.f[j+1].string===h.string&&HAND.f[j+1].fret>h.fret); });
-    for(let i=0;i<4;i++){ const h=HAND.f[i+1], q=parts[i], G=tg[i];
-      if(lit[i]) toneCol[i]=valRGB(pcOf(h.string,Math.round(h.fret)));
+    // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
+    // highest stop on its string
+    const ink=inkColour(), now=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, lit=[false,false,false,false], at=[];
+    if(now){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
+    else if(!T.on) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
+    for(let i=0;i<4;i++){ const q=parts[i], G=tg[i];
+      if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));
       tone[i]+=((lit[i]?1:0)-tone[i])*Math.min(1,(dt||0.016)/(lit[i]?0.05:0.25));
       if(tone[i]<0.01||!toneCol[i]){ q.line.style.stroke=''; continue; }
       const col=rgbS(mixRGB(ink,toneCol[i],tone[i])), w=rgbS(ink);
@@ -2315,7 +2318,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   document.getElementById('pageCt').after(btn);
   return {draw};
 })():null;
-{ const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt); }; }
+{ const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }
 
 applySample(0);
 placeRing();
