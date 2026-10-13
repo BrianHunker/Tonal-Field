@@ -2383,9 +2383,12 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // depth order, lays its skin (black) over what is behind it and its own outline (white) on top; the palm and thumb's
   // outlines are hidden where a finger (or, for the palm, the thumb) covers them
   const MASKBOX={maskUnits:'userSpaceOnUse',x:-200,y:-400,width:1500,height:1100};
-  const mF=mk('mask',Object.assign({id:gid+'mF'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#000'},mF);
-  const mT=mk('mask',Object.assign({id:gid+'mT'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mT);
-  const mP=mk('mask',Object.assign({id:gid+'mP'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mP);
+  const mF=mk('mask',Object.assign({id:gid+'mF'},MASKBOX),defs), mFr=mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#000'},mF);
+  const mT=mk('mask',Object.assign({id:gid+'mT'},MASKBOX),defs), mTr=mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mT);
+  const mP=mk('mask',Object.assign({id:gid+'mP'},MASKBOX),defs), mPr=mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mP);
+  // the masks are fitted to the hand each frame: what they cover is redrawn every frame, so they cover no more than it
+  function fitMasks(x0,y0,x1,y1){ const at={x:(x0-8).toFixed(0),y:(y0-8).toFixed(0),width:(x1-x0+16).toFixed(0),height:(y1-y0+16).toFixed(0)};
+    [mF,mT,mP,mFr,mTr,mPr].forEach(e=>{ for(const k in at) e.setAttribute(k,at[k]); }); }
   const mPth=[0,1,2].map(()=>mk('path',{fill:'#000'},mP));
   const behindLines=mk('g',{}); fb.insertBefore(behindLines,behind.nextSibling);
   const vPalm=mk('path',{class:'hlLine',mask:'url(#'+gid+'mP)'},behindLines);
@@ -2541,7 +2544,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const tj=S.Th.j; for(let s=0;s<3;s++){ const ra=HM.TRAD[Math.max(0,s-1)]*scl(tj[s][0])*(s===0?1.05:1), rb=HM.TRAD[s]*scl(tj[s+1][0]); const dd=bone(proj(tj[s]),proj(tj[s+1]),ra,rb); thumbSeg[s].fill.setAttribute('d',dd); thumbSeg[s].line.setAttribute('d',dd); }
     const tdir=[0,1,2].map(i=>(S.Th.end[i]-S.Th.ip[i])/27), tn=nail(proj(S.Th.ip),proj(S.Th.end),HM.TRAD[2]*scl(S.Th.end[0]),S.Th.end,tdir,S.Th.back,S.Th.end[0]);
     thumbNail.setAttribute('d',tn?tn.d:''); thumbNail.style.display=tn?'':'none';
-    if(SOLID){ vPalm.setAttribute('d',palmLine.getAttribute('d')); thumbSeg.forEach((t,s)=>{ vThumb[s].setAttribute('d',t.line.getAttribute('d')); mPth[s].setAttribute('d',t.fill.getAttribute('d')); });
+    if(SOLID){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const grow=(p,r)=>{ x0=Math.min(x0,p.x-r); x1=Math.max(x1,p.x+r); y0=Math.min(y0,p.y-r); y1=Math.max(y1,p.y+r); };
+      S.F.forEach((Fk,k)=>Fk.j.forEach(J=>grow(proj(J),HM.RAD[k][0]*1.1*scl(J[0])))); S.palm.forEach(J=>grow(proj(J),4)); S.Th.j.forEach(J=>grow(proj(J),HM.TRAD[0]*1.1*scl(J[0])));
+      fitMasks(x0,y0,x1,y1);
+      vPalm.setAttribute('d',palmLine.getAttribute('d')); thumbSeg.forEach((t,s)=>{ vThumb[s].setAttribute('d',t.line.getAttribute('d')); mPth[s].setAttribute('d',t.fill.getAttribute('d')); });
       vThumbNail.setAttribute('d',tn?tn.d:''); vThumbNail.style.display=tn?'':'none'; }
   }
   // can the hand hold this placing? how far the farthest pressing tip stops short (mm)
