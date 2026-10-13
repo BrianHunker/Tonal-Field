@@ -2377,6 +2377,35 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const front=mk('g',{class:'hlHand'}); fb.insertBefore(front,fingers[0].guide);
   // twelve places for the fingers' bones, filled nearest last each frame; a bone carries its finger's look with it
   const slots=Array.from({length:12},()=>({fill:mk('path',{class:'hlSkin'},front), tint:mk('path',{stroke:'none'},front), line:mk('path',{class:'hlLine'},front), nail:mk('path',{class:'hlLine hlNail'},front), k:0}));
+  // and for Solid: each bone's skin and outline in the masks, its visible outline in front
+  // HAND DRAWING, Solid (default) or Wire (the gear). Wire: every outline seen through the translucent skin. Solid: the same
+  // skin, and of the outlines only what can be seen from here — each drawn opaque through a mask in which every bone, in
+  // depth order, lays its skin (black) over what is behind it and its own outline (white) on top; the palm and thumb's
+  // outlines are hidden where a finger (or, for the palm, the thumb) covers them
+  const MASKBOX={maskUnits:'userSpaceOnUse',x:-200,y:-400,width:1500,height:1100};
+  const mF=mk('mask',Object.assign({id:gid+'mF'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#000'},mF);
+  const mT=mk('mask',Object.assign({id:gid+'mT'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mT);
+  const mP=mk('mask',Object.assign({id:gid+'mP'},MASKBOX),defs); mk('rect',{x:-200,y:-400,width:1500,height:1100,fill:'#fff'},mP);
+  const mPth=[0,1,2].map(()=>mk('path',{fill:'#000'},mP));
+  const behindLines=mk('g',{}); fb.insertBefore(behindLines,behind.nextSibling);
+  const vPalm=mk('path',{class:'hlLine',mask:'url(#'+gid+'mP)'},behindLines);
+  const vThumbG=mk('g',{mask:'url(#'+gid+'mT)'},behindLines), vThumb=[0,1,2].map(()=>mk('path',{class:'hlLine'},vThumbG)), vThumbNail=mk('path',{class:'hlLine hlNail'},vThumbG);
+  const frontLines=mk('g',{mask:'url(#'+gid+'mF)'}); fb.insertBefore(frontLines,fingers[0].guide);
+  let SOLID=true; try{ SOLID=localStorage.getItem('hand-look')!=='wire'; }catch(err){}
+  const solidOf=()=>slots.forEach(q=>{ q.mFill=mk('path',{fill:'#000',stroke:'#fff','stroke-width':1.7,'stroke-linejoin':'round'},mF); q.mNail=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.2},mF);
+      q.tFill=mk('path',{fill:'#000'},mT); q.pFill=mk('path',{fill:'#000'},mP);
+      q.vLine=mk('path',{class:'hlLine'},frontLines); q.vNail=mk('path',{class:'hlLine hlNail'},frontLines); });
+  function setLook(solid){ SOLID=solid; try{ localStorage.setItem('hand-look',solid?'solid':'wire'); }catch(err){}
+    frontLines.style.display=behindLines.style.display=solid?'':'none';
+    slots.forEach(q=>{ q.line.style.visibility=q.nail.style.visibility=solid?'hidden':''; });
+    palmLine.style.visibility=solid?'hidden':''; thumbSeg.forEach(t=>t.line.style.visibility=solid?'hidden':''); thumbNail.style.visibility=solid?'hidden':'';
+    if(segLook) segLook.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='solid')===solid)); }
+  let segLook=null; solidOf();
+  // the gear: Hand drawing, Solid | Wire, under the Hand row
+  { const hr=document.getElementById('segHand'), row=hr&&hr.closest('.mixRow');
+    if(row){ const r=document.createElement('div'); r.className='mixRow sub'; r.innerHTML='<span class="name">Hand drawing</span><div class="seg" id="segLook" role="group" aria-label="How the hand is drawn"><button type="button" data-v="solid">Solid</button><button type="button" data-v="wire">Wire</button></div>';
+      row.after(r); segLook=r.querySelector('#segLook'); segLook.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setLook(b.dataset.v==='solid'); }); } }
+  setLook(SOLID);
   // each finger's tone: a gradient along the finger, the tone's colour at the tip fading back to the outline's white
   // half way up toward the knuckle
   const tg=[0,1,2,3].map(i=>{ const g=mk('linearGradient',{id:gid+'t'+i,gradientUnits:'userSpaceOnUse'},defs);
@@ -2473,6 +2502,11 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(proj(g.A),proj(g.B),rb,Fk.end,Fk.dir3,Fk.back,g.B[0]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
       const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
+    if(SOLID) slots.forEach(q=>{ const d=q.fill.getAttribute('d')||'', nd=q.nail.style.display==='none'?'':(q.nail.getAttribute('d')||'');
+      q.mFill.setAttribute('d',d); q.tFill.setAttribute('d',d); q.pFill.setAttribute('d',d); q.mNail.setAttribute('d',nd);
+      q.vLine.setAttribute('d',d); q.vNail.setAttribute('d',nd); q.vLine.classList.toggle('hlSel',q.line.classList.contains('hlSel'));
+      q.mFill.setAttribute('stroke-width',q.line.classList.contains('hlSel')?3.2:1.7);
+      q.vLine.style.opacity=q.line.style.opacity; q.vNail.style.opacity=q.nail.style.opacity; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
     // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
     // highest stop on its string
@@ -2498,6 +2532,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       G.fa.setAttribute('stop-opacity',(0.32*tone[i]).toFixed(3)); G.fb.setAttribute('stop-opacity',(0.26*tone[i]).toFixed(3));
       // the nail, at the tip, takes the colour whole; the fill a translucent wash, strongest at the tip
       mine.forEach(q=>{ q.line.style.stroke='url(#'+gid+'t'+i+')'; q.nail.style.stroke=col; q.tint.style.display=''; }); }
+    if(SOLID) slots.forEach(q=>{ q.vLine.style.stroke=q.line.style.stroke; q.vNail.style.stroke=q.nail.style.stroke; });
     // under the neck: the palm round its knuckles, heel and wrist, and the thumb
     const pts=S.palm.map(proj), n=pts.length;
     let d='M'+P2({x:(pts[n-1].x+pts[0].x)/2,y:(pts[n-1].y+pts[0].y)/2});
@@ -2506,6 +2541,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const tj=S.Th.j; for(let s=0;s<3;s++){ const ra=HM.TRAD[Math.max(0,s-1)]*scl(tj[s][0])*(s===0?1.05:1), rb=HM.TRAD[s]*scl(tj[s+1][0]); const dd=bone(proj(tj[s]),proj(tj[s+1]),ra,rb); thumbSeg[s].fill.setAttribute('d',dd); thumbSeg[s].line.setAttribute('d',dd); }
     const tdir=[0,1,2].map(i=>(S.Th.end[i]-S.Th.ip[i])/27), tn=nail(proj(S.Th.ip),proj(S.Th.end),HM.TRAD[2]*scl(S.Th.end[0]),S.Th.end,tdir,S.Th.back,S.Th.end[0]);
     thumbNail.setAttribute('d',tn?tn.d:''); thumbNail.style.display=tn?'':'none';
+    if(SOLID){ vPalm.setAttribute('d',palmLine.getAttribute('d')); thumbSeg.forEach((t,s)=>{ vThumb[s].setAttribute('d',t.line.getAttribute('d')); mPth[s].setAttribute('d',t.fill.getAttribute('d')); });
+      vThumbNail.setAttribute('d',tn?tn.d:''); vThumbNail.style.display=tn?'':'none'; }
   }
   // can the hand hold this placing? how far the farthest pressing tip stops short (mm)
   function reach(pl){
@@ -2718,8 +2755,8 @@ const CHORDS=BOOK.chords?(()=>{
   const panel=document.createElement('div'); panel.className='gripPanel chordPanel';
   panel.innerHTML='<div class="chordHead"><span class="chordName" id="chordName"></span><span class="chordChart" id="chordChart"></span><span class="chordCt" id="chordCt"></span></div>'
     +'<div class="gripRow" id="chordRoots"></div><div class="gripRow" id="chordQuals"></div>'
-    +'<div class="gripRow"><span class="gripGrp">Play</span><span class="seg" id="artSel"><button type="button" data-a="strum">Strum</button><button type="button" data-a="arp">Arpeggio</button></span>'
-    +'<span class="seg" id="dirSel"><button type="button" data-d="up">Up</button><button type="button" data-d="down">Down</button><button type="button" data-d="alt">Alternating</button></span></div>';
+    +'<div class="gripRow"><span class="gripGrp">Play</span><span class="cseg" id="artSel"><button type="button" data-a="strum">Strum</button><button type="button" data-a="arp">Arpeggio</button></span>'
+    +'<span class="cseg" id="dirSel"><button type="button" data-d="up">Up</button><button type="button" data-d="down">Down</button><button type="button" data-d="alt">Alternating</button></span></div>';
   fb.parentElement.after(panel);
   const rootsEl=panel.querySelector('#chordRoots'), qualsEl=panel.querySelector('#chordQuals');
   ROOTS.forEach(([pc,a,b])=>{ const e=document.createElement('button'); e.type='button'; e.className='gripBtn rootBtn'; e.innerHTML=b?a+'<span class="alt">'+b+'</span>':a; e.dataset.pc=pc;
@@ -2738,7 +2775,7 @@ const CHORDS=BOOK.chords?(()=>{
     $('chordCt').textContent=sh&&sh.ok?'shape '+(idx+1)+' of '+shapes.length:'no shape the hand can hold'; }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .seg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .seg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .seg button+button{ border-left:1.5px solid var(--mid) } .seg button.on{ background:var(--ink); color:var(--bg) }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=chordShapes(root,QUAL[qi][2],pcs,{open});
   return {show:(i,dir)=>show(i,dir), run, tab, bass:()=>{ const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
