@@ -130,7 +130,7 @@ function fingerDown(f,t){
 }
 const BEND_PX=16;
 /*@COPY:1136-1138*/
-let frameHook=null, paintOnly=null, LIGHT=null;                         // LIGHT: a page may light the board cell by cell (0–1)                                     // paintOnly: a page may paint only some strings
+let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
@@ -276,9 +276,9 @@ function paintBoard(H,shift,dt){
   const L=FIELD.lit, ink=rgbS(inkColour()), k=Math.min(1,(dt||0.016)*9), near=new Set();
   for(let j=1;j<=4;j++){ const h=H.f[j], f0=Math.round(h.fret+shift); for(let ds=-1;ds<=1;ds++) for(let df=-1;df<=1;df++){ const s=h.string+ds, f=f0+df; if(s>=0&&s<NSTR&&f>=0&&f<=FMAX) near.add(s*(FMAX+1)+f); } }
   CELLS.forEach((c,i)=>{
-    c.lv=LIGHT?LIGHT(c,dt):1;                                         // the whole board at the lit level, unless the page lights it
+    c.lv=1;                                                           // the whole board at the lit level
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
-    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*((LIGHT?0.05:0.28)+(LIGHT?0.95:0.72)*c.lv)).toFixed(3)); }
+    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
     else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
     const g=L>0.001&&INST.has(i)?L*0.55:0;

@@ -195,6 +195,7 @@ function orderFor(st,live){
   const back=st.idx>=4*L-1; return back?1-out:out;
 }
 frameHook=(st,live,plan,dt)=>{
+  if(CHORDS){ const h=CHORDS.bass(); if(h) modeLight(h,dt); return; }   // the Chords page: the mode lit from the voicing's lowest root
   if(!DRILL||!plan) return;
   if(live){ const g=orderFor(st,live); if(RING.goal!==g){ RING.goal=g; refresh(); } }
   const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
@@ -206,7 +207,10 @@ frameHook=(st,live,plan,dt)=>{
     const T3=F.tones;                                                     // the frame's own name: its tones low to high
     frameLbl.innerHTML=T3.map((t,i)=>{ const pc=pcOf(F.string,t.fret), gap=i&&Math.abs(t.fret-T3[i-1].fret)===2?'<span class="us">_</span>':'';
       return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(pc-(PHI.doPc+2))):'')+'">'+sylName(pc)+'</span>'; }).join(''); }   // the colour of its function under φ, not of the ring mid-turn
-  // the mode: a spotlight on its letter, a tinge on the board from its fret; a new mode crossfades in
+  modeLight(held,dt);
+};
+// the mode: a spotlight on its letter, a tinge on the board from its fret; a new mode crossfades in
+function modeLight(held,dt){
   const nk=held.string+':'+held.pitch, kk=Math.min(1,(dt||0.016)*6);
   if(!LIGHTS[MODE.cur].note||LIGHTS[MODE.cur].note!==nk){ if(LIGHTS[MODE.cur].note) MODE.cur=1-MODE.cur;
     const L=LIGHTS[MODE.cur]; L.note=nk; L.held=held;
@@ -215,7 +219,7 @@ frameHook=(st,live,plan,dt)=>{
     if(!L.held) return; const pc=pcOf(L.held.string,L.held.pitch), col=rgbS(valRGB(pc)), [x,y]=pt(RG.RL,pc);
     L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(0.85*L.op).toFixed(3));
     L.stops.forEach(s=>s.setAttribute('stop-color',col)); L.rect.setAttribute('opacity',L.op.toFixed(3)); });
-};
+}
 // Let Go: the hand lifts off the page's first frame
 document.querySelector('.bar').addEventListener('click',e=>{ if(!e.target.closest('#clear')) return; e.stopPropagation(); stopForEdit(); P=[]; refresh(); },true);
 

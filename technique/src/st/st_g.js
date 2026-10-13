@@ -106,7 +106,7 @@ $('prev').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); appl
 $('next').addEventListener('click',()=>{ const was=T.on; if(was) stopAll(); applySample(SI+1); if(was) run(); });
 $('clear').addEventListener('click',()=>{ stopForEdit(); P=[]; DRILL=null; SEL=null; MEANS='pick'; LEGATO.ham=LEGATO.pull=false; CUSTOM=true; drill.hold=true;
   const H=handFor([],HAND.f[1].fret,0); HAND.f=H.f; HAND.thumb=H.thumb; settle(); refresh(); });
-playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(); });
+playBtn.addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS){ CHORDS.toggle(); return; } if(T.on) stopAll(); else run(); });
 window.addEventListener('keydown',e=>{ if(e.code!=='Space') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input') return; e.preventDefault(); if(T.on) stopAll(); else run(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; });
 bpmIn.addEventListener('change',()=>{ if(T.on) run(); });
