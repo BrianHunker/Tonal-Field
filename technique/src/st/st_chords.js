@@ -2,6 +2,7 @@
    the neck. Prev | Next step through them; each is offered only if the hand's bones can hold it — its span rules, then
    the mechanism reaching every note — and the hand grips it, keeping the chord's open strings clear. Play sounds it as a
    two-bar figure through the drill pages' own engine: the pick, the ringing string, the TAB and its ball. */
+let FBROT=null;                                                  // the turned board, for the zoom (st_zoom.js)
 const CHORDS=BOOK.chords?(()=>{
   // pitch classes here count from A (as the strings do): 0 A … 3 C … 11 A♭
   const ROOTS=[[3,'C'],[4,'C♯','D♭'],[5,'D'],[6,'D♯','E♭'],[7,'E'],[8,'F'],[9,'F♯','G♭'],[10,'G'],[11,'G♯','A♭'],[0,'A'],[1,'A♯','B♭'],[2,'B']];
@@ -19,7 +20,7 @@ const CHORDS=BOOK.chords?(()=>{
     sh.err=HANDLAB.reach(sh.pl); return sh.ok=sh.err<=3; }
   function grip(sh){
     P=sh.pl.map(q=>Object.assign({},q)); const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; SEL=null;
-    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); }
+    HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); marks(sh); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
     if(!started){ loadPage(0); started=true;
@@ -29,7 +30,7 @@ const CHORDS=BOOK.chords?(()=>{
     if(!shapes.length){ label(); return; }
     const N=shapes.length; dir=dir||1;
     for(let k=0;k<N;k++){ const j=(((i+dir*k)%N)+N)%N; if(holds(shapes[j])){ idx=SI=j; grip(shapes[j]); label(); return; } }
-    P=[]; refresh(); label(); }
+    P=[]; refresh(); label(); marks(null); }
   function choose(){ shapes=chordShapes(root,QUAL[qi][2],pcs,{open}); idx=0; show(0,1); }
   // PLAY: the shape as a two-bar figure, looping at the Tempo with the Click until Stop. Strum: a whole-note strum each bar,
   // the pick sweeping the strings in one stroke — a downstroke when the pitches rise, an upstroke when they fall. Arpeggio:
@@ -87,7 +88,8 @@ const CHORDS=BOOK.chords?(()=>{
   panel.innerHTML='<div class="chordHead"><span class="chordName" id="chordName"></span><span class="chordChart" id="chordChart"></span><span class="chordCt" id="chordCt"></span></div>'
     +'<div class="gripRow" id="chordRoots"></div><div class="gripRow" id="chordQuals"></div>'
     +'<div class="gripRow"><span class="gripGrp">Play</span><span class="cseg" id="artSel"><button type="button" data-a="strum">Strum</button><button type="button" data-a="arp">Arpeggio</button></span>'
-    +'<span class="cseg" id="dirSel"><button type="button" data-d="up">Up</button><button type="button" data-d="down">Down</button><button type="button" data-d="alt">Alternating</button></span></div>';
+    +'<span class="cseg" id="dirSel"><button type="button" data-d="up">Up</button><button type="button" data-d="down">Down</button><button type="button" data-d="alt">Alternating</button></span>'
+    +'<button type="button" class="pill" id="rotBtn" data-zoom aria-pressed="false" title="Turn the board a quarter, as chord diagrams are drawn">90°</button></div>';
   fb.parentElement.after(panel);
   const rootsEl=panel.querySelector('#chordRoots'), qualsEl=panel.querySelector('#chordQuals');
   ROOTS.forEach(([pc,a,b])=>{ const e=document.createElement('button'); e.type='button'; e.className='gripBtn rootBtn'; e.innerHTML=b?a+'<span class="alt">'+b+'</span>':a; e.dataset.pc=pc;
@@ -104,10 +106,47 @@ const CHORDS=BOOK.chords?(()=>{
     $('chordName').innerHTML=NAME[root]+'<span class="q">'+QUAL[qi][0]+'</span>';
     $('chordChart').textContent=sh&&sh.ok?sh.chart:'—';
     $('chordCt').textContent=sh&&sh.ok?'shape '+(idx+1)+' of '+shapes.length:'no shape the hand can hold'; }
+  // OPEN AND UNPLAYED STRINGS, as chord charts mark them: o over a string that rings open, x over one not played — just
+  // before the nut (with the board turned, above it; up the neck, at the head of the view)
+  const xoG=el('g',{class:'xo'},fb); let xoSh=null;
+  function marks(sh){ xoSh=sh; while(xoG.firstChild) xoG.firstChild.remove(); if(!sh) return;
+    const x=ROT.on?ROT.vb.x+15:22;
+    for(let st=0;st<NSTR;st++){ const n=sh.notes.find(q=>q.s===st), y=FB.strY[st];
+      if(n&&n.f===0) el('circle',{cx:x,cy:y,r:5.2,fill:'none',class:'inkS','stroke-width':1.7},xoG);
+      else if(!n){ const r=4.6; el('path',{d:'M'+(x-r)+' '+(y-r)+'L'+(x+r)+' '+(y+r)+'M'+(x-r)+' '+(y+r)+'L'+(x+r)+' '+(y-r),fill:'none',class:'inkS','stroke-width':1.7},xoG); } } }
+  // TURNED: the board a quarter turn clockwise, as chord diagrams are drawn — the nut at the top, the low E on the left,
+  // the high e on the right — and closed in on the hand: five frets from the shape's lowest (from the nut when it lies
+  // within the first three), gliding there when the shape moves
+  const ROT={on:false,vb:null}, YUP=110;                     // YUP: room above the board for the hand (beside it, turned)
+  const box=document.createElement('div'); box.className='fbRot'; fb.parentElement.insertBefore(box,fb); box.appendChild(fb);
+  function target(){ const sh=shapes[idx], fr=(P.length?P.map(q=>q.f):[]).concat(sh&&sh.ok?sh.notes.map(n=>n.f):[]).filter(f=>f>0);
+    const lo=fr.length?Math.min(...fr):1, hi=fr.length?Math.max(...fr):1, a=lo<=3?1:lo, b=Math.max(a+4,hi);
+    const x0=a===1?4:cellL(a)-30, x1=cellR(b)+6; return {x:x0,y:-YUP,w:x1-x0,h:304+YUP}; }
+  let sizeTo=null;                                                    // the zoomed view's size, when zoomed
+  function fit(h,w){ sizeTo=h?{h,w}:null; layoutRot(); }
+  function layoutRot(){
+    if(!ROT.on){ box.removeAttribute('style'); fb.style.cssText=''; fb.setAttribute('viewBox','0 0 990 304'); return; }
+    const v=ROT.vb, room=sizeTo||{h:Math.min(540,innerHeight*0.62),w:box.parentElement.clientWidth||innerWidth};
+    let H=room.h, k=H/v.w; if(v.h*k>room.w){ k=room.w/v.h; H=v.w*k; }
+    const D=v.h*k; box.style.cssText='position:relative; width:'+D+'px; height:'+H+'px; margin:0 auto';
+    fb.style.cssText='position:absolute; left:0; top:0; width:'+H+'px; height:'+D+'px; max-width:none; transform-origin:0 0; transform:translateX('+D+'px) rotate(90deg)';
+    fb.setAttribute('viewBox',v.x.toFixed(1)+' '+v.y+' '+v.w.toFixed(1)+' '+v.h); }
+  // the fret numbers stay upright
+  const upright=on=>fb.querySelectorAll('text.fretn').forEach(t=>{ if(on) t.setAttribute('transform','rotate(-90 '+t.getAttribute('x')+' '+t.getAttribute('y')+')'); else t.removeAttribute('transform'); });
+  (function glide(){ if(ROT.on){ const t=target(), v=ROT.vb; let moved=false;
+      for(const key of ['x','w']){ const d=t[key]-v[key]; if(Math.abs(d)>0.3){ v[key]+=d*(reduce?1:0.12); moved=true; } else v[key]=t[key]; }
+      if(moved){ layoutRot(); marks(xoSh); } }
+    requestAnimationFrame(glide); })();
+  const rotBtn=panel.querySelector('#rotBtn');
+  rotBtn.addEventListener('click',()=>{ const z=SURF.kind==='fb'||SURF.kind==='rot'; if(z) SURF.close();
+    ROT.on=!ROT.on; ROT.vb=ROT.on?target():null; rotBtn.setAttribute('aria-pressed',ROT.on); rotBtn.classList.toggle('on',ROT.on);
+    upright(ROT.on); layoutRot(); marks(xoSh); if(z) SURF.open(fb,'fb'); });
+  addEventListener('resize',()=>{ if(ROT.on&&!sizeTo) layoutRot(); });
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=chordShapes(root,QUAL[qi][2],pcs,{open});
+  FBROT={get on(){ return ROT.on; }, fit};
   return {show:(i,dir)=>show(i,dir), run, tab, bass:()=>{ const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
 })():null;

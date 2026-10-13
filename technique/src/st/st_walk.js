@@ -611,8 +611,13 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     let st=0, bd=1e9; FB.strY.forEach((y,i)=>{ if(Math.abs(y-p.y)<bd){ bd=Math.abs(y-p.y); st=i; } }); if(bd>16) return;
     let k=SELK;
     if(k&&!reachable(k,st,fr)) return;                                     // only a fret the picked finger can reach
-    if(!k){ if(!BOOK.handLab) return; let best=1e9; for(let g=1;g<=4;g++){ const c=Math.abs(HAND.f[g].fret-fr)+(HAND.f[g].string===st?0:0.1); if(c<best){ best=c; k=g; } } }
+    if(!k){ if(!BOOK.handLab) return; let best=1e9; for(let g=1;g<=4;g++){ const c=Math.abs(HAND.f[g].fret-fr)+(HAND.f[g].string===st?0:0.1); if(c<best){ best=c; k=g; } }
+      // no finger picked: the nearest goes — but not at once, for a second tap would make it a double tap (the zoom),
+      // which leaves the hand and the playing alone
+      e.stopPropagation(); if(tapT){ clearTimeout(tapT); tapT=0; return; }
+      tapT=setTimeout(()=>{ tapT=0; pose(k,st,fr); SELK=0; marks(); },320); return; }
     e.stopPropagation(); pose(k,st,fr); SELK=0; marks(); },true);
+  let tapT=0;
   addEventListener('keydown',e=>{ if(/^[1-4]$/.test(e.key)&&!e.metaKey&&!e.ctrlKey&&!RINGSEL){ SELK=+e.key; marks(); } if(e.key==='Escape'){ SELK=0; marks(); } });
   if(!BOOK.handLab){ document.body.classList.add('handOn'); return {draw, marks}; }   // the drill pages: the hand in place of the dots, and pairing
   const letGo=document.getElementById('clear'); letGo.hidden=false; letGo.textContent='Let Go';
