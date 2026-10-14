@@ -42,15 +42,16 @@ function tick(){
       if(counting||drill.click) click(t,((T.nextBeat%4)+4)%4===0);
       T.nextBeat++;
     }
+    const SF=s.fig||FIG;                                                  // a segment may carry its own figure (a song's bar)
     for(;;){
       if(T.nextCycle>=s.loops) break;
-      const e=FIG[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
+      const e=SF[T.nextI], t=s.loopStart+(T.nextCycle*LOOP+e.s)*T.beat; if(t>=horizon) break;
       const sn=s.plan[T.nextI].string; if(!s.strs[sn]) s.strs[sn]=makeString(GAUGE(sn));
       note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
-      if(++T.nextI===FIG.length){ T.nextI=0; T.nextCycle++; if(s.swap) s.swap(); }   // a chord page may change its figure at the loop's end
+      if(++T.nextI===SF.length){ T.nextI=0; T.nextCycle++; if(s.swap) s.swap(); }   // a chord page may change its figure at the loop's end
     }
     if(T.nextBeat>=total&&T.nextCycle>=s.loops){
-      for(const k in s.strs) s.strs[k].stopAt(s.end);
+      if(!s.keep) for(const k in s.strs) s.strs[k].stopAt(s.end);   // (a song's bars share their strings, ringing on across the bar line)
       if(T.si===T.segs.length-1&&(!drill.hold||SEG_EACH)){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
       T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
     }else break;
@@ -101,9 +102,9 @@ function stateAt(t){
   if(b<0){ const k=Math.floor(b); return {s,count:true,idx:-1,beatIdx:((k%LOOP)+LOOP)%LOOP,beatT:s.loopStart+k*T.beat}; }
   if(b>=s.loops*LOOP) return {s,count:true,done:true,idx:-1,beatIdx:-1,beatT:0};
   const cyc=Math.floor(b/LOOP), ph=b-cyc*LOOP, base=s.loopStart+cyc*LOOP*T.beat;
-  let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
-  const e=FIG[idx], onset=base+e.s*T.beat, dur=e.d*T.beat;
-  return {s,count:false,ph,idx,onset,dur,nextIdx:(idx+1)%FIG.length,nextOnset:onset+dur,beatIdx:Math.floor(ph),beatT:base+Math.floor(ph)*T.beat};
+  const SF=s.fig||FIG; let idx=0; for(let i=1;i<SF.length;i++){ if(SF[i].s<=ph) idx=i; else break; }
+  const e=SF[idx], onset=base+e.s*T.beat, dur=e.d*T.beat;
+  return {s,count:false,ph,idx,onset,dur,nextIdx:(idx+1)%SF.length,nextOnset:onset+dur,beatIdx:Math.floor(ph),beatT:base+Math.floor(ph)*T.beat};
 }
 const pitchOf=(s,i)=>s.plan[i].pitch;
 function pitchAt(st,t){
@@ -118,7 +119,7 @@ function pitchAt(st,t){
 // the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
 function handNow(s,st){
   // a song changes grip at its bars: the hand goes to the next one a little ahead of the bar (s.lead)
-  if(s.hands&&s.lead&&T.on&&ctx){ const sa=stateAt(ctx.currentTime+s.lead); if(sa.s===s&&sa.idx>=0) return s.hands[s.plan[sa.idx].frame]; if(sa.s===s&&sa.count) return s.hands[0]; }
+  if(s.hands&&s.lead&&T.on&&ctx){ const sa=stateAt(ctx.currentTime+s.lead); if(sa.s.hands&&sa.idx>=0) return sa.s.hands[sa.s.plan[sa.idx].frame]; if(sa.s===s&&sa.count) return s.hands[s.plan[0].frame]; }
   return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
   let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);

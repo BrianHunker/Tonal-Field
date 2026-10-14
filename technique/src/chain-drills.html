@@ -534,7 +534,7 @@ const pickAxis=el('line',{x1:-26,y1:0,x2:26,y2:0,class:'pickAxis'},pickG);   // 
 // the stroke's direction, in the middle of the pick: fades in into a stroke, solid at the strike, gone when the pick stops
 const arrowDown=el('path',{d:'M0 7 L-6 -1 L-2.2 -1 L-2.2 -7 L2.2 -7 L2.2 -1 L6 -1 Z',class:'pickArrow',opacity:0},pickG);
 const arrowUp=el('path',{d:'M0 -7 L-6 1 L-2.2 1 L-2.2 7 L2.2 7 L2.2 1 L6 1 Z',class:'pickArrow',opacity:0},pickG);
-const SUBS=()=>typeof STROKES!=='undefined'?STROKES:2;   function pickedAt(s,e8){ const i=FIG.findIndex(e=>Math.abs(e.s*SUBS()-e8)<1e-6); if(i<0) return false; return s.plan[i].pick; }
+const SUBS=()=>typeof STROKES!=='undefined'?STROKES:2;   function pickedAt(s,e8){ const i=(s.fig||FIG).findIndex(e=>Math.abs(e.s*SUBS()-e8)<1e-6); if(i<0) return false; return s.plan[i].pick; }
 const sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
 const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
 function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<LOOP*SUBS();e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
@@ -547,7 +547,7 @@ const PICK_LIFT=16, SILENT=0.3;                                           // a s
 const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math.exp(-7)); };   // fast off the string, slowing to a stop
 // the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
 function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
-  let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
+  let idx=0; const FG=s.fig||FIG; for(let i=1;i<FG.length;i++){ if(FG[i].s<=ph) idx=i; else break; }
   const e=s.plan[b<0?0:idx]; return toneColour(e.root!==undefined?e.root:pcOf(e.string,e.pitch)); }   // a chord's stroke: its root's colour
 function placePick(st,sy,t,amp=0,ampRGB=null){                         // amp: the sounding tone's level (0–1); the pick's colour decays with it
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
@@ -712,7 +712,7 @@ function setHand(pcFloat,litPc){
    a prebend is a straight arrow up from a picked number. Slides: a straight line from one number to the next. */
 const TB={cw:1,s0:40,s1:886,rowY:Array.from({length:NSTR},(_,i)=>96+17*i),floor:50,topY:72,ballR:6,ballH:34};
 TB.x0=TB.s0+86; TB.x1=TB.s1;
-const xBeat=b=>TB.x0+TB.cw/2+b*2*TB.cw;                              // where a note on beat b is written; the playhead follows it
+const xBeat=b=>TB.x0+TB.cw/2+(b+(TB.boff||0))*2*TB.cw;   /* boff: a song's bar playing alone, where it sits in the whole */                              // where a note on beat b is written; the playhead follows it
 const tab=document.getElementById('tab');
 const rows=[], rowLbls=[];
 STRINGS.forEach((s,i)=>{

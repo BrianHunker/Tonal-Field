@@ -102,13 +102,14 @@ function run(){
     playBtn.textContent='Stop'; playBtn.classList.add('on');
   });
 }
-function placeSeg(s,t){ s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=SEG_EACH?1:((drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS)); s.end=s.loopStart+s.loops*LOOP*T.beat; }
+function placeSeg(s,t){ if(s.place) return s.place(s,t); s.count=COUNT; s.countStart=t; s.loopStart=t+COUNT*T.beat; s.loops=SEG_EACH?1:((drill.hold||PAGES.length<2)?Infinity:(BOOK.loops||ADV_LOOPS)); s.end=s.loopStart+s.loops*LOOP*T.beat; }
 function nextSeg(after){
+  if(CHORDS&&CHORDS.nextSeg) return CHORDS.nextSeg(after);
   if(SEG_EACH){ const last=T.segs[T.segs.length-1], pass=last?last.pass+1:0;   // a count-in before every pass: the page again until its passes are done (or always, on Hold)
     if(drill.hold||PAGES.length<2||pass<(BOOK.loops||1)){ const s=walkSeg(after,pass); walkFig(s.D.bars); return s; } }
   const i=((after+1)%PAGES.length+PAGES.length)%PAGES.length, s=walkSeg(i); walkFig(s.D.bars); return s; }
 function showSeg(s){
-  if(s.chord){ T.shown=s; DRILL=s.D; layoutTab(s.D.bars); refresh(); return; }   // a chord: the Ring stays as the listener left it
+  if(s.chord){ T.shown=s; if(s.showBar){ s.showBar(s); return; } DRILL=s.D; layoutTab(s.D.bars); refresh(); return; }   // a chord: the Ring stays as the listener left it
   T.shown=s; DRILL=s.D; PAGE=SI=s.si; MEANS='pick'; SEL=null; P=[]; pagePhi(effPage(PAGES[PAGE])); { const pg=PAGES[PAGE]; RING.goal=pg.order==='alt'?s.pass%2:0; }   // the next pass's order shows through its count-in
   HAND.f=cloneHand(s.hand).f; HAND.thumb=s.hand.thumb; layoutTab(s.D.bars); refresh();
 }
