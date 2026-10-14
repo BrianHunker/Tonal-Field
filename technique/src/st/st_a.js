@@ -14,7 +14,7 @@ const midiOf=(s,f)=>Math.round(openMidi(s))+f;
 const FMAX=12;                                                          // the board shows frets 0–12
 let FIG=[{s:0,d:.5},{s:.5,d:.5},{s:1,d:.5},{s:1.5,d:.5},{s:2,d:.5},{s:2.5,d:.5},{s:3,d:.5},{s:3.5,d:.5},{s:4,d:2},{s:6,d:2}];   // bar 1 eight eighths, bar 2 two halves: the two tones alternate, so the loop reverses
 let BAR_START=i=>i===0||i===8;
-let LOOP=8; const COUNT=4, LEAD=0.06, SLIDE_T=0.09, ADV_LOOPS=4;
+let LOOP=8, STROKES=2; const COUNT=4, LEAD=0.06, SLIDE_T=0.09, ADV_LOOPS=4;
 const catchT=()=>Math.min(0.06,0.15*T.beat/2);
 const POSITION=5;
 const drill={dir:'up',plant:true,bpm:70,click:true,hold:false};

@@ -91,5 +91,9 @@ book('hand-lab','Lab','Hand','Frame',"""{handLab:true, roll:true, loops:1, pages
 # Chords: a chord's shapes found on the strings, the hand gripping each
 book('chords','Tool','Chords','Chord',"""{handLab:true, chords:true, loops:1, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
+# Wish You Were Here: four open grips, one a bar, strummed in sixteenths (D_du D_du _ud_ Dudu)
+book('wish-you-were-here','Drill Exercise 10/14/26','Wish You Were Here','Chord',"""{handLab:true, chords:true, loops:1, song:{bpm:60, pattern:'D_duD_du_ud_Dudu',
+  bars:[['C','x32010'],['D','xx0232'],['Am','x02210'],['G','320033'],['D','xx0232'],['C','x32010'],['Am','x02210'],['G','320033']]}, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
 book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true, loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
   {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))}""")

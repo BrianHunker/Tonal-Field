@@ -534,13 +534,13 @@ const pickAxis=el('line',{x1:-26,y1:0,x2:26,y2:0,class:'pickAxis'},pickG);   // 
 // the stroke's direction, in the middle of the pick: fades in into a stroke, solid at the strike, gone when the pick stops
 const arrowDown=el('path',{d:'M0 7 L-6 -1 L-2.2 -1 L-2.2 -7 L2.2 -7 L2.2 -1 L6 -1 Z',class:'pickArrow',opacity:0},pickG);
 const arrowUp=el('path',{d:'M0 -7 L-6 1 L-2.2 1 L-2.2 7 L2.2 7 L2.2 1 L6 1 Z',class:'pickArrow',opacity:0},pickG);
-function pickedAt(s,e8){ const i=FIG.findIndex(e=>e.s*2===e8); if(i<0) return false; return s.plan[i].pick; }
+const SUBS=()=>typeof STROKES!=='undefined'?STROKES:2;   function pickedAt(s,e8){ const i=FIG.findIndex(e=>Math.abs(e.s*SUBS()-e8)<1e-6); if(i<0) return false; return s.plan[i].pick; }
 const sm=x=>{ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); };
 const mixPose=(a,b,x)=>({f:a.f+(b.f-a.f)*x, h:a.h+(b.h-a.h)*x});
-function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<16;e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
+function strokes(s){ if(!s.picks){ s.picks=[]; for(let e8=0;e8<LOOP*SUBS();e8++) if(pickedAt(s,e8)) s.picks.push(e8); } return s.picks; }
 // every eighth is a stroke, sounding or not: [prev, next] around time t, each {t, up, struck}
 function around(s,t){
-  const E=T.beat/2, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*2, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:(s.upAt?s.upAt(n%(LOOP*2)):n%2===1), struck:n===0||pickedAt(s,n%(LOOP*2))};
+  const SB=SUBS(), E=T.beat/SB, n0=Math.floor((t-s.loopStart)/E), total=s.loops*LOOP*SB, at=n=>(n<0||n>=total)?null:{t:s.loopStart+n*E, up:(s.upAt?s.upAt(n%(LOOP*SB)):n%2===1), struck:n===0||pickedAt(s,n%(LOOP*SB))};
   return [at(n0), at(n0+1)];
 }
 const PICK_LIFT=16, SILENT=0.3;                                           // a silent stroke: lifted, and turning only 30% as far                                                     // a stroke that does not sound passes with the axis lifted this far

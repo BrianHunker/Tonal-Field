@@ -66,7 +66,8 @@ function note(s,t,i,first){
   if(!first&&!s.chord&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});   // a chord's tones ring on
   const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
   if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
-  if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V}); return; }
+  if(e.mute) for(const m of e.mute) if(s.strs[m]) s.strs[m].send({kind:'damp',t:t-0.02,t1:t+0.02,depth:0.002});   // a new grip: strings it leaves out are stilled
+  if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V*(e.vel||1)}); return; }
   const g0=Math.max(ctx.currentTime,t-s.xt);
   if(e.pre) str.send({kind:'damp',t:g0,t1:t,depth:0.003});
   str.send({kind:'glide',t:g0,t1:t,f});
@@ -115,9 +116,13 @@ function pitchAt(st,t){
 // a finger is down when it sounds the note; Stay down keeps the placed fingers behind it on that string down too; on a
 // bend every finger behind the bending one pushes with it
 // the hand a segment has at a moment: one hand for a drill; a walk has one per frame, the hand of the sounding tone's frame
-function handNow(s,st){ return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
+function handNow(s,st){
+  // a song changes grip at its bars: the hand goes to the next one a little ahead of the bar (s.lead)
+  if(s.hands&&s.lead&&T.on&&ctx){ const sa=stateAt(ctx.currentTime+s.lead); if(sa.s===s&&sa.idx>=0) return s.hands[s.plan[sa.idx].frame]; if(sa.s===s&&sa.count) return s.hands[0]; }
+  return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
-  const st=stateAt(t+LEAD); if(st.s&&st.s.chord) return st.s.chord.has(f);   // a chord: its fingers stay down throughout
+  let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);
+  if(st.s&&st.s.chord) return (st.s.chords&&st.idx>=0?st.s.chords[st.s.plan[st.idx].frame]:st.s.chord).has(f);   // a chord: its fingers stay down throughout (a song's, its bar's chord)
   if(st.idx<0) return false;
   const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
   if(f===e.finger) return true;

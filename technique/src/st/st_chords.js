@@ -23,6 +23,7 @@ const CHORDS=BOOK.chords?(()=>{
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); marks(sh); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
+    if(SONG){ if(!started){ loadPage(0); started=true; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:'re'}); } songShow(); return; }
     if(!started){ loadPage(0); started=true;
       // the Ring opens on D as Re, Re at 12 o'clock; from then on the listener turns it
       let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
@@ -58,7 +59,7 @@ const CHORDS=BOOK.chords?(()=>{
       frames:[{string:sh.notes[0].s,tones:[],pl:P.map(q=>Object.assign({},q)),hand:H}],
       lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[1%plan.length].string,f:plan[1%plan.length].fret,g:plan[1%plan.length].finger}};
     return {D,fig,ups,hand:H,chord:new Set(P.map(q=>q.g))}; }
-  const useFig=C=>{ FIG=C.fig; LOOP=4*BARS; BAR_START=i=>FIG[i]&&Number.isInteger(FIG[i].s)&&FIG[i].s%4===0; };
+  const useFig=C=>{ FIG=C.fig; LOOP=4*(C.D.bars||BARS); BAR_START=i=>FIG[i]&&Number.isInteger(FIG[i].s)&&FIG[i].s%4===0; };
   // the figure for the shape as it stands: shown at once when stopped; while playing, taken up at the loop's end
   function figure(){
     const sh=shapes[idx]; if(!sh||!sh.ok){ DRILL=null; refresh(); return; }
@@ -68,6 +69,7 @@ const CHORDS=BOOK.chords?(()=>{
       return; }
     useFig(C); DRILL=C.D; layoutTab(BARS); refresh(); }
   function run(){
+    if(SONG) return songRun();
     const sh=shapes[idx]; if(!sh||!sh.ok) return;
     ensureCtx().then(()=>{
       if(T.on) stopAll();
@@ -77,10 +79,14 @@ const CHORDS=BOOK.chords?(()=>{
       T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.shown=null; T.on=true;
       tick(); T.timer=setInterval(tick,25);
       playBtn.textContent='Stop'; playBtn.classList.add('on'); }); }
-  // the chord in TAB: a strum's numbers stacked on its beat, an arrow beside them in the order they sound, the stroke marked
-  // above (⊓ down, V up); an arpeggio's numbers one a beat, each with its stem and a downstroke mark
+  // the chord in TAB: a strum's numbers stacked on its beat, an arrow beside them in the order they sound (down the page
+  // for a downstroke — the strings' order on the staff); below the staff, the stroke as players think of it, a plain
+  // arrow: down for a downstroke, up for an upstroke (a heavier one for an accent). An arpeggio's numbers one a beat,
+  // each with its stem, the stroke's arrow under it
+  const strokeMark=(x,up,y0,y1,heavy)=>{ el('line',{x1:x,y1:up?y0+6:y0,x2:x,y2:up?y1:y1-6,class:'inkS','stroke-width':heavy?2.4:1.4},noteG); arrowHead(x,up?y0:y1,up?-1:1); };
   function tab(D){
-    const plan=D.plan, stemTop=TB.rowY[NSTR-1]+10, stemLong=26, markY=TB.rowY[0]-17, mark=(x,up)=>{ const t=el('text',{x,y:markY,class:'bendLbl'},noteG); t.textContent=up?'V':'⊓'; };
+    if(D.song) return songTab(D);
+    const plan=D.plan, stemTop=TB.rowY[NSTR-1]+10, stemLong=14, below=TB.rowY[NSTR-1]+12, mark=(x,up)=>strokeMark(x,up,D.art==='strum'?below:stemTop+stemLong+4,D.art==='strum'?below+22:224,false);
     if(D.art==='strum'){ for(let b=0;b<BARS;b++){ const ix=plan.map((n,i)=>i).filter(i=>Math.floor(FIG[i].s+1e-6)===4*b), x=xBeat(4*b);
         ix.forEach(i=>{ const n=plan[i], o=numberAt(x,TB.rowY[n.string],String(n.fret)); tabNotes[i]=o; });
         const a=plan[ix[0]].string, z=plan[ix[ix.length-1]].string, ya=TB.rowY[a], yz=TB.rowY[z], ax=x+16, dir=yz<ya?-1:1;
@@ -147,11 +153,83 @@ const CHORDS=BOOK.chords?(()=>{
     ROT.on=!ROT.on; ROT.vb=ROT.on?target():null; rotBtn.setAttribute('aria-pressed',ROT.on); rotBtn.classList.toggle('on',ROT.on);
     upright(ROT.on); layoutRot(); marks(xoSh); if(z) SURF.open(fb,'fb'); });
   addEventListener('resize',()=>{ if(ROT.on&&!sizeTo) layoutRot(); });
+  // A SONG (a page's own exercise, BOOK.song): a progression of grips, one a bar, strummed in sixteenths to one pattern.
+  // The pattern is the bar's sixteen strokes, D u d u …: D or d a downstroke, U or u an upstroke, _ the hand passing
+  // the strings without touching them (capitals accented). A downstroke takes every string of the grip; an upstroke the
+  // grip's four highest. The hand changes grip a sixteenth ahead of the bar; strings the new grip leaves out are stilled.
+  // Each grip is formed once, ahead, so the hand goes straight to it.
+  const SONG=BOOK.song?(()=>{ const G=BOOK.song, NS=NSTR;
+    const bars=G.bars.map(([name,chart])=>{ const fi=COMMON[chart], pl=HANDLAB.grip(chart,fi), notes=[];
+      [...chart].forEach((c,i)=>{ if(c!=='x'&&c!=='X') notes.push({s:NS-1-i,f:+c}); });
+      notes.sort((a,b)=>b.s-a.s); return {name,chart,pl,notes,open:notes.filter(n=>n.f===0).map(n=>n.s)}; });
+    return {bars,pattern:G.pattern,bpm:G.bpm}; })():null;
+  let barNow=-1;
+  function songDrill(){
+    const plan=[], fig=[], strums=[], hands=[], chords=[], N=SONG.bars.length, d=STRUM*drill.bpm/60;
+    SONG.bars.forEach((B,b)=>{ hands.push(handFor(B.pl)); chords.push(new Set(B.pl.map(q=>q.g)));
+      const fin=n=>{ if(!n.f) return 0; const q=B.pl.find(p=>p.s===n.s&&p.f===n.f)||B.pl.find(p=>p.barre&&n.s<=p.s&&n.f===p.f); return q?q.g:0; };
+      const prev=SONG.bars[(b+N-1)%N], mute=prev.notes.filter(n=>!B.notes.some(m=>m.s===n.s)).map(n=>n.s);
+      let firstOfBar=true;
+      [...SONG.pattern].forEach((c,i)=>{ if(c==='_') return; const up=c==='u'||c==='U', acc=c==='D'||c==='U';
+        const strs=up?B.notes.slice(-Math.min(4,B.notes.length)).reverse():B.notes, vel=acc?1:(up?0.55:0.72), ix=[];
+        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
+        strums.push({b,i,up,acc,ix}); firstOfBar=false; }); });
+    fig.forEach((e,k)=>{ e.d=k<fig.length-1?fig[k+1].s-e.s:4*N-e.s+fig[0].s; });
+    const D={chord:true,song:true,walk:true,art:'song',dir:'up',means:'pick',ham:false,pull:false,plan,bars:N,strums,
+      frames:[{string:plan[0].string,tones:[],pl:SONG.bars[0].pl,hand:hands[0]}],
+      lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[1].string,f:plan[1].fret,g:plan[1].finger}};
+    return {D,fig,hands,chords}; }
+  function songTab(D){
+    const below=TB.rowY[NSTR-1]+12, bars=D.bars;
+    D.strums.forEach(S=>{ const x=xBeat(4*S.b+S.i/4);
+      S.ix.forEach(i=>{ const n=D.plan[i]; tabNotes[i]=numberAt(x,TB.rowY[n.string],String(n.fret)); });
+      const a=D.plan[S.ix[0]].string, z=D.plan[S.ix[S.ix.length-1]].string, ya=TB.rowY[a], yz=TB.rowY[z], ax=x+13, dir=yz<ya?-1:1;
+      if(S.ix.length>1){ el('line',{x1:ax,y1:ya,x2:ax,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(ax,yz,dir); }
+      strokeMark(x,S.up,below,below+20,S.acc); });
+    for(let b=0;b<bars;b++){ const t=el('text',{x:TB.x0+8*b*TB.cw+6,y:223,class:'chordLbl'},noteG); t.textContent=SONG.bars[b].name; } }
+  // the grip of bar b on the board: the dots, the open strings, the x's and o's, the name — and the hand to its learned pose
+  function songBar(b){ if(b===barNow) return; barNow=b; const B=SONG.bars[b];
+    P=B.pl.map(q=>Object.assign({},q)); { const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; }
+    HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); marks(B); songLabel(); }
+  function songLabel(){ const B=SONG.bars[Math.max(0,barNow)];
+    $('chordName').innerHTML=B.name.replace(/^([A-G][♯♭#b]?)(.*)$/,'$1<span class="q">$2</span>'); $('chordChart').textContent=B.chart;
+    $('chordCt').textContent='bar '+(barNow+1)+' of '+SONG.bars.length;
+    progEl.querySelectorAll('span').forEach((e,i)=>e.classList.toggle('on',i===barNow)); }
+  function songRun(){
+    ensureCtx().then(()=>{
+      if(T.on) stopAll();
+      T.beat=60/drill.bpm; const C=songDrill(); useFig(C); DRILL=C.D;
+      const s={D:C.D,pass:0,plan:C.D.plan,hand:cloneHand(C.hands[0]),hands:C.hands.map(cloneHand),si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,chord:C.chords[0],chords:C.chords,lead:0.8*T.beat/4};
+      placeSeg(s,ctx.currentTime+0.1);
+      T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.shown=null; T.on=true;
+      tick(); T.timer=setInterval(tick,25);
+      playBtn.textContent='Stop'; playBtn.classList.add('on'); }); }
+  function songShow(){ const C=songDrill(); useFig(C); DRILL=C.D; layoutTab(SONG.bars.length); barNow=-1; songBar(0); refresh(); }
+  // which bar is on the board: playing, the one the hand is heading for; stopped, the first
+  function step(st,live){ if(!SONG) return; let b=0;
+    if(T.on&&ctx&&st&&st.s&&st.s.chords){ const sa=stateAt(ctx.currentTime+st.s.lead); b=(sa.s===st.s&&sa.idx>=0)?st.s.plan[sa.idx].frame:(sa.count?0:barNow); }
+    else if(T.on) return;
+    if(b!==barNow) songBar(b); }
+  let progEl=null;
+  if(SONG){ STROKES=4; CW_MIN=64;
+    if(SONG.bpm){ drill.bpm=SONG.bpm; const r=$('bpm'), v=$('bpmv'); if(r) r.value=SONG.bpm; if(v) v.textContent=SONG.bpm; }
+    ['chordRoots','chordQuals'].forEach(id=>{ panel.querySelector('#'+id).style.display='none'; });
+    artEl.style.display=dirEl.style.display='none'; panel.querySelector('.gripRow .gripGrp').textContent='';
+    progEl=document.createElement('div'); progEl.className='gripRow songProg';
+    SONG.bars.forEach((B,i)=>{ if(i&&i%4===0) progEl.appendChild(document.createElement('br')); const e=document.createElement('span'); e.textContent=B.name; progEl.appendChild(e); });
+    panel.querySelector('#chordRoots').before(progEl);
+    const pat=document.createElement('div'); pat.className='songPat'; pat.textContent=SONG.pattern.replace(/(.{4})(?=.)/g,'$1 ');
+    progEl.after(pat);
+    $('prev').parentElement.style.display='none';
+    // each grip formed once, ahead, a frame apart so the page stays awake
+    const charts=[...new Set(SONG.bars.map(B=>B.chart))];
+    (function learnNext(k){ if(k>=charts.length){ if(barNow>=0){ const B=SONG.bars[barNow]; HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); } return; }
+      const B=SONG.bars.find(x=>x.chart===charts[k]); HANDLAB.learn(B.chart,B.pl,B.open); setTimeout(()=>learnNext(k+1),30); })(0); }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songProg span{ display:inline-block; min-width:3.2em; padding:4px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; font-weight:600; text-align:center } .songProg span.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .songPat{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.14em; margin:2px 0 10px; color:var(--ink) } #tab .chordLbl{ font-size:13px; font-weight:700; fill:var(--ink) }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
-  return {show:(i,dir)=>show(i,dir), run, tab, bass:()=>{ const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
+  return {show:(i,dir)=>show(i,dir), run, tab, step, bass:()=>{ if(SONG){ const B=SONG.bars[Math.max(0,barNow)]; return {string:B.notes[0].s,pitch:B.notes[0].f,fret:B.notes[0].f}; } const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
 })():null;

@@ -197,7 +197,7 @@ function orderFor(st,live){
   const back=st.idx>=4*L-1; return back?1-out:out;
 }
 frameHook=(st,live,plan,dt)=>{
-  if(CHORDS){ const h=CHORDS.bass(); if(h) modeLight(h,dt); return; }   // the Chords page: the mode lit from the voicing's lowest root
+  if(CHORDS){ CHORDS.step(st,live); const h=CHORDS.bass(); if(h) modeLight(h,dt); return; }   // the Chords page: the mode lit from the voicing's lowest root
   if(!DRILL||!plan) return;
   if(live){ const g=orderFor(st,live); if(RING.goal!==g){ RING.goal=g; refresh(); } }
   const {held,frame:hk}=modeNow(st,live,plan), k=plan[0]&&plan[0].grp!==undefined?(live?plan[st.idx].grp:plan[0].grp):hk, F=(DRILL.groups||DRILL.frames)[k];
@@ -534,6 +534,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // the search carried to its end in one go — and then left alone until something is asked of it again. What is drawn
     // eases onto that one pose and stops there: nothing goes on searching (or rounding) at rest, so nothing jiggles
     still=moved(TGT,lastAsk)<0.05?still+(dt||0.016):0; lastAsk=TGT; if(!still) settled=false;
+    if(wantGrip&&LEARNED[wantGrip]){ HM.q=LEARNED[wantGrip]; wantGrip=null; settled=false; fresh=false; resettle=false; lastFresh=clock; }
     if(fresh){ HM.solveFresh(TGT); fresh=false; lastFresh=clock; }
     else if(!settled){ const q0=HM.q; HM.solve(TGT,reduce?6:2);
       if(still>0.25&&!resettle){ HM.solve(TGT,80); settled=true; }                        // at rest: carried to the end
@@ -610,17 +611,23 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       vThumbNail.setAttribute('d',tn?tn.d:''); vThumbNail.style.display=tn?'':'none'; }
   }
   // can the hand hold this placing? how far the farthest pressing tip stops short (mm)
-  function reach(pl){
+  function tgFor(pl){
     const tg2=[null,null,null,null], H=handFor(pl);
     for(let k=1;k<=4;k++){ const q=pl.find(o=>o.g===k), h=H.f[k], n=Math.max(1,Math.round(h.fret)), X=fretMM(n)-0.3*(fretMM(n)-fretMM(n-1)), g=gapAt(X);
       if(q&&q.barre&&k===1) tg2[0]={s:q.s, lowS:q.s, barre:{w:fretMM(n),y0:0,y1:q.s*g+1.5}};
       else if(q) tg2[k-1]={s:q.s,p:[X,q.s*g,0.5],press:true,cell:[fretMM(n-1)+2.5,fretMM(n)]};
       else tg2[k-1]={s:h.string,p:[X,h.string*g,5],press:false}; }
     const xs2=tg2.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
-    const TG={f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6};
+    return {f:tg2, ring:ringing(tg2), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
+  function reach(pl){
+    const TG=tgFor(pl), tg2=TG.f;
     const worst=()=>Math.max(...HM2.errs().map((e,i)=>(tg2[i].press||tg2[i].barre)?e:0));
     // a quick look from where the hand is; if that falls short, the full search before saying no
     HM2.q=HM.q; HM2.quick(TG); let e=worst(); if(e>3){ HM2.solveFresh(TG); e=Math.min(e,worst()); } return e; }
+  // LEARNED GRIPS: a song's few chords formed once, ahead (each from scratch), so that when the song changes grip the hand
+  // goes straight to the one it found rather than searching mid-strum
+  const LEARNED={}; let wantGrip=null;
+  function learn(key,pl,open){ openStr.clear(); open.forEach(x=>openStr.add(x)); HM2.reset(); HM2.solveFresh(tgFor(pl)); LEARNED[key]=HM2.q; }
   // PAIRING, on every page with the drawn hand, the hand's own rules only (fingers within their reach of each other, never
   // crossing, two on one string a fret apart). A knuckle clicked (above the board): its finger is picked — let go first if
   // it was placed. The frets it can then reach pulse; one clicked, the finger is placed there and stays, the hand stretching
@@ -691,6 +698,6 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw, marks, reach, grips:GRIPS, grip, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
+  return {draw, marks, reach, grips:GRIPS, grip, learn, toGrip:k=>{ wantGrip=LEARNED[k]?k:null; }, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }

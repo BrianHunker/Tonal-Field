@@ -2,7 +2,7 @@
 /*@COPY:708-729*/
 // the TAB's width: the loop at a readable spacing (two bars fill the page); a longer loop runs wider than the page, its panel
 // then scrolls and follows the playhead while it plays
-const tabPanel=document.getElementById('tabPanel'), gridG=el('g',{},tab), CW_MIN=23.5;
+const tabPanel=document.getElementById('tabPanel'), gridG=el('g',{},tab); let CW_MIN=23.5;   // a page may widen it (sixteenths need the room)
 function layoutTab(bars){
   const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw;
   const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 0 '+W+' 226'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
