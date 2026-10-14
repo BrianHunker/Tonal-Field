@@ -3044,7 +3044,7 @@ const CHORDS=BOOK.chords?(()=>{
       [...SONG.pattern].forEach((c,i)=>{ if(c==='_') return; const up=c==='u'||c==='U', acc=c==='D'||c==='U';
         const NN=B.notes.length, cn=NN>=5?3:2, c0=Math.round((NN-cn)/2), bass=firstOfBar&&!up;
         const strs=up?B.notes.slice(-2).reverse():(bass?B.notes.slice(0,2):B.notes.slice(c0,c0+cn)), vel=bass?1:(up?(c==='U'?0.72:0.5):0.72), ix=[];
-        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,root:B.root,head:k===0,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
+        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({six:i,string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,root:B.root,head:k===0,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
         strums.push({b,i,up,acc:bass||c==='U',ix}); firstOfBar=false; }); });
     fig.forEach((e,k)=>{ e.d=k<fig.length-1?fig[k+1].s-e.s:4*N-e.s+fig[0].s; });
     const D={chord:true,song:true,walk:true,art:'song',dir:'up',means:'pick',ham:false,pull:false,plan,bars:N,strums,
@@ -3104,10 +3104,49 @@ const CHORDS=BOOK.chords?(()=>{
   function songShow(){ const C=songDrill(); useFig(C); DRILL=C.D; layoutTab(SONG.bars.length); barNow=-1; songBar(0); refresh(); }
   // which bar is on the board: playing, the one the hand is heading for; stopped, the first
   function step(st,live){ if(!SONG) return; let b=0;
-    if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.plan[st.idx].frame:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:''; }
+    if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.plan[st.idx].frame:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:'';
+      if(playing){ const e=st.s.plan[st.idx]; lightSlash(e.six,FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(e.root),FIELD.lit)):null); } else lightSlash(-1,null); }
     if(T.on&&ctx&&st&&st.s&&st.s.chords){ const sa=stateAt(ctx.currentTime+st.s.lead); b=(sa.s===st.s&&sa.idx>=0)?st.s.plan[sa.idx].frame:(sa.count?0:barNow); }
     else if(T.on) return;
     if(b!==barNow) songBar(b); }
+  // THE STRUMMING PATTERN in rhythm notation: one bar of sixteenths between repeat signs, a slash for each stroke, each
+  // lasting until the next (a stroke and the rest of its beat an eighth, or more), rests where a beat begins without one;
+  // a beat's notes beamed together, the sixteenths with a second beam; the count under each slash (1 e & uh). Playing,
+  // the slash being struck lights at once in the bar's root colour.
+  const NSV='http://www.w3.org/2000/svg', slashes=[];
+  function rhythmSVG(pat){
+    const W16=30, X0=58, Y=46, ST=34, sv=document.createElementNS(NSV,'svg'), A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); (par||sv).appendChild(e); return e; };
+    const width=X0+16*W16+40; sv.setAttribute('viewBox','0 0 '+width+' 92'); sv.setAttribute('class','rhythm'); sv.style.maxWidth=width+'px';
+    const xOf=i=>X0+i*W16+W16/2;
+    // the line, the repeat signs
+    A('line',{x1:20,y1:Y,x2:width-20,y2:Y,class:'rl1'});
+    const rep=(x,open)=>{ const k=open?1:-1; A('rect',{x:open?x:x-4,y:Y-22,width:4,height:44,class:'rfill'}); A('line',{x1:x+k*8,y1:Y-22,x2:x+k*8,y2:Y+22,class:'rl1'}); A('circle',{cx:x+k*15,cy:Y-8,r:2.6,class:'rfill'}); A('circle',{cx:x+k*15,cy:Y+8,r:2.6,class:'rfill'}); };
+    rep(22,true); rep(width-22,false);
+    const counts=['','e','&','uh'];
+    for(let b=0;b<4;b++){ const on=[]; for(let j=0;j<4;j++){ const c=pat[4*b+j]; if(c&&c!=='_') on.push(4*b+j); }
+      // rests before the beat's first stroke
+      const lead=on.length?on[0]-4*b:4;
+      if(lead>0){ const x=xOf(4*b)+(lead>=2?W16/2*(lead-1):0); restAt(x,lead); }
+      const notes=on.map((i,k)=>({i,x:xOf(i),d:(k<on.length-1?on[k+1]:4*b+4)-i}));
+      notes.forEach(n=>{ const g=A('g',{class:'slashG'}); A('path',{d:'M'+(n.x-6)+' '+(Y+6)+' L'+(n.x+6)+' '+(Y-6),class:'slash'},g);
+        A('line',{x1:n.x+6,y1:Y-6,x2:n.x+6,y2:Y-ST,class:'stem'},g);
+        const t=A('text',{x:n.x,y:Y+30,class:'cnt'+(n.i%4===0?' beat':'')},g); t.textContent=n.i%4===0?String(b+1):counts[n.i%4];
+        if(n.d===3) A('circle',{cx:n.x+14,cy:Y-1,r:2.2,class:'rfill'},g);
+        slashes[n.i]=g; });
+      if(notes.length>1){ const xa=notes[0].x+6, xb=notes[notes.length-1].x+6;
+        A('rect',{x:xa-1,y:Y-ST-1,width:xb-xa+2,height:5,class:'rfill'});
+        // the second beam: between neighbouring sixteenths; a sixteenth beside a longer note, a short stub toward it
+        notes.forEach((n,k)=>{ if(n.d!==1) return; const nb=notes[k+1], pb=notes[k-1];
+          if(nb&&nb.d===1) A('rect',{x:n.x+5,y:Y-ST+6,width:nb.x-n.x+2,height:4.5,class:'rfill'});
+          else if(!(pb&&pb.d===1)){ const toR=!!nb; A('rect',{x:toR?n.x+5:n.x-5,y:Y-ST+6,width:11,height:4.5,class:'rfill'}); } }); }
+      else if(notes.length===1){ const n=notes[0]; if(n.d<4) A('path',{d:'M'+(n.x+6)+' '+(Y-ST)+' q10 8 6 20',class:'flag'}); if(n.d===1) A('path',{d:'M'+(n.x+6)+' '+(Y-ST+7)+' q10 8 6 20',class:'flag'}); } }
+    function restAt(x,len){ if(len===1){ A('path',{d:'M'+(x+4)+' '+(Y-12)+' L'+(x-3)+' '+(Y+12),class:'rest'}); A('circle',{cx:x-1,cy:Y-11,r:2.6,class:'rfill'}); A('circle',{cx:x-4,cy:Y-3,r:2.6,class:'rfill'}); A('path',{d:'M'+(x-1)+' '+(Y-11)+' L'+(x+4)+' '+(Y-12)+' M'+(x-4)+' '+(Y-3)+' L'+(x+1.5)+' '+(Y-4),class:'rest'}); }
+      else if(len===2){ A('path',{d:'M'+(x+4)+' '+(Y-10)+' L'+(x-2)+' '+(Y+10),class:'rest'}); A('circle',{cx:x-1,cy:Y-9,r:2.6,class:'rfill'}); A('path',{d:'M'+(x-1)+' '+(Y-9)+' L'+(x+4)+' '+(Y-10),class:'rest'}); }
+      else A('rect',{x:x-6,y:Y-4,width:12,height:5,class:'rfill'}); }
+    return sv; }
+  let litSix=-1;
+  function lightSlash(six,col){ if(six===litSix&&!col) return;
+    slashes.forEach((g,i)=>{ if(!g) return; const on=i===six; g.classList.toggle('on',on); g.style.color=on&&col?col:''; }); litSix=six; }
   let progEl=null;
   if(SONG){ STROKES=4; CW_MIN=64; TB.tail=CW_MIN/2; TB.barX=b=>xBeat(4*b-0.125);
     if(SONG.bpm){ drill.bpm=SONG.bpm; const r=$('bpm'), v=$('bpmv'); if(r) r.value=SONG.bpm; if(v) v.textContent=SONG.bpm; }
@@ -3116,8 +3155,7 @@ const CHORDS=BOOK.chords?(()=>{
     progEl=document.createElement('div'); progEl.className='gripRow songProg';
     SONG.bars.forEach((B,i)=>{ if(i&&i%4===0) progEl.appendChild(document.createElement('br')); const e=document.createElement('span'); e.textContent=B.name; progEl.appendChild(e); });
     panel.querySelector('#chordRoots').before(progEl);
-    const pat=document.createElement('div'); pat.className='songPat'; pat.textContent=SONG.pattern.replace(/U/g,'u').replace(/(.{4})(?=.)/g,'$1 ');
-    progEl.after(pat);
+    const pat=document.createElement('div'); pat.className='songPat'; pat.innerHTML='<div class="songPatHd">Strumming Pattern</div>'; pat.appendChild(rhythmSVG(SONG.pattern)); progEl.after(pat);
     $('prev').parentElement.style.display='none';
     // each grip formed once, ahead, a frame apart so the page stays awake
     const charts=[...new Set(SONG.bars.map(B=>B.chart))];
@@ -3125,7 +3163,7 @@ const CHORDS=BOOK.chords?(()=>{
       const B=SONG.bars.find(x=>x.chart===charts[k]); HANDLAB.learn(B.chart,B.pl,B.open); setTimeout(()=>learnNext(k+1),30); })(0); }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songProg span{ display:inline-block; min-width:3.2em; padding:4px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; font-weight:600; text-align:center } .songProg span.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .songPat{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.14em; margin:2px 0 10px; color:var(--ink) } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songProg span{ display:inline-block; min-width:3.2em; padding:4px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; font-weight:600; text-align:center } .songProg span.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .songPat{ margin:4px 0 12px; color:var(--ink) } .songPatHd{ font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mid); margin-bottom:2px } .rhythm{ width:100%; display:block } .rhythm .rl1{ stroke:currentColor; stroke-width:1.4 } .rhythm .rfill{ fill:currentColor } .rhythm .stem{ stroke:currentColor; stroke-width:1.6 } .rhythm .slash{ stroke:currentColor; stroke-width:5; stroke-linecap:butt } .rhythm .rest,.rhythm .flag{ stroke:currentColor; stroke-width:1.8; fill:none } .rhythm .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:500 } .rhythm .cnt.beat{ font-weight:800 } .rhythm .slashG.on .slash{ stroke-width:7 } .rhythm .slashG.on .cnt{ font-weight:800 } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
