@@ -262,14 +262,16 @@ function frame(){
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
-  let bx=xBeat(0), u=0;
-  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
-  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
+  let bx=xBeat(0), u=0, hb=1;
+  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { u=st.ph%1;
+    // a song's last bar before its repeat: on the last beat the ball leaps the repeat sign and lands in the bar after it
+    const J=st.s.jumpGap?st.s.jumpGap():0, last=st.ph>LOOP-1; bx=xBeat(st.ph+(J&&last?(st.ph-(LOOP-1))*J:0)); if(J&&last) hb=1.2; } }
+  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*hb*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
   let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
   if(st&&!st.done&&!st.count&&!reduce){
     const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
-    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
+    if(st.ph>=half&&(!st.s.loopsBack||st.s.loopsBack())){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
     else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
   }
   ball.setAttribute('opacity',(DRILL||T.on?b1o:0.25).toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));

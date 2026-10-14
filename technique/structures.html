@@ -941,8 +941,8 @@ function layoutTab(bars){
   tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
   rows.forEach(r=>r.setAttribute('x2',TB.s1));
   while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
-  for(let b=1;b<bars;b++){ const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
-  const re=TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
+  for(let b=1;b<bars;b++){ if(b===TB.repeatBar) continue; const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  const re=TB.repeatX||TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
   DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},gridG));
   for(let b=0;b<4*bars;b++){ const xb=TB.x0+TB.cw/2+b*2*TB.cw; el('line',{x1:xb-5,y1:TB.floor+1.5,x2:xb+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 }
@@ -1483,14 +1483,16 @@ function frame(){
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
-  let bx=xBeat(0), u=0;
-  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
-  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
+  let bx=xBeat(0), u=0, hb=1;
+  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { u=st.ph%1;
+    // a song's last bar before its repeat: on the last beat the ball leaps the repeat sign and lands in the bar after it
+    const J=st.s.jumpGap?st.s.jumpGap():0, last=st.ph>LOOP-1; bx=xBeat(st.ph+(J&&last?(st.ph-(LOOP-1))*J:0)); if(J&&last) hb=1.2; } }
+  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*hb*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
   let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
   if(st&&!st.done&&!st.count&&!reduce){
     const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
-    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
+    if(st.ph>=half&&(!st.s.loopsBack||st.s.loopsBack())){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
     else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
   }
   ball.setAttribute('opacity',(DRILL||T.on?b1o:0.25).toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));
@@ -1590,7 +1592,9 @@ const SURF=(()=>{
       const x=R.left+sl+(+head.getAttribute('x1')-v.x)/v.w*R.width, want=Math.max(0,x-innerWidth/3), d=want-sl;
       if(Math.abs(d)>0.5) layer.scrollLeft=sl+(Math.abs(d)>0.4*innerWidth&&!reduce?d*0.16:d); }
     requestAnimationFrame(watch); })();
-  return {close, open, get kind(){ return kind; }};
+  // the TAB's content moved under the view (a song's repeat, landing in its first bar): the view moves with it
+  function shiftTab(dx){ if(kind!=='tab') return; const svg=cur.querySelector('svg'), v=vbOf(svg), R=svg.getBoundingClientRect(); layer.scrollLeft+=dx/v.w*R.width; }
+  return {close, open, shiftTab, get kind(){ return kind; }};
 })();
 
 /* THE ROOM: the strings sound in a room — the site's studio room (ir/studio-room.js, the impulse the lessons use: image

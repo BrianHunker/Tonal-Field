@@ -946,8 +946,8 @@ function layoutTab(bars){
   tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
   rows.forEach(r=>r.setAttribute('x2',TB.s1));
   while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
-  for(let b=1;b<bars;b++){ const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
-  const re=TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
+  for(let b=1;b<bars;b++){ if(b===TB.repeatBar) continue; const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  const re=TB.repeatX||TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
   DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},gridG));
   for(let b=0;b<4*bars;b++){ const xb=TB.x0+TB.cw/2+b*2*TB.cw; el('line',{x1:xb-5,y1:TB.floor+1.5,x2:xb+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 }
@@ -1488,14 +1488,16 @@ function frame(){
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
-  let bx=xBeat(0), u=0;
-  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
-  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*4*u*(1-u));
+  let bx=xBeat(0), u=0, hb=1;
+  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { u=st.ph%1;
+    // a song's last bar before its repeat: on the last beat the ball leaps the repeat sign and lands in the bar after it
+    const J=st.s.jumpGap?st.s.jumpGap():0, last=st.ph>LOOP-1; bx=xBeat(st.ph+(J&&last?(st.ph-(LOOP-1))*J:0)); if(J&&last) hb=1.2; } }
+  const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*hb*4*u*(1-u));
   ball.setAttribute('cx',bx.toFixed(1)); ball.setAttribute('cy',by.toFixed(1));
   let b1o=1, b2o=0, b2x=xBeat(0), b2u=0.5;
   if(st&&!st.done&&!st.count&&!reduce){
     const half=LOOP-0.5, intoLoop=(t-st.s.loopStart)/T.beat>=LOOP;
-    if(st.ph>=half){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
+    if(st.ph>=half&&(!st.s.loopsBack||st.s.loopsBack())){ const k=(st.ph-half)/0.5; b2o=Math.min(1,k/0.15); b2x=xBeat(st.ph-LOOP); b2u=st.ph%1; b1o=1-0.6*k; }
     else if(st.ph<0.3&&intoLoop){ b2o=0.4*(1-st.ph/0.3); b2x=xBeat(LOOP+st.ph); b2u=st.ph; }
   }
   ball.setAttribute('opacity',(DRILL||T.on?b1o:0.25).toFixed(3)); ball2.setAttribute('opacity',b2o.toFixed(3));
@@ -1595,7 +1597,9 @@ const SURF=(()=>{
       const x=R.left+sl+(+head.getAttribute('x1')-v.x)/v.w*R.width, want=Math.max(0,x-innerWidth/3), d=want-sl;
       if(Math.abs(d)>0.5) layer.scrollLeft=sl+(Math.abs(d)>0.4*innerWidth&&!reduce?d*0.16:d); }
     requestAnimationFrame(watch); })();
-  return {close, open, get kind(){ return kind; }};
+  // the TAB's content moved under the view (a song's repeat, landing in its first bar): the view moves with it
+  function shiftTab(dx){ if(kind!=='tab') return; const svg=cur.querySelector('svg'), v=vbOf(svg), R=svg.getBoundingClientRect(); layer.scrollLeft+=dx/v.w*R.width; }
+  return {close, open, shiftTab, get kind(){ return kind; }};
 })();
 
 /* THE ROOM: the strings sound in a room — the site's studio room (ir/studio-room.js, the impulse the lessons use: image
@@ -3057,6 +3061,7 @@ const CHORDS=BOOK.chords?(()=>{
       if(moved){ layoutRot(); marks(xoSh); } }
     requestAnimationFrame(glide); })();
   const rotBtn=panel.querySelector('#rotBtn');
+  { const fp=box.parentElement; fp.style.position='relative'; rotBtn.classList.add('fbRotBtn'); fp.appendChild(rotBtn); }   // in the fretboard's own corner: it turns the board
   rotBtn.addEventListener('click',()=>{ const z=SURF.kind==='fb'||SURF.kind==='rot'; if(z) SURF.close();
     ROT.on=!ROT.on; ROT.vb=ROT.on?target():null; rotBtn.setAttribute('aria-pressed',ROT.on); rotBtn.classList.toggle('on',ROT.on);
     upright(ROT.on); layoutRot(); marks(xoSh); if(z) SURF.open(fb,'fb'); });
@@ -3096,23 +3101,27 @@ const CHORDS=BOOK.chords?(()=>{
   const xAbs=beat=>TB.x0+TB.cw/2+beat*2*TB.cw;
   let FULL=null, FULLTN=null;                                         // the whole song, and its TAB numbers
   function songTab(D){
-    const below=TB.rowY[NSTR-1]+12, bars=D.bars;
-    D.strums.forEach(S=>{ const x=xAbs(4*S.b+S.i/4);
-      S.ix.forEach(i=>{ const n=D.plan[i]; tabNotes[i]=numberAt(x,TB.rowY[n.string],String(n.fret)); });
+    const below=TB.rowY[NSTR-1]+12, N=D.bars, bars=N+GHOSTS;
+    // the song's bars, then after the repeat sign its first bars again (where the ball lands when it goes round)
+    GHOSTTN=[];
+    const draw=(S,x,put)=>{ S.ix.forEach(i=>{ const n=D.plan[i]; put(i,numberAt(x,TB.rowY[n.string],String(n.fret))); });
       const a=D.plan[S.ix[0]].string, z=D.plan[S.ix[S.ix.length-1]].string, ya=TB.rowY[a], yz=TB.rowY[z], ax=x+13, dir=yz<ya?-1:1;
       if(S.ix.length>1){ el('line',{x1:ax,y1:ya,x2:ax,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(ax,yz,dir); }
-      strokeMark(x,S.up,below,below+20,S.acc); });
+      strokeMark(x,S.up,below,below+20,S.acc); };
+    D.strums.forEach(S=>draw(S,xAbs(4*S.b+S.i/4),(i,o)=>{ tabNotes[i]=o; }));
+    for(let g=0;g<GHOSTS;g++){ const r=FULL.ranges[g%N], arr=[]; GHOSTTN.push(arr);
+      D.strums.filter(S=>S.b===g%N).forEach(S=>draw(S,xAbs(4*(N+g)+S.i/4)+GAP,(i,o)=>{ arr[i-r.i0]=o; })); }
     // each bar: its name over the staff (the letter, then its root's function), and behind the staff its mode's light,
     // strongest at the downbeat and fading to nothing by the bar's end
     while(bgG.firstChild) bgG.firstChild.remove(); barArt.length=0;
     const yT=TB.rowY[0]-34, yB=TB.rowY[NSTR-1]+8;
-    for(let b=0;b<bars;b++){ const B=SONG.bars[b], x0=b?TB.barX(b):TB.x0, x1=b<bars-1?TB.barX(b+1):TB.s1, id=gid+'bar'+b;
+    for(let b=0;b<bars;b++){ const B=SONG.bars[b%N], x0=b===0?TB.x0:(b===N?TB.repeatX+4:TB.barX(b)), x1=b<bars-1?TB.barX(b+1):TB.s1, id=gid+'bar'+b;
       const g=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), s0=el('stop',{offset:0},g), s1=el('stop',{offset:1,'stop-opacity':0},g);
       const r=el('rect',{x:x0,y:yT,width:x1-x0,height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG);
       const t=el('text',{x:x0+8,y:((TB.floor+TB.rowY[0])/2+5).toFixed(1),class:'barName'},noteG), L=el('tspan',{class:'barLetter'},t), S=el('tspan',{class:'barSyl',dx:6},t);
       L.textContent=B.name;
       barArt.push({B,s0,r,L,S}); }
-    FULLTN=tabNotes.slice(); if(T.on&&T.shown&&T.shown.bar!==undefined) tabNotes=barNotes(T.shown.bar);
+    FULLTN=tabNotes.slice(); if(T.on&&T.shown&&T.shown.pos!==undefined) tabNotes=barNotes(T.shown.pos);
     paintBars(-1,null); }
   // the bars' light, each frame: the bar playing lit full, the others (past and coming) dimmer; the names white until
   // their bar's downbeat, then in their function's colour; a soft vertical light rides the playhead
@@ -3134,15 +3143,29 @@ const CHORDS=BOOK.chords?(()=>{
   // Hold (the button, or a bar's block) loops the bar playing (or the chosen one) until released; a block chosen while
   // playing comes in at the next bar line.
   let HOLD=false, selBar=0, goTo=null, SHARED={};
-  const barNotes=b=>FULLTN?FULLTN.slice(FULL.ranges[b].i0,FULL.ranges[b].i1):[];
-  function barSeg(b,first){ const r=FULL.ranges[b], i0=r.i0;
-    return {bar:b,D:FULL.D,pass:0,plan:FULL.D.plan.slice(i0,r.i1),fig:FULL.fig.slice(i0,r.i1).map((e,k,a)=>({s:e.s-4*b,d:k<a.length-1?a[k+1].s-e.s:4-(e.s-4*b)})),
+  const GHOSTS=3, GAP=48; let GHOSTTN=[];
+  // a bar's place in the TAB: its own, or (pos ≥ the song's length) a copy after the repeat sign
+  const barNotes=p=>{ const N=SONG.bars.length; if(p>=N) return GHOSTTN[p-N]||[]; return FULLTN?FULLTN.slice(FULL.ranges[p].i0,FULL.ranges[p].i1):[]; };
+  const offOf=p=>4*p+(p>=SONG.bars.length?GAP/(2*TB.cw):0);
+  function barSeg(b,first,pos){ const r=FULL.ranges[b], i0=r.i0;
+    const sg={bar:b,pos:pos===undefined?b:pos,D:FULL.D,pass:0,plan:FULL.D.plan.slice(i0,r.i1),fig:FULL.fig.slice(i0,r.i1).map((e,k,a)=>({s:e.s-4*b,d:k<a.length-1?a[k+1].s-e.s:4-(e.s-4*b)})),
       hand:cloneHand(FULL.hands[b]),hands:FULL.hands,si:0,custom:false,mode:'pick',strs:SHARED,keep:true,plant:true,xt:0,
-      chord:FULL.chords[b],chords:FULL.chords,lead:0.8*T.beat/4,first,place:placeBar,showBar}; }
+      chord:FULL.chords[b],chords:FULL.chords,lead:0.8*T.beat/4,first,place:placeBar,showBar};
+    // what follows: the same bar again (the loop ball comes round), or over the repeat sign (the ball leaps it)
+    sg.loopsBack=()=>{ const n=nextOf(sg); return n.pos===sg.pos; };
+    sg.jumpGap=()=>{ const n=nextOf(sg); return n.pos===SONG.bars.length&&sg.pos===SONG.bars.length-1?GAP/(2*TB.cw):0; };
+    return sg; }
+  function nextOf(s){ const N=SONG.bars.length; if(goTo!==null) return {b:goTo,pos:goTo}; if(HOLD) return {b:s.bar,pos:s.pos};
+    const nb=(s.bar+1)%N; return {b:nb,pos:s.pos>=N?s.pos+1:(s.bar===N-1?N:nb)}; }
   function placeBar(s,t){ s.count=s.first?COUNT:0; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=1; s.end=s.loopStart+4*T.beat; }
-  function showBar(s){ T.shown=s; TB.boff=4*s.bar; tabNotes=barNotes(s.bar); }
-  function nextSeg(after){ const last=T.segs[T.segs.length-1], N=SONG.bars.length;
-    let b=goTo!==null?goTo:(HOLD?last.bar:(last.bar+1)%N); goTo=null; return barSeg(b,false); }
+  function showBar(s){ T.shown=s; const N=SONG.bars.length;
+    // past the copy's first bar: the same place in the song itself, the view moved back by the song's length at once —
+    // what is on screen does not change
+    if(s.pos>N){ const p=s.pos-N, dx=(xAbs(4*(N+p))+GAP)-xAbs(4*p); s.pos=p;
+      if(tabPanel.classList.contains('wide')){ const k=tabSvg.clientWidth/(TB.s1+14); tabPanel.scrollLeft-=dx*k; }
+      if(SURF.shiftTab) SURF.shiftTab(-dx); }
+    TB.boff=offOf(s.pos); tabNotes=barNotes(s.pos); }
+  function nextSeg(after){ const last=T.segs[T.segs.length-1], n=nextOf(last); goTo=null; return barSeg(n.b,false,n.pos); }
   function songRun(){
     ensureCtx().then(()=>{
       if(T.on) stopAll();
@@ -3151,7 +3174,7 @@ const CHORDS=BOOK.chords?(()=>{
       T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-COUNT; T.live=[]; T.shown=null; T.on=true;
       tick(); T.timer=setInterval(tick,25);
       playBtn.textContent='Stop'; playBtn.classList.add('on'); }); }
-  function songShow(){ FULL=songDrill(); DRILL=FULL.D; LOOP=4; layoutTab(SONG.bars.length); TB.boff=4*selBar; barNow=-1; songBar(selBar); refresh(); }
+  function songShow(){ FULL=songDrill(); DRILL=FULL.D; LOOP=4; layoutTab(SONG.bars.length+GHOSTS); TB.boff=4*selBar; barNow=-1; songBar(selBar); refresh(); }
   // a block chosen: that bar, held
   function chooseBar(b){ HOLD=true; markHold();
     if(T.on){ goTo=b; return; }
@@ -3180,8 +3203,8 @@ const CHORDS=BOOK.chords?(()=>{
   function tintO(){ const L=FIELD.lit, ink=inkColour(); xoOpen.forEach(o=>{ o.e.style.stroke=L>0.001?rgbS(mixRGB(ink,valRGB(o.pc),L)):''; }); }
   // which bar is on the board: playing, the one the hand is heading for; stopped, the chosen one
   function step(st,live){ tintO(); if(!SONG) return; let b=selBar;
-    if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.plan[st.idx].frame:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:'';
-      if(playing){ const e=st.s.plan[st.idx]; paintRhythm(e.six,e.root); } else paintRhythm(-1,SONG.bars[Math.max(0,barNow)].root); }
+    if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.pos:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:'';
+      if(playing){ const e=st.s.plan[st.idx]; paintRhythm(e.six,e.root,st.ph); } else paintRhythm(-1,SONG.bars[Math.max(0,barNow)].root); }
     if(T.on&&ctx&&st&&st.s&&st.s.chords){ const sa=stateAt(ctx.currentTime+st.s.lead); b=sa.idx>=0&&sa.s.plan?sa.s.plan[sa.idx].frame:(sa.s.bar!==undefined?sa.s.bar:barNow); }
     else if(T.on) return;
     else if(TB.boff!==4*selBar){ TB.boff=4*selBar; }
@@ -3222,17 +3245,43 @@ const CHORDS=BOOK.chords?(()=>{
       else if(len===2){ A('path',{d:'M'+(x+4)+' '+(Y-10)+' L'+(x-2)+' '+(Y+10),class:'rest'}); A('circle',{cx:x-1,cy:Y-9,r:2.6,class:'rfill'}); A('path',{d:'M'+(x-1)+' '+(Y-9)+' L'+(x+4)+' '+(Y-10),class:'rest'}); }
       else A('rect',{x:x-6,y:Y-4,width:12,height:5,class:'rfill'}); }
     rhSvg=sv; return sv; }
+  // THE PATTERN AS A CIRCLE: the bar's sixteen sixteenths round a clock, the beats at 12, 3, 6 and 9; a downstroke a filled
+  // dot, an upstroke a ring, each sized by its weight (the downbeat's bass the largest); a thin line joins the strokes in
+  // turn. Playing, a hand sweeps round with the bar and each dot flares as it is struck, lit like the slashes.
+  const dots=[]; let rad=null;
+  function radialSVG(pat){
+    const S=170, C=S/2, R=58, sv=document.createElementNS(NSV,'svg'), A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); (par||sv).appendChild(e); return e; };
+    sv.setAttribute('viewBox','0 0 '+S+' '+S); sv.setAttribute('class','radial'); radG=sv;
+    const at=(i,r)=>{ const a=-Math.PI/2+i*Math.PI/8; return [C+r*Math.cos(a),C+r*Math.sin(a)]; };
+    A('circle',{cx:C,cy:C,r:R,class:'rl1',fill:'none'});
+    for(let i=0;i<16;i++){ const [x0,y0]=at(i,R-(i%4?3:7)), [x1,y1]=at(i,R+(i%4?3:7)); A('line',{x1:x0,y1:y0,x2:x1,y2:y1,class:'rl1'}); }
+    ['1','2','3','4'].forEach((t,b)=>{ const [x,y]=at(4*b,R+19); const e=A('text',{x,y:y+5,class:'cnt beat'}); e.textContent=t; });
+    const on=[]; for(let i=0;i<16;i++) if(pat[i]&&pat[i]!=='_') on.push(i);
+    if(on.length>1) A('polygon',{points:on.map(i=>at(i,R).map(v=>v.toFixed(1)).join(',')).join(' '),class:'necklace'});
+    rad=A('line',{x1:C,y1:C,x2:C,y2:C-R+10,class:'radHand'});
+    A('circle',{cx:C,cy:C,r:3,class:'rfill'});
+    on.forEach((i,k)=>{ const c=pat[i], up=c==='u'||c==='U', bass=k===0&&!up, r=bass?7.5:(up?(c==='U'?5.5:4.5):6), [x,y]=at(i,R), g=A('g',{class:'dotG'});
+      A('circle',{cx:x,cy:y,r,class:up?'dotUp':'dotDn'},g); dots[i]=g; });
+    return sv; }
   // lit: the whole notation in a dim light of the bar's root colour; the slash struck flares to the full colour at once and
   // fades as the next takes over, so the light rolls along the bar
   const slashLv=new Array(16).fill(0); let litSix=-1, rhClock=0, rhSvg=null;
-  function paintRhythm(six,root){ const now=performance.now()/1000, dt=Math.min(0.1,now-(rhClock||now)); rhClock=now;
+  let radG=null;
+  function paintRhythm(six,root,ph=null){ const now=performance.now()/1000, dt=Math.min(0.1,now-(rhClock||now)); rhClock=now;
     const L=FIELD.lit, ink=inkColour(), bg=bgColour(), c=valRGB(root), full=L>0.001?mixRGB(ink,c,L):ink, dim=mixRGB(bg,full,L>0.001?0.5:0.7);
     if(rhSvg) rhSvg.style.color=rgbS(dim);
     if(six!==litSix&&six>=0) slashLv[six]=1; litSix=six;
     slashes.forEach((g,i)=>{ if(!g) return; if(i!==six) slashLv[i]*=Math.exp(-dt/0.28); const v=slashLv[i];
-      g.style.color=v>0.01?rgbS(mixRGB(dim,full,v)):''; g.style.setProperty('--sw',(5+2.5*v).toFixed(2)); g.classList.toggle('on',i===six); }); }
+      g.style.color=v>0.01?rgbS(mixRGB(dim,full,v)):''; g.style.setProperty('--sw',(5+2.5*v).toFixed(2)); g.classList.toggle('on',i===six); });
+    dots.forEach((g,i)=>{ if(!g) return; const v=slashLv[i]; g.style.color=v>0.01?rgbS(mixRGB(dim,full,v)):''; g.style.transform='scale('+(1+0.35*v).toFixed(3)+')'; });
+    if(radG) radG.style.color=rgbS(dim);
+    if(rad){ const a=ph===null?0:ph/4*2*Math.PI, R=48, C=85; rad.setAttribute('x2',(C+R*Math.sin(a)).toFixed(1)); rad.setAttribute('y2',(C-R*Math.cos(a)).toFixed(1)); rad.style.stroke=ph===null?'':rgbS(full); rad.style.opacity=ph===null?0.35:0.9; } }
   let progEl=null;
-  if(SONG){ STROKES=4; CW_MIN=64; TB.tail=CW_MIN/2; TB.barX=b=>xAbs(4*b-0.125);
+  if(SONG){ STROKES=4; CW_MIN=64; { const N=SONG.bars.length;
+      // the repeat sign stands between the song's last bar and its copy of the first; bar lines elsewhere sit between a
+      // bar's last sixteenth and the next downbeat
+      TB.repeatBar=N; TB.tail=GAP+CW_MIN/4; TB.barX=b=>b<N?xAbs(4*b-0.125):(b===N?TB.repeatX:xAbs(4*b-0.125)+GAP);
+      Object.defineProperty(TB,'repeatX',{get:()=>xAbs(4*N)+22,configurable:true}); }
     if(SONG.bpm){ drill.bpm=SONG.bpm; const r=$('bpm'), v=$('bpmv'); if(r) r.value=SONG.bpm; if(v) v.textContent=SONG.bpm; }
     ['chordRoots','chordQuals'].forEach(id=>{ panel.querySelector('#'+id).style.display='none'; });
     artEl.style.display=dirEl.style.display='none'; panel.querySelector('.gripRow .gripGrp').textContent='';
@@ -3241,10 +3290,10 @@ const CHORDS=BOOK.chords?(()=>{
       e.addEventListener('click',()=>chooseBar(i)); progEl.appendChild(e); blocks.push(e); });
     // Hold, where Let Go was: on, the bar playing loops; off, the song goes on from it
     { const old=$('hold'), clr=$('clear'); holdEl=old.cloneNode(true); holdEl.style.display=''; holdEl.title='Hold: loop the bar playing'; old.replaceWith(holdEl);
-      if(clr){ clr.style.display='none'; clr.after(holdEl); }
+      if(clr) clr.style.display='none'; const ht=$('handTog'); if(ht) ht.before(holdEl); else if(clr) clr.after(holdEl);
       holdEl.addEventListener('click',()=>{ HOLD=!HOLD; goTo=null; markHold(); }); }
     panel.querySelector('#chordRoots').before(progEl);
-    const pat=document.createElement('div'); pat.className='songPat'; pat.innerHTML='<div class="songPatHd">Strumming Pattern</div>'; pat.appendChild(rhythmSVG(SONG.pattern)); progEl.after(pat);
+    const pat=document.createElement('div'); pat.className='songPat'; pat.innerHTML='<div class="songPatHd">Strumming Pattern</div>'; const prow=document.createElement('div'); prow.className='songPatRow'; prow.appendChild(rhythmSVG(SONG.pattern)); prow.appendChild(radialSVG(SONG.pattern)); pat.appendChild(prow); progEl.after(pat);
     $('prev').parentElement.style.display='none';
     // each grip formed once, ahead, a frame apart so the page stays awake
     const charts=[...new Set(SONG.bars.map(B=>B.chart))];
@@ -3252,7 +3301,7 @@ const CHORDS=BOOK.chords?(()=>{
       const B=SONG.bars.find(x=>x.chart===charts[k]); HANDLAB.learn(B.chart,B.pl,B.open); setTimeout(()=>learnNext(k+1),30); })(0); }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt'].concat(SONG?[]:['hold']).forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songBlk{ font:inherit; display:inline-block; min-width:3.4em; padding:5px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; background:var(--bg); color:var(--ink); font-weight:700; text-align:center; cursor:pointer } .songBlk.held{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor } #hold.on{ background:var(--ink); color:var(--bg) } .songPat{ margin:4px 0 12px; color:var(--ink) } .songPatHd{ font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mid); margin-bottom:2px } .rhythm{ width:100%; display:block } .rhythm .rl1{ stroke:currentColor; stroke-width:1.4 } .rhythm .rfill{ fill:currentColor } .rhythm .stem{ stroke:currentColor; stroke-width:1.6 } .rhythm .slash{ stroke:currentColor; stroke-width:var(--sw,5); stroke-linecap:butt } .rhythm .rest,.rhythm .flag{ stroke:currentColor; stroke-width:1.8; fill:none } .rhythm .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:500 } .rhythm .cnt.beat{ font-weight:800 } .rhythm .slashG.on .cnt{ font-weight:800 } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } .fbRotBtn{ position:absolute; top:8px; right:10px; z-index:4 } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songBlk{ font:inherit; display:inline-block; min-width:3.4em; padding:5px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; background:var(--bg); color:var(--ink); font-weight:700; text-align:center; cursor:pointer } .songBlk.held{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor } #hold.on{ background:var(--ink); color:var(--bg) } .songPat{ margin:4px 0 12px; color:var(--ink) } .songPatHd{ font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mid); margin-bottom:2px } .songPatRow{ display:flex; align-items:center; gap:22px; flex-wrap:wrap } .songPatRow .rhythm{ flex:1 1 420px } .radial{ width:170px; height:170px; flex:0 0 170px; color:var(--ink) } .radial .rl1{ stroke:currentColor; stroke-width:1.2 } .radial .rfill{ fill:currentColor } .radial .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:800 } .radial .necklace{ fill:none; stroke:currentColor; stroke-width:1; opacity:.55 } .radial .radHand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .radial .dotG{ color:inherit; transform-box:fill-box; transform-origin:center } .radial .dotDn{ fill:currentColor } .radial .dotUp{ fill:var(--bg); stroke:currentColor; stroke-width:2.4 } .rhythm{ width:100%; display:block } .rhythm .rl1{ stroke:currentColor; stroke-width:1.4 } .rhythm .rfill{ fill:currentColor } .rhythm .stem{ stroke:currentColor; stroke-width:1.6 } .rhythm .slash{ stroke:currentColor; stroke-width:var(--sw,5); stroke-linecap:butt } .rhythm .rest,.rhythm .flag{ stroke:currentColor; stroke-width:1.8; fill:none } .rhythm .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:500 } .rhythm .cnt.beat{ font-weight:800 } .rhythm .slashG.on .cnt{ font-weight:800 } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};

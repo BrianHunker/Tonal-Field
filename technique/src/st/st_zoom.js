@@ -72,5 +72,7 @@ const SURF=(()=>{
       const x=R.left+sl+(+head.getAttribute('x1')-v.x)/v.w*R.width, want=Math.max(0,x-innerWidth/3), d=want-sl;
       if(Math.abs(d)>0.5) layer.scrollLeft=sl+(Math.abs(d)>0.4*innerWidth&&!reduce?d*0.16:d); }
     requestAnimationFrame(watch); })();
-  return {close, open, get kind(){ return kind; }};
+  // the TAB's content moved under the view (a song's repeat, landing in its first bar): the view moves with it
+  function shiftTab(dx){ if(kind!=='tab') return; const svg=cur.querySelector('svg'), v=vbOf(svg), R=svg.getBoundingClientRect(); layer.scrollLeft+=dx/v.w*R.width; }
+  return {close, open, shiftTab, get kind(){ return kind; }};
 })();
