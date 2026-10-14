@@ -232,7 +232,7 @@ function frame(){
   boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
   { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null, ts=FB.strY[(sa&&sa.idx>=0)?sa.s.plan[sa.idx].string:strI];
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
-  const held=placePick(st,pickSy,t,amp,live?toneColour(pcOf(strI,p)):null);
+  const held=placePick(st,pickSy,t,amp,live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
   stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);

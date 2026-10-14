@@ -548,7 +548,7 @@ const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math
 // the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
 function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
   let idx=0; for(let i=1;i<FIG.length;i++){ if(FIG[i].s<=ph) idx=i; else break; }
-  const e=s.plan[b<0?0:idx]; return toneColour(pcOf(e.string,e.pitch)); }
+  const e=s.plan[b<0?0:idx]; return toneColour(e.root!==undefined?e.root:pcOf(e.string,e.pitch)); }   // a chord's stroke: its root's colour
 function placePick(st,sy,t,amp=0,ampRGB=null){                         // amp: the sounding tone's level (0–1); the pick's colour decays with it
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
