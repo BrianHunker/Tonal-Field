@@ -1475,13 +1475,13 @@ function frame(){
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
     const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
-    setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx)));
+    { const r=plan[st.idx].root; if(r!==undefined) setHand(r,r); else setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx))); }   // a song's ring shows its bar's root, not each tone
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
     if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
-    setHand(null,-1);
+    { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
   let bx=xBeat(0), u=0;
   if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }

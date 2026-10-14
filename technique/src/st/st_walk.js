@@ -122,7 +122,7 @@ function holdChanged(){
 function refresh(){
   CAND={C:[],fingers:new Set(),cells:new Map()};
   MARKS.forEach(m=>{ m.setAttribute('visibility','hidden'); m.classList.remove('cand','sel'); });
-  INST=new Set(); if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));
+  INST=new Set(); const vc=CHORDS&&CHORDS.cells?CHORDS.cells():null; if(vc) vc.forEach(k=>INST.add(k)); else if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));   // a song: only the grip on the board
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
   playBtn.disabled=!DRILL&&!T.on&&!(CHORDS&&P.length);
   pageCt.textContent=(PAGE+1)+'/'+PAGES.length;
@@ -575,10 +575,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
     // highest stop on its string
     const ink=inkColour(), now=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, lit=[false,false,false,false], at=[];
-    if(now){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
-    else if(!T.on) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
+    if(now&&!CHORDS){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
+    else if(!T.on||CHORDS) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
     // a barre sounds every string it holds where nothing stops that string higher: its finger takes each one's colour there
-    const bar=!now&&!T.on&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
+    const bar=((!now&&!T.on)||CHORDS)&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
     if(bar) for(let s2=0;s2<=bar.s;s2++){ if(P.some(o=>o!==bar&&o.g&&o.s===s2&&o.f>bar.f)) continue; bands.push({s:s2,col:valRGB(pcOf(s2,bar.f))}); }
     for(let i=0;i<4;i++){ const G=tg[i];
       if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));

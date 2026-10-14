@@ -1480,13 +1480,13 @@ function frame(){
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
     const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
-    setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx)));
+    { const r=plan[st.idx].root; if(r!==undefined) setHand(r,r); else setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx))); }   // a song's ring shows its bar's root, not each tone
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
     if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
-    setHand(null,-1);
+    { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
   let bx=xBeat(0), u=0;
   if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { bx=xBeat(st.ph); u=st.ph%1; } }
@@ -2225,7 +2225,7 @@ function holdChanged(){
 function refresh(){
   CAND={C:[],fingers:new Set(),cells:new Map()};
   MARKS.forEach(m=>{ m.setAttribute('visibility','hidden'); m.classList.remove('cand','sel'); });
-  INST=new Set(); if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));
+  INST=new Set(); const vc=CHORDS&&CHORDS.cells?CHORDS.cells():null; if(vc) vc.forEach(k=>INST.add(k)); else if(DRILL) DRILL.plan.forEach(n=>INST.add(n.string*(FMAX+1)+n.fret));   // a song: only the grip on the board
   holdBtn.setAttribute('aria-pressed',drill.hold); diatBtn.setAttribute('aria-pressed',diatonic);
   playBtn.disabled=!DRILL&&!T.on&&!(CHORDS&&P.length);
   pageCt.textContent=(PAGE+1)+'/'+PAGES.length;
@@ -2678,10 +2678,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
     // highest stop on its string
     const ink=inkColour(), now=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, lit=[false,false,false,false], at=[];
-    if(now){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
-    else if(!T.on) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
+    if(now&&!CHORDS){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
+    else if(!T.on||CHORDS) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
     // a barre sounds every string it holds where nothing stops that string higher: its finger takes each one's colour there
-    const bar=!now&&!T.on&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
+    const bar=((!now&&!T.on)||CHORDS)&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
     if(bar) for(let s2=0;s2<=bar.s;s2++){ if(P.some(o=>o!==bar&&o.g&&o.s===s2&&o.f>bar.f)) continue; bands.push({s:s2,col:valRGB(pcOf(s2,bar.f))}); }
     for(let i=0;i<4;i++){ const G=tg[i];
       if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));
@@ -2888,7 +2888,7 @@ const CHORDS=BOOK.chords?(()=>{
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); marks(sh); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
-    if(SONG){ if(!started){ loadPage(0); started=true; const R=SONG.ring||{pc:5,deg:'re',top:'re'}; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===R.pc&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:R.deg},top:R.top}); } songShow(); return; }
+    if(SONG){ if(!started){ loadPage(0); started=true; const R=SONG.ring||{pc:5,deg:'re',top:'re'}; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===R.pc&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:R.deg},top:R.top}); RING.goal=RING.m=RING.t=1; } songShow(); return; }
     if(!started){ loadPage(0); started=true;
       // the Ring opens on D as Re, Re at 12 o'clock; from then on the listener turns it
       let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
@@ -3119,7 +3119,8 @@ const CHORDS=BOOK.chords?(()=>{
   // the grip of bar b on the board: the dots, the open strings, the x's and o's, the name — and the hand to its learned pose
   function songBar(b){ if(b===barNow) return; barNow=b; const B=SONG.bars[b];
     P=B.pl.map(q=>Object.assign({},q)); { const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; }
-    HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); marks(B); songLabel(); }
+    HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); marks(B); songLabel();
+    INST=new Set(B.notes.map(n=>n.s*(FMAX+1)+n.f)); }   // the board lights only this grip's tones
   function songLabel(){ const B=SONG.bars[Math.max(0,barNow)];
     $('chordName').innerHTML=B.name.replace(/^([A-G][♯♭#b]?)(.*)$/,'$1<span class="q">$2</span>'); $('chordChart').textContent=B.chart;
     $('chordCt').textContent='bar '+(barNow+1)+' of '+SONG.bars.length; }
@@ -3206,7 +3207,7 @@ const CHORDS=BOOK.chords?(()=>{
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
-  return {show:(i,dir)=>show(i,dir), run, tab, step, nextSeg:SONG?nextSeg:null, bass:()=>{ if(SONG){ const B=SONG.bars[Math.max(0,barNow)]; return {string:B.notes[0].s,pitch:B.notes[0].f,fret:B.notes[0].f}; } const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
+  return {show:(i,dir)=>show(i,dir), run, tab, step, nextSeg:SONG?nextSeg:null, cells:SONG?()=>SONG.bars[Math.max(0,barNow)].notes.map(n=>n.s*(FMAX+1)+n.f):null, rootNow:SONG?()=>SONG.bars[Math.max(0,barNow)].root:null, bass:()=>{ if(SONG){ const B=SONG.bars[Math.max(0,barNow)]; return {string:B.notes[0].s,pitch:B.notes[0].f,fret:B.notes[0].f}; } const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
 })():null;
 
 applySample(0);

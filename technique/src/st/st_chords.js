@@ -23,7 +23,7 @@ const CHORDS=BOOK.chords?(()=>{
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); marks(sh); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
-    if(SONG){ if(!started){ loadPage(0); started=true; const R=SONG.ring||{pc:5,deg:'re',top:'re'}; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===R.pc&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:R.deg},top:R.top}); } songShow(); return; }
+    if(SONG){ if(!started){ loadPage(0); started=true; const R=SONG.ring||{pc:5,deg:'re',top:'re'}; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===R.pc&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:R.deg},top:R.top}); RING.goal=RING.m=RING.t=1; } songShow(); return; }
     if(!started){ loadPage(0); started=true;
       // the Ring opens on D as Re, Re at 12 o'clock; from then on the listener turns it
       let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
@@ -254,7 +254,8 @@ const CHORDS=BOOK.chords?(()=>{
   // the grip of bar b on the board: the dots, the open strings, the x's and o's, the name — and the hand to its learned pose
   function songBar(b){ if(b===barNow) return; barNow=b; const B=SONG.bars[b];
     P=B.pl.map(q=>Object.assign({},q)); { const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; }
-    HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); marks(B); songLabel(); }
+    HANDLAB.setOpen(B.open); HANDLAB.toGrip(B.chart); marks(B); songLabel();
+    INST=new Set(B.notes.map(n=>n.s*(FMAX+1)+n.f)); }   // the board lights only this grip's tones
   function songLabel(){ const B=SONG.bars[Math.max(0,barNow)];
     $('chordName').innerHTML=B.name.replace(/^([A-G][♯♭#b]?)(.*)$/,'$1<span class="q">$2</span>'); $('chordChart').textContent=B.chart;
     $('chordCt').textContent='bar '+(barNow+1)+' of '+SONG.bars.length; }
@@ -341,5 +342,5 @@ const CHORDS=BOOK.chords?(()=>{
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
-  return {show:(i,dir)=>show(i,dir), run, tab, step, nextSeg:SONG?nextSeg:null, bass:()=>{ if(SONG){ const B=SONG.bars[Math.max(0,barNow)]; return {string:B.notes[0].s,pitch:B.notes[0].f,fret:B.notes[0].f}; } const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
+  return {show:(i,dir)=>show(i,dir), run, tab, step, nextSeg:SONG?nextSeg:null, cells:SONG?()=>SONG.bars[Math.max(0,barNow)].notes.map(n=>n.s*(FMAX+1)+n.f):null, rootNow:SONG?()=>SONG.bars[Math.max(0,barNow)].root:null, bass:()=>{ if(SONG){ const B=SONG.bars[Math.max(0,barNow)]; return {string:B.notes[0].s,pitch:B.notes[0].f,fret:B.notes[0].f}; } const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
 })():null;
