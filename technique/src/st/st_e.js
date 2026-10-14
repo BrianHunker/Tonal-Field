@@ -4,12 +4,12 @@
 // then scrolls and follows the playhead while it plays
 const tabPanel=document.getElementById('tabPanel'), gridG=el('g',{},tab); let CW_MIN=23.5;   // a page may widen it (sixteenths need the room)
 function layoutTab(bars){
-  const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw;
+  const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw+(TB.tail||0);
   const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 0 '+W+' 226'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
   tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
   rows.forEach(r=>r.setAttribute('x2',TB.s1));
   while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
-  for(let b=1;b<bars;b++){ const x=TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  for(let b=1;b<bars;b++){ const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
   const re=TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
   DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},gridG));
   for(let b=0;b<4*bars;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG);

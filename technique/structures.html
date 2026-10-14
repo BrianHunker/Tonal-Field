@@ -936,12 +936,12 @@ DOTS.map(midY).forEach(y=>el('circle',{cx:rs+12,cy:y,r:2.4,class:'ink'},tab));
 // then scrolls and follows the playhead while it plays
 const tabPanel=document.getElementById('tabPanel'), gridG=el('g',{},tab); let CW_MIN=23.5;   // a page may widen it (sixteenths need the room)
 function layoutTab(bars){
-  const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw;
+  const E=8*bars; TB.cw=Math.max(CW_MIN,(886-TB.x0)/E); TB.s1=TB.x1=TB.x0+E*TB.cw+(TB.tail||0);
   const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 0 '+W+' 226'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
   tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
   rows.forEach(r=>r.setAttribute('x2',TB.s1));
   while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
-  for(let b=1;b<bars;b++){ const x=TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
+  for(let b=1;b<bars;b++){ const x=TB.barX?TB.barX(b):TB.x0+8*b*TB.cw; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},gridG); }
   const re=TB.s1; [[re,4],[re-6,1]].forEach(([x,w])=>el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':w},gridG));
   DOTS.map(midY).forEach(y=>el('circle',{cx:re-12,cy:y,r:2.4,class:'ink'},gridG));
   for(let b=0;b<4*bars;b++) el('line',{x1:xBeat(b)-5,y1:TB.floor+1.5,x2:xBeat(b)+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG);
@@ -971,7 +971,7 @@ function paintTabField(st,live,p,amp){
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
     const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
-  if(bw>0.003){ const c=valRGB(pcOf(st.s.plan[st.idx].string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
+  if(bw>0.003){ const e0=st.s.plan[st.idx], c=valRGB(e0.root!==undefined?e0.root:pcOf(e0.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
   else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }
@@ -1394,9 +1394,10 @@ function stepSyl(st,live,plan,fxV,sy,amp){
   if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
     if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
       SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
+      // a chord's strum: above the TAB, the chord's own function (its root's), once a stroke; on the string, each tone's
       if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
         const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
-        tt.textContent=name; tt.style.fill=t.style.fill;
+        const rn=e.root!==undefined?sylOf(e.root):name; tt.textContent=rn||''; tt.style.fill=e.root!==undefined?rgbS(toneColour(e.root)):t.style.fill; if(e.root!==undefined&&!e.head) tt.textContent='';
         SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
   else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
   for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;

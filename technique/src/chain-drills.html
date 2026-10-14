@@ -773,7 +773,7 @@ function paintTabField(st,live,p,amp){
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
     const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
-  if(bw>0.003){ const c=valRGB(pcOf(st.s.plan[st.idx].string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
+  if(bw>0.003){ const e0=st.s.plan[st.idx], c=valRGB(e0.root!==undefined?e0.root:pcOf(e0.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
   else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }

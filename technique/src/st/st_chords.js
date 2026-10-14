@@ -23,7 +23,7 @@ const CHORDS=BOOK.chords?(()=>{
     HANDLAB.setOpen(sh.notes.filter(n=>n.f===0).map(n=>n.s)); HANDLAB.resettle(); figure(); marks(sh); }
   // the next shape the hand can hold, from i, stepping by dir (wrapping round once)
   function show(i,dir){
-    if(SONG){ if(!started){ loadPage(0); started=true; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:'re'}); } songShow(); return; }
+    if(SONG){ if(!started){ loadPage(0); started=true; const R=SONG.ring||{pc:5,deg:'re',top:'re'}; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===R.pc&&f<f0){ s0=s; f0=f; } pagePhi({anchor:{s:s0,f:f0,deg:R.deg},top:R.top}); } songShow(); return; }
     if(!started){ loadPage(0); started=true;
       // the Ring opens on D as Re, Re at 12 o'clock; from then on the listener turns it
       let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
@@ -154,15 +154,18 @@ const CHORDS=BOOK.chords?(()=>{
     upright(ROT.on); layoutRot(); marks(xoSh); if(z) SURF.open(fb,'fb'); });
   addEventListener('resize',()=>{ if(ROT.on&&!sizeTo) layoutRot(); });
   // A SONG (a page's own exercise, BOOK.song): a progression of grips, one a bar, strummed in sixteenths to one pattern.
-  // The pattern is the bar's sixteen strokes, D u d u …: D or d a downstroke, U or u an upstroke, _ the hand passing
-  // the strings without touching them (capitals accented). A downstroke takes every string of the grip; an upstroke the
-  // grip's four highest. The hand changes grip a sixteenth ahead of the bar; strings the new grip leaves out are stilled.
+  // The pattern is the bar's sixteen strokes, D u d u …: d a downstroke, u an upstroke, _ the hand passing the strings
+  // without touching them. Where a stroke falls says what it catches and how hard: the bar's downbeat, the heaviest,
+  // only the grip's two lowest tones (its bass); every other downstroke, at a middle weight, the grip's middle two or
+  // three strings; an upstroke, lightest, its top two — a capital U lifting an upstroke to the middle weight. The hand
+  // changes grip a sixteenth ahead of the bar; strings the new grip leaves out are stilled.
   // Each grip is formed once, ahead, so the hand goes straight to it.
   const SONG=BOOK.song?(()=>{ const G=BOOK.song, NS=NSTR;
     const bars=G.bars.map(([name,chart])=>{ const fi=COMMON[chart], pl=HANDLAB.grip(chart,fi), notes=[];
       [...chart].forEach((c,i)=>{ if(c!=='x'&&c!=='X') notes.push({s:NS-1-i,f:+c}); });
-      notes.sort((a,b)=>b.s-a.s); return {name,chart,pl,notes,open:notes.filter(n=>n.f===0).map(n=>n.s)}; });
-    return {bars,pattern:G.pattern,bpm:G.bpm}; })():null;
+      notes.sort((a,b)=>b.s-a.s); const root=({C:3,D:5,E:7,F:8,G:10,A:0,B:2}[name[0]]+(/^.[♯#]/.test(name)?1:/^.[♭b]/.test(name)?-1:0)+12)%12;
+      return {name,chart,pl,notes,root,open:notes.filter(n=>n.f===0).map(n=>n.s)}; });
+    return {bars,pattern:G.pattern,bpm:G.bpm,ring:G.ring}; })():null;
   let barNow=-1;
   function songDrill(){
     const plan=[], fig=[], strums=[], hands=[], chords=[], N=SONG.bars.length, d=STRUM*drill.bpm/60;
@@ -171,9 +174,10 @@ const CHORDS=BOOK.chords?(()=>{
       const prev=SONG.bars[(b+N-1)%N], mute=prev.notes.filter(n=>!B.notes.some(m=>m.s===n.s)).map(n=>n.s);
       let firstOfBar=true;
       [...SONG.pattern].forEach((c,i)=>{ if(c==='_') return; const up=c==='u'||c==='U', acc=c==='D'||c==='U';
-        const strs=up?B.notes.slice(-Math.min(4,B.notes.length)).reverse():B.notes, vel=acc?1:(up?0.55:0.72), ix=[];
-        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
-        strums.push({b,i,up,acc,ix}); firstOfBar=false; }); });
+        const NN=B.notes.length, cn=NN>=5?3:2, c0=Math.round((NN-cn)/2), bass=firstOfBar&&!up;
+        const strs=up?B.notes.slice(-2).reverse():(bass?B.notes.slice(0,2):B.notes.slice(c0,c0+cn)), vel=bass?1:(up?(c==='U'?0.72:0.5):0.72), ix=[];
+        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,root:B.root,head:k===0,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
+        strums.push({b,i,up,acc:bass||c==='U',ix}); firstOfBar=false; }); });
     fig.forEach((e,k)=>{ e.d=k<fig.length-1?fig[k+1].s-e.s:4*N-e.s+fig[0].s; });
     const D={chord:true,song:true,walk:true,art:'song',dir:'up',means:'pick',ham:false,pull:false,plan,bars:N,strums,
       frames:[{string:plan[0].string,tones:[],pl:SONG.bars[0].pl,hand:hands[0]}],
@@ -211,14 +215,14 @@ const CHORDS=BOOK.chords?(()=>{
     else if(T.on) return;
     if(b!==barNow) songBar(b); }
   let progEl=null;
-  if(SONG){ STROKES=4; CW_MIN=64;
+  if(SONG){ STROKES=4; CW_MIN=64; TB.tail=CW_MIN/2; TB.barX=b=>xBeat(4*b-0.125);
     if(SONG.bpm){ drill.bpm=SONG.bpm; const r=$('bpm'), v=$('bpmv'); if(r) r.value=SONG.bpm; if(v) v.textContent=SONG.bpm; }
     ['chordRoots','chordQuals'].forEach(id=>{ panel.querySelector('#'+id).style.display='none'; });
     artEl.style.display=dirEl.style.display='none'; panel.querySelector('.gripRow .gripGrp').textContent='';
     progEl=document.createElement('div'); progEl.className='gripRow songProg';
     SONG.bars.forEach((B,i)=>{ if(i&&i%4===0) progEl.appendChild(document.createElement('br')); const e=document.createElement('span'); e.textContent=B.name; progEl.appendChild(e); });
     panel.querySelector('#chordRoots').before(progEl);
-    const pat=document.createElement('div'); pat.className='songPat'; pat.textContent=SONG.pattern.replace(/(.{4})(?=.)/g,'$1 ');
+    const pat=document.createElement('div'); pat.className='songPat'; pat.textContent=SONG.pattern.replace(/U/g,'u').replace(/(.{4})(?=.)/g,'$1 ');
     progEl.after(pat);
     $('prev').parentElement.style.display='none';
     // each grip formed once, ahead, a frame apart so the page stays awake

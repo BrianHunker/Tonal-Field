@@ -173,9 +173,10 @@ function stepSyl(st,live,plan,fxV,sy,amp){
   if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
     if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
       SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
+      // a chord's strum: above the TAB, the chord's own function (its root's), once a stroke; on the string, each tone's
       if(name){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));
         const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
-        tt.textContent=name; tt.style.fill=t.style.fill;
+        const rn=e.root!==undefined?sylOf(e.root):name; tt.textContent=rn||''; tt.style.fill=e.root!==undefined?rgbS(toneColour(e.root)):t.style.fill; if(e.root!==undefined&&!e.head) tt.textContent='';
         SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
   else{ sylKey=null; SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } }); }
   for(let i=SYLS.length-1;i>=0;i--){ const o=SYLS[i], age=now-o.t0;
