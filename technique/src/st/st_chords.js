@@ -190,7 +190,32 @@ const CHORDS=BOOK.chords?(()=>{
       const a=D.plan[S.ix[0]].string, z=D.plan[S.ix[S.ix.length-1]].string, ya=TB.rowY[a], yz=TB.rowY[z], ax=x+13, dir=yz<ya?-1:1;
       if(S.ix.length>1){ el('line',{x1:ax,y1:ya,x2:ax,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(ax,yz,dir); }
       strokeMark(x,S.up,below,below+20,S.acc); });
-    for(let b=0;b<bars;b++){ const t=el('text',{x:TB.x0+8*b*TB.cw+6,y:223,class:'chordLbl'},noteG); t.textContent=SONG.bars[b].name; } }
+    // each bar: its name over the staff (the letter, then its root's function), and behind the staff its mode's light,
+    // strongest at the downbeat and fading to nothing by the bar's end
+    while(bgG.firstChild) bgG.firstChild.remove(); barArt.length=0;
+    const yT=TB.rowY[0]-34, yB=TB.rowY[NSTR-1]+8;
+    for(let b=0;b<bars;b++){ const B=SONG.bars[b], x0=b?TB.barX(b):TB.x0, x1=b<bars-1?TB.barX(b+1):TB.s1, id=gid+'bar'+b;
+      const g=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), s0=el('stop',{offset:0},g), s1=el('stop',{offset:1,'stop-opacity':0},g);
+      const r=el('rect',{x:x0,y:yT,width:x1-x0,height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG);
+      const t=el('text',{x:x0+8,y:((TB.floor+TB.rowY[0])/2+5).toFixed(1),class:'barName'},noteG), L=el('tspan',{class:'barLetter'},t), S=el('tspan',{class:'barSyl',dx:6},t);
+      L.textContent=B.name;
+      barArt.push({B,s0,r,L,S}); }
+    paintBars(-1,null); }
+  // the bars' light, each frame: the bar playing lit full, the others (past and coming) dimmer; the names white until
+  // their bar's downbeat, then in their function's colour; a soft vertical light rides the playhead
+  const bgG=el('g',{'pointer-events':'none'},null), barArt=[], gid='sg'+Math.random().toString(36).slice(2,6);
+  const tabSvg=document.getElementById('tab'); tabSvg.insertBefore(bgG,tabSvg.firstChild);
+  const spotF=el('filter',{id:gid+'spot',x:'-200%',y:'-30%',width:'500%',height:'160%'},bgG.parentNode);
+  el('feGaussianBlur',{stdDeviation:'7 10'},spotF);
+  const spot=el('rect',{x:0,y:TB.rowY[0]-30,width:10,height:TB.rowY[NSTR-1]-TB.rowY[0]+48,rx:5,filter:'url(#'+gid+'spot)',opacity:0,'pointer-events':'none'},null);
+  tabSvg.insertBefore(spot,bgG.nextSibling);
+  function paintBars(cur,hx){ const L=FIELD.lit, ink=inkColour();
+    barArt.forEach((a,b)=>{ const c=valRGB(a.B.root), on=b===cur;
+      a.s0.setAttribute('stop-color',rgbS(c)); a.r.setAttribute('opacity',(L*(on?0.42:0.13)).toFixed(3));
+      const col=on&&L>0.001?rgbS(mixRGB(ink,c,L)):rgbS(ink); a.L.style.fill=col; a.S.style.fill=col;
+      const syl=sylOf(a.B.root); a.S.textContent=L>0.5&&syl?syl:''; });
+    if(hx===null||cur<0){ spot.setAttribute('opacity',0); return; }
+    const c=L>0.001?mixRGB(ink,valRGB(barArt[cur].B.root),L):ink; spot.setAttribute('fill',rgbS(c)); spot.setAttribute('x',(hx-5).toFixed(1)); spot.setAttribute('opacity',(0.55).toFixed(2)); }
   // the grip of bar b on the board: the dots, the open strings, the x's and o's, the name — and the hand to its learned pose
   function songBar(b){ if(b===barNow) return; barNow=b; const B=SONG.bars[b];
     P=B.pl.map(q=>Object.assign({},q)); { const H=handFor(P); HAND.f=H.f; HAND.thumb=H.thumb; }
@@ -211,6 +236,7 @@ const CHORDS=BOOK.chords?(()=>{
   function songShow(){ const C=songDrill(); useFig(C); DRILL=C.D; layoutTab(SONG.bars.length); barNow=-1; songBar(0); refresh(); }
   // which bar is on the board: playing, the one the hand is heading for; stopped, the first
   function step(st,live){ if(!SONG) return; let b=0;
+    if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.plan[st.idx].frame:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:''; }
     if(T.on&&ctx&&st&&st.s&&st.s.chords){ const sa=stateAt(ctx.currentTime+st.s.lead); b=(sa.s===st.s&&sa.idx>=0)?st.s.plan[sa.idx].frame:(sa.count?0:barNow); }
     else if(T.on) return;
     if(b!==barNow) songBar(b); }
@@ -231,7 +257,7 @@ const CHORDS=BOOK.chords?(()=>{
       const B=SONG.bars.find(x=>x.chart===charts[k]); HANDLAB.learn(B.chart,B.pl,B.open); setTimeout(()=>learnNext(k+1),30); })(0); }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songProg span{ display:inline-block; min-width:3.2em; padding:4px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; font-weight:600; text-align:center } .songProg span.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .songPat{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.14em; margin:2px 0 10px; color:var(--ink) } #tab .chordLbl{ font-size:13px; font-weight:700; fill:var(--ink) }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songProg span{ display:inline-block; min-width:3.2em; padding:4px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; font-weight:600; text-align:center } .songProg span.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .songPat{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.14em; margin:2px 0 10px; color:var(--ink) } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
