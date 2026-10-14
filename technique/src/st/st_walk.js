@@ -637,7 +637,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // CHORD GRIP: the common open and barre chords; a name poses the hand to grip it. Each is written as a chord chart
   // is, low E to high e — the frets (x unplayed, 0 open) and the fingers; a finger on more than one string is a barre,
   // lying along its fret down to the lowest string it holds
-  const GRIPS=[['Open',[['C','x32010','x32010'],['A','x02220','x01230'],['G','320003','210003'],['E','022100','023100'],['D','xx0232','xx0132'],
+  const GRIPS=[['Open',[['C','x32010','x32010'],['A','x02220','x01230'],['G','320033','210034'],['E','022100','023100'],['D','xx0232','xx0132'],
       ['Am','x02210','x02310'],['Em','022000','023000'],['Dm','xx0231','xx0231'],['E7','020100','020100'],['A7','x02020','x01020'],['D7','xx0212','xx0213'],
       ['G7','320001','320001'],['C7','x32310','x32410'],['B7','x21202','x21304'],['Cmaj7','x32000','x32000'],['Fmaj7','xx3210','xx3210']]],
     ['Barre',[['F','133211','134211'],['Fm','133111','134111'],['F♯m','244222','134111'],['G','355433','134211'],['A','577655','134211'],
@@ -666,6 +666,6 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw, marks, reach, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
+  return {draw, marks, reach, grips:GRIPS, grip, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }

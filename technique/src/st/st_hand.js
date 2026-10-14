@@ -36,6 +36,20 @@ function makeHand(G){
   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const add=(a,b,s)=>[a[0]+b[0]*s,a[1]+b[1]*s,a[2]+b[2]*s];
   const U0=nrm([0,0.22,1]), P0=nrm(cross(cross(U0,[0,1,0]),U0)), R0=cross(U0,P0);
+  // SLANT: the hand at rest is the forearm's extension, and the forearm swings from the elbow — the upper arm turning,
+  // the elbow held at a right angle — so the hand's line slants against the strings as a function of where along the neck
+  // it is: square to them in seventh position (the open string's fifth, 2:3), turned toward the nut below it, toward the
+  // body above. The hand's place along the neck is the elbow's swing: x7 + ARM·sin(slant), ARM the reach from elbow to
+  // the hand's middle, set so that open position (frets 1–4) slants 45°. (Twelfth position then comes out near 25°.)
+  const SCL=G.scale||648, fx=n=>SCL*(1-Math.pow(2,-n/12)), atF=n=>fx(n)-0.34*(fx(n)-fx(n-1)), posX=p=>(atF(p)+atF(p+1)+atF(p+2)+atF(p+3))/4;
+  const X7=posX(7), ARM=(X7-posX(1))/Math.sin(Math.PI/4);
+  const slantAt=x=>Math.asin(Math.max(-0.97,Math.min(0.97,(x-X7)/ARM)));          // radians; − toward the nut
+  // the palm's resting turn there: turned about the board's normal by the slant (fingers leaning toward the nut below
+  // seventh position)
+  const rotZ=(v,a)=>[v[0]*Math.cos(a)-v[1]*Math.sin(a), v[0]*Math.sin(a)+v[1]*Math.cos(a), v[2]];
+  let REST={yaw:0,u:U0,p:P0};
+  function restFor(tg){ const xs=tg.f.map(g=>g.barre?g.barre.w:g.p[0]), x=xs.reduce((a,b)=>a+b,0)/xs.length, yaw=YAW*slantAt(x);
+    REST={yaw,u:rotZ(U0,yaw),p:rotZ(P0,yaw)}; }
   function rot(w,v){ const th=Math.hypot(w[0],w[1],w[2]); if(th<1e-12) return v.slice(); const k=[w[0]/th,w[1]/th,w[2]/th], c=Math.cos(th), s=Math.sin(th), kv=cross(k,v), kd=dot(k,v);
     return [v[0]*c+kv[0]*s+k[0]*kd*(1-c), v[1]*c+kv[1]*s+k[1]*kd*(1-c), v[2]*c+kv[2]*s+k[2]*kd*(1-c)]; }
   // a fretting hand's ease: the knuckle a little bent, the middle joint well bent, the end joint held firmer
@@ -100,7 +114,7 @@ function makeHand(G){
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
-  let TG=null, RINGW=1, PULL=0.25;
+  let TG=null, RINGW=1, PULL=0.25, YAW=+1, TURNW=10;
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)
@@ -152,7 +166,7 @@ function makeHand(G){
     for(let k=0;k<4;k++) pen(q[9+4*k]-(0.9*q[8+4*k]+12*D2R),12);   // the end joint does not bend far past the middle one
     // ease: every joint near its middle, the palm near its resting turn
     for(let i=6;i<NQ;i++) put((q[i]-NEUT[i])*3);
-    const u=S.axes.u, p=S.axes.p; put((u[0]-U0[0])*4); put((u[1]-U0[1])*4); put((u[2]-U0[2])*4); put((p[0]-P0[0])*4); put((p[1]-P0[1])*4); put((p[2]-P0[2])*4);
+    const u=S.axes.u, p=S.axes.p; put((u[0]-REST.u[0])*TURNW); put((u[1]-REST.u[1])*TURNW); put((u[2]-REST.u[2])*TURNW); put((p[0]-REST.p[0])*TURNW); put((p[1]-REST.p[1])*TURNW); put((p[2]-REST.p[2])*TURNW);
     return n;
   }
   const clamp=q=>{ for(let i=0;i<NQ;i++) q[i]=Math.max(LO[i],Math.min(HI[i],q[i])); return q; };
@@ -160,7 +174,7 @@ function makeHand(G){
   function cost(qq){ const n=resid(qq,buf2); let s=0; for(let i=0;i<n;i++) s+=buf2[i]*buf2[i]; return s; }
   function initQ(){
     const xs=TG.f.map(g=>g.barre?g.barre.w:g.p[0]), x0=(xs[0]+xs[1]+xs[2]+xs[3])/4;
-    const z=new Array(NQ).fill(0); z[0]=x0; z[1]=G.yFar(x0)-17; z[2]=-9; for(let i=6;i<NQ;i++) z[i]=NEUT[i]; return z; }
+    const z=new Array(NQ).fill(0); z[0]=x0; z[1]=G.yFar(x0)-17; z[2]=-9; z[5]=REST.yaw; for(let i=6;i<NQ;i++) z[i]=NEUT[i]; return z; }
   // Levenberg–Marquardt from where the hand was
   // one finger straight to its place, given the palm: its spread is the place's direction across the palm, its middle
   // joint's bend is fixed by how far the place is from the knuckle (the end joint following), its knuckle's bend aims it
@@ -202,26 +216,29 @@ function makeHand(G){
       if(!improved||c0<1e-6||stall>=3) break; }   // settled: it has stopped getting better
     if(pre) pre(q);
     return c0; }
-  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25], PALM5=[0,1,2,3,4,22,23,24,25], TURN=-0.75, FING=[...Array(16).keys()].map(i=>6+i);
+  const ALL=[...Array(NQ).keys()], PALM=[0,1,2,3,4,5,22,23,24,25], PALMR=[0,1,2,3,4,22,23,24,25],  FING=[...Array(16).keys()].map(i=>6+i);
   // from scratch: the palm (and thumb) found with every finger aimed straight at its place, from a few starting hands
   // (along the neck, turned toward the nut or the body); the best carried on, then everything settled together
   function solveFresh(targets,iters){
-    TG=targets; RINGW=0; const base=initQ(), starts=[];
-    for(const dx of [0,-30,-15,15,30]) for(const tw of [0,-0.3,0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; const c=lm(PALM,18,aimAll); starts.push({c,q:q.slice()}); }
-    // and the hand turned: its fingers slanting toward the body as they reach across, the index coming at its fret from
-    // behind its neighbours (the turn held while the palm finds its place, then free)
-    const turned=[];
-    for(const dx of [0,-15,15]) for(const tw of [0,-0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; q[5]=TURN; const c=lm(PALM5,18,aimAll); turned.push({c,q:q.slice(),turn:true}); }
-    // the three most promising carried all the way, and the most promising turned hand: the notes found, then the ringing
-    // strings kept clear without letting a note slip; the hand that holds its notes best (then the easiest) is the one
-    starts.sort((a,b)=>a.c-b.c); turned.sort((a,b)=>a.c-b.c); let best=null, bs=null;
-    for(const st of starts.slice(0,3).concat(turned.slice(0,1))){ q=st.q; RINGW=0; lm(st.turn?PALM5:PALM,30,aimAll); lm(ALL,iters||40); RINGW=1; lm(ALL,40,null,keepNotes(q)); const c=lm(FING,60,null,keepNotes(q));   // the palm settled, each finger's own joints settle last
+    TG=targets; restFor(TG); const SL=REST, SQ={yaw:0,u:U0,p:P0}; RINGW=0; const base=initQ();
+    // the hand square to the neck, from a few starting hands (along the neck, turned toward the nut or the body)…
+    REST=SQ; const square=[];
+    for(const dx of [0,-30,-15,15,30]) for(const tw of [0,-0.3,0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; q[5]=0; const c=lm(PALM,18,aimAll); square.push({c,q:q.slice(),free:true}); }
+    // …and along the forearm's slant, the turn held while the palm finds its place
+    REST=SL; const slant=[];
+    for(const dx of [0,-15,15]) for(const tw of [0,-0.3]){ q=base.slice(); q[0]+=dx; q[4]=tw; q[5]=SL.yaw; const c=lm(PALMR,18,aimAll); slant.push({c,q:q.slice()}); }
+    // the three most promising square hands and the most promising slanted one carried all the way: the notes found, then
+    // the ringing strings kept clear without letting a note slip, each finger's own joints settling last. A square hand is
+    // then let go to the arm's slant as far as its notes allow. The hand that holds its notes best (then the easiest) is the one
+    square.sort((a,b)=>a.c-b.c); slant.sort((a,b)=>a.c-b.c); let best=null, bs=null;
+    for(const st of square.slice(0,3).concat(slant.slice(0,1))){ q=st.q; REST=st.free?SQ:SL; RINGW=0; lm(st.free?PALM:PALMR,30,aimAll); lm(ALL,iters||40); RINGW=1; lm(ALL,40,null,keepNotes(q)); lm(FING,60,null,keepNotes(q));
+      REST=SL; if(st.free) lm(ALL,40,null,keepNotes(q)); const c=cost(q);
       const sc=[Math.max(0,noteErr(q)-1.5),c]; if(!bs||sc[0]<bs[0]-1e-9||(Math.abs(sc[0]-bs[0])<1e-9&&sc[1]<bs[1])){ bs=sc; best=q.slice(); } }
-    q=best; RINGW=1; return bs[1]; }
+    q=best; RINGW=1; REST=SL; return bs[1]; }
   // from where the hand was
   // a quick look from where the hand already is (the notes only); the full search only if that falls short
-  function quick(targets){ TG=targets; RINGW=0; if(!q) return solveFresh(targets); lm(ALL,40); if(noteErr(q)>4) solveFresh(targets); RINGW=1; return noteErr(q); }
-  function solve(targets,iters){ TG=targets; if(!q) return solveFresh(targets); return lm(ALL,iters,null,keepNotes(q)); }
+  function quick(targets){ TG=targets; restFor(TG); RINGW=0; if(!q) return solveFresh(targets); lm(ALL,40); if(noteErr(q)>4) solveFresh(targets); RINGW=1; return noteErr(q); }
+  function solve(targets,iters){ TG=targets; restFor(TG); if(!q) return solveFresh(targets); return lm(ALL,iters,null,keepNotes(q)); }
   function gauss(M,v,N){
     for(let c=0;c<N;c++){ let piv=c; for(let r=c+1;r<N;r++) if(Math.abs(M[r*N+c])>Math.abs(M[piv*N+c])) piv=r;
       if(piv!==c){ for(let k=0;k<N;k++){ const t=M[c*N+k]; M[c*N+k]=M[piv*N+k]; M[piv*N+k]=t; } const t=v[c]; v[c]=v[piv]; v[piv]=t; }
@@ -242,5 +259,5 @@ function makeHand(G){
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
         for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }

@@ -31,7 +31,12 @@ const CHORDS=BOOK.chords?(()=>{
     const N=shapes.length; dir=dir||1;
     for(let k=0;k<N;k++){ const j=(((i+dir*k)%N)+N)%N; if(holds(shapes[j])){ idx=SI=j; grip(shapes[j]); label(); return; } }
     P=[]; refresh(); label(); marks(null); }
-  function choose(){ shapes=chordShapes(root,QUAL[qi][2],pcs,{open}); idx=0; show(0,1); }
+  // the common grips (the Hand Lab's chord grips: the open chords as they are taught, the rock G among them) lead at their
+  // place on the neck, fingered as charted
+  const COMMON={}; HANDLAB.grips.forEach(([,list])=>list.forEach(([,fr,fi])=>{ COMMON[fr]=fi; }));
+  function find(){ const out=chordShapes(root,QUAL[qi][2],pcs,{open}).map(sh=>{ const fi=COMMON[sh.chart]; if(fi){ sh.common=true; sh.pl=HANDLAB.grip(sh.chart,fi); } return sh; });
+    return out.sort((a,b)=>a.pos-b.pos||(b.common?1:0)-(a.common?1:0)); }
+  function choose(){ shapes=find(); idx=0; show(0,1); }
   // PLAY: the shape as a two-bar figure, looping at the Tempo with the Click until Stop. Strum: a whole-note strum each bar,
   // the pick sweeping the strings in one stroke — a downstroke when the pitches rise, an upstroke when they fall. Arpeggio:
   // the shape's notes one a beat, every one a downstroke whatever the pitch's direction, each left to ring. Order: Up (low to
@@ -146,7 +151,7 @@ const CHORDS=BOOK.chords?(()=>{
   ['means','pageCt','hold'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
   const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) }';
   document.head.appendChild(css);
-  markPlay(); mark(); shapes=chordShapes(root,QUAL[qi][2],pcs,{open});
+  markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
   return {show:(i,dir)=>show(i,dir), run, tab, bass:()=>{ const sh=shapes[idx]; return sh&&sh.ok?{string:sh.notes[0].s,pitch:sh.notes[0].f,fret:sh.notes[0].f}:null; }};
 })():null;
