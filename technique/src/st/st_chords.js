@@ -119,11 +119,11 @@ const CHORDS=BOOK.chords?(()=>{
     $('chordCt').textContent=sh&&sh.ok?'shape '+(idx+1)+' of '+shapes.length:'no shape the hand can hold'; }
   // OPEN AND UNPLAYED STRINGS, as chord charts mark them: o over a string that rings open, x over one not played — just
   // before the nut (with the board turned, above it; up the neck, at the head of the view)
-  const xoG=el('g',{class:'xo'},fb); let xoSh=null;
-  function marks(sh){ xoSh=sh; while(xoG.firstChild) xoG.firstChild.remove(); if(!sh) return;
+  const xoG=el('g',{class:'xo'},fb); let xoSh=null, xoOpen=[];
+  function marks(sh){ xoSh=sh; xoOpen=[]; while(xoG.firstChild) xoG.firstChild.remove(); if(!sh) return;
     const x=ROT.on?ROT.vb.x+15:22;
     for(let st=0;st<NSTR;st++){ const n=sh.notes.find(q=>q.s===st), y=FB.strY[st];
-      if(n&&n.f===0) el('circle',{cx:x,cy:y,r:5.2,fill:'none',class:'inkS','stroke-width':1.7},xoG);
+      if(n&&n.f===0) xoOpen.push({e:el('circle',{cx:x,cy:y,r:5.2,fill:'none',class:'inkS','stroke-width':1.7},xoG),pc:pcOf(st,0)});
       else if(!n){ const r=4.6; el('path',{d:'M'+(x-r)+' '+(y-r)+'L'+(x+r)+' '+(y+r)+'M'+(x-r)+' '+(y+r)+'L'+(x+r)+' '+(y-r),fill:'none',class:'inkS','stroke-width':1.7},xoG); } } }
   // TURNED: the board a quarter turn clockwise, as chord diagrams are drawn — the nut at the top, the low E on the left,
   // the high e on the right — and closed in on the hand: five frets from the shape's lowest (from the nut when it lies
@@ -235,7 +235,9 @@ const CHORDS=BOOK.chords?(()=>{
       playBtn.textContent='Stop'; playBtn.classList.add('on'); }); }
   function songShow(){ const C=songDrill(); useFig(C); DRILL=C.D; layoutTab(SONG.bars.length); barNow=-1; songBar(0); refresh(); }
   // which bar is on the board: playing, the one the hand is heading for; stopped, the first
-  function step(st,live){ if(!SONG) return; let b=0;
+  // an open string the chord sounds: its o in the open tone's colour (g(x) on)
+  function tintO(){ const L=FIELD.lit, ink=inkColour(); xoOpen.forEach(o=>{ o.e.style.stroke=L>0.001?rgbS(mixRGB(ink,valRGB(o.pc),L)):''; }); }
+  function step(st,live){ tintO(); if(!SONG) return; let b=0;
     if(barArt.length){ const playing=T.on&&st&&live&&st.s&&st.s.chords; paintBars(playing?st.s.plan[st.idx].frame:-1,playing?xBeat(st.ph):null); head.style.opacity=SONG?0:'';
       if(playing){ const e=st.s.plan[st.idx]; lightSlash(e.six,FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(e.root),FIELD.lit)):null); } else lightSlash(-1,null); }
     if(T.on&&ctx&&st&&st.s&&st.s.chords){ const sa=stateAt(ctx.currentTime+st.s.lead); b=(sa.s===st.s&&sa.idx>=0)?st.s.plan[sa.idx].frame:(sa.count?0:barNow); }
