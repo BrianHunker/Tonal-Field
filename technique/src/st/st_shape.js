@@ -19,6 +19,7 @@ function valSetup(){
   for(let t=0;t<120;t++){ const a=t*Math.PI/60, big=t%10===0, r1=VAL.R0-(big?2.6:1.3), r2=VAL.R0+(big?2.6:1.3);
     el('line',{x1:RG.c+r1*Math.sin(a),y1:RG.c-r1*Math.cos(a),x2:RG.c+r2*Math.sin(a),y2:RG.c-r2*Math.cos(a),class:'inkS','stroke-width':big?0.9:0.6,opacity:big?0.42:0.18},tk); }
   valLines.forEach(L=>L.setAttribute('stroke-width',1.6)); }
+function ringRebind(){ if(!valDefs) return; valFills.forEach((f,i)=>{ f.removeAttribute('fill'); f.setAttribute('fill','url(#vg'+i+')'); }); valKey=''; }
 function shapeField(){
   const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic+'|'+(FLAT_OFF?FIELD.lit.toFixed(3):''); if(key===valKey) return; valKey=key;
   valSetup();

@@ -797,6 +797,7 @@ function valSetup(){
   for(let t=0;t<120;t++){ const a=t*Math.PI/60, big=t%10===0, r1=VAL.R0-(big?2.6:1.3), r2=VAL.R0+(big?2.6:1.3);
     el('line',{x1:RG.c+r1*Math.sin(a),y1:RG.c-r1*Math.cos(a),x2:RG.c+r2*Math.sin(a),y2:RG.c-r2*Math.cos(a),class:'inkS','stroke-width':big?0.9:0.6,opacity:big?0.42:0.18},tk); }
   valLines.forEach(L=>L.setAttribute('stroke-width',1.6)); }
+function ringRebind(){ if(!valDefs) return; valFills.forEach((f,i)=>{ f.removeAttribute('fill'); f.setAttribute('fill','url(#vg'+i+')'); }); valKey=''; }
 function shapeField(){
   const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic+'|'+(FLAT_OFF?FIELD.lit.toFixed(3):''); if(key===valKey) return; valKey=key;
   valSetup();
@@ -1543,7 +1544,9 @@ requestAnimationFrame(frame);
    and scrolls left and right, and when the hand moves to a new place it follows it. The TAB is drawn large the same way and
    follows the playhead; the Ring fits the screen. The page's Play, Hold and Prev | Next come along in a bar at the foot of
    the zoomed view (copies that press the page's own, kept in step with them); a page may add its own (a button with
-   data-zoom). On Chords, with the board turned a quarter, the turned board is what fills the screen. */
+   data-zoom). On Chords, with the board turned a quarter, the turned board is what fills the screen. A song's strumming
+   pattern and its circle zoom the same way (attached by the Chords page as it makes them): the notation as wide as the
+   screen, the circle to fit it. */
 const SURF=(()=>{
   const layer=document.createElement('div'); layer.className='zoomLayer'; layer.hidden=true; document.body.appendChild(layer);
   const css=document.createElement('style'); css.textContent='.zoomLayer{ position:fixed; inset:0; z-index:60; background:var(--bg); overflow-x:auto; overflow-y:hidden; display:flex; align-items:center; -webkit-overflow-scrolling:touch; overscroll-behavior:contain } .zoomLayer.fit{ justify-content:center; overflow:hidden } .zoomLayer > *{ flex:0 0 auto; margin:0 } .zoomLayer > .panel{ border:0 } body.zoomed{ overflow:hidden } .zoomBar{ position:fixed; left:50%; bottom:max(12px,env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:61; display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:999px; background:var(--bg); border:1px solid var(--faint); box-shadow:0 2px 14px rgba(0,0,0,.18); white-space:nowrap }';
@@ -1568,7 +1571,9 @@ const SURF=(()=>{
     if(!cur) return; const W=innerWidth, H=innerHeight-BAR;
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
     if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=Math.max(W,h*v.w/v.h); cur.style.width=w+'px'; cur.style.height=(w*v.h/v.w)+'px'; cur.style.maxWidth='none'; }
-    else if(kind==='ring'){ const s=Math.min(W,H)*0.94; cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; }
+    else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
+    else if(kind==='pat'){ const svg=cur.querySelector('svg'), v=vbOf(svg), w=Math.min(W*0.94,H*0.62*v.w/v.h);
+      cur.style.width=w+'px'; cur.style.maxWidth='none'; svg.style.width=w+'px'; svg.style.height=(w*v.h/v.w)+'px'; svg.style.maxWidth='none'; }
     else { const svg=cur.querySelector('svg'), v=vbOf(svg); let h=H*0.7, w=h*v.w/v.h; if(w<W*0.96){ w=W*0.96; h=w*v.h/v.w; }
       cur.style.width=w+'px'; cur.style.maxWidth='none'; cur.style.overflow='visible'; svg.style.width=w+'px'; svg.style.height=h+'px'; svg.style.maxWidth='none'; } }
   // the hand's place on the board (board units): its fingers' mean
@@ -1580,15 +1585,19 @@ const SURF=(()=>{
   function open(el,k){
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
-    const svg=k==='tab'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
-    layer.classList.toggle('fit',k==='ring'||k==='rot'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
-    size(); follow(false); }
+    const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
+    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
+    size(); follow(false); if(k==='ring') rebind(); }
+  // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
+  // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
+  function rebind(){ if(typeof ringRebind==='function') requestAnimationFrame(()=>ringRebind()); }
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
-    if(kind==='tab'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } if(typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2); }
+    if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
+    if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
-    if(k==='rot') FBROT.fit(); }
+    if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
   function toggle(el,k){ if(cur) close(); else open(el,k); }
   // a double tap: two taps close together in time and place (a mouse double-click counts the same)
   function onDouble(el,k){ let t0=0, x0=0, y0=0;
@@ -1613,7 +1622,7 @@ const SURF=(()=>{
     requestAnimationFrame(watch); })();
   // the TAB's content moved under the view (a song's repeat, landing in its first bar): the view moves with it
   function shiftTab(dx){ if(kind!=='tab') return; const svg=cur.querySelector('svg'), v=vbOf(svg), R=svg.getBoundingClientRect(); layer.scrollLeft+=dx/v.w*R.width; }
-  return {close, open, shiftTab, get kind(){ return kind; }};
+  return {close, open, shiftTab, attach:onDouble, get kind(){ return kind; }};
 })();
 
 /* THE ROOM: the strings sound in a room — the site's studio room (ir/studio-room.js, the impulse the lessons use: image
