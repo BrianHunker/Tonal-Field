@@ -18,10 +18,13 @@ function valSetup(){
   valImg=el('image',{x:0,y:0,width:2*RG.c,height:2*RG.c,preserveAspectRatio:'none','pointer-events':'none'},valG); valG.insertBefore(valImg,fillG);
   fillG.style.display=lineG.style.display='none'; valCv=document.createElement('canvas');
   valDeco=el('g',{'pointer-events':'none'},valG); valG.insertBefore(valDeco,valImg);
-  [VAL.R0+VAL.K,VAL.R0-VAL.K].forEach(r=>el('circle',{cx:RG.c,cy:RG.c,r,fill:'none',class:'faintS','stroke-width':0.8,'stroke-dasharray':'1.5 4',opacity:0.6},valDeco));
-  const tk=el('g',{},valG);
-  for(let t=0;t<120;t++){ const a=t*Math.PI/60, big=t%10===0, r1=VAL.R0-(big?2.6:1.3), r2=VAL.R0+(big?2.6:1.3);
-    el('line',{x1:RG.c+r1*Math.sin(a),y1:RG.c-r1*Math.cos(a),x2:RG.c+r2*Math.sin(a),y2:RG.c-r2*Math.cos(a),class:'inkS','stroke-width':big?0.9:0.6,opacity:big?0.42:0.18},tk); }
+  // the hinge (g = 0) and its ticks as the app draws them: a solid circle and 120 ticks (every tenth longer), their
+  // widths in screen pixels whatever the ring's size, so they stay sharp; the guide circles likewise
+  [VAL.R0+VAL.K,VAL.R0-VAL.K].forEach(r=>el('circle',{cx:RG.c,cy:RG.c,r,fill:'none',class:'inkS','stroke-width':1,'vector-effect':'non-scaling-stroke','stroke-dasharray':'1.5 4',opacity:0.13},valDeco));
+  const hinge=valG.querySelector('circle'); if(hinge){ hinge.removeAttribute('stroke-dasharray'); hinge.setAttribute('class','inkS'); hinge.setAttribute('stroke-width',1); hinge.setAttribute('vector-effect','non-scaling-stroke'); hinge.setAttribute('opacity',0.3); }
+  const tk=el('g',{'shape-rendering':'geometricPrecision'},valG);
+  for(let t=0;t<120;t++){ const a=t*Math.PI/60, big=t%10===0, r1=VAL.R0-(big?1.92:0.96), r2=VAL.R0+(big?1.92:0.96);
+    el('line',{x1:RG.c+r1*Math.sin(a),y1:RG.c-r1*Math.cos(a),x2:RG.c+r2*Math.sin(a),y2:RG.c-r2*Math.cos(a),class:'inkS','stroke-width':big?1.2:1,'vector-effect':'non-scaling-stroke',opacity:big?0.42:0.16},tk); }
   // the ring's size on screen, in device pixels (stepped, so a few pixels' change doesn't repaint)
   const measure=()=>{ const w=ringSvg.getBoundingClientRect().width*(window.devicePixelRatio||1); valPx=Math.max(256,Math.min(2400,64*Math.ceil(w/64))); };
   measure(); if(window.ResizeObserver) new ResizeObserver(measure).observe(ringSvg); }
