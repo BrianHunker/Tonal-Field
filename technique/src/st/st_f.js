@@ -61,11 +61,35 @@ function tick(){
   if(T.segs.length>12){ const k=T.segs.length-6; T.segs.splice(0,k); T.si=Math.max(0,T.si-k); }
 }
 function track(src,g){ const rec={src,g}; T.live.push(rec); src.onended=()=>{const k=T.live.indexOf(rec); if(k>=0) T.live.splice(k,1);}; return rec; }
+// THE OTHER RINGING STRINGS: on a chord every string still sounding is drawn vibrating — its own band and strobe, from the
+// fret it is stopped at (read off its own pitch) to the bridge, lit in its tone's colour by its own level — not only the
+// string struck last, which the drawing above keeps as before. A string stilled, let go or quiet drops back to a plain line.
+const VIBX=[];
+function vibEls(k){ if(!VIBX[k]){ const b=blurEl.cloneNode(), z=strobeEl.cloneNode(); blurEl.parentNode.insertBefore(b,blurEl); strobeEl.parentNode.insertBefore(z,strobeEl); VIBX[k]={blur:b,strobe:z,on:false}; } return VIBX[k]; }
+function ringOthers(live,s,strI,t){
+  const chord=live&&s&&s.strs&&s.chord, now=performance.now();
+  for(let k=0;k<NSTR;k++){ const o=chord&&k!==strI?s.strs[k]:null; let on=false;
+    if(o&&o.snap&&now-(o.snapT||0)<200&&!(o.offAt!==undefined&&ctx.currentTime>o.offAt)){ const a=Math.min(1,ampOf(o.snap)/0.3);
+      if(a>0.03){ const fr=Math.max(0,12*Math.log2(o.snap.f/STRINGS[k].hz)), fx=fr<0.05?FB.nut:tipXf(fr), y=FB.strY[k], E=vibEls(k);
+        on=drawVib(o.snap,fx,y,BRIDGE_X,y,t,E);
+        if(on){ const ink=inkColour(), c=toneColour(pcOf(k,Math.round(fr))), tint='rgb('+ink.map((v,i)=>Math.round(v+(c[i]-v)*a)).join(',')+')';
+          E.blur.style.fill=tint; E.strobe.style.stroke=tint;
+          strLines[k].setAttribute('d','M'+FB.x0+' '+y+' L'+FB.nut+' '+y+' L'+fx.toFixed(1)+' '+y); strLines[k].classList.add('strDim'); } } }
+    const E=VIBX[k]; if(!E) continue;
+    if(!on&&E.on){ E.blur.setAttribute('visibility','hidden'); E.strobe.setAttribute('visibility','hidden'); if(k!==strI) strLines[k].setAttribute('d',strPath(FB.strY[k],0,0)); }
+    E.on=on; }
+}
+// each string's picture of itself, timed as it arrives (so a string whose sound has stopped stops drawing), and its stop time
+{ const mk0=makeString; makeString=function(g){ const o=mk0(g); let sn=null;
+    Object.defineProperty(o,'snap',{get:()=>sn,set:v=>{ sn=v; o.snapT=performance.now(); },configurable:true});
+    const st0=o.stopAt; o.stopAt=(t,now)=>{ o.offAt=now?ctx.currentTime:t; st0(t,now); }; return o; }; }
 function note(s,t,i,first){
   const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
   const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to the other string: the last one is let go
   if(!first&&!s.chord&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});   // a chord's tones ring on
-  const choke=()=>{ if(!first) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
+  // re-striking a string: a single line's pick stops it first (a choke); a strum's pick only brushes the ringing string on its
+  // way through — a light touch (about −8 dB over 10 ms), the old vibration carrying on under the new
+  const choke=()=>{ if(first) return; if(s.chord) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-0.01),t1:t,depth:0.4}); else str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
   if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
   if(e.mute) for(const m of e.mute) if(s.strs[m]) s.strs[m].send({kind:'damp',t:t-0.02,t1:t+0.02,depth:0.002});   // a new grip: strings it leaves out are stilled
   if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V*(e.vel||1)}); return; }
@@ -249,6 +273,7 @@ function frame(){
   if(held!==null&&Math.abs(pickSy-sy)<1) strLines[strI].setAttribute('d','M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxH.toFixed(1)+' '+(sy+bendDy).toFixed(1)+' L'+PICK_X+' '+held.toFixed(1)+' L'+BRIDGE_X+' '+sy);
   else strLines[strI].setAttribute('d',vibOn?'M'+FB.x0+' '+sy+' L'+FB.nut+' '+sy+' L'+fxV.toFixed(1)+' '+(sy+bendDy).toFixed(1):strPath(sy,fxH,bendDy));
   lastStr=strI;
+  ringOthers(live,s,strI,t);
   if(live){
     ringLine.setAttribute('x1',fxV); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });

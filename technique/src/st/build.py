@@ -11,6 +11,13 @@ def block(a,b):
         t=must(t,"const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;","const cellR=n=>n===0?FB.nut:fretX(n);")
         t=must(t,"const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };","const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };")
         t=must(t,"el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,","el('line',{x1:fretX(k),y1:FB.top,x2:fretX(k),y2:FB.bot,")
+    if (a,b)==(428,469):
+        t=must(t,"function drawVib(snap,fx,fy,bx,by,t){","function drawVib(snap,fx,fy,bx,by,t,E){ const BL=E?E.blur:blurEl, SB=E?E.strobe:strobeEl;   // E: another string's own band and strobe")
+        t=must(t,"blurEl.setAttribute('d',band+' Z'); blurEl.setAttribute('visibility','visible');","BL.setAttribute('d',band+' Z'); BL.setAttribute('visibility','visible');")
+        t=must(t,"strobeEl.setAttribute('d',line); strobeEl.setAttribute('visibility','visible'); } else strobeEl.setAttribute('visibility','hidden');","SB.setAttribute('d',line); SB.setAttribute('visibility','visible'); } else SB.setAttribute('visibility','hidden');")
+    if (a,b)==(824,988):
+        t=must(t,"const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V); vg.connect(voiceIn);",
+          "const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V);\n  // the strings a little apart, as a stereo pair of mics hears them: the low E left of centre, the high e right (a bass in the middle)\n  if(ctx.createStereoPanner&&!BASS){ const pn=ctx.createStereoPanner(); pn.pan.value=0.3*(1-2*gauge); vg.connect(pn); pn.connect(voiceIn); } else vg.connect(voiceIn);")
     if (a,b)==(599,622):
         t=must(t,"const ringPos=pc=>RING.m<=0?pc:lerpPos(pc,fifth(pc),RING.m);",
           "const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return RING.m<=0?a:(RING.m>=1?c:lerpPos(a,c,RING.m)); };   // a pitch's seat on screen: the letters turned by LET")

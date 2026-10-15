@@ -44,6 +44,12 @@ const CHORDS=BOOK.chords?(()=>{
   // high), Down (high to low), or Alternating (strums: up one bar, down the next; arpeggio: up and back down, the ends not
   // repeated). A change of shape, articulation or order while playing comes in at the end of the two bars.
   const ART={mode:'strum',dir:'up'}, STRUM=0.022, BARS=2;
+  // A HAND'S STROKE, not a machine's: through one stroke each string comes a little early or late (±15% of the 22 ms
+  // between strings) and a little stronger or weaker (±6%), the stroke easing off as it goes (each string 4% under the
+  // one before). Fixed per bar, stroke and string — the same every time round, as a player's habit, not noise.
+  const hum=(a,b,c)=>{ let x=Math.sin(a*12.9898+b*78.233+c*37.719)*43758.5453; return x-Math.floor(x); };
+  const strokeAt=(n,d,a,b)=>{ const o=[0]; for(let k=1;k<n;k++) o.push(o[k-1]+d*(1+0.3*(hum(a,b,k)-0.5))); return o; };
+  const strokeVel=(k,a,b)=>Math.pow(0.96,k)*(0.94+0.12*hum(a,b,k+17));
   const lowHigh=sh=>sh.notes.slice().sort((a,b)=>b.s-a.s);
   function fingerOf(n){ if(!n.f) return 0; const q=P.find(p=>p.s===n.s&&p.f===n.f); if(q) return q.g;
     const bar=P.find(p=>p.barre&&n.s<=p.s&&n.f===p.f); return bar?bar.g:0; }
@@ -52,7 +58,7 @@ const CHORDS=BOOK.chords?(()=>{
     if(ART.mode==='strum'){ const d=STRUM*drill.bpm/60;
       for(let b=0;b<BARS;b++){ const rise=ART.dir==='up'||(ART.dir==='alt'&&b%2===0), o=rise?lowHigh(sh):lowHigh(sh).reverse();
         if(!rise) ups.add(8*b);                                           // falling pitches: the stroke is up
-        o.forEach((n,k)=>{ plan.push(note(n)); fig.push({s:4*b+k*d,d:k<o.length-1?d:4-k*d}); }); } }
+        const at=strokeAt(o.length,d,b,0); o.forEach((n,k)=>{ plan.push(Object.assign(note(n),{vel:strokeVel(k,b,0)})); fig.push({s:4*b+at[k],d:k<o.length-1?at[k+1]-at[k]:4-at[k]}); }); } }
     else { const up=lowHigh(sh), dn=up.slice().reverse(), q=ART.dir==='up'?up:(ART.dir==='down'?dn:up.concat(dn.slice(1,-1)));
       for(let b=0;b<4*BARS;b++){ plan.push(note(q[b%q.length])); fig.push({s:b,d:1}); } }
     const H=handFor(P), D={chord:true,walk:true,art:ART.mode,dir:'up',means:'pick',ham:false,pull:false,plan,bars:BARS,
@@ -178,7 +184,8 @@ const CHORDS=BOOK.chords?(()=>{
       [...SONG.pattern].forEach((c,i)=>{ if(c==='_') return; const up=c==='u'||c==='U', acc=c==='D'||c==='U';
         const NN=B.notes.length, cn=NN>=5?3:2, c0=Math.round((NN-cn)/2), bass=firstOfBar&&!up;
         const strs=up?B.notes.slice(-2).reverse():(bass?B.notes.slice(0,2):B.notes.slice(c0,c0+cn)), vel=bass?1:(up?(c==='U'?0.72:0.5):0.72), ix=[];
-        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({six:i,string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel,root:B.root,head:k===0,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+k*d}); });
+        const at=strokeAt(strs.length,d,b,i+1);
+        strs.forEach((n,k)=>{ ix.push(plan.length); plan.push({six:i,string:n.s,fret:n.f,pitch:n.f,push:0,finger:fin(n),frame:b,pick:true,glide:false,pre:false,kind:'pick',hi:false,vel:vel*strokeVel(k,b,i+1),root:B.root,head:k===0,mute:firstOfBar&&k===0&&mute.length?mute:null}); fig.push({s:4*b+i/4+at[k]}); });
         strums.push({b,i,up,acc:bass||c==='U',ix}); firstOfBar=false; }); ranges.push({i0,i1:plan.length}); });
     fig.forEach((e,k)=>{ e.d=k<fig.length-1?fig[k+1].s-e.s:4*N-e.s+fig[0].s; });
     const D={chord:true,song:true,walk:true,art:'song',dir:'up',means:'pick',ham:false,pull:false,plan,bars:N,strums,
