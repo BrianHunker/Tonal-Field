@@ -1,4 +1,18 @@
 
+/* THE RING'S HAND (the line from the centre to the tone sounding, or the mode's root): a hairline, one and a quarter screen
+   pixels, rising from nothing at the centre to the ink at the letter; drawn under the solfège names, whose outline in the
+   page's colour parts it cleanly where it passes behind one. The centre's dot a little smaller. */
+{ const NS='http://www.w3.org/2000/svg', defs=document.createElementNS(NS,'defs'), g=document.createElementNS(NS,'linearGradient');
+  g.setAttribute('id','handFade'); g.setAttribute('gradientUnits','userSpaceOnUse');
+  [[0,0.08],[0.45,0.55],[1,0.9]].forEach(([o,a])=>{ const s=document.createElementNS(NS,'stop'); s.setAttribute('offset',o); s.setAttribute('stop-opacity',a); s.setAttribute('class','handStop'); g.appendChild(s); });
+  defs.appendChild(g); ringSvg.insertBefore(defs,ringSvg.firstChild);
+  const hub=hand.nextSibling; ringSvg.insertBefore(hand,valLbls[0]); if(hub&&hub.tagName==='circle'){ hub.setAttribute('r',2.2); ringSvg.insertBefore(hub,valLbls[0]); }
+  hand.setAttribute('stroke','url(#handFade)'); hand.setAttribute('vector-effect','non-scaling-stroke');
+  const st=document.createElement('style'); st.textContent='#ring .hand{ stroke:url(#handFade); stroke-width:1.25; stroke-dasharray:none; stroke-linecap:round } #ring .handStop{ stop-color:var(--ink) }'; document.head.appendChild(st);
+  let lx=null, ly=null; (function follow(){ const x=hand.getAttribute('x2'), y=hand.getAttribute('y2');
+    if(x!==lx||y!==ly){ lx=x; ly=y; g.setAttribute('x1',hand.getAttribute('x1')); g.setAttribute('y1',hand.getAttribute('y1')); g.setAttribute('x2',x); g.setAttribute('y2',y); }
+    requestAnimationFrame(follow); })(); }
+
 /* ---------- the controls ---------- */
 let CAND={C:[],fingers:new Set(),cells:new Map()};
 const $=id=>document.getElementById(id);

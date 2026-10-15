@@ -4,7 +4,8 @@
    and scrolls left and right, and when the hand moves to a new place it follows it. The TAB is drawn large the same way and
    follows the playhead; the Ring fits the screen. The page's Play, Hold and Prev | Next come along in a bar at the foot of
    the zoomed view (copies that press the page's own, kept in step with them); a page may add its own (a button with
-   data-zoom). On Chords, with the board turned a quarter, the turned board is what fills the screen. A song's strumming
+   data-zoom, or data-zoom="fb" to come along only with the board). The Ring brings its own controls instead — Diatonic,
+   1|5 and Ghost, the page's own buttons moved down into the bar while it is zoomed and back after. On Chords, with the board turned a quarter, the turned board is what fills the screen. A song's strumming
    pattern and its circle zoom the same way (attached by the Chords page as it makes them): the notation as wide as the
    screen, the circle to fit it. */
 const SURF=(()=>{
@@ -14,15 +15,17 @@ const SURF=(()=>{
   let cur=null, home=null, kind=null, lastHx=null;
   const BAR=76;                                                  // the room the button bar takes at the foot
   const zbar=document.createElement('div'); zbar.className='zoomBar'; layer.appendChild(zbar);
-  let prox=[];                                                   // [page button, its copy]
+  let prox=[], foot=null;                                        // [page button, its copy]; the Ring's own controls, moved in
   function buildBar(){
     zbar.innerHTML=''; prox=[];
+    if(kind==='ring'){ const f=document.querySelector('.ringFoot'); if(f){ foot={el:f,parent:f.parentNode,next:f.nextSibling,style:f.getAttribute('style')}; f.style.width='auto'; f.style.display='flex'; zbar.appendChild(f); } return; }
+    const k=kind==='rot'?'fb':kind;
     const shown=id=>{ const o=document.getElementById(id); return o&&getComputedStyle(o).display!=='none'&&!o.hidden?o:null; };
     const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
       c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
     ['play','hold'].forEach(id=>{ const o=shown(id); if(o) copy(o,zbar); });
     const pv=shown('prev'), nx=shown('next'); if(pv||nx){ const pair=document.createElement('div'); pair.className='pillPair'; if(pv) copy(pv,pair); if(nx) copy(nx,pair); zbar.appendChild(pair); }
-    document.querySelectorAll('[data-zoom]').forEach(o=>{ if(getComputedStyle(o).display!=='none') copy(o,zbar); });
+    document.querySelectorAll('[data-zoom]').forEach(o=>{ const z=o.getAttribute('data-zoom'); if(z&&!z.split(' ').includes(k)) return; if(getComputedStyle(o).display!=='none') copy(o,zbar); });
     sync(); }
   function sync(){ for(const [o,c] of prox){ if(c.textContent!==o.textContent) c.textContent=o.textContent; c.disabled=o.disabled; if(c.className!==o.className) c.className=o.className;
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
@@ -56,6 +59,7 @@ const SURF=(()=>{
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
     if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
+    if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
   function toggle(el,k){ if(cur) close(); else open(el,k); }

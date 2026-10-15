@@ -1564,7 +1564,8 @@ requestAnimationFrame(frame);
    and scrolls left and right, and when the hand moves to a new place it follows it. The TAB is drawn large the same way and
    follows the playhead; the Ring fits the screen. The page's Play, Hold and Prev | Next come along in a bar at the foot of
    the zoomed view (copies that press the page's own, kept in step with them); a page may add its own (a button with
-   data-zoom). On Chords, with the board turned a quarter, the turned board is what fills the screen. A song's strumming
+   data-zoom, or data-zoom="fb" to come along only with the board). The Ring brings its own controls instead — Diatonic,
+   1|5 and Ghost, the page's own buttons moved down into the bar while it is zoomed and back after. On Chords, with the board turned a quarter, the turned board is what fills the screen. A song's strumming
    pattern and its circle zoom the same way (attached by the Chords page as it makes them): the notation as wide as the
    screen, the circle to fit it. */
 const SURF=(()=>{
@@ -1574,15 +1575,17 @@ const SURF=(()=>{
   let cur=null, home=null, kind=null, lastHx=null;
   const BAR=76;                                                  // the room the button bar takes at the foot
   const zbar=document.createElement('div'); zbar.className='zoomBar'; layer.appendChild(zbar);
-  let prox=[];                                                   // [page button, its copy]
+  let prox=[], foot=null;                                        // [page button, its copy]; the Ring's own controls, moved in
   function buildBar(){
     zbar.innerHTML=''; prox=[];
+    if(kind==='ring'){ const f=document.querySelector('.ringFoot'); if(f){ foot={el:f,parent:f.parentNode,next:f.nextSibling,style:f.getAttribute('style')}; f.style.width='auto'; f.style.display='flex'; zbar.appendChild(f); } return; }
+    const k=kind==='rot'?'fb':kind;
     const shown=id=>{ const o=document.getElementById(id); return o&&getComputedStyle(o).display!=='none'&&!o.hidden?o:null; };
     const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
       c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
     ['play','hold'].forEach(id=>{ const o=shown(id); if(o) copy(o,zbar); });
     const pv=shown('prev'), nx=shown('next'); if(pv||nx){ const pair=document.createElement('div'); pair.className='pillPair'; if(pv) copy(pv,pair); if(nx) copy(nx,pair); zbar.appendChild(pair); }
-    document.querySelectorAll('[data-zoom]').forEach(o=>{ if(getComputedStyle(o).display!=='none') copy(o,zbar); });
+    document.querySelectorAll('[data-zoom]').forEach(o=>{ const z=o.getAttribute('data-zoom'); if(z&&!z.split(' ').includes(k)) return; if(getComputedStyle(o).display!=='none') copy(o,zbar); });
     sync(); }
   function sync(){ for(const [o,c] of prox){ if(c.textContent!==o.textContent) c.textContent=o.textContent; c.disabled=o.disabled; if(c.className!==o.className) c.className=o.className;
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
@@ -1616,6 +1619,7 @@ const SURF=(()=>{
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
     if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
+    if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
   function toggle(el,k){ if(cur) close(); else open(el,k); }
@@ -1689,6 +1693,20 @@ const SURF=(()=>{
       if(wet&&ctx) wet.gain.setTargetAtTime(level(R),ctx.currentTime,0.04); }); }
 })();
 
+
+/* THE RING'S HAND (the line from the centre to the tone sounding, or the mode's root): a hairline, one and a quarter screen
+   pixels, rising from nothing at the centre to the ink at the letter; drawn under the solfège names, whose outline in the
+   page's colour parts it cleanly where it passes behind one. The centre's dot a little smaller. */
+{ const NS='http://www.w3.org/2000/svg', defs=document.createElementNS(NS,'defs'), g=document.createElementNS(NS,'linearGradient');
+  g.setAttribute('id','handFade'); g.setAttribute('gradientUnits','userSpaceOnUse');
+  [[0,0.08],[0.45,0.55],[1,0.9]].forEach(([o,a])=>{ const s=document.createElementNS(NS,'stop'); s.setAttribute('offset',o); s.setAttribute('stop-opacity',a); s.setAttribute('class','handStop'); g.appendChild(s); });
+  defs.appendChild(g); ringSvg.insertBefore(defs,ringSvg.firstChild);
+  const hub=hand.nextSibling; ringSvg.insertBefore(hand,valLbls[0]); if(hub&&hub.tagName==='circle'){ hub.setAttribute('r',2.2); ringSvg.insertBefore(hub,valLbls[0]); }
+  hand.setAttribute('stroke','url(#handFade)'); hand.setAttribute('vector-effect','non-scaling-stroke');
+  const st=document.createElement('style'); st.textContent='#ring .hand{ stroke:url(#handFade); stroke-width:1.25; stroke-dasharray:none; stroke-linecap:round } #ring .handStop{ stop-color:var(--ink) }'; document.head.appendChild(st);
+  let lx=null, ly=null; (function follow(){ const x=hand.getAttribute('x2'), y=hand.getAttribute('y2');
+    if(x!==lx||y!==ly){ lx=x; ly=y; g.setAttribute('x1',hand.getAttribute('x1')); g.setAttribute('y1',hand.getAttribute('y1')); g.setAttribute('x2',x); g.setAttribute('y2',y); }
+    requestAnimationFrame(follow); })(); }
 
 /* ---------- the controls ---------- */
 let CAND={C:[],fingers:new Set(),cells:new Map()};
@@ -3061,7 +3079,7 @@ const CHORDS=BOOK.chords?(()=>{
     +'<div class="gripRow" id="chordRoots"></div><div class="gripRow" id="chordQuals"></div>'
     +'<div class="gripRow"><span class="gripGrp">Play</span><span class="cseg" id="artSel"><button type="button" data-a="strum">Strum</button><button type="button" data-a="arp">Arpeggio</button></span>'
     +'<span class="cseg" id="dirSel"><button type="button" data-d="up">Up</button><button type="button" data-d="down">Down</button><button type="button" data-d="alt">Alternating</button></span>'
-    +'<button type="button" class="pill" id="rotBtn" data-zoom aria-pressed="false" title="Turn the board a quarter, as chord diagrams are drawn">90°</button></div>';
+    +'<button type="button" class="pill" id="rotBtn" data-zoom="fb" aria-pressed="false" title="Turn the board a quarter, as chord diagrams are drawn">90°</button></div>';
   fb.parentElement.after(panel);
   const rootsEl=panel.querySelector('#chordRoots'), qualsEl=panel.querySelector('#chordQuals');
   ROOTS.forEach(([pc,a,b])=>{ const e=document.createElement('button'); e.type='button'; e.className='gripBtn rootBtn'; e.innerHTML=b?a+'<span class="alt">'+b+'</span>':a; e.dataset.pc=pc;
@@ -3110,7 +3128,7 @@ const CHORDS=BOOK.chords?(()=>{
       if(moved){ layoutRot(); marks(xoSh); } }
     requestAnimationFrame(glide); })();
   const rotBtn=panel.querySelector('#rotBtn');
-  { const fp=box.parentElement; fp.style.position='relative'; rotBtn.classList.add('fbRotBtn'); fp.appendChild(rotBtn); }   // in the fretboard's own corner: it turns the board
+  { const fp=box.parentElement; fp.style.position='relative'; rotBtn.classList.add('fbRotBtn'); fp.appendChild(rotBtn); }   // in the fretboard's lower left corner: it turns the board
   rotBtn.addEventListener('click',()=>{ const z=SURF.kind==='fb'||SURF.kind==='rot'; if(z) SURF.close();
     ROT.on=!ROT.on; ROT.vb=ROT.on?target():null; rotBtn.setAttribute('aria-pressed',ROT.on); rotBtn.classList.toggle('on',ROT.on);
     upright(ROT.on); layoutRot(); marks(xoSh); if(z) SURF.open(fb,'fb'); });
@@ -3354,7 +3372,7 @@ const CHORDS=BOOK.chords?(()=>{
       const B=SONG.bars.find(x=>x.chart===charts[k]); HANDLAB.learn(B.chart,B.pl,B.open); setTimeout(()=>learnNext(k+1),30); })(0); }
   // the page's own: the frame label and the page count give way to the chord
   ['means','pageCt'].concat(SONG?[]:['hold']).forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
-  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } .fbRotBtn{ position:absolute; top:8px; right:10px; z-index:4 } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songBlk{ font:inherit; display:inline-block; min-width:3.4em; padding:5px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; background:var(--bg); color:var(--ink); font-weight:700; text-align:center; cursor:pointer } .songBlk.held{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor } #hold.on{ background:var(--ink); color:var(--bg) } .songPat{ margin:4px 0 12px; color:var(--ink); -webkit-user-select:none; user-select:none } .radial{ -webkit-user-select:none; user-select:none } .zoomLayer > .songPat{ margin:0 } .zoomLayer > .radial{ flex:0 0 auto } .zoomLayer > .songPat .songPatHd{ font-size:18px; margin-bottom:10px } .zoomLayer > .songPat .rhythm{ flex:0 0 auto } .songPatHd{ font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mid); margin-bottom:2px } .songPatRow{ display:flex; align-items:center; gap:22px; flex-wrap:wrap } .songPatRow .rhythm{ flex:1 1 420px } .radial{ width:170px; height:170px; flex:0 0 170px; color:var(--ink) } .songPanel{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:28px; align-items:start } .songPanel > *{ grid-column:1 } .songPanel > .radial{ grid-column:2; grid-row:1 / span 12; align-self:stretch; justify-self:end; width:auto; height:100%; min-height:170px; max-height:340px; aspect-ratio:1 } @media (max-width:700px){ .songPanel{ grid-template-columns:1fr } .songPanel > .radial{ grid-column:1; grid-row:auto; justify-self:center; width:min(80vw,300px); height:auto } } .radial .rl1{ stroke:currentColor; stroke-width:1.2 } .radial .rfill{ fill:currentColor } .radial .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:800 } .radial .necklace{ fill:none; stroke:currentColor; stroke-width:1; opacity:.55 } .radial .radHand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .radial .dotG{ color:inherit; transform-box:fill-box; transform-origin:center } .radial .dotDn{ fill:currentColor } .radial .dotUp{ fill:var(--bg); stroke:currentColor; stroke-width:2.4 } .rhythm{ width:100%; display:block } .rhythm .rl1{ stroke:currentColor; stroke-width:1.4 } .rhythm .rfill{ fill:currentColor } .rhythm .stem{ stroke:currentColor; stroke-width:1.6 } .rhythm .slash{ stroke:currentColor; stroke-width:var(--sw,5); stroke-linecap:butt } .rhythm .rest,.rhythm .flag{ stroke:currentColor; stroke-width:1.8; fill:none } .rhythm .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:500 } .rhythm .cnt.beat{ font-weight:800 } .rhythm .slashG.on .cnt{ font-weight:800 } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
+  const css=document.createElement('style'); css.textContent='.chordHead{ display:flex; align-items:baseline; gap:16px; margin:0 0 10px; flex-wrap:wrap } .chordName{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:30px; color:var(--ink); min-width:3.2em } .chordName .q{ font-size:22px; margin-left:1px } .chordChart{ font-family:ui-monospace,Menlo,monospace; font-size:16px; letter-spacing:.12em; color:var(--ink) } .chordCt{ font-size:13px; color:var(--mid) } .rootBtn{ min-width:46px } .rootBtn .alt{ display:block; font-size:10px; font-weight:500; color:var(--mid); line-height:1 } .rootBtn.on .alt{ color:var(--bg) } .cseg{ display:inline-flex; border:1.5px solid var(--mid); border-radius:999px; overflow:hidden; margin-right:10px } .cseg button{ font:inherit; font-size:14px; font-weight:600; padding:5px 12px; border:0; background:var(--bg); color:var(--ink); cursor:pointer } .cseg button+button{ border-left:1.5px solid var(--mid) } .cseg button.on{ background:var(--ink); color:var(--bg) } .fbRotBtn{ position:absolute; bottom:8px; left:10px; z-index:4; -webkit-user-select:none; user-select:none } #rotBtn.on, .zoomBar .pill.on{ background:var(--ink); color:var(--bg) } .songBlk{ font:inherit; display:inline-block; min-width:3.4em; padding:5px 10px; margin:0 6px 6px 0; border:1.5px solid var(--mid); border-radius:8px; background:var(--bg); color:var(--ink); font-weight:700; text-align:center; cursor:pointer } .songBlk.held{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px currentColor } #hold.on{ background:var(--ink); color:var(--bg) } .songPat{ margin:4px 0 12px; color:var(--ink); -webkit-user-select:none; user-select:none } .radial{ -webkit-user-select:none; user-select:none } .zoomLayer > .songPat{ margin:0 } .zoomLayer > .radial{ flex:0 0 auto } .zoomLayer > .songPat .songPatHd{ font-size:18px; margin-bottom:10px } .zoomLayer > .songPat .rhythm{ flex:0 0 auto } .songPatHd{ font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mid); margin-bottom:2px } .songPatRow{ display:flex; align-items:center; gap:22px; flex-wrap:wrap } .songPatRow .rhythm{ flex:1 1 420px } .radial{ width:170px; height:170px; flex:0 0 170px; color:var(--ink) } .songPanel{ display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:28px; align-items:start } .songPanel > *{ grid-column:1 } .songPanel > .radial{ grid-column:2; grid-row:1 / span 12; align-self:stretch; justify-self:end; width:auto; height:100%; min-height:170px; max-height:340px; aspect-ratio:1 } @media (max-width:700px){ .songPanel{ grid-template-columns:1fr } .songPanel > .radial{ grid-column:1; grid-row:auto; justify-self:center; width:min(80vw,300px); height:auto } } .radial .rl1{ stroke:currentColor; stroke-width:1.2 } .radial .rfill{ fill:currentColor } .radial .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:800 } .radial .necklace{ fill:none; stroke:currentColor; stroke-width:1; opacity:.55 } .radial .radHand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .radial .dotG{ color:inherit; transform-box:fill-box; transform-origin:center } .radial .dotDn{ fill:currentColor } .radial .dotUp{ fill:var(--bg); stroke:currentColor; stroke-width:2.4 } .rhythm{ width:100%; display:block } .rhythm .rl1{ stroke:currentColor; stroke-width:1.4 } .rhythm .rfill{ fill:currentColor } .rhythm .stem{ stroke:currentColor; stroke-width:1.6 } .rhythm .slash{ stroke:currentColor; stroke-width:var(--sw,5); stroke-linecap:butt } .rhythm .rest,.rhythm .flag{ stroke:currentColor; stroke-width:1.8; fill:none } .rhythm .cnt{ fill:currentColor; font-size:14px; text-anchor:middle; font-weight:500 } .rhythm .cnt.beat{ font-weight:800 } .rhythm .slashG.on .cnt{ font-weight:800 } #tab .barName{ font-size:17px; font-weight:700 } #tab .barSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }';
   document.head.appendChild(css);
   markPlay(); mark(); shapes=find();
   FBROT={get on(){ return ROT.on; }, fit};
