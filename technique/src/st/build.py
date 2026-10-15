@@ -21,11 +21,14 @@ def block(a,b):
     if (a,b)==(599,622):
         t=must(t,"""   Fa Do Sol Re La Mi Ti reads clockwise). Changing it, the even places keep their seats and the odd ones swing half way round.
    On the chain, g(x) is a single wave, g = cos θ (the 7/12 and 5/12 winds land on the same points there), and the morph
-   between hearings is a plain rotation of it, one seat per tick. */""","""   Fa Do Sol Re La Mi Ti reads clockwise). On the twelve seats g = cos θ · cos 6θ: the slow wave times the alternation. Putting the
-   tones in fifths' order (seat k takes the tone 7k) cancels the alternation and leaves the slow wave alone: on the chain
-   g = cos θ, one lobe. The change is a MORPH, not a journey: the six seats whose tone is the same in both orders (every other
-   seat) hold still, value and all; on each of the other six the value sinks through the hinge to nothing and the tone there
-   hands its seat to its tritone partner, whose value — the same size, opposite sign (g(x+π) = −g(x)) — grows back in its place.
+   between hearings is a plain rotation of it, one seat per tick. */""","""   Fa Do Sol Re La Mi Ti reads clockwise). On the twelve seats the two winds land on the same points (a 7-cycle wave sampled
+   twelve times is a −5-cycle wave), so there g is ONE wave: g(k) = cos(5kπ/6), five cycles an octave. A step of one
+   semitone moves its phase 150°; a step of ±5 semitones moves it 30°, one seat of the slow wave. Ordering the tones by −5
+   (seat k takes the tone −5k: A, E, B … clockwise) unwinds the five-cycle wave into one: on the chain g = cos θ, one lobe.
+   The change is a MORPH, not a journey: where the two orders put the same tone (−5k = k: every other seat) the seat holds
+   still, value and all; on each of the other six the two orders differ by a tritone (−5k − k = −6k = 6), so the value sinks
+   through the hinge to nothing and the tone hands its seat to its tritone partner, whose value — the same size, opposite
+   sign (g(x+π) = −g(x)) — grows back in its place. ±5 is its own inverse (5·5 = 25 = 1), so going back is the same fold.
    The departing names fade as their value reaches zero and the arriving ones fade in as it returns. */""")
         t=must(t,"const lerpPos=(a,b,m)=>{ const d=((b-a+6)%12+12)%12-6; return a+d*m; };","""const lerpPos=(a,b,m)=>{ const d=((b-a+6)%12+12)%12-6; return a+d*m; };
 // a seat mid-morph: a place the two orders share (to within a seat's drift) is held; one they don't swaps at halfway, faded

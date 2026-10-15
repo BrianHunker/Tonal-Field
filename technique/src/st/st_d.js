@@ -94,7 +94,7 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
       if(reduce){ const n=Math.round(DRAGF.x); if(n){ PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; drag.acc-=n; DRAGF.x-=n; const re=PHI.doPc+2+LET.off; DRAGF.re=re; DRAGF.reC=fifth(re); fieldMoved(); } }
       return; }
     let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
-    if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is a fifth
+    if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is −5 semitones
     const want=drag.off+Math.round(da), step=want-LET.off; if(!step) return;
     LET.off=want; PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
   const end=()=>{
