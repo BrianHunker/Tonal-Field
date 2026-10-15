@@ -8,7 +8,7 @@
   defs.appendChild(g); ringSvg.insertBefore(defs,ringSvg.firstChild);
   const hub=hand.nextSibling; ringSvg.insertBefore(hand,valLbls[0]); if(hub&&hub.tagName==='circle'){ hub.setAttribute('r',2.2); ringSvg.insertBefore(hub,valLbls[0]); }
   hand.setAttribute('stroke','url(#handFade)'); hand.setAttribute('vector-effect','non-scaling-stroke');
-  const st=document.createElement('style'); st.textContent='#ring .hand{ stroke:url(#handFade); stroke-width:1.25; stroke-dasharray:none; stroke-linecap:round } #ring .handStop{ stop-color:var(--ink) }'; document.head.appendChild(st);
+  const st=document.createElement('style'); st.textContent='#ring{ -webkit-user-select:none; user-select:none } #ring .hand{ stroke:url(#handFade); stroke-width:1.25; stroke-dasharray:none; stroke-linecap:round } #ring .handStop{ stop-color:var(--ink) }'; document.head.appendChild(st);
   let lx=null, ly=null; (function follow(){ const x=hand.getAttribute('x2'), y=hand.getAttribute('y2');
     if(x!==lx||y!==ly){ lx=x; ly=y; g.setAttribute('x1',hand.getAttribute('x1')); g.setAttribute('y1',hand.getAttribute('y1')); g.setAttribute('x2',x); g.setAttribute('y2',y); }
     requestAnimationFrame(follow); })(); }

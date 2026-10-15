@@ -47,8 +47,12 @@ const MORPH_MS=1000;
 let triPos=0, triDir=1; const ARROW={up:false,down:false};
 function tritoneStep(){ let d=ARROW.up&&!ARROW.down?1:(ARROW.down&&!ARROW.up?-1:triDir); triPos+=d;   // held arrows say which way; else it hovers up, down, down, up …
   if(triPos>=1){ triPos=1; triDir=-1; } else if(triPos<=-1){ triPos=-1; triDir=1; } return 6*d; }
+// TURNING THE RING WHILE IT PLAYS: on the Structures page the ring chooses the drill, so turning it stops playback; on a
+// drill book's pages (the walks, Chords, a song) the drill is fixed and the ring only says how it is heard — it turns, by
+// keys, letters or the field, and the colours follow, while the music plays on
+const ringStops=()=>typeof BOOK==='undefined';
 function modulate(d){
-  d=Math.round(d); if(!d||!FIELD.on) return; stopForEdit();
+  d=Math.round(d); if(!d||!FIELD.on) return; if(ringStops()) stopForEdit();
   const was=PHI.doPc, reT=was+2+LET.off;
   if(Math.abs(d)>1&&!reduce){
     MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC}; }
@@ -79,11 +83,11 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
       let d=(((pc-SYLPC[SOLKEY[solHeld]])-PHI.doPc)%12+12)%12; if(d>6) d-=12; if(d===6||d===-6) d=tritoneStep();
       modulate(d); e.preventDefault(); return; }
     if(p.d<0.72){ if(FIELD.lit>0.5) drag={inner:true,last:p.a,acc:0,id:e.pointerId,was:PHI.doPc}; return; }      // the field: a drag only once it moves, so a click still picks a syllable
-    if(T.on) stopAll(); drag={a:p.a,off:LET.off,was:PHI.doPc}; ringSvg.setPointerCapture(e.pointerId); e.preventDefault(); });
+    if(T.on&&ringStops()) stopAll(); drag={a:p.a,off:LET.off,was:PHI.doPc}; ringSvg.setPointerCapture(e.pointerId); e.preventDefault(); });
   ringSvg.addEventListener('pointermove',e=>{ if(!drag) return;
     if(drag.inner){ const a=angOf(e).a; drag.acc+=((a-drag.last+6)%12+12)%12-6; drag.last=a;
       if(!DRAGF){ if(Math.abs(drag.acc)<0.35) return;
-        stopForEdit(); try{ ringSvg.setPointerCapture(drag.id); }catch(err){}
+        if(ringStops()) stopForEdit(); try{ ringSvg.setPointerCapture(drag.id); }catch(err){}
         MORPH=null; FIELD.mx=-1; const re=PHI.doPc+2+LET.off;
         DRAGF={re,reC:fifth(re),x:0,chain:RING.m>=0.5}; }
       DRAGF.x=drag.acc;                                                   // the field turns with the hand, seat for seat
