@@ -739,13 +739,21 @@ fb.appendChild(thumbG);
 const LET={off:0,offA:0,offC:0};                                         // the letter ring's turn on screen (semitones), eased; offC: on the chain
 const RG={c:120,R:84,RL:107,RW:58};
 /* RING ORDER: Chromatic (semitones round the circle) or Dominant chain (fifths: A, E, B, F♯ … clockwise, so the diatonic chain
-   Fa Do Sol Re La Mi Ti reads clockwise). Changing it, the even places keep their seats and the odd ones swing half way round.
-   On the chain, g(x) is a single wave, g = cos θ (the 7/12 and 5/12 winds land on the same points there), and the morph
-   between hearings is a plain rotation of it, one seat per tick. */
+   Fa Do Sol Re La Mi Ti reads clockwise). On the twelve seats g = cos θ · cos 6θ: the slow wave times the alternation. Putting the
+   tones in fifths' order (seat k takes the tone 7k) cancels the alternation and leaves the slow wave alone: on the chain
+   g = cos θ, one lobe. The change is a MORPH, not a journey: the six seats whose tone is the same in both orders (every other
+   seat) hold still, value and all; on each of the other six the value sinks through the hinge to nothing and the tone there
+   hands its seat to its tritone partner, whose value — the same size, opposite sign (g(x+π) = −g(x)) — grows back in its place.
+   The departing names fade as their value reaches zero and the arriving ones fade in as it returns. */
 const RING={m:0,goal:0};                                              // m: 0 chromatic … 1 the chain, eased
 const fifth=pc=>((7*Math.round(pc))%12+12)%12;
 const lerpPos=(a,b,m)=>{ const d=((b-a+6)%12+12)%12-6; return a+d*m; };
-const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return RING.m<=0?a:(RING.m>=1?c:lerpPos(a,c,RING.m)); };   // a pitch's seat on screen: the letters turned by LET
+// a seat mid-morph: a place the two orders share (to within a seat's drift) is held; one they don't swaps at halfway, faded
+const ordSwap=(a,c)=>Math.abs(((c-a+6)%12+12)%12-6)>3;
+const ordSeat=(a,c)=>{ const m=RING.m; if(m<=0) return a; if(m>=1) return c; return ordSwap(a,c)?(m<0.5?a:c):lerpPos(a,c,m); };
+const ordFade=(a,c)=>(RING.m>0&&RING.m<1&&ordSwap(a,c))?Math.abs(1-2*RING.m):1;
+const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;
+const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return ordSeat(a,c); };   // a pitch's seat on screen: the letters turned by LET; mid-change, held or swapped (ordSeat)
 const ang=pc=>ringPos(pc)*Math.PI/6;
 const pt=(r,pc)=>{ const a=ang(pc); return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; };
 const ringSvg=document.getElementById('ring');
@@ -759,7 +767,8 @@ for(let pc=0;pc<12;pc++){
 }
 function placeRing(){                                                   // the twelve seats, for the ring's order (mid-change too)
   for(let pc=0;pc<12;pc++){ const [x,y]=pt(RG.R,pc), [lx,ly]=pt(RG.RL,pc);
-    rDots[pc].setAttribute('cx',x.toFixed(2)); rDots[pc].setAttribute('cy',y.toFixed(2)); rLbls[pc].setAttribute('transform','translate('+lx.toFixed(2)+' '+ly.toFixed(2)+')'); } }
+    rDots[pc].setAttribute('cx',x.toFixed(2)); rDots[pc].setAttribute('cy',y.toFixed(2)); rLbls[pc].setAttribute('transform','translate('+lx.toFixed(2)+' '+ly.toFixed(2)+')');
+    const o=ordFade(pc+LET.offA,7*pc+LET.offC).toFixed(3); rDots[pc].setAttribute('opacity',o); rLbls[pc].setAttribute('opacity',o); } }
 placeRing();
 const SOLF=[['Re','#FF8800'],['~La','#4B0082'],['Mi','#2255FF'],['Fa','#FFD700'],['~Do','#005500'],['Sol','#EE0000'],['~Re','#AA5500'],['La','#732699'],['~Mi','#001188'],['Ti','#FF00FF'],['Do','#22BB22'],['~Sol','#880000']]; // semitones up from Re
 const SOLF_RGB=SOLF.map(([,h])=>[1,3,5].map(i=>parseInt(h.substr(i,2),16)));
@@ -814,24 +823,31 @@ function valSetup(){
 function ringRebind(){ valKey=''; }
 function shapeField(){
   if(!valImg) valSetup();
-  const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic+'|'+(FLAT_OFF?FIELD.lit.toFixed(3):'')+'|'+valPx; if(key===valKey) return; valKey=key;
+  const chain=RING.m>=0.5, bg=bgColour(), on=FIELD.mx>=0, mid=ordMid(), key=(on?FIELD.mx.toFixed(4)+'|'+fieldD(chain).toFixed(3):'-')+'|'+bg.join()+'|'+chain+'|'+diatonic+'|'+(FLAT_OFF?FIELD.lit.toFixed(3):'')+'|'+valPx+(mid?'|'+RING.m.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reC.toFixed(3):''); if(key===valKey) return; valKey=key;
+  // the order changing: the two curves blended seat by seat in the screen's own seats (the group is not turned), the
+  // colours crossfaded; where the orders share a tone the curves already agree, elsewhere the value passes through zero
+  const w=RING.m, vAt=mid?(k=>(1-w)*fieldAt(k-FIELD.re,false)+w*fieldAt(k-FIELD.reC,true)):(k=>fieldAt(k,chain)),
+        cAt=mid?(k=>mixRGB(fieldRGB(k-FIELD.re,false),fieldRGB(k-FIELD.reC,true),w)):(k=>fieldRGB(k,chain));
   // FLAT_OFF: the field's height and colour scale with g(x)'s light — at none, a flat grey circle on the hinge
   const A=FLAT_OFF?FIELD.lit:1, gry=mixRGB(bg,inkColour(),0.55), cm=c=>FLAT_OFF?mixRGB(gry,c,FIELD.lit):c, f2=v=>v.toFixed(2);
-  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*A*fieldAt(k,chain);
+  const at=(k,r)=>{ const a=k*Math.PI/6; return [RG.c+r*Math.sin(a),RG.c-r*Math.cos(a)]; }, rOf=k=>VAL.R0+VAL.K*A*vAt(k);
   const cv=valCv, S=valPx, sc=S/(2*RG.c), ctx=cv.getContext('2d'); if(cv.width!==S){ cv.width=S; cv.height=S; }
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,S,S); ctx.setTransform(sc,0,0,sc,0,0); ctx.lineCap='round';
   const rgba=(c,a)=>'rgba('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+','+a.toFixed(3)+')';
   ctx.lineWidth=0.0248*VAL.R0;                                       // the app's stroke: 0.0062 of its width, its hinge a quarter of it
-  for(let i=0;i<1080;i++){ const k=12*i/1080, v=fieldAt(k,chain), cc=cm(fieldRGB(k,chain)), al=A*(diatonic&&v<-1e-9?0.9:0.35+0.65*Math.abs(v));
+  for(let i=0;i<1080;i++){ const k=12*i/1080, v=vAt(k), cc=cm(cAt(k)), al=A*(diatonic&&v<-1e-9?0.9:0.35+0.65*Math.abs(v));
     const [x1,y1]=at(k,VAL.R0), [x2,y2]=at(k,VAL.R0+VAL.K*A*v); if(Math.hypot(x2-x1,y2-y1)<0.05) continue;
     const gr=ctx.createLinearGradient(x1,y1,x2,y2); gr.addColorStop(0,rgba(cc,0)); gr.addColorStop(1,rgba(cc,al));
     ctx.strokeStyle=gr; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
   // the curve: a hairline, 1.3 screen pixels whatever the size
   ctx.lineWidth=1.3*(window.devicePixelRatio||1)/sc; let p=at(0,rOf(0));
-  for(let i=1;i<=720;i++){ const k=12*i/720, v=fieldAt(k,chain), q=at(k,rOf(k)), c=mixRGB(gry,cm(fieldRGB(k,chain)),Math.min(1,0.25+0.9*Math.abs(v)));
+  for(let i=1;i<=720;i++){ const k=12*i/720, v=vAt(k), q=at(k,rOf(k)), c=mixRGB(gry,cm(cAt(k)),Math.min(1,0.25+0.9*Math.abs(v)));
     ctx.strokeStyle=rgba(c,0.95); ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke(); p=q; }
   valImg.setAttribute('href',cv.toDataURL());
-  valDots.forEach((dt,k)=>{ const j=chain?7*k:k, [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('fill',rgbS(cm(fieldRGB(j,chain)))); });
+  // the tones' dots: each sits on its own seat with its own value; mid-morph, one whose seat changes fades out to the hinge and in again
+  valDots.forEach((dt,k)=>{ let j, op=1;
+    if(mid){ const sa=FIELD.re+k, sc=FIELD.reC+7*k; j=ordSeat(sa,sc); op=ordFade(sa,sc); } else j=chain?7*k:k;
+    const [x,y]=at(j,rOf(j)); dt.setAttribute('cx',f2(x)); dt.setAttribute('cy',f2(y)); dt.setAttribute('opacity',op.toFixed(3)); dt.setAttribute('fill',rgbS(cm(mid?relRGB(k):fieldRGB(j,chain)))); });
 }
 
 
@@ -840,14 +856,14 @@ function placeField(){
   const swing=Math.abs(1-2*RING.m), chain=RING.m>=0.5;                // changing order, the field dips out and back in the new order
   buildWedge();
   shapeField(); wedge.setAttribute('opacity',((1-0.6*FIELD.lit)*swing).toFixed(3));
-  valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); valG.setAttribute('opacity',((FLAT_OFF?1:FIELD.lit)*swing).toFixed(3));
+  valG.setAttribute('transform','rotate('+(ordMid()?0:(chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); /* mid-morph: drawn in the screen's own seats */ valG.setAttribute('opacity',(FLAT_OFF?1:FIELD.lit).toFixed(3));
   const mx=FIELD.mx, old=mx>=0&&mx<0.5, fade=mx>=0?Math.abs(1-2*mx):1, chainL=RING.m>=0.5;   // the names: the old set fades out as the new fades in
   const bR=old?FIELD.reA:FIELD.re, bC=old?FIELD.reCA:FIELD.reC;
   const TRIO=[]; for(let k=0;k<12;k++) if(!SOLF[k][0].startsWith('~')) TRIO.push(k);   // the seven diatonic places
   valDots.forEach((d,k)=>d.setAttribute('r',TRIO.includes(k)?3.2:2.2));
-  TRIO.forEach((k,i)=>{ const pc=lerpPos(bR+k,bC+7*k,RING.m), v=fieldAt(chainL?bC+7*k-FIELD.reC:bR+k-FIELD.re,chainL), r=VAL.R0+VAL.K*v*(FLAT_OFF?FIELD.lit:1)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
+  TRIO.forEach((k,i)=>{ const sa=bR+k, sc=bC+7*k, pc=ordSeat(sa,sc), of=ordFade(sa,sc), v=fieldAt(chainL?sc-FIELD.reC:sa-FIELD.re,chainL)*of, r=VAL.R0+VAL.K*v*(FLAT_OFF?FIELD.lit:1)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
     if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(relRGB(k));
-    t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade).toFixed(3)); });
+    t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade*of).toFixed(3)); });
   rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
 const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the drill's own whole step, drawn as its arc of the circle; no words

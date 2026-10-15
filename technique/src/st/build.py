@@ -19,8 +19,24 @@ def block(a,b):
         t=must(t,"const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V); vg.connect(voiceIn);",
           "const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V);\n  // the strings a little apart, as a stereo pair of mics hears them: the low E left of centre, the high e right (a bass in the middle)\n  if(ctx.createStereoPanner&&!BASS){ const pn=ctx.createStereoPanner(); pn.pan.value=0.3*(1-2*gauge); vg.connect(pn); pn.connect(voiceIn); } else vg.connect(voiceIn);")
     if (a,b)==(599,622):
+        t=must(t,"""   Fa Do Sol Re La Mi Ti reads clockwise). Changing it, the even places keep their seats and the odd ones swing half way round.
+   On the chain, g(x) is a single wave, g = cos θ (the 7/12 and 5/12 winds land on the same points there), and the morph
+   between hearings is a plain rotation of it, one seat per tick. */""","""   Fa Do Sol Re La Mi Ti reads clockwise). On the twelve seats g = cos θ · cos 6θ: the slow wave times the alternation. Putting the
+   tones in fifths' order (seat k takes the tone 7k) cancels the alternation and leaves the slow wave alone: on the chain
+   g = cos θ, one lobe. The change is a MORPH, not a journey: the six seats whose tone is the same in both orders (every other
+   seat) hold still, value and all; on each of the other six the value sinks through the hinge to nothing and the tone there
+   hands its seat to its tritone partner, whose value — the same size, opposite sign (g(x+π) = −g(x)) — grows back in its place.
+   The departing names fade as their value reaches zero and the arriving ones fade in as it returns. */""")
+        t=must(t,"const lerpPos=(a,b,m)=>{ const d=((b-a+6)%12+12)%12-6; return a+d*m; };","""const lerpPos=(a,b,m)=>{ const d=((b-a+6)%12+12)%12-6; return a+d*m; };
+// a seat mid-morph: a place the two orders share (to within a seat's drift) is held; one they don't swaps at halfway, faded
+const ordSwap=(a,c)=>Math.abs(((c-a+6)%12+12)%12-6)>3;
+const ordSeat=(a,c)=>{ const m=RING.m; if(m<=0) return a; if(m>=1) return c; return ordSwap(a,c)?(m<0.5?a:c):lerpPos(a,c,m); };
+const ordFade=(a,c)=>(RING.m>0&&RING.m<1&&ordSwap(a,c))?Math.abs(1-2*RING.m):1;
+const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;""")
+        t=must(t,"rDots[pc].setAttribute('cx',x.toFixed(2)); rDots[pc].setAttribute('cy',y.toFixed(2)); rLbls[pc].setAttribute('transform','translate('+lx.toFixed(2)+' '+ly.toFixed(2)+')'); } }",
+          "rDots[pc].setAttribute('cx',x.toFixed(2)); rDots[pc].setAttribute('cy',y.toFixed(2)); rLbls[pc].setAttribute('transform','translate('+lx.toFixed(2)+' '+ly.toFixed(2)+')');\n    const o=ordFade(pc+LET.offA,7*pc+LET.offC).toFixed(3); rDots[pc].setAttribute('opacity',o); rLbls[pc].setAttribute('opacity',o); } }")
         t=must(t,"const ringPos=pc=>RING.m<=0?pc:lerpPos(pc,fifth(pc),RING.m);",
-          "const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return RING.m<=0?a:(RING.m>=1?c:lerpPos(a,c,RING.m)); };   // a pitch's seat on screen: the letters turned by LET")
+          "const ringPos=pc=>{ const a=pc+LET.offA, c=7*Math.round(pc)+LET.offC; return ordSeat(a,c); };   // a pitch's seat on screen: the letters turned by LET; mid-change, held or swapped (ordSeat)")
     if (a,b)==(630,641):
         t=re.sub(r"const FIELD=\{on:true[^\n]*","const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA",t)
         t=re.sub(r"const tickOf=[^\n]*\n","",t); t=re.sub(r"const trio=[^\n]*\n","",t)
@@ -33,7 +49,8 @@ def block(a,b):
     if (a,b)==(672,688):
         t=must(t,"  if(chain!==wedgeChain) buildWedge();\n","  buildWedge();\n")
         t=must(t,"shapeField(FIELD.u);","shapeField();")
-        t=must(t,"valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));","valG.setAttribute('opacity',((FLAT_OFF?1:FIELD.lit)*swing).toFixed(3));")
+        t=must(t,"valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));","valG.setAttribute('opacity',(FLAT_OFF?1:FIELD.lit).toFixed(3));")
+        t=must(t,"valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')');","valG.setAttribute('transform','rotate('+(ordMid()?0:(chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); /* mid-morph: drawn in the screen's own seats */")
         i0=t.index('  const u=FIELD.u, fr='); i1=t.index("toFixed(3)); });",i0)+len("toFixed(3)); });")
         t=t[:i0]+open(os.path.join(D,'st_lbl.js')).read().rstrip('\n')+t[i1:]
     if (a,b)==(755,793):
