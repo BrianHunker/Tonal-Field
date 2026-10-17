@@ -50,7 +50,7 @@ const SURF=(()=>{
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
-    size(); follow(false); if(k==='ring') rebind(); }
+    size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
   // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
   function rebind(){ if(typeof ringRebind==='function') requestAnimationFrame(()=>ringRebind()); }
@@ -70,7 +70,11 @@ const SURF=(()=>{
     el.addEventListener('dblclick',e=>{ e.preventDefault(); toggle(el,k); }); }
   const tabPanel=document.getElementById('tabPanel'), ringEl=document.getElementById('ring'), fbEl=document.getElementById('fb');
   if(tabPanel) onDouble(tabPanel,'tab'); if(ringEl) onDouble(ringEl,'ring'); if(fbEl) onDouble(fbEl,'fb');
-  addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur) close(); });
+  addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur){ e.preventDefault(); e.stopPropagation(); close(); } },true);   // before anything else takes the key
+  // a double click (or double tap) anywhere in the zoomed view returns it — on the surface itself its own toggle does
+  layer.addEventListener('dblclick',e=>{ if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
+  { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
+      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
   addEventListener('resize',()=>{ size(); follow(false); });
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;

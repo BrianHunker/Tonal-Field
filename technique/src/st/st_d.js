@@ -61,7 +61,10 @@ function modulate(d){
 }
 // the ring is selected by clicking it (the number row then moves φ), and stays so until a click elsewhere
 let RINGSEL=false; const ringBoxEl=ringSvg.parentNode;
-document.addEventListener('pointerdown',e=>{ RINGSEL=ringBoxEl.contains(e.target); ringBoxEl.classList.toggle('sel',RINGSEL); },true);
+// zoomed to fill the screen, the Ring is selected: any click in its zoomed view keeps it so
+const ringZoomed=()=>!!ringSvg.closest('.zoomLayer');
+function markRingSel(){ ringBoxEl.classList.toggle('sel',RINGSEL); ringSvg.classList.toggle('sel',RINGSEL); }
+document.addEventListener('pointerdown',e=>{ RINGSEL=ringBoxEl.contains(e.target)||(ringZoomed()&&!!e.target.closest&&!!e.target.closest('.zoomLayer')); markRingSel(); },true);
 const SOLKEY={d:0,r:1,m:2,f:3,s:4,l:5,t:6}; let solHeld=null;
 const ROW={'1':-1,'2':-2,'3':-3,'4':-4,'5':-5,'7':5,'8':4,'9':3,'0':2,'-':1};   // left of 6 Do moves down by the key's face, right of it up by the mirror; 6 the tritone
 window.addEventListener('keydown',e=>{

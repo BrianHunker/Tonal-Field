@@ -442,7 +442,7 @@ function customTool(){
     else if(k==='-'||k==='_'){ const x=evAt(cur.s,cur.t); if(x&&x.d>pal.grid()) edit(()=>{ evAt(cur.s,cur.t).d-=pal.grid(); }); }
     else if(k==='Backspace'||k==='Delete'){ const x=evAt(cur.s,cur.t); if(x) edit(()=>{ M.ev=M.ev.filter(y=>y!==evAt(cur.s,cur.t)); }); else if(M.ch.some(c=>c.t===cur.t)) edit(()=>{ M.ch=M.ch.filter(c=>c.t!==cur.t); }); }
     else if(k==='c'||k==='C'||k==='Enter'){ chordIn.focus(); chordIn.select(); }
-    else if(k==='Escape') tab.blur();
+    else if(k==='Escape'&&!SURF.kind) tab.blur();
     else done=false;
     if(done){ e.preventDefault(); e.stopPropagation(); } });
   const svgPt=(sv,e)=>{ const p=sv.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(sv.getScreenCTM().inverse()); };

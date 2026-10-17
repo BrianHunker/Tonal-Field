@@ -150,6 +150,12 @@ function handNow(s,st){
   // a song changes grip at its bars: the hand goes to the next one a little ahead of the bar (s.lead)
   if(s.hands&&s.lead&&T.on&&ctx){ const sa=stateAt(ctx.currentTime+s.lead); if(sa.s.hands&&sa.idx>=0) return sa.s.hands[sa.s.plan[sa.idx].frame]; if(sa.s===s&&sa.count) return s.hands[s.plan[0].frame]; }
   return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
+// where finger f is next pressed, after the tone sounding: the hand of the first frame ahead that uses it (round the loop)
+function aheadOf(s,st,f){
+  if(!s||!s.hands||!st||st.idx<0) return null; const n=s.plan.length;
+  for(let k=1;k<=n;k++){ const e=s.plan[(st.idx+k)%n], uses=s.chords?!!(s.chords[e.frame]&&s.chords[e.frame].has(f)):e.finger===f;
+    if(uses){ const h=s.hands[e.frame]; return h&&h.f[f]; } }
+  return null; }
 function fingerDown(f,t){
   let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);
   if(st.s&&st.s.chord) return (st.s.chords&&st.idx>=0?st.s.chords[st.s.plan[st.idx].frame]:st.s.chord).has(f);   // a chord: its fingers stay down throughout (a song's, its bar's chord)
@@ -228,10 +234,14 @@ function frame(){
   const fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
   const ydt=fdt||0.016;
   const cand=(!T.on&&!DRILL)?CAND:null;
+  const downNow=t!==null?[0,1,2,3,4].map(k=>k&&fingerDown(k,t)):null;
   for(const F of fingers){
-    const h=H.f[F.f], fsy=FB.strY[h.string];
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&fingerDown(F.f,t))||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    const down=(t!==null&&downNow[F.f])||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    // LOOK-AHEAD: a finger not holding anything goes straight to where it is next needed, as soon as it is free —
+    // as far as the fingers still down let it (it keeps within their reach)
+    let h=H.f[F.f]; if(!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
+    const fsy=FB.strY[h.string];
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
     const lm=(live&&!reduce)?legatoMotion(F,st,t,fsy):null; let sq=0;

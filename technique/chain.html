@@ -1531,5 +1531,9 @@ syncUI();
 })();
 })();
 </script>
+<script>/* g: g(x) on/off, from any view (not while typing) */
+addEventListener('keydown',function(e){ if(e.key!=='g'&&e.key!=='G'||e.metaKey||e.ctrlKey||e.altKey||e.repeat) return; var t=e.target, tag=(t&&t.tagName||'').toLowerCase();
+  if(tag==='textarea'||tag==='select'||(tag==='input'&&['checkbox','range','button'].indexOf(t.type)<0)||(t&&t.isContentEditable)) return;
+  var b=document.getElementById('gx'); if(b){ e.preventDefault(); b.click(); } },true);</script>
 </body>
 </html>

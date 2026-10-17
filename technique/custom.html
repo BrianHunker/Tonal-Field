@@ -190,7 +190,7 @@ path.strDim{ stroke:var(--mid); opacity:.45 }                            /* the 
 .ghostBtn svg{ width:24px; height:24px } .ghostBtn[aria-pressed="true"]{ background:var(--ink); color:var(--bg) }
 .ghostLine{ fill:none; stroke:var(--ink); stroke-width:1.3; stroke-dasharray:3 3; opacity:.5 }
 #ring{ border-radius:50%; outline:none; transition:box-shadow .2s }
-.ringBox.sel #ring{ box-shadow:0 0 0 1.5px var(--mid), 0 0 22px -6px var(--ink) }
+.ringBox.sel #ring, #ring.sel{ box-shadow:0 0 0 1.5px var(--mid), 0 0 22px -6px var(--ink) }
 body:not(.gxOn) .gxOnly{ visibility:hidden }
 .order{ display:inline-grid; grid-template-columns:1fr 1fr; width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink); overflow:hidden; padding:0; cursor:pointer; background:var(--bg); font:inherit; font-weight:700; font-size:15px }
 .order span{ display:grid; place-items:center; color:var(--ink) } .order span.on{ background:var(--ink); color:var(--bg) }
@@ -935,7 +935,10 @@ function modulate(d){
 }
 // the ring is selected by clicking it (the number row then moves φ), and stays so until a click elsewhere
 let RINGSEL=false; const ringBoxEl=ringSvg.parentNode;
-document.addEventListener('pointerdown',e=>{ RINGSEL=ringBoxEl.contains(e.target); ringBoxEl.classList.toggle('sel',RINGSEL); },true);
+// zoomed to fill the screen, the Ring is selected: any click in its zoomed view keeps it so
+const ringZoomed=()=>!!ringSvg.closest('.zoomLayer');
+function markRingSel(){ ringBoxEl.classList.toggle('sel',RINGSEL); ringSvg.classList.toggle('sel',RINGSEL); }
+document.addEventListener('pointerdown',e=>{ RINGSEL=ringBoxEl.contains(e.target)||(ringZoomed()&&!!e.target.closest&&!!e.target.closest('.zoomLayer')); markRingSel(); },true);
 const SOLKEY={d:0,r:1,m:2,f:3,s:4,l:5,t:6}; let solHeld=null;
 const ROW={'1':-1,'2':-2,'3':-3,'4':-4,'5':-5,'7':5,'8':4,'9':3,'0':2,'-':1};   // left of 6 Do moves down by the key's face, right of it up by the mirror; 6 the tritone
 window.addEventListener('keydown',e=>{
@@ -1442,6 +1445,12 @@ function handNow(s,st){
   // a song changes grip at its bars: the hand goes to the next one a little ahead of the bar (s.lead)
   if(s.hands&&s.lead&&T.on&&ctx){ const sa=stateAt(ctx.currentTime+s.lead); if(sa.s.hands&&sa.idx>=0) return sa.s.hands[sa.s.plan[sa.idx].frame]; if(sa.s===s&&sa.count) return s.hands[s.plan[0].frame]; }
   return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
+// where finger f is next pressed, after the tone sounding: the hand of the first frame ahead that uses it (round the loop)
+function aheadOf(s,st,f){
+  if(!s||!s.hands||!st||st.idx<0) return null; const n=s.plan.length;
+  for(let k=1;k<=n;k++){ const e=s.plan[(st.idx+k)%n], uses=s.chords?!!(s.chords[e.frame]&&s.chords[e.frame].has(f)):e.finger===f;
+    if(uses){ const h=s.hands[e.frame]; return h&&h.f[f]; } }
+  return null; }
 function fingerDown(f,t){
   let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);
   if(st.s&&st.s.chord) return (st.s.chords&&st.idx>=0?st.s.chords[st.s.plan[st.idx].frame]:st.s.chord).has(f);   // a chord: its fingers stay down throughout (a song's, its bar's chord)
@@ -1522,10 +1531,14 @@ function frame(){
   const fnow=performance.now(), fdt=Math.min(0.1,(fnow-(frame.lastT||fnow))/1000); frame.lastT=fnow;
   const ydt=fdt||0.016;
   const cand=(!T.on&&!DRILL)?CAND:null;
+  const downNow=t!==null?[0,1,2,3,4].map(k=>k&&fingerDown(k,t)):null;
   for(const F of fingers){
-    const h=H.f[F.f], fsy=FB.strY[h.string];
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&fingerDown(F.f,t))||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    const down=(t!==null&&downNow[F.f])||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    // LOOK-AHEAD: a finger not holding anything goes straight to where it is next needed, as soon as it is free —
+    // as far as the fingers still down let it (it keeps within their reach)
+    let h=H.f[F.f]; if(!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
+    const fsy=FB.strY[h.string];
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
     const lm=(live&&!reduce)?legatoMotion(F,st,t,fsy):null; let sq=0;
@@ -1673,7 +1686,7 @@ const SURF=(()=>{
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
-    size(); follow(false); if(k==='ring') rebind(); }
+    size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
   // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
   function rebind(){ if(typeof ringRebind==='function') requestAnimationFrame(()=>ringRebind()); }
@@ -1693,7 +1706,11 @@ const SURF=(()=>{
     el.addEventListener('dblclick',e=>{ e.preventDefault(); toggle(el,k); }); }
   const tabPanel=document.getElementById('tabPanel'), ringEl=document.getElementById('ring'), fbEl=document.getElementById('fb');
   if(tabPanel) onDouble(tabPanel,'tab'); if(ringEl) onDouble(ringEl,'ring'); if(fbEl) onDouble(fbEl,'fb');
-  addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur) close(); });
+  addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur){ e.preventDefault(); e.stopPropagation(); close(); } },true);   // before anything else takes the key
+  // a double click (or double tap) anywhere in the zoomed view returns it — on the surface itself its own toggle does
+  layer.addEventListener('dblclick',e=>{ if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
+  { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
+      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
   addEventListener('resize',()=>{ size(); follow(false); });
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;
@@ -1879,6 +1896,9 @@ $('next').addEventListener('click',()=>{ if(typeof CHORDS!=='undefined'&&CHORDS)
 $('clear').addEventListener('click',()=>{ stopForEdit(); P=[]; DRILL=null; SEL=null; MEANS='pick'; LEGATO.ham=LEGATO.pull=false; CUSTOM=true; drill.hold=true;
   const H=handFor([],HAND.f[1].fret,0); HAND.f=H.f; HAND.thumb=H.thumb; settle(); refresh(); });
 playBtn.addEventListener('click',()=>{ if(T.on) stopAll(); else run(); });
+window.addEventListener('keydown',e=>{ if(e.key!=='g'&&e.key!=='G'||e.metaKey||e.ctrlKey||e.altKey||e.repeat) return; const tg=e.target, tag=(tg&&tg.tagName||'').toLowerCase();
+  if(tag==='textarea'||tag==='select'||(tag==='input'&&!['checkbox','range','button'].includes(tg.type))||(tg&&tg.isContentEditable)) return;
+  const b=$('gx'); if(b){ e.preventDefault(); b.click(); } },true);   // g: g(x) on/off, from any view
 window.addEventListener('keydown',e=>{ if(e.code!=='Space') return; const tag=(e.target&&e.target.tagName||'').toLowerCase(); if(tag==='button'||tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); if(T.on) stopAll(); else run(); });
 bpmIn.addEventListener('input',()=>{ drill.bpm=+bpmIn.value; bpmV.textContent=drill.bpm; });
 bpmIn.addEventListener('change',()=>{ if(T.on) run(); });
@@ -3478,7 +3498,7 @@ function customTool(){
     else if(k==='-'||k==='_'){ const x=evAt(cur.s,cur.t); if(x&&x.d>pal.grid()) edit(()=>{ evAt(cur.s,cur.t).d-=pal.grid(); }); }
     else if(k==='Backspace'||k==='Delete'){ const x=evAt(cur.s,cur.t); if(x) edit(()=>{ M.ev=M.ev.filter(y=>y!==evAt(cur.s,cur.t)); }); else if(M.ch.some(c=>c.t===cur.t)) edit(()=>{ M.ch=M.ch.filter(c=>c.t!==cur.t); }); }
     else if(k==='c'||k==='C'||k==='Enter'){ chordIn.focus(); chordIn.select(); }
-    else if(k==='Escape') tab.blur();
+    else if(k==='Escape'&&!SURF.kind) tab.blur();
     else done=false;
     if(done){ e.preventDefault(); e.stopPropagation(); } });
   const svgPt=(sv,e)=>{ const p=sv.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(sv.getScreenCTM().inverse()); };

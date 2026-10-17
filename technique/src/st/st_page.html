@@ -28,7 +28,7 @@
 .ghostBtn svg{ width:24px; height:24px } .ghostBtn[aria-pressed="true"]{ background:var(--ink); color:var(--bg) }
 .ghostLine{ fill:none; stroke:var(--ink); stroke-width:1.3; stroke-dasharray:3 3; opacity:.5 }
 #ring{ border-radius:50%; outline:none; transition:box-shadow .2s }
-.ringBox.sel #ring{ box-shadow:0 0 0 1.5px var(--mid), 0 0 22px -6px var(--ink) }
+.ringBox.sel #ring, #ring.sel{ box-shadow:0 0 0 1.5px var(--mid), 0 0 22px -6px var(--ink) }
 body:not(.gxOn) .gxOnly{ visibility:hidden }
 .order{ display:inline-grid; grid-template-columns:1fr 1fr; width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink); overflow:hidden; padding:0; cursor:pointer; background:var(--bg); font:inherit; font-weight:700; font-size:15px }
 .order span{ display:grid; place-items:center; color:var(--ink) } .order span.on{ background:var(--ink); color:var(--bg) }
