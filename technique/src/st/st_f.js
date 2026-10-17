@@ -237,10 +237,11 @@ function frame(){
   const downNow=t!==null?[0,1,2,3,4].map(k=>k&&fingerDown(k,t)):null;
   for(const F of fingers){
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&downNow[F.f])||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    const FA=(t!==null&&s&&s.fingerAt&&st)?s.fingerAt(F.f,st):null;     // a segment that times each finger itself (Custom)
+    const down=FA?FA.down:((t!==null&&downNow[F.f])||rest); F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
     // LOOK-AHEAD: a finger not holding anything goes straight to where it is next needed, as soon as it is free —
     // as far as the fingers still down let it (it keeps within their reach)
-    let h=H.f[F.f]; if(!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
+    let h=H.f[F.f]; if(FA&&FA.string!==undefined) h={string:FA.string,fret:FA.fret}; else if(!FA&&!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
     const fsy=FB.strY[h.string];
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);

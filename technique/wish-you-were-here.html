@@ -954,7 +954,7 @@ window.addEventListener('keyup',e=>{ if(e.key==='ArrowUp') ARROW.up=false; if(e.
 window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; });
 { let drag=null;
   const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
-  ringSvg.addEventListener('pointerdown',e=>{ if(!FIELD.on) return; const p=angOf(e);
+  ringSvg.addEventListener('pointerdown',e=>{ const p=angOf(e); if(!FIELD.on&&p.d<0.72) return;   // g(x) off: the letters still turn (only the field inside waits for it)
     if(p.d>=0.72&&solHeld&&FIELD.lit>0.5){                                // a syllable key held, a letter clicked: that letter takes that function
       const s=Math.round(p.a), pc=RING.m>=0.5?((7*s-LET.off)%12+12)%12:((s-LET.off)%12+12)%12;
       let d=(((pc-SYLPC[SOLKEY[solHeld]])-PHI.doPc)%12+12)%12; if(d>6) d-=12; if(d===6||d===-6) d=tritoneStep();
@@ -973,7 +973,7 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
     let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
     if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is −5 semitones
     const want=drag.off+Math.round(da), step=want-LET.off; if(!step) return;
-    LET.off=want; PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
+    LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });   // g(x) off: only the clock face turns, the orientation kept
   const end=()=>{
     if(DRAGF){ const n=Math.round(DRAGF.x);                                // let go: the field settles on the nearest seat, and that is φ
       FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x;
@@ -1534,10 +1534,11 @@ function frame(){
   const downNow=t!==null?[0,1,2,3,4].map(k=>k&&fingerDown(k,t)):null;
   for(const F of fingers){
     const rest=t===null&&P.some(q=>q.g===F.f);                          // stopped: a placed finger rests on its string
-    const down=(t!==null&&downNow[F.f])||rest; F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
+    const FA=(t!==null&&s&&s.fingerAt&&st)?s.fingerAt(F.f,st):null;     // a segment that times each finger itself (Custom)
+    const down=FA?FA.down:((t!==null&&downNow[F.f])||rest); F.isDown=down; F.c.dataset.down=down?1:0;   // the finger's own state, not read off where it happens to be
     // LOOK-AHEAD: a finger not holding anything goes straight to where it is next needed, as soon as it is free —
     // as far as the fingers still down let it (it keeps within their reach)
-    let h=H.f[F.f]; if(!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
+    let h=H.f[F.f]; if(FA&&FA.string!==undefined) h={string:FA.string,fret:FA.fret}; else if(!FA&&!down&&live){ const a=aheadOf(s,st,F.f); if(a&&[1,2,3,4].every(k=>k===F.f||!downNow[k]||fingersFit(F.f,a.fret,a.string,k,H.f[k].fret,H.f[k].string))) h=a; }
     const fsy=FB.strY[h.string];
     const onBent=live&&mode==='bend'&&h.string===strI&&F.f<=s.D.lo.g;
     const target=down?fsy+(onBent?bendDy*(tipX(h.fret)-FB.nut)/Math.max(1,tipX(s.D.lo.f)-FB.nut):0)-FR*PRESS_H:hoverY(fsy);
@@ -3188,11 +3189,15 @@ function customTool(){
     for(let i=0;i<reps.length;i++) for(let j=i+1;j<reps.length;j++) if(!fingersFit(reps[i].g,reps[i].f,reps[i].s,reps[j].g,reps[j].f,reps[j].s)) return false;
     return true; }
   const perms=(free,m)=>{ const out=[]; const go=(acc,left)=>{ if(acc.length===m){ out.push(acc.slice()); return; } left.forEach((g,i)=>go(acc.concat([g]),left.slice(0,i).concat(left.slice(i+1)))); }; go([],free); return out; };
-  function costOf(L,prevMean,bar,prevAt){
+  // the fingers stay where they last pressed until they are needed elsewhere: a finger moved costs its lift and its travel,
+  // a place another finger is already holding played by a different one costs more, so a grip is fingered once — the same
+  // fingers through its arpeggio and its strum — and a change of grip keeps every finger it can where it is
+  function costOf(L,prevMean,bar,pos){
     if(!L.length) return {c:0,mean:prevMean};
     const bases=L.map(x=>x.f-(x.g-1)), mean=bases.reduce((a,b)=>a+b,0)/bases.length;
     let c=1.0*(Math.max(...bases)-Math.min(...bases))+(prevMean===null?0:0.5*Math.abs(mean-prevMean))+(bar?(L.length>4?0.8:2.4):0)+0.02*L.reduce((a,x)=>a+x.g,0);
-    L.forEach(x=>{ const g0=prevAt[x.s+':'+x.f]; if(g0&&g0!==x.g) c+=0.3; });
+    L.forEach(x=>{ const q=pos[x.g]; if(q&&(q.s!==x.s||q.f!==x.f)) c+=0.15+0.1*(Math.abs(q.f-x.f)+0.3*Math.abs(q.s-x.s))+(q.s===x.s?0.6:0);   // along its own string: a slide, not fretting
+      for(let k=1;k<=4;k++) if(k!==x.g&&pos[k]&&pos[k].s===x.s&&pos[k].f===x.f) c+=0.8; });
     // two fingers at one fret lie in order across the strings: the higher finger on the higher string
     for(let i=0;i<L.length;i++) for(let j=0;j<L.length;j++){ const a=L[i], b=L[j]; if(a.g<b.g&&a.f===b.f&&a.s<b.s) c+=0.6; }
     return {c,mean}; }
@@ -3203,14 +3208,13 @@ function customTool(){
       let chart=null; if(NSTR===6&&nw.length>=3){ const c=[]; for(let s=NSTR-1;s>=0;s--){ const e=nw.find(x=>x.s===s); c.push(e?String(e.f):'x'); }
         const key=c.join(''); if(GRIPMAP[key]&&!nw.some(e=>e.g)&&snd.length===nw.length) chart=GRIPMAP[key]; }
       return {t:t0,snd,nw,chart}; });
-    let states=[{a:new Map(),c:0,mean:null,prev:null,L:[]}];
+    let states=[{a:new Map(),c:0,mean:null,prev:null,L:[],pos:[null,null,null,null,null]}];
     frames.forEach((F,k)=>{
       const fretNew=F.nw.filter(e=>e.f>0), opens=F.snd.filter(e=>e.f===0).map(e=>e.s), next=new Map();
       const fixedOf=e=>{ if(e.g) return e.g; if(F.chart){ const c=+F.chart[NSTR-1-e.s]; if(c>=1) return c; } return 0; };
       const tryAll=strict=>{ for(const S of states){
           const held=F.snd.filter(e=>e.f>0&&e.t<F.t&&S.a.has(e.id)).map(e=>({e,g:S.a.get(e.id)}));
           const usedG=new Set(held.map(h=>h.g)), heldBar=held.filter(h=>h.g===1).length>1;
-          const prevAt={}; S.L.forEach(x=>{ prevAt[x.s+':'+x.f]=x.g; });
           const opts=[];
           // plain: one finger each
           const free=[1,2,3,4].filter(g=>!usedG.has(g));
@@ -3225,13 +3229,14 @@ function customTool(){
             if(o.some(x=>{ const fx=fixedOf(x.e); return fx&&fx!==x.g; })) continue;
             const L=held.map(h=>({g:h.g,s:h.e.s,f:h.e.f,id:h.e.id})).concat(o.map(x=>({g:x.g,s:x.e.s,f:x.e.f,id:x.e.id})));
             if(!validHand(L,opens,strict)) continue;
-            const bar=L.filter(x=>x.g===1).length>1, {c,mean}=costOf(L,S.mean,bar&&!heldBar,prevAt);
+            const bar=L.filter(x=>x.g===1).length>1, {c,mean}=costOf(L,S.mean,bar&&!heldBar,S.pos);
             const a=new Map(); L.forEach(x=>a.set(x.id,x.g));
-            const key=L.map(x=>x.id+'.'+x.g).sort().join(','), cc=S.c+c;
-            if(!next.has(key)||next.get(key).c>cc) next.set(key,{a,c:cc,mean,prev:S,L,k}); } } };
+            const pos=S.pos.slice(); L.forEach(x=>{ pos[x.g]={s:x.s,f:x.f}; });
+            const key=L.map(x=>x.id+'.'+x.g).sort().join(',')+'|'+pos.map(q=>q?q.s+':'+q.f:'-').join(','), cc=S.c+c;
+            if(!next.has(key)||next.get(key).c>cc) next.set(key,{a,c:cc,mean,prev:S,L,k,pos}); } } };
       tryAll(true);
       if(!next.size){ tryAll(false); if(fretNew.length) warn.push(F.t); }       // out of the hand's reach: the nearest it can do
-      if(!next.size){ const S=states[0], a=new Map(S.a); fretNew.forEach((e,i)=>a.set(e.id,Math.min(4,i+1))); next.set('x'+k,{a,c:S.c+9,mean:S.mean,prev:S,L:fretNew.map((e,i)=>({g:Math.min(4,i+1),s:e.s,f:e.f,id:e.id})),k}); }
+      if(!next.size){ const S=states[0], a=new Map(S.a); fretNew.forEach((e,i)=>a.set(e.id,Math.min(4,i+1))); next.set('x'+k,{a,c:S.c+9,mean:S.mean,pos:S.pos,prev:S,L:fretNew.map((e,i)=>({g:Math.min(4,i+1),s:e.s,f:e.f,id:e.id})),k}); }
       states=[...next.values()].sort((x,y)=>x.c-y.c).slice(0,48); });
     // back through the best path: each frame's hand, each tone's finger
     const pathS=[]; let S=states[0]; while(S&&S.prev){ pathS.unshift(S); S=S.prev; }
@@ -3268,8 +3273,57 @@ function customTool(){
     const D={chord:true,custom:true,walk:true,art:'custom',dir:'up',means:'pick',ham:false,pull:false,plan,bars:M.bars,
       frames:[{string:plan[0].string,tones:[],pl:pls[0],hand:hands[0]}],
       lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[Math.min(1,plan.length-1)].string,f:plan[Math.min(1,plan.length-1)].fret,g:plan[Math.min(1,plan.length-1)].finger}};
-    C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB};
+    C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB,tl:timelines(evs,FG.fing,TT)};
     return C; }
+  /* EACH FINGER'S TIMELINE. A finger pressing a string that is not sounding costs nothing, so a finger is down at its next
+     place from the moment it is free until it has to move — the whole of a grip is in place before its first tone, and
+     a tone two grips share is never let go. It waits (hovering over the place) only while that string must ring open or
+     lower down the neck before its tone, or while the fingers still down could not reach with it there. The drill loops,
+     so the place a finger takes before the first bar is the one it holds at the end. */
+  function timelines(evs,fing,TT){
+    const ext=[]; [-TT,0,TT].forEach(o=>evs.forEach(e=>ext.push({s:e.s,f:e.f,a:e.t+o,b:e.t+e.d+o,id:e.id})));
+    // the strings a place covers (a barre: every string from the high e to its lowest)
+    const covers=u=>u.barre?Array.from({length:u.s+1},(_,i)=>i):[u.s];
+    const clear=(u,a,b)=>a>=b||!ext.some(e=>e.a<b&&e.b>a&&covers(u).includes(e.s)&&e.f<u.f);   // nothing rings below it there
+    const uses={};
+    for(let g=1;g<=4;g++){ let U=evs.filter(e=>fing[e.id]===g&&e.f>0).map(e=>({t0:e.t,t1:e.t+e.d,s:e.s,f:e.f,barre:false}));
+      if(g===1){ const out=[]; U.sort((x,y)=>x.t0-y.t0).forEach(u=>{ const o=out.find(v=>v.f===u.f&&v.t0<u.t1&&u.t0<v.t1&&v.s!==u.s);
+          if(o){ o.barre=true; o.s=Math.max(o.s,u.s); o.t0=Math.min(o.t0,u.t0); o.t1=Math.max(o.t1,u.t1); } else out.push(Object.assign({},u)); }); U=out; }
+      U.sort((x,y)=>x.t0-y.t0);
+      const same=(x,y)=>x.s===y.s&&x.f===y.f&&x.barre===y.barre, M=[];
+      U.forEach(u=>{ const l=M[M.length-1]; if(l&&same(l,u)&&u.t0<=l.t1) l.t1=Math.max(l.t1,u.t1); else M.push(u); });
+      uses[g]=M; }
+    // first pass: each finger down at a place from the end of its last use (or as soon as that string is clear) to the end of this one
+    const naive={}, plan=g=>{ const U=uses[g], segs=[]; if(!U.length) return segs;
+      U.forEach((u,i)=>{ const pv=i?U[i-1]:Object.assign({},U[U.length-1],{t0:U[U.length-1].t0-TT,t1:U[U.length-1].t1-TT});
+        let x=pv.t1; if(!(same(pv,u)&&clear(u,pv.t1,u.t0))){ ext.forEach(e=>{ if(covers(u).includes(e.s)&&e.f<u.f&&e.a<u.t0&&e.b>x) x=Math.max(x,Math.min(u.t0,e.b)); }); }
+        if(x>pv.t1) segs.push({a:pv.t1,b:x,s:u.s,f:u.f,barre:u.barre,down:false});   // hovering, waiting for the string
+        segs.push({a:x,b:u.t1,s:u.s,f:u.f,barre:u.barre,down:true}); });
+      return segs; };
+    const same=(x,y)=>x.s===y.s&&x.f===y.f&&x.barre===y.barre;
+    for(let g=1;g<=4;g++) naive[g]=plan(g);
+    const at=(segs,t)=>{ for(const q of segs){ for(const o of [0,TT,-TT]) if(t>=q.a+o&&t<q.b+o) return q; } return null; };
+    // second pass: early presses (and hovers) only where the fingers then down can reach with them
+    const fits=(g,q,t)=>{ for(let k=1;k<=4;k++){ if(k===g) continue; const o=at(naive[k],t); if(!o||!o.down) continue;
+        if(!fingersFit(g,q.f,q.barre?-1:q.s,k,o.f,o.barre?-1:o.s)) return false; } return true; };
+    const TLx={};
+    for(let g=1;g<=4;g++){ const out=[];
+      naive[g].forEach((q,i)=>{ const use=uses[g].find(u=>same(u,q)&&q.b===u.t1);
+        if(!use){ out.push(Object.assign({},q,{down:false,pos:true})); return; }
+        // the early part of a press [q.a, use.t0): from its last point where the hand cannot hold it, wait
+        const pts=[...new Set([q.a].concat(...[1,2,3,4].filter(k=>k!==g).map(k=>naive[k].flatMap(o=>[o.a,o.b,o.a+TT,o.b+TT,o.a-TT,o.b-TT]))))].filter(t=>t>=q.a&&t<use.t0).sort((x,y)=>x-y);
+        let x=q.a; pts.forEach(t=>{ if(!fits(g,q,t)) x=Math.max(x,pts.find(u=>u>t)??use.t0); });
+        if(x>q.a) out.push({a:q.a,b:x,s:q.s,f:q.f,barre:q.barre,down:false,pos:fits(g,q,q.a)});
+        out.push(Object.assign({},q,{a:x})); });
+      TLx[g]=out; }
+    return TLx; }
+  // where finger g is at tick t: {down, string, fret} (string/fret absent: wherever the frame's hand puts it); null, no uses
+  function fingerAt(g,t){ if(!C||C.empty||!C.tl) return null; const TT=total(), segs=C.tl[g]; if(!segs||!segs.length) return null;
+    t=((t%TT)+TT)%TT; for(const q of segs) for(const o of [0,TT,-TT]) if(t>=q.a+o&&t<q.b+o){ const r={down:q.down,barre:q.barre,bs:q.s};
+      if(q.down||q.pos){ r.string=q.s; r.fret=q.f; } return r; }
+    return {down:false}; }
+  // the placements down at tick t (for the drawn hand: a barre, the stopped view)
+  const pressedAt=t=>{ const out=[]; for(let g=1;g<=4;g++){ const r=fingerAt(g,t); if(r&&r.down) out.push(r.barre?{g,s:r.bs,f:r.fret,barre:true}:{g,s:r.string,f:r.fret}); } return out; };
   const gcd=(a,b)=>{ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||TPQ; };
   function useC(){ if(!C||C.empty){ DRILL=null; FIG=[{s:0,d:4}]; LOOP=total()/TPQ; return; }
     FIG=C.fig; LOOP=C.loop; STROKES=C.strokes; BAR_START=i=>!!FIG[i]&&Math.abs((FIG[i].s*TPQ)%barT(M.meter))<1e-6; DRILL=C.D; }
@@ -3394,7 +3448,7 @@ function customTool(){
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
-   +'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
+   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
     document.head.appendChild(st); }
   const titleIn=$q('cuTitle'), meterIn=$q('cuMeter'), barsEl=$q('cuBars'), palEl=$q('cuPal'), dotB=$q('cuDot'), tripB=$q('cuTrip'), chordIn=$q('cuChord'), textEl=$q('cuText'), msgEl=$q('cuMsg'), fileIn=$q('cuFile');
   // keys typed in the panel stay in the panel (the hand's finger keys, the ring's, Space)
@@ -3402,6 +3456,10 @@ function customTool(){
   const markPal=()=>{ palEl.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===pal.v)); dotB.classList.toggle('on',pal.dot); tripB.classList.toggle('on',pal.trip); };
   // the page around it: one page, no Prev/Next or Hold; the header names the drill
   ['means','pageCt','hold','clear'].forEach(id=>{ const e=$q(id); if(e) e.style.display='none'; }); { const p=$q('prev'); if(p) p.parentElement.style.display='none'; }
+  // CLEAR, on the TAB: every tone and chord symbol gone (the title, metre, bars and tempo kept); ⌘Z brings them back
+  { const col=document.querySelector('.tabCol'), b=document.createElement('button'); b.type='button'; b.className='pill cuClear'; b.id='cuClear'; b.textContent='Clear';
+    b.title='Clear the TAB: every tone and chord symbol (⌘Z undoes)'; col.style.position='relative'; col.appendChild(b);
+    b.addEventListener('click',()=>{ if(!M.ev.length&&!M.ch.length) return; edit(()=>{ M.ev=[]; M.ch=[]; cur.t=0; }); tab.focus(); }); }
   tab.setAttribute('tabindex','0'); tab.setAttribute('aria-label','The drill in TAB: click a string and type a fret');
   tab.style.outline='none';
 
@@ -3525,7 +3583,7 @@ function customTool(){
   function segment(){
     const B=barT(M.meter);
     const lead=Math.min(0.09,0.35*(minStep/TPQ)*60/drill.bpm);
-    return {D:C.D,grid:strokeGrid(),pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
+    return {D:C.D,grid:strokeGrid(),fingerAt:(g,st)=>fingerAt(g,st.count||st.ph===undefined?0:st.ph*TPQ+0.06/T.beat*TPQ),pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
       place(s,t){ s.count=B/TPQ; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=Infinity; s.end=Infinity; },
       showBar(s){ T.shown=s; }}; }
   // THE PICK'S STROKES: each beat cut as finely as what is played in it needs (eighths, triplets, sixteenths …), the pick
@@ -3577,9 +3635,12 @@ function customTool(){
     // stopped: the hand as it is at the cursor (playing, the engine moves it frame by frame; the open strings and a
     // barre follow it here)
     const k=playing?(()=>{ const sa=stateAt(ctx.currentTime+(st.s.lead||0)); return sa.idx>=0&&sa.s.plan[sa.idx]?sa.s.plan[sa.idx].frame:0; })():frameAt(tk);
-    if(k!==shownK&&C&&!C.empty){ shownK=k; const kk=Math.max(0,k);
-      P=k<0?[]:C.pls[kk].map(q=>Object.assign({},q)); HANDLAB.setOpen(k<0?[]:C.opens[kk]);
-      if(!playing){ const H=k<0?C.hands[0]:C.hands[kk]; HAND.f=cloneHand(H).f; HAND.thumb=H.thumb; HANDLAB.resettle(); } }
+    // the fingers as their timelines have them (playing: the engine reads them too); a finger with nothing to do, where
+    // the frame's hand puts it
+    if(C&&!C.empty){ const kk=Math.max(0,k), H=C.hands[kk], at=playing?(st.count?0:st.ph*TPQ+0.06/T.beat*TPQ):tk;
+      P=pressedAt(at); const Hf=cloneHand(H).f; for(let g=1;g<=4;g++){ const r=fingerAt(g,at); if(r&&r.string!==undefined) Hf[g]={string:r.string,fret:r.fret}; }
+      HAND.f=Hf; HAND.thumb=(Hf[1].fret+Hf[2].fret)/2;
+      if(k!==shownK){ shownK=k; HANDLAB.setOpen(C.opens[kk]); if(!playing) HANDLAB.resettle(); } }
     else if(C&&C.empty&&shownK!==-1){ shownK=-1; P=[]; HANDLAB.setOpen([]); }
     // the lengths along the strings, in their tones' colours while they sound
     const L=FIELD.lit, ink=inkColour();
