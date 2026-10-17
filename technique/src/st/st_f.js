@@ -3,6 +3,9 @@
    Each segment: a one-bar count-in (the hand moves to the new place while it goes by), then the figure, 4 loops when
    advancing, endless on Hold. Advancing appends the next sample's segment as the current one finishes. */
 const T={on:false,beat:60/70,segs:[],si:0,nextI:0,nextCycle:0,nextBeat:0,timer:null,live:[],shown:null};
+// PULSE (a page in another metre): the click every u beats, accent(n) on the n-th; null, a click a beat, beat 1 of 4 accented.
+// TAB_LIT: the plan's notes lit together (a page whose tones overlap); null, only the one sounding.
+let PULSE=null, TAB_LIT=null;
 const playBtn=document.getElementById('play');
 function layoutOf(D){                                                   // the pairings and resting hand a drill implies
   const pl=placementsOf({lo:D.lo,hi:D.hi}).map(q=>({g:q.g,s:q.s,f:q.f})), H=handFor(pl);
@@ -34,12 +37,12 @@ function run(){
 function tick(){
   const horizon=ctx.currentTime+0.18;
   while(T.si<T.segs.length){
-    const s=T.segs[T.si], total=s.loops*LOOP;
+    const s=T.segs[T.si], total=s.loops*LOOP, U=PULSE?PULSE.u:1;
     for(;;){
-      if(T.nextBeat>=total) break;
-      const t=s.loopStart+T.nextBeat*T.beat; if(t>=horizon) break;
+      if(T.nextBeat*U>=total) break;
+      const t=s.loopStart+T.nextBeat*U*T.beat; if(t>=horizon) break;
       const counting=T.nextBeat<0;
-      if(counting||drill.click) click(t,((T.nextBeat%4)+4)%4===0);
+      if(counting||drill.click) click(t,PULSE?PULSE.acc(T.nextBeat):((T.nextBeat%4)+4)%4===0);
       T.nextBeat++;
     }
     const SF=s.fig||FIG;                                                  // a segment may carry its own figure (a song's bar)
@@ -50,10 +53,10 @@ function tick(){
       note(s,t,T.nextI,T.nextCycle===0&&T.nextI===0);
       if(++T.nextI===SF.length){ T.nextI=0; T.nextCycle++; if(s.swap) s.swap(); }   // a chord page may change its figure at the loop's end
     }
-    if(T.nextBeat>=total&&T.nextCycle>=s.loops){
+    if(T.nextBeat*U>=total&&T.nextCycle>=s.loops){
       if(!s.keep) for(const k in s.strs) s.strs[k].stopAt(s.end);   // (a song's bars share their strings, ringing on across the bar line)
       if(T.si===T.segs.length-1&&(!drill.hold||SEG_EACH)){ const n=nextSeg(s.si); if(n){ placeSeg(n,s.end); T.segs.push(n); } }
-      T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count;
+      T.si++; T.nextI=0; T.nextCycle=0; if(T.si<T.segs.length) T.nextBeat=-T.segs[T.si].count/U;
     }else break;
   }
   // trim the played segments, keeping the last six; the scheduler's place moves back with them (it used to be clamped
@@ -85,11 +88,13 @@ function ringOthers(live,s,strI,t){
     const st0=o.stopAt; o.stopAt=(t,now)=>{ o.offAt=now?ctx.currentTime:t; st0(t,now); }; return o; }; }
 function note(s,t,i,first){
   const e=s.plan[i], f=fretHz(e.string,e.pitch), str=s.strs[e.string];
+  // a written length (e.off beats): the string stilled where the tone ends — unless it is struck again straight after (e.gap)
+  if(e.off!==undefined){ const tr=t+e.off*T.beat, room=e.gap*T.beat; if(room>0.05) str.send({kind:'damp',t:tr-0.012,t1:tr+Math.min(0.045,room-0.01),depth:0.002}); }
   const q=s.plan[(i+s.plan.length-1)%s.plan.length];                  // crossing to the other string: the last one is let go
   if(!first&&!s.chord&&q.string!==e.string&&s.strs[q.string]) s.strs[q.string].send({kind:'damp',t:t+0.03,t1:t+0.25,depth:0.002});   // a chord's tones ring on
   // re-striking a string: a single line's pick stops it first (a choke); a strum's pick only brushes the ringing string on its
   // way through — a light touch (about −8 dB over 10 ms), the old vibration carrying on under the new
-  const choke=()=>{ if(first) return; if(s.chord) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-0.01),t1:t,depth:0.4}); else str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
+  const choke=()=>{ if(first) return; if(s.chord&&!e.line) str.send({kind:'damp',t:Math.max(ctx.currentTime,t-0.01),t1:t,depth:0.4}); else str.send({kind:'damp',t:Math.max(ctx.currentTime,t-catchT()),t1:t,depth:0.03}); };
   if(!first&&(e.kind==='ham'||e.kind==='pull')){ const K=e.kind==='ham'?'H':'P'; str.send({kind:'set',t,f}); str.send({kind:'pluck',t,f,v:LEG.v[K],a:LEG.a[K],keep:true}); return; }
   if(e.mute) for(const m of e.mute) if(s.strs[m]) s.strs[m].send({kind:'damp',t:t-0.02,t1:t+0.02,depth:0.002});   // a new grip: strings it leaves out are stilled
   if(first||(!e.glide&&!e.pre)){ choke(); str.send({kind:'pluck',t,f,v:PLUCK_V*(e.vel||1)}); return; }
@@ -288,7 +293,7 @@ function frame(){
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
   }
   let bx=xBeat(0), u=0, hb=1;
-  if(st&&!st.done){ if(st.count) u=Math.max(0,(t-st.beatT)/T.beat)%1; else { u=st.ph%1;
+  if(st&&!st.done){ if(st.count) u=PULSE?((((t-st.s.loopStart)/T.beat/PULSE.u)%1)+1)%1:Math.max(0,(t-st.beatT)/T.beat)%1; else { u=PULSE?(st.ph/PULSE.u)%1:st.ph%1;   // a pulse of u beats: the ball lands on each
     // a song's last bar before its repeat: on the last beat the ball leaps the repeat sign and lands in the bar after it
     const J=st.s.jumpGap?st.s.jumpGap():0, last=st.ph>LOOP-1; bx=xBeat(st.ph+(J&&last?(st.ph-(LOOP-1))*J:0)); if(J&&last) hb=1.2; } }
   const by=TB.floor-TB.ballR-(reduce?0:TB.ballH*hb*4*u*(1-u));

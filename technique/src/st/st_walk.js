@@ -691,7 +691,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
         panel.querySelectorAll('.gripBtn').forEach(x=>x.classList.toggle('on',x===b)); refresh(); });
       row.appendChild(b); });
     panel.appendChild(row); });
-  fb.parentElement.after(panel); if(BOOK.chords) panel.style.display='none';   // the Chords page has its own panel
+  fb.parentElement.after(panel); if(BOOK.chords||BOOK.custom) panel.style.display='none';   // the Chords page has its own panel
   document.addEventListener('click',e=>{ if(e.target.closest&&(e.target.closest('#clear')||e.target.closest('#fb'))) panel.querySelectorAll('.gripBtn.on').forEach(x=>x.classList.remove('on')); },true);
   // the switch: the drawn hand, or the numbered dots
   const btn=document.createElement('button'); btn.type='button'; btn.className='pill'; btn.id='handTog';

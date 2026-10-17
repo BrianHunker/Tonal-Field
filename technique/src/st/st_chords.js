@@ -3,7 +3,7 @@
    the mechanism reaching every note — and the hand grips it, keeping the chord's open strings clear. Play sounds it as a
    two-bar figure through the drill pages' own engine: the pick, the ringing string, the TAB and its ball. */
 let FBROT=null;                                                  // the turned board, for the zoom (st_zoom.js)
-const CHORDS=BOOK.chords?(()=>{
+const CHORDS=BOOK.custom?customTool():BOOK.chords?(()=>{   // Custom (st_custom.js) plays through the same hooks
   // pitch classes here count from A (as the strings do): 0 A … 3 C … 11 A♭
   const ROOTS=[[3,'C'],[4,'C♯','D♭'],[5,'D'],[6,'D♯','E♭'],[7,'E'],[8,'F'],[9,'F♯','G♭'],[10,'G'],[11,'G♯','A♭'],[0,'A'],[1,'A♯','B♭'],[2,'B']];
   const NAME={3:'C',4:'D♭',5:'D',6:'E♭',7:'E',8:'F',9:'F♯',10:'G',11:'A♭',0:'A',1:'B♭',2:'B'};

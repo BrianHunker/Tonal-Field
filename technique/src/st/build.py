@@ -18,6 +18,17 @@ def block(a,b):
     if (a,b)==(824,988):
         t=must(t,"const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V); vg.connect(voiceIn);",
           "const vg=ctx.createGain(); vg.gain.value=0.19*(0.35+0.65*PLUCK_V);\n  // the strings a little apart, as a stereo pair of mics hears them: the low E left of centre, the high e right (a bass in the middle)\n  if(ctx.createStereoPanner&&!BASS){ const pn=ctx.createStereoPanner(); pn.pan.value=0.3*(1-2*gauge); vg.connect(pn); pn.connect(voiceIn); } else vg.connect(voiceIn);")
+    if (a,b)==(511,593):
+        t=must(t,"function around(s,t){","""function around(s,t){
+  if(s.grid) return aroundGrid(s,t);                                    // a segment with its own strokes (Custom: each beat cut as it is played)""")
+        t=must(t,"const PICK_LIFT=16,","""// s.grid: the loop's strokes, [{b (beats into the loop), up, struck}], in order — around t, the one before and the one after
+function aroundGrid(s,t){
+  const G=s.grid, n=G.length, b=(t-s.loopStart)/T.beat, cyc=Math.floor(b/LOOP), ph=b-cyc*LOOP;
+  let i=-1; for(let k=0;k<n;k++){ if(G[k].b<=ph+1e-9) i=k; else break; }
+  const at=(k,c)=>{ const g=G[((k%n)+n)%n], cc=c+Math.floor(k/n); return (cc<0||cc>=s.loops)?null:{t:s.loopStart+(cc*LOOP+g.b)*T.beat, up:g.up, struck:g.struck}; };
+  return i<0?[at(n-1,cyc-1),at(0,cyc)]:[at(i,cyc),at(i+1,cyc)];
+}
+const PICK_LIFT=16,""")
     if (a,b)==(599,622):
         t=must(t,"""   Fa Do Sol Re La Mi Ti reads clockwise). Changing it, the even places keep their seats and the odd ones swing half way round.
    On the chain, g(x) is a single wave, g = cos θ (the 7/12 and 5/12 winds land on the same points there), and the morph
@@ -58,6 +69,7 @@ const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;""")
         t=t[:i0]+open(os.path.join(D,'st_lbl.js')).read().rstrip('\n')+t[i1:]
     if (a,b)==(755,793):
         t=must(t,"plan=planFor(cfgOf(drill))","plan=curPlan()")
+        t=must(t,"noteLv[i]=i===cur?","noteLv[i]=(TAB_LIT?cur>=0&&TAB_LIT.has(i):i===cur)?")
     return t
 def fill(s):
     return re.sub(r"/\*@COPY:(\d+)-(\d+)\*/",lambda m:block(int(m.group(1)),int(m.group(2))),s)
@@ -88,13 +100,13 @@ def walk_page(eyebrow,title,label,book):
     parts=[fill(open(os.path.join(D,f)).read()) for f in ['st_a.js','st_b.js','st_c.js','st_d.js','st_e.js','st_f.js','st_zoom.js','st_room.js','st_g.js']]
     g=parts[-1]; init="SAMPLES=sampling(); COMP=completions(); applySample(0);"
     assert g.count(init)==1
-    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_hand.js')).read()+'\n'+open(os.path.join(D,'st_walk.js')).read()+'\n'+open(os.path.join(D,'st_chordgen.js')).read()+'\n'+open(os.path.join(D,'st_chords.js')).read()+"\napplySample(0);")
+    g=g.replace(init,'const BOOK='+book.strip()+';\n'+open(os.path.join(D,'st_hand.js')).read()+'\n'+open(os.path.join(D,'st_walk.js')).read()+'\n'+open(os.path.join(D,'st_chordgen.js')).read()+'\n'+open(os.path.join(D,'st_custom.js')).read()+'\n'+open(os.path.join(D,'st_chords.js')).read()+"\napplySample(0);")
     a="try{ FIELD.on=localStorage.getItem('structures-gx')==='on'; }catch(err){}"; assert g.count(a)==1
     g=g.replace(a,"FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book")
     g=g.replace("localStorage.setItem('structures-gx',","localStorage.setItem('walk-gx',")
     parts[-1]=g
     return p.replace('/*@JS*/','\n'.join(parts))
-DBG="\napplySample(0); window.__T=()=>({si:T.si,n:T.segs.length,on:T.on,ahead:T.segs.length?T.segs[T.segs.length-1].end-ctx.currentTime:0}); window.__w=()=>({page:PAGE,doPc:PHI.doPc,off:LET.off,goal:RING.goal,bars:DRILL&&DRILL.bars,frames:DRILL&&DRILL.frames.map(F=>F.string+':'+F.tones.map(t=>t.fret).join(',')),plan:DRILL&&DRILL.plan.map(n=>n.string+':'+n.fret+'g'+n.finger).join(' '),P:P.map(p=>p.g+'@'+p.s+':'+p.f).join(','),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret).join(' '),gx:FIELD.on,label:document.getElementById('frameLbl').textContent});"
+DBG="\napplySample(0); window.__T=()=>({si:T.si,n:T.segs.length,on:T.on,ahead:T.segs.length?T.segs[T.segs.length-1].end-ctx.currentTime:0}); window.__w=()=>({page:PAGE,doPc:PHI.doPc,off:LET.off,goal:RING.goal,bars:DRILL&&DRILL.bars,frames:DRILL&&DRILL.frames.map(F=>F.string+':'+F.tones.map(t=>t.fret).join(',')),plan:DRILL&&DRILL.plan.map(n=>n.string+':'+n.fret+'g'+n.finger).join(' '),P:P.map(p=>p.g+'@'+p.s+':'+p.f).join(','),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret).join(' '),gx:FIELD.on,label:document.getElementById('frameLbl').textContent}); window.__cu=(typeof CHORDS!=='undefined'&&CHORDS&&CHORDS._)||null; window.__st2=()=>({on:T.on,ph:T.on&&ctx?stateAt(ctx.currentTime).ph:null,idx:T.on&&ctx?stateAt(ctx.currentTime).idx:null,doPc:PHI.doPc,inst:[...INST],lit:TAB_LIT?[...TAB_LIT]:null,P:P.map(q=>q.g+'@'+q.s+':'+q.f+(q.barre?'b':'')),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret),strokes:STROKES,loop:LOOP,pulse:PULSE&&PULSE.u});"
 def book(name,eyebrow,title,label,pages):
     wp=walk_page(eyebrow,title,label,pages)
     open(os.path.join(D,'..',name+'.html'),'w').write(wp)
@@ -124,3 +136,6 @@ book('wish-you-were-here','Drill Exercise 10/14/26','Wish You Were Here','Chord'
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
 book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true, loops:2, countEach:true, strings:true, pages:['do','sol','re','la','mi','ti','fa'].map(m=>(   // each function in turn at the open low E and at fret 12
   {kind:'seq', string:NSTR-1, mode:m, anchor:{s:NSTR-1,f:0,deg:m}, top:m, order:'alt', paint:[NSTR-1]}))}""")
+# Custom: a drill written by hand, in TAB and as a line of text; chord symbols orient the ring
+book('custom','Tool','Custom','Chord',"""{handLab:true, custom:true, loops:1, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
