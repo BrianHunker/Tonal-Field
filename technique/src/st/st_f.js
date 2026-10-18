@@ -152,6 +152,7 @@ function handNow(s,st){
   return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
   let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);
+  if(st.s&&st.s.liftAt&&!st.count&&st.s.liftAt(st)) return false;   // (Custom) the grip let go where its tones end
   if(st.s&&st.s.chord) return (st.s.chords&&st.idx>=0?st.s.chords[st.s.plan[st.idx].frame]:st.s.chord).has(f);   // a chord: its fingers stay down throughout (a song's, its bar's chord)
   if(st.idx<0) return false;
   const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];

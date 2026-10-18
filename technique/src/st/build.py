@@ -139,3 +139,6 @@ book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true,
 # Custom: a drill written by hand, in TAB and as a line of text; chord symbols orient the ring
 book('custom','Tool','Custom','Chord',"""{handLab:true, custom:true, loops:1, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
+# Chords with Semimodes: the G barre strummed, set against semimode walks in G_Do, in position
+book('chords-with-semimodes','Drill Exercise 10/18/26','Chords with Semimodes','Chord',"""{handLab:true, custom:true, preset:'csm', loops:1, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")

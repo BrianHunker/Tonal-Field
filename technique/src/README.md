@@ -1,6 +1,6 @@
 # Drill page sources
 
-The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html`, `hand-lab.html`, `chords.html`, `wish-you-were-here.html`, `custom.html`) are built from these files.
+The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html`, `hand-lab.html`, `chords.html`, `wish-you-were-here.html`, `custom.html`, `chords-with-semimodes.html`) are built from these files.
 
 - `chain-drills.html`: the base tool; `st/build.py` copies line ranges from it (`/*@COPY:a-b*/`).
 - `st/st_a.js` … `st_g.js`, `st_shape.js`, `st_lbl.js`, `st_page.html`: Harmonic Structures.
@@ -12,6 +12,6 @@ The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html
 - `publish.py`: copies built pages up into `technique/` with the site's head.
 
     python3 st/build.py
-    python3 publish.py frame-walk semimodes structures hand-lab chords wish-you-were-here custom
+    python3 publish.py frame-walk semimodes structures hand-lab chords wish-you-were-here custom chords-with-semimodes
 
 Built pages in this folder are not committed (see `.gitignore`).
