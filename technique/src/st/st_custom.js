@@ -533,6 +533,7 @@ function customTool(){
   function stepNow(force){ if(force) shownK=-2; step(null,false); }
   function step(st,live){
     if(keyWatch) keyWatch();                                            // (an exercise page: the ring turned)
+    if(modePaint) modePaint();
     if(wasOn&&!T.on){ TAB_LIT=null; shownK=-2; placeCursor(); } wasOn=T.on;
     if(!DRILL&&!noteG.firstChild&&M.ch.length) tabDraw(null);           // (the page redrew an empty TAB: the chord lane back)
     const playing=!!(T.on&&st&&st.s&&st.s.D&&st.s.D.custom);
@@ -582,11 +583,18 @@ function customTool(){
     const row0=ROLL.row(), key=rollKey+'|'+[...on].sort().join(','); if(key===litKey&&row0===litRow) return; litKey=key; litRow=row0;
     document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
     const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
+  function solLaCols(e){ const dp=PHI.doPc, on=M.ev.filter(x=>x.s===e.s&&x.fr==='Sol'&&x.g), at={};
+    on.forEach(x=>{ const k=((pcOf(x.s,x.f)-dp)%12+12)%12; if(k===7) at.Sol=x.g; if(k===9) at.La=x.g; });
+    if(at.Sol===undefined&&at.La!==undefined) at.Sol=at.La-2; if(at.La===undefined&&at.Sol!==undefined) at.La=at.Sol+2;
+    return at.Sol>=1&&at.La<=4&&at.La>at.Sol?[at.Sol,at.La]:null; }
   function rollStep(tk){
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=e.fr||FRAME_OF[e.s];
-    const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr); ROLL.rebuild(); ROLL.set(k);
+    // Sol_La placed where the walk plays it: in position its two tones fall a fret further on across the G–B string's
+    // major third than on any other string — under the fingers that play them
+    const solCols=fr==='Sol'?solLaCols(e):null;
+    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+(solCols?solCols.join():''); if(key===rollKey) return; rollKey=key;
+    const k=DRUM.indexOf(fr); if(solCols&&ROLL.cols) ROLL.cols(k,solCols); ROLL.rebuild(); ROLL.set(k);
   }
   /* THE RHYTHM CLOCK (an exercise page): the bar round a clock, its sixteen sixteenths, the beats at 12, 3, 6 and 9; each
      tone struck in the bar a dot where it falls — a downstroke filled, an upstroke a ring, a strum larger — joined in turn.
@@ -655,7 +663,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null;
+  let keyWatch=null, modePaint=null;
   const OPT={mode:'Do',oct:'lower',dir:'updown',chords:true};
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -726,7 +734,13 @@ function customTool(){
     function relabel(){ const bs=[...segs[0].querySelectorAll('button')]; bs.sort((a,b)=>layout(KEY,JSON.parse(a.dataset.v)).rf-layout(KEY,JSON.parse(b.dataset.v)).rf).forEach(b=>segs[0].appendChild(b));
       segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
       b.innerHTML=nm.slice(0,i)+'<span class="cuSub">_'+md+'</span>'; b.title=nm; }); }
-    relabel(); segs[0].classList.add('cuModes');
+    // the bank in colour: each mode its root's colour (g(x) on), the one chosen lit in it
+    let paintKey='';
+    function paintModes(){ const key=FIELD.on+'|'+FIELD.lit.toFixed(2)+'|'+OPT.mode+'|'+KEY; if(key===paintKey) return; paintKey=key;
+      const ink=inkColour(), bg=bgColour(), L=FIELD.on?FIELD.lit:0;
+      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), semi=MODE7.find(x=>x[0]===md)[1], c=mixRGB(ink,relRGB((semi+10)%12),L), on=md===OPT.mode;
+        b.style.color=on?rgbS(L>0.5?bg:ink):rgbS(c); b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
+    relabel(); segs[0].classList.add('cuModes'); modePaint=paintModes;
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;

@@ -293,7 +293,9 @@ const ROLL=BOOK.roll?(()=>{
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
   inner.addEventListener('transitionend',()=>{ if(R<N||R>=2*N){ R+=R<N?N:-N; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  // a frame's columns set afresh (where the walk plays it): true if they changed
+  const cols=(k,c)=>{ const was=FR[k][1]; if(was&&c&&was.join()===c.join()) return false; FR[k]=[FR[k][0],c]; built=''; return true; };
+  return {cols, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
