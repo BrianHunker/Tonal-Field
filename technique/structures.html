@@ -1625,7 +1625,7 @@ function frame(){
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
-    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
+    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); followHead(xBeat(0)); }   // the count-in: the TAB back at its start, where the ball is
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); CONE.step(false,null,0,null,false,r); }
   }

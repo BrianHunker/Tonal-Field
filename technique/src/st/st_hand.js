@@ -12,7 +12,7 @@
 function makeHand(G){
   const D2R=Math.PI/180;
   // bones: proximal, middle, distal phalanx (mm), and the finger's half-thickness along each
-  const LEN=[[41,24,19],[46,28,20],[43,27,20],[34,20,18]];
+  const LEN=[[50,40,25],[60,45,30],[55,42.5,27.5],[40,30,20]];   // Brian's measure (Oct 2026): index 5:4:2.5 cm, middle 6:4.5:3, ring 5.5:4.25:2.75, little 4:3:2
   const RAD=[[9.5,8.5,7.6],[10,9,8],[9.5,8.6,7.7],[8.4,7.6,6.9]];
   // the knuckles on the palm (radial, distal, palmar) from the middle finger's: a rigid row, the little finger's set back
   // and the row arched a little toward the palm at its ends

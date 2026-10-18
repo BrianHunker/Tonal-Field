@@ -385,10 +385,10 @@ const SEMI=BOOK.strings?(()=>{
    bone in front of the ones behind it; the whole hand semi-transparent. */
 const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  fb.setAttribute('viewBox','-10 -60 1000 420');                          // headroom for the knuckles, room below for the thumb
+  fb.setAttribute('viewBox','-10 -60 1000 420'); fb.style.overflow='visible'; fb.parentElement.style.overflow='visible';   // headroom for the knuckles, room below for the thumb; a long finger may reach above it
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.25;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
-  const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
+  const gapAt=X=>BASS?(16+5*X/LMM):6+3*X/LMM;   // the guitar's neck, edge to edge, 4 cm at the nut flaring to 5 cm at the 12th fret (the board drawn 6⅔ string gaps tall)
   const NECK={nstr:NSTR, strY:(s,X)=>s*gapAt(X), yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
   const xs=X=>FB.nut+SCALE*X/LMM, Xof=x=>(x-FB.nut)*LMM/SCALE;
   const proj=P=>({x:xs(P[0]), y:FB.strY[0]+(P[1]-K*P[2])*U/gapAt(P[0])}), depth=P=>P[2]+K*P[1];

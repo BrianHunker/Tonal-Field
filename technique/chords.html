@@ -1630,7 +1630,7 @@ function frame(){
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
-    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
+    if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); followHead(xBeat(0)); }   // the count-in: the TAB back at its start, where the ball is
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
     { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); CONE.step(false,null,0,null,false,r); }
   }
@@ -2078,7 +2078,7 @@ const BOOK={handLab:true, chords:true, loops:1, pages:[
 function makeHand(G){
   const D2R=Math.PI/180;
   // bones: proximal, middle, distal phalanx (mm), and the finger's half-thickness along each
-  const LEN=[[41,24,19],[46,28,20],[43,27,20],[34,20,18]];
+  const LEN=[[50,40,25],[60,45,30],[55,42.5,27.5],[40,30,20]];   // Brian's measure (Oct 2026): index 5:4:2.5 cm, middle 6:4.5:3, ring 5.5:4.25:2.75, little 4:3:2
   const RAD=[[9.5,8.5,7.6],[10,9,8],[9.5,8.6,7.7],[8.4,7.6,6.9]];
   // the knuckles on the palm (radial, distal, palmar) from the middle finger's: a rigid row, the little finger's set back
   // and the row arched a little toward the palm at its ends
@@ -2715,10 +2715,10 @@ const SEMI=BOOK.strings?(()=>{
    bone in front of the ones behind it; the whole hand semi-transparent. */
 const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  fb.setAttribute('viewBox','-10 -60 1000 420');                          // headroom for the knuckles, room below for the thumb
+  fb.setAttribute('viewBox','-10 -60 1000 420'); fb.style.overflow='visible'; fb.parentElement.style.overflow='visible';   // headroom for the knuckles, room below for the thumb; a long finger may reach above it
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.25;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
-  const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
+  const gapAt=X=>BASS?(16+5*X/LMM):6+3*X/LMM;   // the guitar's neck, edge to edge, 4 cm at the nut flaring to 5 cm at the 12th fret (the board drawn 6⅔ string gaps tall)
   const NECK={nstr:NSTR, strY:(s,X)=>s*gapAt(X), yFar:X=>-(FB.strY[0]-FB.top)/U*gapAt(X), yNear:X=>(FB.bot-FB.strY[0])/U*gapAt(X), depth:X=>(BASS?24:20.5)+7*X/LMM};
   const xs=X=>FB.nut+SCALE*X/LMM, Xof=x=>(x-FB.nut)*LMM/SCALE;
   const proj=P=>({x:xs(P[0]), y:FB.strY[0]+(P[1]-K*P[2])*U/gapAt(P[0])}), depth=P=>P[2]+K*P[1];
@@ -3663,15 +3663,16 @@ function customTool(){
     if(C&&!C.empty) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
     paintChords(curChord);
-    if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); } }
+    if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
+    if(CLOCK) CLOCK.step(tk,playing); }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
   // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
   const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'Sol',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol'];   // (the page's drum: BOOK.drum)
-  let rollKey='', litKey='';
+  let rollKey='', litKey='', litRow=null;
   // the drum's names lit by what sounds: a name in the middle row whose tone is sounding glows in its colour, the rest dim
   function rollLight(snd,tk){ const d0=doAt(tk), dp=d0===null?PHI.doPc:d0, on=new Set(snd.map(e=>SOLN[((pcOf(e.s,e.f)-(dp+2))%12+12)%12]));
-    const key=rollKey+'|'+[...on].sort().join(','); if(key===litKey) return; litKey=key;
+    const row0=ROLL.row(), key=rollKey+'|'+[...on].sort().join(','); if(key===litKey&&row0===litRow) return; litKey=key; litRow=row0;
     document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
     const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
   function rollStep(tk){
@@ -3680,6 +3681,48 @@ function customTool(){
     const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
     const k=DRUM.indexOf(fr); ROLL.rebuild(); ROLL.set(k);
   }
+  /* THE RHYTHM CLOCK (an exercise page): the bar round a clock, its sixteen sixteenths, the beats at 12, 3, 6 and 9; each
+     tone struck in the bar a dot where it falls — a downstroke filled, an upstroke a ring, a strum larger — joined in turn.
+     A hand sweeps round with the bar; each dot flares in its tone's colour as it is struck (a strum, its chord's root) and
+     fades. Behind it all, a light in the colour of the mode in force. Between the TAB and the fretboard, over the nut. */
+  const CLOCK=PRE?(()=>{
+    const NSV='http://www.w3.org/2000/svg', S=170, C=S/2, R=58, sv=document.createElementNS(NSV,'svg'), A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); (par||sv).appendChild(e); return e; };
+    sv.setAttribute('viewBox','0 0 '+S+' '+S); sv.setAttribute('class','cuClock'); sv.setAttribute('aria-hidden','true');
+    const gid='ck'+Math.random().toString(36).slice(2,6), defs=A('defs',{}), gr=A('radialGradient',{id:gid},defs);
+    const g0=A('stop',{offset:0,'stop-opacity':0.55},gr), g1=A('stop',{offset:0.62,'stop-opacity':0.22},gr); A('stop',{offset:1,'stop-opacity':0},gr);
+    const back=A('circle',{cx:C,cy:C,r:R+24,fill:'url(#'+gid+')',opacity:0});
+    const at=(i,r)=>{ const a=-Math.PI/2+i*Math.PI/8; return [C+r*Math.cos(a),C+r*Math.sin(a)]; };
+    A('circle',{cx:C,cy:C,r:R,class:'ckl',fill:'none'});
+    for(let i=0;i<16;i++){ const [x0,y0]=at(i,R-(i%4?3:7)), [x1,y1]=at(i,R+(i%4?3:7)); A('line',{x1:x0,y1:y0,x2:x1,y2:y1,class:'ckl'}); }
+    ['1','2','3','4'].forEach((t,b)=>{ const [x,y]=at(4*b,R+19); const e=A('text',{x,y:y+5,class:'ckn'}); e.textContent=t; });
+    const neck=A('polygon',{points:'',class:'ckneck'}), dotsG=A('g',{}), hand=A('line',{x1:C,y1:C,x2:C,y2:C-R+10,class:'ckhand'}); A('circle',{cx:C,cy:C,r:3,class:'ckhub'});
+    const host=document.querySelector('.wrap'); host.appendChild(sv);
+    const css=document.createElement('style'); css.textContent='.cuClock{ position:absolute; z-index:3; pointer-events:none; color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.7 } .cuClock .ckn{ fill:currentColor; font-size:14px; font-weight:800; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.4 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    document.head.appendChild(css);
+    // over the nut, in the room between the TAB and the strings
+    const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
+      p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM, sz=Math.max(90,Math.min(210,bot-top-30));
+      sv.style.width=sv.style.height=sz.toFixed(0)+'px'; sv.style.top=(top+(bot-top-sz)/2).toFixed(0)+'px'; sv.style.left=Math.max(0,(q.x-W.left)/ZOOM-sz/2).toFixed(0)+'px'; };
+    afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); setTimeout(place,0); setTimeout(place,600);
+    let barShown=-1, dots=[], clock=0, lastSix=-1, modeCol=null;
+    function build(b){ barShown=b; while(dotsG.firstChild) dotsG.firstChild.remove(); dots=[]; const B=barT(M.meter), b0=b*B, GR=strokeGrid();
+      const ons=[...new Set(M.ev.filter(e=>e.t>=b0&&e.t<b0+B).map(e=>e.t))].sort((a,b)=>a-b);
+      ons.forEach(t=>{ const i=Math.round((t-b0)/(B/16)), g=M.ev.filter(e=>e.t===t), up=!!(GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6)||{}).up, big=g.length>1, [x,y]=at(i,R);
+        const pc=big?((chordAt(t)||{}).root):pcOf(g[0].s,g[0].f), r=big?(up?5.5:7.5):5, gg=A('g',{class:'ckdot'},dotsG);
+        const c=A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.4:0},gg); dots.push({i,t,pc,g:gg,c,lv:0}); });
+      neck.setAttribute('points',dots.length>1?dots.map(d=>at(d.i,R).map(v=>v.toFixed(1)).join(',')).join(' '):''); }
+    return {place, step(tk,playing){ const B=barT(M.meter), TT=total(), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
+        const b=Math.floor(((tk%TT)+TT)%TT/B); if(b!==barShown) build(b);
+        const ph=(((tk%B)+B)%B)/B, six=Math.floor(ph*16+1e-6), L=FIELD.lit, ink=inkColour(), bg=bgColour();
+        const a=ph*2*Math.PI; hand.setAttribute('x2',(C+(R-10)*Math.sin(a)).toFixed(1)); hand.setAttribute('y2',(C-(R-10)*Math.cos(a)).toFixed(1));
+        if(playing&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); } lastSix=playing?six:-1;
+        dots.forEach(d=>{ d.lv*=Math.exp(-dt/0.35); const c=L>0.001?mixRGB(ink,valRGB(d.pc),L):ink, dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
+          d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
+        // the light behind: the mode in force (g(x) on)
+        const mc=curMode?valRGB(curMode.root):(curChord?valRGB(curChord.root):null), k=mc?rgbS(mc):null;
+        if(k!==modeCol){ modeCol=k; if(k){ g0.setAttribute('stop-color',k); g1.setAttribute('stop-color',k); } }
+        back.setAttribute('opacity',(mc&&L>0.001?L:0).toFixed(3)); }};
+  })():null;
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */
@@ -3711,9 +3754,12 @@ function customTool(){
       for(let str=1;str<=6;str++){ const ts=hits.filter(h=>h[1].includes(str)).map(h=>h[0]);
         ts.forEach((x,i)=>add(x,(i<ts.length-1?ts[i+1]:end)-x,str,GRIP[str][0],GRIP[str][1])); }
       t+=2*BAR; }
-    function walk(o){ const T8=OCT[o], up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], bars=OPT.dir==='updown'?up.concat(dn):dn.concat(up);
-      bars.forEach(ix=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const [str,f,g]=T8[ix[j]]; add(t+x,d,str,f,g); }); t+=BAR; }); }
-    (OPT.oct==='both'?['lower','upper']:[OPT.oct]).forEach(o=>{ if(OPT.chords) chords(); walk(o); });
+    // a walk over the octaves chosen: up through them all and back down (or down through them all and back up) — with Both,
+    // the lower octave then the upper going up, the upper then the lower coming down; each bar three eighths and a held tone
+    function walk(octs){ const up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], ups=[], dns=[];
+      octs.forEach(o=>up.forEach(ix=>ups.push([o,ix]))); octs.slice().reverse().forEach(o=>dn.forEach(ix=>dns.push([o,ix])));
+      (OPT.dir==='updown'?ups.concat(dns):dns.concat(ups)).forEach(([o,ix])=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const [str,f,g]=OCT[o][ix[j]]; add(t+x,d,str,f,g); }); t+=BAR; }); }
+    if(OPT.chords) chords(); walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf('G','Do'),{t:0})]; return m; }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
     const row=document.createElement('div'); row.className='cuRow cuOpts';
