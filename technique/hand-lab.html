@@ -2737,10 +2737,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const behind=mk('g',{class:'hlHand'}); fb.insertBefore(behind,fb.firstChild);   // palm and thumb: under the neck
   const palmFill=mk('path',{class:'hlSkin'},behind), palmLine=mk('path',{class:'hlLine'},behind);
   const thumbSeg=[0,1,2].map(()=>({fill:mk('path',{class:'hlSkin'},behind), line:mk('path',{class:'hlLine'},behind)}));
-  const thumbNail=mk('path',{class:'hlLine hlNail'},behind);
+  const thumbNail=mk('path',{class:'hlLine hlNail'},behind), thumbCrease=mk('path',{class:'hlLine hlCrease'},behind);
   const front=mk('g',{class:'hlHand'}); fb.insertBefore(front,fingers[0].guide);
   // twelve places for the fingers' bones, filled nearest last each frame; a bone carries its finger's look with it
-  const slots=Array.from({length:12},()=>({fill:mk('path',{class:'hlSkin'},front), tint:mk('path',{stroke:'none','pointer-events':'none'},front), line:mk('path',{class:'hlLine','pointer-events':'none'},front), nail:mk('path',{class:'hlLine hlNail','pointer-events':'none'},front), k:0}));   // only the skin takes a click
+  const slots=Array.from({length:12},()=>({fill:mk('path',{class:'hlSkin'},front), tint:mk('path',{stroke:'none','pointer-events':'none'},front), crease:mk('path',{class:'hlLine hlCrease','pointer-events':'none'},front), line:mk('path',{class:'hlLine','pointer-events':'none'},front), nail:mk('path',{class:'hlLine hlNail','pointer-events':'none'},front), k:0}));   // only the skin takes a click
   // and for Solid: each bone's skin and outline in the masks, its visible outline in front
   // HAND DRAWING, Solid (default) or Wire (the gear). Wire: every outline seen through the translucent skin. Solid: the same
   // skin, and of the outlines only what can be seen from here — each drawn opaque through a mask in which every bone, in
@@ -2756,16 +2756,16 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const mPth=[0,1,2].map(()=>mk('path',{fill:'#000'},mP));
   const behindLines=mk('g',{}); fb.insertBefore(behindLines,behind.nextSibling);
   const vPalm=mk('path',{class:'hlLine',mask:'url(#'+gid+'mP)'},behindLines);
-  const vThumbG=mk('g',{mask:'url(#'+gid+'mT)'},behindLines), vThumb=[0,1,2].map(()=>mk('path',{class:'hlLine'},vThumbG)), vThumbNail=mk('path',{class:'hlLine hlNail'},vThumbG);
+  const vThumbG=mk('g',{mask:'url(#'+gid+'mT)'},behindLines), vThumb=[0,1,2].map(()=>mk('path',{class:'hlLine'},vThumbG)), vThumbNail=mk('path',{class:'hlLine hlNail'},vThumbG), vThumbCrease=mk('path',{class:'hlLine hlCrease'},vThumbG);
   const frontLines=mk('g',{mask:'url(#'+gid+'mF)','pointer-events':'none'}); fb.insertBefore(frontLines,fingers[0].guide);
   let SOLID=true; try{ SOLID=localStorage.getItem('hand-look')!=='wire'; }catch(err){}
-  const solidOf=()=>slots.forEach(q=>{ q.mFill=mk('path',{fill:'#000',stroke:'#fff','stroke-width':1.7,'stroke-linejoin':'round'},mF); q.mNail=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.2},mF);
+  const solidOf=()=>slots.forEach(q=>{ q.mFill=mk('path',{fill:'#000'},mF); q.mLine=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.7,'stroke-linejoin':'round','stroke-linecap':'round'},mF); q.mCrease=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.3,'stroke-linecap':'round'},mF); q.mNail=mk('path',{fill:'none',stroke:'#fff','stroke-width':1.2},mF);
       q.tFill=mk('path',{fill:'#000'},mT); q.pFill=mk('path',{fill:'#000'},mP);
-      q.vLine=mk('path',{class:'hlLine'},frontLines); q.vNail=mk('path',{class:'hlLine hlNail'},frontLines); });
+      q.vLine=mk('path',{class:'hlLine'},frontLines); q.vCrease=mk('path',{class:'hlLine hlCrease'},frontLines); q.vNail=mk('path',{class:'hlLine hlNail'},frontLines); });
   function setLook(solid){ SOLID=solid; try{ localStorage.setItem('hand-look',solid?'solid':'wire'); }catch(err){}
     frontLines.style.display=behindLines.style.display=solid?'':'none';
-    slots.forEach(q=>{ q.line.style.visibility=q.nail.style.visibility=solid?'hidden':''; });
-    palmLine.style.visibility=solid?'hidden':''; thumbSeg.forEach(t=>t.line.style.visibility=solid?'hidden':''); thumbNail.style.visibility=solid?'hidden':'';
+    slots.forEach(q=>{ q.line.style.visibility=q.nail.style.visibility=q.crease.style.visibility=solid?'hidden':''; });
+    palmLine.style.visibility=solid?'hidden':''; thumbSeg.forEach(t=>t.line.style.visibility=solid?'hidden':''); thumbNail.style.visibility=thumbCrease.style.visibility=solid?'hidden':'';
     if(segLook) segLook.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='solid')===solid)); }
   let segLook=null; solidOf();
   // the gear: Hand drawing, Solid | Wire, under the Hand row
@@ -2779,7 +2779,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const fg=mk('linearGradient',{id:gid+'f'+i,gradientUnits:'userSpaceOnUse'},defs);   // and a wash of it inside, clear by half way
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
-  const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1];
+  const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1], press=[1,1,1,1];
   let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false, settled=false, ease=null; const EASE=0.45;   // resettle: form the hand afresh once a new grip's dots have come to rest
   const rank=[...Array(12).keys()];                                         // the bones' drawing order last frame
   const openStr=new Set();                                                 // open strings meant to ring (a chord chart's 0s)
@@ -2818,6 +2818,63 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const n1={x:ex*sp+nx*cp, y:ey*sp+ny*cp}, n2={x:ex*sp-nx*cp, y:ey*sp-ny*cp}, sw=(n1.x*ey-n1.y*ex)>0?1:0;
     return 'M'+f(A.x+ra*n1.x)+' '+f(A.y+ra*n1.y)+' L'+f(B.x+rb*n1.x)+' '+f(B.y+rb*n1.y)+' A'+f(rb)+' '+f(rb)+' 0 '+(sp<0?1:0)+' '+sw+' '+f(B.x+rb*n2.x)+' '+f(B.y+rb*n2.y)
       +' L'+f(A.x+ra*n2.x)+' '+f(A.y+ra*n2.y)+' A'+f(ra)+' '+f(ra)+' 0 '+(sp>0?1:0)+' '+sw+' '+f(A.x+ra*n1.x)+' '+f(A.y+ra*n1.y)+' Z'; }
+  // THE SKIN. A bone's outline as points round it (A's side, B's end, the other side, A's end), so that a finger reads as
+  // one piece of skin rather than three cylinders: where a neighbouring bone of the same finger covers the outline (its end
+  // round inside the joint, the inner side crossing into the next bone) that part is not drawn, and the joint shows only
+  // as the skin's own turn at the knuckle. A tip pressing a string (press 0..1) flattens on it: its round end squares and
+  // shortens, its pad spreading out to the sides.
+  function skin(A,B,ra,rb,press){
+    const dx=B.x-A.x, dy=B.y-A.y, l=Math.hypot(dx,dy), pts=[];
+    if(l<=Math.abs(ra-rb)+0.01){ const C=ra>=rb?A:B, r=Math.max(ra,rb); for(let i=0;i<36;i++){ const t=2*Math.PI*i/36; pts.push({x:C.x+r*Math.cos(t),y:C.y+r*Math.sin(t)}); } return pts; }
+    const ex=dx/l, ey=dy/l, nx=-ey, ny=ex, sp=(ra-rb)/l, th=Math.acos(Math.max(-1,Math.min(1,sp)));
+    const on=(C,r,t)=>({x:C.x+r*(Math.cos(t)*ex+Math.sin(t)*nx), y:C.y+r*(Math.cos(t)*ey+Math.sin(t)*ny)});
+    const line=(p,q)=>{ for(let i=0;i<8;i++){ const u=i/8; pts.push({x:p.x+(q.x-p.x)*u, y:p.y+(q.y-p.y)*u}); } };
+    const cap=(C,r,t0,t1)=>{ const n=Math.max(4,Math.ceil(Math.abs(t1-t0)/0.14)); for(let i=0;i<n;i++) pts.push(on(C,r,t0+(t1-t0)*i/n)); };
+    line(on(A,ra,th),on(B,rb,th)); cap(B,rb,th,-th); line(on(B,rb,-th),on(A,ra,-th)); cap(A,ra,-th,-2*Math.PI+th);
+    // the flesh between the joints a little slimmer than at them
+    pts.forEach(p=>{ const t=((p.x-A.x)*ex+(p.y-A.y)*ey)/l; if(t<=0||t>=1) return; const ax=A.x+ex*t*l, ay=A.y+ey*t*l, k=1-0.06*Math.sin(Math.PI*t); p.x=ax+(p.x-ax)*k; p.y=ay+(p.y-ay)*k; });
+    if(press>0.01){ const m=2/(2+1.1*press);
+      pts.forEach(p=>{ const vx=p.x-B.x, vy=p.y-B.y; let a=vx*ex+vy*ey, b=vx*nx+vy*ny;
+        if(a>0){ const c=Math.min(1,a/rb), s=b/rb, sg=Math.sign; a=sg(c)*Math.pow(Math.abs(c),m)*rb*(1-0.24*press); b=sg(s)*Math.pow(Math.min(1,Math.abs(s)),m)*rb; }
+        const w=a>=0?Math.max(0,1-0.6*a/rb):Math.max(0,1+a/(1.6*rb)), ws=w*w*(3-2*w); b*=1+0.17*press*ws;
+        p.x=B.x+a*ex+b*nx; p.y=B.y+a*ey+b*ny; }); }
+    return pts; }
+  // is p under a neighbour bone (J its end at the shared joint, O its other end)? — alongside it, past the joint
+  function under(p,N){ const vx=N.O.x-N.J.x, vy=N.O.y-N.J.y, L2=vx*vx+vy*vy||1e-6, t=((p.x-N.J.x)*vx+(p.y-N.J.y)*vy)/L2;
+    if(t<=0||t>1) return false; const r=(N.rJ+(N.rO-N.rJ)*t)*(1-0.06*Math.sin(Math.PI*t)), cx=N.J.x+vx*t, cy=N.J.y+vy*t; return Math.hypot(p.x-cx,p.y-cy)<r*1.03; }
+  const polyD=pts=>'M'+pts.map(P2).join(' L')+' Z';
+  // the outline that shows: the runs of points no neighbour covers
+  function openD(pts,nbrs){ const keep=pts.map(p=>!nbrs.some(N=>under(p,N))), n=pts.length;
+    if(keep.every(Boolean)) return polyD(pts); if(!keep.some(Boolean)) return '';
+    // where a run starts or ends, the edge found between the last point kept and the first not (the lines then meet
+    // exactly in the notch inside a bend)
+    const edge=(a,b)=>{ let lo=a, hi=b; for(let i=0;i<12;i++){ const m={x:(lo.x+hi.x)/2,y:(lo.y+hi.y)/2}; if(nbrs.some(N=>under(m,N))) hi=m; else lo=m; } return lo; };
+    let s0=keep.findIndex(k=>!k), d='';
+    for(let i=1;i<=n;i++){ const j=(s0+i)%n, pj=(j-1+n)%n, nj=(j+1)%n; if(!keep[j]) continue;
+      if(!keep[pj]) d+=' M'+P2(edge(pts[j],pts[pj])); d+=' L'+P2(pts[j]);
+      if(!keep[nj]) d+=' L'+P2(edge(pts[j],pts[nj])); }
+    return d.trim(); }
+  // the skin's creases at a joint (J, between bones from P and on to D; r its thickness there, on the board): across its
+  // back, a few short wrinkles, faint where the back is turned from the eye; and where it bends, the fold implied — a short
+  // stroke in from the inside of the bend, deeper the more it bends
+  function creases(Jw,Pw,Dw,r,X){
+    const J=proj(Jw), Pp=proj(Pw), Dp=proj(Dw); let ux=J.x-Pp.x, uy=J.y-Pp.y, vx=Dp.x-J.x, vy=Dp.y-J.y; const lu=Math.hypot(ux,uy)||1, lv=Math.hypot(vx,vy)||1; ux/=lu; uy/=lu; vx/=lv; vy/=lv;
+    let mx=ux+vx, my=uy+vy; const lm=Math.hypot(mx,my)||1; mx/=lm; my/=lm; const wx=-my, wy=mx;
+    // the back at the joint: away from the bend (3D), or straight up off the finger if it hardly bends
+    const d1=[Jw[0]-Pw[0],Jw[1]-Pw[1],Jw[2]-Pw[2]], d2=[Dw[0]-Jw[0],Dw[1]-Jw[1],Dw[2]-Jw[2]], n1=Math.hypot(...d1)||1, n2=Math.hypot(...d2)||1;
+    let bk=[d1[0]/n1-d2[0]/n2, d1[1]/n1-d2[1]/n2, d1[2]/n1-d2[2]/n2]; const flex=Math.hypot(...bk);
+    if(flex<0.12) bk=[0,0,1]; else bk=bk.map(v=>v/flex);
+    const vis=(bk[2]+K*bk[1])/Math.hypot(1,K), mm=r/scl(X), Bp=proj([Jw[0]+bk[0]*mm,Jw[1]+bk[1]*mm,Jw[2]+bk[2]*mm]);
+    let ox=Bp.x-J.x, oy=Bp.y-J.y; const ol=Math.hypot(ox,oy); if(ol>0.8*r){ ox*=0.8*r/ol; oy*=0.8*r/ol; }
+    const cx=J.x+ox*0.85, cy=J.y+oy*0.85, wide=Math.sqrt(Math.max(0,1-Math.pow(Math.hypot(ox,oy)/r,2))), str=Math.max(0,Math.min(1,vis*1.4))*(1-0.55*Math.min(1,flex));
+    let d='';
+    if(str>0.08&&wide>0.2) [[-0.32,0.36],[0,0.5],[0.3,0.32]].forEach(([o,h])=>{ const hl=h*r*wide, bx=cx+mx*o*r, by=cy+my*o*r, bow=0.14*r;
+      d+='M'+f(bx-wx*hl)+' '+f(by-wy*hl)+' Q'+f(bx+mx*bow)+' '+f(by+my*bow)+' '+f(bx+wx*hl)+' '+f(by+wy*hl)+' '; });
+    // the fold: from the notch inside the bend in toward the joint
+    const dot=Math.max(-1,Math.min(1,ux*vx+uy*vy)), beta=Math.acos(dot);
+    if(beta>0.18&&beta<1.7){ let ix=vx-ux, iy=vy-uy; const il=Math.hypot(ix,iy)||1; ix/=il; iy/=il; const reach=r/Math.cos(Math.min(1.2,beta/2)), len=r*Math.min(0.6,0.25+beta*0.5);
+      d+='M'+f(J.x+ix*reach*0.97)+' '+f(J.y+iy*reach*0.97)+' L'+f(J.x+ix*(reach-len))+' '+f(J.y+iy*(reach-len))+' '; }
+    return {d:d.trim(), str:Math.max(str, beta>0.18&&beta<1.7?Math.min(1,beta/0.6):0)}; }
   // a nail on a bone's end, on its back, if its back is turned toward the eye
   // a nail, drawn on the fingertip as it is drawn: on its axis, its free edge a few millimetres inside the round of the tip,
   // its length foreshortened as the finger turns, about three quarters the tip's width; shown when its back faces the eye
@@ -2893,23 +2950,32 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     else { ease=null; const kq=Math.min(1,(dt||0.016)/0.04); for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq; }
     const S=HM.poseAt(qd); window.__handS=S;   // (for checking the hand's measure)
     if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
-    for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); }
+    for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); press[i]=Math.max(0,Math.min(1,(alpha[i]-0.38)/0.62)); press[i]*=press[i]*(3-2*press[i]); }
     // the fingers' bones, farthest first
     const segs=[];
-    S.F.forEach((Fk,k)=>{ for(let s=0;s<3;s++){ const A=Fk.j[s], B=Fk.j[s+1]; const R=HM.RAD[k]; segs.push({k,s,A,B,dp:depth([(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2]),ra:(s===0?R[0]*1.08:R[s-1]*0.98)*scl(A[0]),rb:R[s]*(s===2?HM.TIPK:0.96)*scl(B[0])}); } });
+    S.F.forEach((Fk,k)=>{ for(let s=0;s<3;s++){ const A=Fk.j[s], B=Fk.j[s+1]; const R=HM.RAD[k]; segs.push({k,s,A,B,dp:depth([(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2]),ra:(s===0?R[0]*1.08:R[s-1]*0.96)*scl(A[0]),rb:R[s]*(s===2?HM.TIPK:0.96)*scl(B[0])}); } });
     segs.forEach(g=>{ g.r=rank[g.k*3+g.s]; });
     paint(segs);
     segs.forEach((g,n)=>{ rank[g.k*3+g.s]=n; });
+    // each bone's skin: the tip flattened as it presses; its outline open where its finger's next bone covers it; the
+    // creases at a joint drawn with whichever of its two bones is nearer
+    const at2=(g)=>({pa:proj(g.A),pb:proj(g.B)}), byKS={}; segs.forEach((g,n)=>{ byKS[g.k*3+g.s]=g; g.n=n; Object.assign(g,at2(g)); });
+    segs.forEach(g=>{ const nb=[], lo=byKS[g.k*3+g.s-1], hi=byKS[g.k*3+g.s+1];
+      if(g.s>0) nb.push({J:lo.pb,O:lo.pa,rJ:lo.rb,rO:lo.ra}); if(g.s<2) nb.push({J:hi.pa,O:hi.pb,rJ:hi.ra,rO:hi.rb});
+      g.pts=skin(g.pa,g.pb,g.ra,g.rb,g.s===2?press[g.k]:0); g.d=polyD(g.pts); g.od=openD(g.pts,nb); g.cd=''; g.cs=0; });
+    S.F.forEach((Fk,k)=>{ for(let s=1;s<3;s++){ const a=byKS[k*3+s-1], b=byKS[k*3+s], own=a.n>b.n?a:b, c=creases(Fk.j[s],Fk.j[s-1],Fk.j[s+1],Math.min(a.rb,b.ra),Fk.j[s][0]);
+      if(c.d){ own.cd+=c.d+' '; own.cs=Math.max(own.cs,c.str); } } });
     segs.forEach((g,n)=>{ const q=slots[n], ra=g.ra, rb=g.rb;
-      const d=bone(proj(g.A),proj(g.B),ra,rb); if(q.k!==g.k||!q.fill.hasAttribute('data-k')) q.fill.setAttribute('data-k',g.k); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',d);
+      const d=g.d; if(q.k!==g.k||!q.fill.hasAttribute('data-k')) q.fill.setAttribute('data-k',g.k); q.k=g.k; q.fill.setAttribute('d',d); q.tint.setAttribute('d',d); q.line.setAttribute('d',g.od);
+      q.od=g.od; q.cd=g.cd.trim(); q.crease.setAttribute('d',q.cd); q.cs=g.cs;
       q.line.classList.toggle('hlSel',SELK===g.k+1); q.tint.setAttribute('fill','url(#'+gid+'f'+g.k+')');
       let nl=null; if(g.s===2){ const Fk=S.F[g.k]; nl=nail(proj(g.A),proj(g.B),rb,Fk.end,Fk.dir3,Fk.back,g.B[0]); }
       q.nail.setAttribute('d',nl?nl.d:''); q.nail.style.display=nl?'':'none';
-      const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
+      const a=alpha[g.k].toFixed(3); q.fill.style.opacity=a; q.tint.style.opacity=a; q.line.style.opacity=a; q.crease.style.opacity=(alpha[g.k]*0.42*g.cs).toFixed(3); q.nail.style.opacity=nl?(alpha[g.k]*Math.min(1,nl.vis*1.6)).toFixed(3):0; });
     if(SOLID) slots.forEach(q=>{ const d=q.fill.getAttribute('d')||'', nd=q.nail.style.display==='none'?'':(q.nail.getAttribute('d')||'');
-      q.mFill.setAttribute('d',d); q.tFill.setAttribute('d',d); q.pFill.setAttribute('d',d); q.mNail.setAttribute('d',nd);
-      q.vLine.setAttribute('d',d); q.vNail.setAttribute('d',nd); q.vLine.classList.toggle('hlSel',q.line.classList.contains('hlSel'));
-      q.mFill.setAttribute('stroke-width',q.line.classList.contains('hlSel')?3.2:1.7);
+      q.mFill.setAttribute('d',d); q.tFill.setAttribute('d',d); q.pFill.setAttribute('d',d); q.mNail.setAttribute('d',nd); q.mLine.setAttribute('d',q.od||''); q.mCrease.setAttribute('d',q.cd||'');
+      q.vLine.setAttribute('d',q.od||''); q.vNail.setAttribute('d',nd); q.vCrease.setAttribute('d',q.cd||''); q.vCrease.style.opacity=q.crease.style.opacity; q.vLine.classList.toggle('hlSel',q.line.classList.contains('hlSel'));
+      q.mLine.setAttribute('stroke-width',q.line.classList.contains('hlSel')?3.2:1.7);
       q.vLine.style.opacity=q.line.style.opacity; q.vNail.style.opacity=q.nail.style.opacity; });
     // a finger whose tone is ringing — pressing, and the highest stop on its string — takes the tone's colour (g(x) on)
     // playing, it is the note being struck — its finger, its string and fret; posed, every pinned finger that is the
@@ -2942,7 +3008,10 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     let d='M'+P2({x:(pts[n-1].x+pts[0].x)/2,y:(pts[n-1].y+pts[0].y)/2});
     for(let i=0;i<n;i++){ const a=pts[i], b=pts[(i+1)%n]; d+=' Q'+P2(a)+' '+P2({x:(a.x+b.x)/2,y:(a.y+b.y)/2}); }
     palmFill.setAttribute('d',d+' Z'); palmLine.setAttribute('d',d+' Z');
-    const tj=S.Th.j; for(let s=0;s<3;s++){ const ra=HM.TRAD[Math.max(0,s-1)]*scl(tj[s][0])*(s===0?1.05:1), rb=HM.TRAD[s]*scl(tj[s+1][0]); const dd=bone(proj(tj[s]),proj(tj[s+1]),ra,rb); thumbSeg[s].fill.setAttribute('d',dd); thumbSeg[s].line.setAttribute('d',dd); }
+    const tj=S.Th.j, tsk=[0,1,2].map(s=>({pa:proj(tj[s]),pb:proj(tj[s+1]),ra:HM.TRAD[Math.max(0,s-1)]*scl(tj[s][0])*(s===0?1.05:1),rb:HM.TRAD[s]*scl(tj[s+1][0])}));
+    tsk.forEach((g,s)=>{ const nb=[]; if(s>0) nb.push({J:tsk[s-1].pb,O:tsk[s-1].pa,rJ:tsk[s-1].rb,rO:tsk[s-1].ra}); if(s<2) nb.push({J:tsk[s+1].pa,O:tsk[s+1].pb,rJ:tsk[s+1].ra,rO:tsk[s+1].rb});
+      const pts=skin(g.pa,g.pb,g.ra,g.rb,0); thumbSeg[s].fill.setAttribute('d',polyD(pts)); thumbSeg[s].line.setAttribute('d',openD(pts,nb)); });
+    { const c=creases(tj[2],tj[1],tj[3],Math.min(tsk[1].rb,tsk[2].ra),tj[2][0]); thumbCrease.setAttribute('d',c.d); thumbCrease.style.opacity=(0.4*c.str).toFixed(3); vThumbCrease.setAttribute('d',c.d); vThumbCrease.style.opacity=thumbCrease.style.opacity; }
     const tdir=[0,1,2].map(i=>(S.Th.end[i]-S.Th.ip[i])/27), tn=nail(proj(S.Th.ip),proj(S.Th.end),HM.TRAD[2]*scl(S.Th.end[0]),S.Th.end,tdir,S.Th.back,S.Th.end[0]);
     thumbNail.setAttribute('d',tn?tn.d:''); thumbNail.style.display=tn?'':'none';
     if(SOLID){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const grow=(p,r)=>{ x0=Math.min(x0,p.x-r); x1=Math.max(x1,p.x+r); y0=Math.min(y0,p.y-r); y1=Math.max(y1,p.y+r); };
