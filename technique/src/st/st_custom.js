@@ -229,8 +229,8 @@ function customTool(){
   let lastDo=undefined;
   const doAt=t=>{ const withF=M.ch.filter(c=>c.syl); if(!withF.length) return null; let c=null; for(const x of withF){ if(x.t<=t+1e-6) c=x; } c=c||withF[withF.length-1];
     return ((c.root-fromDo(c.syl))%12+12)%12; };
-  function orient(doPc){ if(doPc===null||doPc===PHI.doPc) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its Do at 12 o'clock)
+  function orient(doPc,force){ if(doPc===null||doPc===PHI.doPc&&!force) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
+    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?(PRE==='csm'?OPT.mode.toLowerCase():'do'):'re'}); }   // (an exercise page: its mode's root at 12 o'clock)
   /* THE MODE FOLLOWS THE LINE (an exercise page): a tone held — longer than a beat, alone — is heard as the mode's root
      (Fa, Sol or Do held in the walks, each its own mode); a strummed chord restores its own root's mode. In force from
      that moment to the next, on the Ring (its mode cone), the TAB (its light fading across the span) and the fretboard. */
@@ -667,11 +667,17 @@ function customTool(){
   // the mode's root on the low E, its position, and its two octaves' walk: [string (1–6), fret, finger, frame] each
   function layout(key,mode){ const om=s=>Math.round(openMidi(s));       // (an open string's pitch, whole)
     const [syl,semi,q]=MODE7.find(m=>m[0]===mode), root=(key+semi)%12, rf=((root-pcOf(LOWE,0))%12+12)%12;
-    const open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3, fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
-    const base=om(LOWE)+rf, out=[]; let s=LOWE;
+    let open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3; const fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
+    const base=om(LOWE)+rf, out=[]; let s=LOWE, prev=null;
     for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-om(s);
-      if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1); if(nxt>=lo-1||here>hi+1){ s--; } }
-      const f=m-om(s); out.push({str:s+1,f,g:fin(f)}); }
+      // a half step stays on its string where the hand can reach it (a fret on with the fourth finger)
+      if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
+      prev=m;
+      const f=m-om(s);
+      // reached past the hand's frets (a half step kept on its string): the hand moves up to take it under the fourth finger,
+      // and the tones already on this string past its new first fret are fingered from there
+      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo) n.g=fin(n.f); }); }
+      out.push({str:s+1,f,g:fin(f)}); }
     // the frame each string is played in: of the five, the one holding most of its tones (a tie: the one led by its tone at
     // the hand's first fret, or the fret after)
     const solOf=m=>SYL[MAJ.indexOf((((m-69)-key)%12+12)%12)];
@@ -716,7 +722,9 @@ function customTool(){
     const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
     const keys=['mode','oct','dir','chords'];
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
-    function relabel(){ segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
+    // the bank in the order the roots lie along the low E, nut to body
+    function relabel(){ const bs=[...segs[0].querySelectorAll('button')]; bs.sort((a,b)=>layout(KEY,JSON.parse(a.dataset.v)).rf-layout(KEY,JSON.parse(b.dataset.v)).rf).forEach(b=>segs[0].appendChild(b));
+      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
       b.innerHTML=nm.slice(0,i)+'<span class="cuSub">_'+md+'</span>'; b.title=nm; }); }
     relabel(); segs[0].classList.add('cuModes');
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
@@ -726,7 +734,7 @@ function customTool(){
       if(PHI.doPc!==keyWant){ keyWant=PHI.doPc; keyAt=now; return; } if(now-keyAt<350) return;
       KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){} relabel(); regen(); };
     function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])))); }
-    function regen(){ const was=T.on; if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
+    function regen(){ const was=T.on; orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
     // the drum, just above the fretboard
     // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
