@@ -571,10 +571,9 @@ function customTool(){
     paintChords(curChord);
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); } }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
-  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd ~Do, 1st Ti. The ~Do frame is
-  // not one of the drum's seven: the drum turns to Sol_La_Ti (the tones it shares) and that row is written ~DoSol_La, its
-  // ~Do faint — the index over it, not playing
-  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'~Do',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
+  // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
+  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'Sol',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol'];   // (the page's drum: BOOK.drum)
   let rollKey='', litKey='';
   // the drum's names lit by what sounds: a name in the middle row whose tone is sounding glows in its colour, the rest dim
   function rollLight(snd,tk){ const d0=doAt(tk), dp=d0===null?PHI.doPc:d0, on=new Set(snd.map(e=>SOLN[((pcOf(e.s,e.f)-(dp+2))%12+12)%12]));
@@ -585,8 +584,8 @@ function customTool(){
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
     const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
-    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="grid-column:1;'+c(4)+';opacity:.4">~Do</span><span style="grid-column:2;'+c(5)+'">Sol</span><span style="grid-column:4;'+c(7)+'">La</span>'; } }
+    const k=DRUM.indexOf(fr); ROLL.rebuild(); ROLL.set(k);
+  }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */

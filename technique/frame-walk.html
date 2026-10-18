@@ -2614,20 +2614,22 @@ if(BOOK.labelAt==='fret5'){
    frame in force sits in the middle; the one before and the one after show dimly below and above; a change rolls the
    drum the short way round. */
 const ROLL=BOOK.roll?(()=>{
-  const FR=[['Ti','Do','Re'],['Mi','Fa','Sol'],['La','Ti','Do'],['Re','Mi','Fa'],['Sol','La','Ti'],['Do','Re','Mi'],['Fa','Sol','La']];
-  const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11};
+  // the drum's frames, in order up the strings: the seven three-tone frames by default; a page may give its own cycle (BOOK.drum:
+  // [[names], [columns]?] each — Chords with Semimodes plays in position, where the walk takes Sol_La as a frame of two)
+  const FR=(BOOK.drum||[['Ti','Do','Re'],['Mi','Fa','Sol'],['La','Ti','Do'],['Re','Mi','Fa'],['Sol','La','Ti'],['Do','Re','Mi'],['Fa','Sol','La']]).map(f=>Array.isArray(f[0])?f:[f]);
+  const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, N=FR.length, colOf=(F,i)=>F[1]?F[1][i]:1+(SEMI[F[0][i]]-SEMI[F[0][0]]+12)%12;
   const box=document.createElement('div'); box.className='roll'; const inner=document.createElement('div'); inner.className='rollIn'; box.appendChild(inner);
   frameLbl.replaceWith(box); box.id='frameLbl';
-  const rows=[]; let R=10, built='';                                       // R: the row in the middle (21 rows: the seven, three times)
+  const rows=[]; let R=N+Math.floor(N/2), built='';                        // R: the row in the middle (the frames, three times over)
   const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
-    for(let r=0;r<21;r++){ const k=6-(r%7), names=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=names.map(n=>'<span style="grid-column:'+(1+(SEMI[n]-SEMI[names[0]]+12)%12)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone
+    for(let r=0;r<3*N;r++){ const k=N-1-(r%N), F=FR[k], d=document.createElement('div'); d.className='rollRow';
+      d.innerHTML=F[0].map((n,i)=>'<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
-  inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
+  inner.addEventListener('transitionend',()=>{ if(R<N||R>=2*N){ R+=R<N?N:-N; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  return {set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
@@ -3669,10 +3671,9 @@ function customTool(){
     paintChords(curChord);
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); } }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
-  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd ~Do, 1st Ti. The ~Do frame is
-  // not one of the drum's seven: the drum turns to Sol_La_Ti (the tones it shares) and that row is written ~DoSol_La, its
-  // ~Do faint — the index over it, not playing
-  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'~Do',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
+  // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
+  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'Sol',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol'];   // (the page's drum: BOOK.drum)
   let rollKey='', litKey='';
   // the drum's names lit by what sounds: a name in the middle row whose tone is sounding glows in its colour, the rest dim
   function rollLight(snd,tk){ const d0=doAt(tk), dp=d0===null?PHI.doPc:d0, on=new Set(snd.map(e=>SOLN[((pcOf(e.s,e.f)-(dp+2))%12+12)%12]));
@@ -3683,8 +3684,8 @@ function customTool(){
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
     const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
-    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="grid-column:1;'+c(4)+';opacity:.4">~Do</span><span style="grid-column:2;'+c(5)+'">Sol</span><span style="grid-column:4;'+c(7)+'">La</span>'; } }
+    const k=DRUM.indexOf(fr); ROLL.rebuild(); ROLL.set(k);
+  }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */

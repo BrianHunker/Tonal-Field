@@ -278,20 +278,22 @@ if(BOOK.labelAt==='fret5'){
    frame in force sits in the middle; the one before and the one after show dimly below and above; a change rolls the
    drum the short way round. */
 const ROLL=BOOK.roll?(()=>{
-  const FR=[['Ti','Do','Re'],['Mi','Fa','Sol'],['La','Ti','Do'],['Re','Mi','Fa'],['Sol','La','Ti'],['Do','Re','Mi'],['Fa','Sol','La']];
-  const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11};
+  // the drum's frames, in order up the strings: the seven three-tone frames by default; a page may give its own cycle (BOOK.drum:
+  // [[names], [columns]?] each — Chords with Semimodes plays in position, where the walk takes Sol_La as a frame of two)
+  const FR=(BOOK.drum||[['Ti','Do','Re'],['Mi','Fa','Sol'],['La','Ti','Do'],['Re','Mi','Fa'],['Sol','La','Ti'],['Do','Re','Mi'],['Fa','Sol','La']]).map(f=>Array.isArray(f[0])?f:[f]);
+  const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, N=FR.length, colOf=(F,i)=>F[1]?F[1][i]:1+(SEMI[F[0][i]]-SEMI[F[0][0]]+12)%12;
   const box=document.createElement('div'); box.className='roll'; const inner=document.createElement('div'); inner.className='rollIn'; box.appendChild(inner);
   frameLbl.replaceWith(box); box.id='frameLbl';
-  const rows=[]; let R=10, built='';                                       // R: the row in the middle (21 rows: the seven, three times)
+  const rows=[]; let R=N+Math.floor(N/2), built='';                        // R: the row in the middle (the frames, three times over)
   const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
-    for(let r=0;r<21;r++){ const k=6-(r%7), names=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=names.map(n=>'<span style="grid-column:'+(1+(SEMI[n]-SEMI[names[0]]+12)%12)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone
+    for(let r=0;r<3*N;r++){ const k=N-1-(r%N), F=FR[k], d=document.createElement('div'); d.className='rollRow';
+      d.innerHTML=F[0].map((n,i)=>'<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
-  inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
+  inner.addEventListener('transitionend',()=>{ if(R<N||R>=2*N){ R+=R<N?N:-N; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  return {set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
