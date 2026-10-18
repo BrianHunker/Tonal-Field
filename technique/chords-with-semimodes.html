@@ -3712,9 +3712,12 @@ function customTool(){
       for(let str=1;str<=6;str++){ const ts=hits.filter(h=>h[1].includes(str)).map(h=>h[0]);
         ts.forEach((x,i)=>add(x,(i<ts.length-1?ts[i+1]:end)-x,str,GRIP[str][0],GRIP[str][1])); }
       t+=2*BAR; }
-    function walk(o){ const T8=OCT[o], up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], bars=OPT.dir==='updown'?up.concat(dn):dn.concat(up);
-      bars.forEach(ix=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const [str,f,g]=T8[ix[j]]; add(t+x,d,str,f,g); }); t+=BAR; }); }
-    (OPT.oct==='both'?['lower','upper']:[OPT.oct]).forEach(o=>{ if(OPT.chords) chords(); walk(o); });
+    // a walk over the octaves chosen: up through them all and back down (or down through them all and back up) — with Both,
+    // the lower octave then the upper going up, the upper then the lower coming down; each bar three eighths and a held tone
+    function walk(octs){ const up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], ups=[], dns=[];
+      octs.forEach(o=>up.forEach(ix=>ups.push([o,ix]))); octs.slice().reverse().forEach(o=>dn.forEach(ix=>dns.push([o,ix])));
+      (OPT.dir==='updown'?ups.concat(dns):dns.concat(ups)).forEach(([o,ix])=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const [str,f,g]=OCT[o][ix[j]]; add(t+x,d,str,f,g); }); t+=BAR; }); }
+    if(OPT.chords) chords(); walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf('G','Do'),{t:0})]; return m; }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
     const row=document.createElement('div'); row.className='cuRow cuOpts';
