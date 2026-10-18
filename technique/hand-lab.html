@@ -2188,6 +2188,7 @@ function makeHand(G){
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
+  const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
   let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
@@ -2217,6 +2218,10 @@ function makeHand(G){
         for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
           if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
           pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW); } } }
+    // A PRESSING FINGER'S ARCH stands straight over the line from its knuckle to its tip — the middle finger's leaning a
+    // little toward the index (Brian's photo of the E-shape barre, Oct 2026): its middle joint's place across the palm
+    { for(let k=0;k<4;k++){ const g=TG.f[k]; if(!g.press||g.barre){ put(0); continue; } const F=S.F[k], v=add(F.end,F.mcp,-1), L2=dot(v,v)||1, t=Math.max(0,Math.min(1,dot(add(F.pip,F.mcp,-1),v)/L2));
+      put((lerp(F.mcp,F.end,t)[0]-F.pip[0]-ARCH[k])*ARCHW[k]); } }   // (along the neck: toward the nut, where the index is)
     // fingers side by side, never through one another
     // TUCKING: two fingers on one fret, the one on the string nearer the high e lies under its neighbour's arch — the
     // little finger's end and middle bones under the ring finger, the index's end bone under the middle finger; the middle
