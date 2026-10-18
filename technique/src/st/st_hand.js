@@ -12,16 +12,21 @@
 function makeHand(G){
   const D2R=Math.PI/180;
   // bones: proximal, middle, distal phalanx (mm), and the finger's half-thickness along each
-  const LEN=[[50,40,25],[60,45,30],[55,42.5,27.5],[40,30,20]];   // Brian's measure (Oct 2026): index 5:4:2.5 cm, middle 6:4.5:3, ring 5.5:4.25:2.75, little 4:3:2
-  const RAD=[[9.5,8.5,7.6],[10,9,8],[9.5,8.6,7.7],[8.4,7.6,6.9]];
+  // THE HAND'S SIZE against the neck (Brian, Oct 2026): in a full barre the index's tip reaches just past the low E while
+  // the high e is stopped on the proximal phalanx just short of the middle joint. So the index's middle and end bones
+  // together span the strings at the first fret (36.5 mm) plus the tip's 1.5 mm past the low E, less about 2 mm: the
+  // whole hand drawn at HS of the proportions below
+  const HS=(36.45+1.5-2)/(24+19), sc=a=>a.map(v=>Array.isArray(v)?sc(v):v*HS);
+  const LEN=sc([[41,24,19],[46,28,20],[43,27,20],[34,20,18]]);
+  const RAD=sc([[9.5,8.5,7.6],[10,9,8],[9.5,8.6,7.7],[8.4,7.6,6.9]]);
   // the knuckles on the palm (radial, distal, palmar) from the middle finger's: a rigid row, the little finger's set back
   // and the row arched a little toward the palm at its ends
-  const MCP=[[21,-3,2.5],[0,0,0],[-19,-4,2],[-36,-13,5]];
+  const MCP=sc([[21,-3,2.5],[0,0,0],[-19,-4,2],[-36,-13,5]]);
   const SPLAY=[7,0,-6,-13].map(d=>d*D2R);                       // each finger's ray in the palm, straight out
   const THK=0.8, TIPK=0.72;                                       // TIPK: the very end of a finger, narrower than its pad                                                  // a finger is flatter than it is wide: its thickness, front to back
   const DIPK=0.38;                                               // the end joint's share of the middle's bend, aiming a finger
   // thumb: its base on the palm, its metacarpal, the two phalanges
-  const TB=[25,-55,13], TLEN=[46,32,27], TRAD=[12,10,9];
+  const TB=sc([25,-55,13]), TLEN=sc([46,32,27]), TRAD=sc([12,10,9]);
   // ranges: spread at the knuckle, bend at the knuckle, bend at the middle joint; thumb base (two ways), its two joints
   const LO=[], HI=[];
   const set=(i,a,b)=>{ LO[i]=a; HI[i]=b; };
