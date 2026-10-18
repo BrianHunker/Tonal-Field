@@ -65,5 +65,9 @@ window.LESSONS=[
   { title:'Wednesday’s Theme', instrument:'piano', kind:'music', group:'Songs', tools:[],
     file:'lessons/wednesdays-theme.html',
     views:['Hands Together','Right Hand','Left Hand'],
-    about:'Wednesday’s Theme with both hands, at 196 bpm: hands together first, then each hand on its own. The opening stands in E_La, coloured throughout by antis that never turn the field — C♯ and D♯ (~Do, ~Re) rising into La, and B♭ (~La), the root’s fifth squeezed flat, rising straight back to B.' }
+    about:'Wednesday’s Theme with both hands, at 196 bpm: hands together first, then each hand on its own. The opening stands in E_La, coloured throughout by antis that never turn the field — C♯ and D♯ (~Do, ~Re) rising into La, and B♭ (~La), the root’s fifth squeezed flat, rising straight back to B.' },
+  { title:'Toccata, BWV 565', instrument:'piano', kind:'music', group:'Songs', tools:[],
+    file:'lessons/bach-toccata.html',
+    views:['Hands Together','Right Hand','Left Hand'],
+    about:'The opening of Bach’s Toccata in BWV 565, bars 1–18 — the A–G–A mordent figures, the pedal D under the diminished chord, the prestissimo, the run down and the line over its A, to the A major chord — simplified for two hands at 60 bpm: one line where the organ doubles in octaves, the repeated A of bars 12–15 left out. It stands in D_La (Re = G) throughout.' }
 ];
