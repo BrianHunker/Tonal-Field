@@ -192,8 +192,9 @@ diatBtn.addEventListener('click',()=>{ diatonic=!diatonic; valKey=''; refresh();
 const gxBtn=$('gx'), eqn=$('eqn');
 try{ FIELD.on=localStorage.getItem('structures-gx')==='on'; }catch(err){}
 function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; document.body.classList.toggle('gxOn',FIELD.on); }
-gxBtn.addEventListener('click',()=>{ stopForEdit(); FIELD.on=!FIELD.on; try{ localStorage.setItem('structures-gx',FIELD.on?'on':'off'); }catch(err){} syncGx();
-  const keep=DRILL; SAMPLES=sampling(); if(keep){ const i=SAMPLES.findIndex(x=>x.r.lo.s===keep.lo.s&&x.r.lo.f===keep.lo.f&&x.r.hi.s===keep.hi.s&&x.r.hi.f===keep.hi.f); if(i>=0) SI=i; } else { P=[]; settle(); } refresh(); });
+gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on;   // colour only: playback carries on
+  try{ localStorage.setItem('structures-gx',FIELD.on?'on':'off'); }catch(err){} syncGx();
+  const keep=DRILL; SAMPLES=sampling(); if(keep){ const i=SAMPLES.findIndex(x=>x.r.lo.s===keep.lo.s&&x.r.lo.f===keep.lo.f&&x.r.hi.s===keep.hi.s&&x.r.hi.f===keep.hi.f); if(i>=0) SI=i; } else if(!T.on){ P=[]; settle(); } refresh(); });
 try{ if(localStorage.getItem('structures-ring')==='chain'){ RING.goal=RING.m=RING.t=1; } }catch(err){}
 /*@COPY:1475-1478*/
 syncGx();
