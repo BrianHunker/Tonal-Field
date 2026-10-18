@@ -1501,7 +1501,7 @@ function stepSyl(st,live,plan,fxV,sy,amp){
   if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
     if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
       SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
-      if(name&&e.root===undefined){ const t=el('text',{class:'sylPop'},sylG);   // a song's strums: no names rising from the strings t.textContent=name; t.style.fill=rgbS(toneColour(pc));
+      if(name&&e.root===undefined&&(!st.s.chord||e.line===true)){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));   // single tones only: no names rising from a strum's strings
         const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
         tt.textContent=e.root!==undefined?'':name; tt.style.fill=t.style.fill;   // a song's bars carry their own names over the TAB
         SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
@@ -1580,7 +1580,7 @@ function frame(){
     else if(lm&&lm.y!==undefined){ F.y=lm.y; F.vy=0; sq=lm.sq||0; }
     else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }
     else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
-      F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }
+      for(let n=Math.ceil(ydt/0.008),k=0;k<n;k++){ const h=ydt/n; F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*h; F.y+=F.vy*h; } }   // in small steps: a slow frame cannot throw the finger off
     const tx=tipXf(h.fret+shift);
     F.x=(reduce||F.x===undefined||F.drag||(live&&mode==='slide'))?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07);
     const hov=hoverY(fsy), pc=fsy-FR*PRESS_H, kk0=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=kk0*kk0*(3-2*kk0)+sq;
@@ -3325,6 +3325,16 @@ function customTool(){
     return ((c.root-fromDo(c.syl))%12+12)%12; };
   function orient(doPc){ if(doPc===null||doPc===PHI.doPc) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
     pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its Do at 12 o'clock)
+  /* THE MODE FOLLOWS THE LINE (an exercise page): a tone held — longer than a beat, alone — is heard as the mode's root
+     (Fa, Sol or Do held in the walks, each its own mode); a strummed chord restores its own root's mode. In force from
+     that moment to the next, on the Ring (its mode cone), the TAB (its light fading across the span) and the fretboard. */
+  let MODES=[];
+  function modeEvents(){ const out=[], ons=[...new Set(M.ev.map(e=>e.t))].sort((a,b)=>a-b);
+    ons.forEach(t=>{ const g=M.ev.filter(e=>e.t===t);
+      if(g.length>1){ const c=chordAt(t); if(!c) return; const r=c.root, at=lowest(g.filter(e=>pcOf(e.s,e.f)===r))||lowest(g); out.push({t,root:r,at,id:'m'+t}); }
+      else if(g[0].d>TPQ) out.push({t,root:pcOf(g[0].s,g[0].f),at:g[0],id:'m'+t}); });
+    return out; }
+  const modeAt=t=>{ let m=null; for(const x of MODES){ if(x.t<=t+1e-6) m=x; else break; } return m||(MODES.length?MODES[MODES.length-1]:null); };
   const frameAt=t=>{ if(!C||C.empty) return -1; let k=-1; C.frames.forEach((F,i)=>{ if(F.t<=t+1e-6) k=i; }); return k; };
   const soundingAt=t=>M.ev.filter(e=>e.t<=t+1e-6&&t<e.t+e.d-1e-6);
 
@@ -3386,21 +3396,25 @@ function customTool(){
     // the chord symbols: each over its moment in the lane above the ball, its name then its root's function; behind the
     // staff its span faintly lit in that function's colour
     const yT=TB.rowY[0]-30, yB=TB.rowY[NSTR-1]+8, TT=total();
-    M.ch.forEach((c,i)=>{ const x0=xT(c.t)-TB.cw/2, nx=i<M.ch.length-1?xT(M.ch[i+1].t)-TB.cw/2:TB.s1, id='cuG'+c.id;
+    const light=(spans,i,c)=>{ const x0=xT(c.t)-TB.cw/2, nx=i<spans.length-1?xT(spans[i+1].t)-TB.cw/2:TB.s1, id='cuG'+c.id;
       const gr=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), s0=el('stop',{offset:0},gr); el('stop',{offset:1,'stop-opacity':0},gr);
-      const r=el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG);
+      return {s0,r:el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG)}; };
+    MODES=PRE?modeEvents():[]; modeArt=MODES.map((m,i)=>Object.assign({m},light(MODES,i,m)));
+    M.ch.forEach((c,i)=>{ const {s0,r}=PRE?{s0:null,r:null}:light(M.ch,i,c);
       const t=el('text',{x:xT(c.t)-6,y:laneY,class:'cuChord'},noteG), L=el('tspan',{},t), S=el('tspan',{class:'cuSyl',dx:5},t);
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
     sylArt=[]; if(PRE){ const y=((TB.floor+TB.rowY[0])/2+4).toFixed(1);
       plan.forEach(n=>{ if(plan.some(q=>q!==n&&q.t===n.t)) return; const t=el('text',{x:xT(n.t),y,class:'sylTab cuSylFix'},noteG); sylArt.push({t,n}); }); }
     placeCursor(); paintChords(); }
-  let sylArt=[];
+  let sylArt=[], modeArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
+    modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.m===curMode;
+      a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); });
     sylArt.forEach(({t,n})=>{ const d0=doAt(n.t), dp=d0===null?PHI.doPc:d0, k=((pcOf(n.string,n.pitch)-(dp+2))%12+12)%12;
       t.textContent=SOLN[k]; t.style.fill=L>0.001?rgbS(mixRGB(ink,relRGB(k),L)):rgbS(ink); });
     chordArt.forEach(a=>{ const d0=doAt(a.c.t), dp=d0===null?PHI.doPc:d0, k=((a.c.root-(dp+2))%12+12)%12, col=relRGB(k), on=a.c===cur;   // the colour the TAB's numbers take (Diatonic filtering as they do)
-      a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3));
+      if(a.r){ a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); }
       const c=L>0.001?rgbS(mixRGB(ink,col,L)):rgbS(ink); a.L.style.fill=c; a.S.style.fill=c; a.S.textContent=SOLN[k]; }); }
   function placeCursor(){ const show=!T.on&&document.activeElement===tab;
     curG.setAttribute('visibility',show?'visible':'hidden'); if(!show) return;
@@ -3443,7 +3457,7 @@ function customTool(){
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
-   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
+   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:50px } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
     document.head.appendChild(st); }
   const titleIn=$q('cuTitle'), meterIn=$q('cuMeter'), barsEl=$q('cuBars'), palEl=$q('cuPal'), dotB=$q('cuDot'), tripB=$q('cuTrip'), chordIn=$q('cuChord'), textEl=$q('cuText'), msgEl=$q('cuMsg'), fileIn=$q('cuFile');
   // keys typed in the panel stay in the panel (the hand's finger keys, the ring's, Space)
@@ -3601,7 +3615,7 @@ function customTool(){
       playBtn.textContent='Stop'; playBtn.classList.add('on'); placeCursor(); }); }
 
   /* ---------- each frame ---------- */
-  let shownK=-2, shownDo=null, rootHeld=null, curChord=null, wasOn=false;
+  let shownK=-2, shownDo=null, rootHeld=null, curChord=null, curMode=null, wasOn=false;
   function stepNow(force){ if(force) shownK=-2; step(null,false); }
   function step(st,live){
     if(wasOn&&!T.on){ TAB_LIT=null; shownK=-2; placeCursor(); } wasOn=T.on;
@@ -3620,8 +3634,9 @@ function customTool(){
     if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
     // the mode's light, from the chord's root: where the root sounds lowest now, else lowest in the chord's span, else
     // the root nearest the hand
-    rootHeld=null;
-    if(curChord){ const r=curChord.root, isR=e=>pcOf(e.s,e.f)===r, nx=M.ch[M.ch.indexOf(curChord)+1];
+    rootHeld=null; curMode=MODES.length?modeAt(tk):null;
+    if(curMode){ const e=curMode.at; rootHeld={string:e.s,pitch:e.f,fret:e.f}; }
+    else if(curChord){ const r=curChord.root, isR=e=>pcOf(e.s,e.f)===r, nx=M.ch[M.ch.indexOf(curChord)+1];
       const span=M.ev.filter(e=>e.t>=curChord.t&&(!nx||e.t<nx.t));
       let e=lowest(snd.filter(isR))||lowest(span.filter(isR));
       if(!e){ let best=null, bd=1e9; const hf=HAND.f[1].fret; for(let s=NSTR-1;s>=0;s--) for(let f=0;f<=FMAX;f++) if(pcOf(s,f)===r){ const d=Math.abs(f-hf)+(NSTR-1-s)*0.3; if(d<bd){ bd=d; best={s,f}; } } e=best; }
@@ -3640,13 +3655,18 @@ function customTool(){
     if(C&&!C.empty) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
     paintChords(curChord);
-    if(PRE&&typeof ROLL!=='undefined'&&ROLL) rollStep(tk); }
+    if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); } }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd ~Do, 1st Ti. The ~Do frame is
   // not one of the drum's seven: the drum turns to Sol_La_Ti (the tones it shares) and that row is written ~DoSol_La, its
   // ~Do faint — the index over it, not playing
   const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'~Do',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol','Do','Fa'];
-  let rollKey='';
+  let rollKey='', litKey='';
+  // the drum's names lit by what sounds: a name in the middle row whose tone is sounding glows in its colour, the rest dim
+  function rollLight(snd,tk){ const d0=doAt(tk), dp=d0===null?PHI.doPc:d0, on=new Set(snd.map(e=>SOLN[((pcOf(e.s,e.f)-(dp+2))%12+12)%12]));
+    const key=rollKey+'|'+[...on].sort().join(','); if(key===litKey) return; litKey=key;
+    document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
+    const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
   function rollStep(tk){
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
@@ -3700,12 +3720,20 @@ function customTool(){
     function regen(){ const was=T.on; if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
     // the drum, just above the fretboard
-    const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement; fp.parentNode.insertBefore(box,fp); box.style.margin='10px 0 6px 4px'; } }
+    // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
+    // flow above the fretboard)
+    const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
+      wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
+      const place=()=>{ if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
+        const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
+        box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
+        box.style.left=(0.5*W.width/ZOOM).toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
+      afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); } }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
     const {out}=parse('C_Do e 5:3 4:2 3:0 2:1 q 5:3+4:2+3:0+2:1+1:0 r | Am e 5:0 4:2 3:2 2:1 q 5:0+4:2+3:2+2:1+1:0 r'); m.ev=out.ev; m.ch=out.ch; m.bars=out.bars; M=save; return m; }
   return {show, run, tab:tabDraw, step, nextSeg:null,
-    cells:()=>null, rootNow:()=>curChord?curChord.root:null, bass:()=>rootHeld,
+    cells:()=>null, rootNow:()=>curMode?curMode.root:(curChord?curChord.root:null), bass:()=>rootHeld,
     // for testing
     _:{parse,serialize,model:()=>M,compile:()=>compile(),cur,pal,
       load(t,meter){ if(meter) M.meter=meter; const {out,errs}=parse(t); M.ev=out.ev; M.ch=out.ch; M.bars=out.bars; normalize(); textEl.value=serialize(); rebuild();

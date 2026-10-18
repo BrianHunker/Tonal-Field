@@ -204,7 +204,7 @@ function stepSyl(st,live,plan,fxV,sy,amp){
   if(live&&FIELD.lit>0.5){ const key=st.onset.toFixed(4);
     if(key!==sylKey){ sylKey=key; const e=plan[st.idx], pc=pcOf(e.string,e.pitch), name=sylOf(pc);
       SYLS.forEach(o=>{ if(o.cur){ o.cur=false; o.t1=now; } });
-      if(name&&e.root===undefined){ const t=el('text',{class:'sylPop'},sylG);   // a song's strums: no names rising from the strings t.textContent=name; t.style.fill=rgbS(toneColour(pc));
+      if(name&&e.root===undefined&&(!st.s.chord||e.line===true)){ const t=el('text',{class:'sylPop'},sylG); t.textContent=name; t.style.fill=rgbS(toneColour(pc));   // single tones only: no names rising from a strum's strings
         const nx=tabNotes[st.idx]?+tabNotes[st.idx].num.getAttribute('x'):xBeat(st.ph), tt=el('text',{x:nx,y:((TB.floor+TB.rowY[0])/2+4).toFixed(1),class:'sylTab',opacity:0},sylTabG);
         tt.textContent=e.root!==undefined?'':name; tt.style.fill=t.style.fill;   // a song's bars carry their own names over the TAB
         SYLS.push({t,tt,cur:true,t0:now,dur:Math.max(0.25,st.dur),x:fxV,y0:sy,o:0}); } } }
@@ -283,7 +283,7 @@ function frame(){
     else if(lm&&lm.y!==undefined){ F.y=lm.y; F.vy=0; sq=lm.sq||0; }
     else if(down){ F.y+=(tgt-F.y)*0.5; if(Math.abs(F.y-tgt)<0.3) F.y=tgt; F.vy=0; }
     else { if(lm&&lm.kick&&F.kick!==lm.kick){ F.kick=lm.kick; F.vy=-FLICK_V; }
-      F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*ydt; F.y+=F.vy*ydt; }
+      for(let n=Math.ceil(ydt/0.008),k=0;k<n;k++){ const h=ydt/n; F.vy=(F.vy||0)+(SPR_K*(tgt-F.y)-SPR_C*(F.vy||0))*h; F.y+=F.vy*h; } }   // in small steps: a slow frame cannot throw the finger off
     const tx=tipXf(h.fret+shift);
     F.x=(reduce||F.x===undefined||F.drag||(live&&mode==='slide'))?tx:F.x+(tx-F.x)*Math.min(1,fdt/0.07);
     const hov=hoverY(fsy), pc=fsy-FR*PRESS_H, kk0=Math.max(0,Math.min(1,(F.y-hov)/(pc-hov))), kk=kk0*kk0*(3-2*kk0)+sq;
