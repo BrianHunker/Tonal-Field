@@ -46,7 +46,7 @@ function makeHand(G){
   // it is: square to them in seventh position (the open string's fifth, 2:3), turned toward the nut below it, toward the
   // body above. The hand's place along the neck is the elbow's swing: x7 + ARM·sin(slant), ARM the reach from elbow to
   // the hand's middle, set so that open position (frets 1–4) slants 45°. (Twelfth position then comes out near 25°.)
-  const SCL=G.scale||648, fx=n=>SCL*(1-Math.pow(2,-n/12)), atF=n=>fx(n)-0.34*(fx(n)-fx(n-1)), posX=p=>(atF(p)+atF(p+1)+atF(p+2)+atF(p+3))/4;
+  const SCL=G.scale||648, fx=G.fx||(n=>SCL*(1-Math.pow(2,-n/12))), atF=n=>fx(n)-0.34*(fx(n)-fx(n-1)), posX=p=>(atF(p)+atF(p+1)+atF(p+2)+atF(p+3))/4;
   const X7=posX(7), ARM=(X7-posX(1))/Math.sin(Math.PI/4);
   const slantAt=x=>Math.asin(Math.max(-0.97,Math.min(0.97,(x-X7)/ARM)));          // radians; − toward the nut
   // the palm's resting turn there: turned about the board's normal by the slant (fingers leaning toward the nut below
