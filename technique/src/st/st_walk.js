@@ -292,7 +292,7 @@ const ROLL=BOOK.roll?(()=>{
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
   inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
+  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 

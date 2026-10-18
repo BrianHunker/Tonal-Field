@@ -2062,7 +2062,7 @@ let ZOOM=1; const afterFit=[];
   const later=()=>{ if(!pend) pend=requestAnimationFrame(fit); };
   window.addEventListener('resize',later); new ResizeObserver(later).observe(wrapEl);
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(later); later(); }
-const BOOK={handLab:true, custom:true, preset:'csm', loops:1, pages:[
+const BOOK={handLab:true, custom:true, preset:'csm', roll:true, loops:1, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]};
 /* THE HAND'S MECHANISM. One skeleton, in millimetres, on a real neck; everything drawn is read off it.
    A rigid palm carries the four knuckles (the metacarpal heads) in a fixed row, a little arched, and the thumb's base.
@@ -2622,7 +2622,7 @@ const ROLL=BOOK.roll?(()=>{
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
   inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
+  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
@@ -3202,7 +3202,7 @@ function customTool(){
         // one length, held past the bar line with nothing else starting before it ends: tied over the bar line
         const over=L>G&&q===b1&&!M.ev.some(e=>e.t===b1)&&!M.ch.some(c=>c.t===b1)&&!startsIn(b1,p+L);
         const one=L&&(L<=G||over)?split(Math.min(L,G)):null;
-        if(one){ put(toks,one[0]); toks.push(grp.map(e=>tone(e,e.d)).join('+'));   // (its length is written by the ties) one.slice(1).forEach(v=>{ put(toks,v); toks.push('~'); });
+        if(one){ put(toks,one[0]); toks.push(grp.map(e=>tone(e,e.d)).join('+')); one.slice(1).forEach(v=>{ put(toks,v); toks.push('~'); });
           if(over) carry=L-G; else (split(G-L)||[]).forEach(v=>{ put(toks,v); toks.push('r'); }); }
         else{ put(toks,segs[0]); toks.push(grp.map(e=>tone(e,segs[0])).join('+')); segs.slice(1).forEach(v=>{ put(toks,v); toks.push('r'); }); } }
       out.push(toks.join(' ')); }
@@ -3323,7 +3323,7 @@ function customTool(){
   const doAt=t=>{ const withF=M.ch.filter(c=>c.syl); if(!withF.length) return null; let c=null; for(const x of withF){ if(x.t<=t+1e-6) c=x; } c=c||withF[withF.length-1];
     return ((c.root-fromDo(c.syl))%12+12)%12; };
   function orient(doPc){ if(doPc===null||doPc===PHI.doPc) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:'re'}); }
+    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its Do at 12 o'clock)
   const frameAt=t=>{ if(!C||C.empty) return -1; let k=-1; C.frames.forEach((F,i)=>{ if(F.t<=t+1e-6) k=i; }); return k; };
   const soundingAt=t=>M.ev.filter(e=>e.t<=t+1e-6&&t<e.t+e.d-1e-6);
 
@@ -3340,7 +3340,7 @@ function customTool(){
     const TT=total(), B=barT(M.meter), Q=TT/TPQ;
     const steps=M.ev.map(e=>e.t).concat(M.ev.map(e=>e.t+e.d),M.ch.map(c=>c.t),[TT]); let ms=pal.dur();
     const ts=[...new Set(steps)].sort((a,b)=>a-b); for(let i=1;i<ts.length;i++) ms=Math.min(ms,ts[i]-ts[i-1]); minStep=ms;
-    TB.cw=Math.max(PRE?36:23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms));   // (an exercise page: room for its strums to read) TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;
+    TB.cw=Math.max(PRE?36:23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms)); TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;   // (an exercise page: room for its strums to read)
     const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
     tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
     rows.forEach(r=>r.setAttribute('x2',TB.s1));
@@ -3390,9 +3390,14 @@ function customTool(){
       const r=el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG);
       const t=el('text',{x:xT(c.t)-6,y:laneY,class:'cuChord'},noteG), L=el('tspan',{},t), S=el('tspan',{class:'cuSyl',dx:5},t);
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
+    sylArt=[]; if(PRE){ const y=((TB.floor+TB.rowY[0])/2+4).toFixed(1);
+      plan.forEach(n=>{ if(plan.some(q=>q!==n&&q.t===n.t)) return; const t=el('text',{x:xT(n.t),y,class:'sylTab cuSylFix'},noteG); sylArt.push({t,n}); }); }
     placeCursor(); paintChords(); }
+  let sylArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
+    sylArt.forEach(({t,n})=>{ const d0=doAt(n.t), dp=d0===null?PHI.doPc:d0, k=((pcOf(n.string,n.pitch)-(dp+2))%12+12)%12;
+      t.textContent=SOLN[k]; t.style.fill=L>0.001?rgbS(mixRGB(ink,relRGB(k),L)):rgbS(ink); });
     chordArt.forEach(a=>{ const d0=doAt(a.c.t), dp=d0===null?PHI.doPc:d0, k=((a.c.root-(dp+2))%12+12)%12, col=relRGB(k), on=a.c===cur;   // the colour the TAB's numbers take (Diatonic filtering as they do)
       a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3));
       const c=L>0.001?rgbS(mixRGB(ink,col,L)):rgbS(ink); a.L.style.fill=c; a.S.style.fill=c; a.S.textContent=SOLN[k]; }); }
@@ -3633,7 +3638,20 @@ function customTool(){
     const L=FIELD.lit, ink=inkColour();
     if(C&&!C.empty) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
-    paintChords(curChord); }
+    paintChords(curChord);
+    if(PRE&&typeof ROLL!=='undefined'&&ROLL) rollStep(tk); }
+  // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
+  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd ~Do, 1st Ti. The ~Do frame is
+  // not one of the drum's seven: the drum turns to Sol_La_Ti (the tones it shares) and that row is written ~DoSol_La, its
+  // ~Do faint — the index over it, not playing
+  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'~Do',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  let rollKey='';
+  function rollStep(tk){
+    const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
+    const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
+    const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
+    const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
+    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="'+c(4)+';opacity:.4">~Do</span><span style="'+c(5)+'">Sol</span><span class="us">_</span><span style="'+c(7)+'">La</span>'; } }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */
@@ -3643,7 +3661,7 @@ function customTool(){
     if(PRE) M=presetModel(); else try{ M=saved?fromFile(saved):example(); }catch(err){ M=example(); }
     // the ring opens on D as Re, Re at 12 o'clock (as the Chords page does); a drill's own chord symbols then turn it
     let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:'re'}); RING.goal=RING.m=RING.t=0;
+    pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:PRE?'do':'re'}); RING.goal=RING.m=RING.t=0;
     normalize(); syncCtl(); markPal(); textEl.value=serialize(); setPulse(); compile(); useC();
     const d0=doAt(0); if(d0!==null&&d0!==PHI.doPc){ orient(d0); MORPH=null; FIELD.mx=-1; } lastDo=d0===null?undefined:d0;
     refresh(); if(!DRILL) tabDraw(null); showMsg(); stepNow(true); }
@@ -3679,7 +3697,9 @@ function customTool(){
     const keys=['oct','dir','chords'];
     function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])))); }
     function regen(){ const was=T.on; if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); }
-    panel.appendChild(row); mark(); tabPanel.style.cursor='default'; }
+    panel.appendChild(row); mark(); tabPanel.style.cursor='default';
+    // the drum, just above the fretboard
+    const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement; fp.parentNode.insertBefore(box,fp); box.style.margin='10px 0 6px 4px'; } }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
     const {out}=parse('C_Do e 5:3 4:2 3:0 2:1 q 5:3+4:2+3:0+2:1+1:0 r | Am e 5:0 4:2 3:2 2:1 q 5:0+4:2+3:2+2:1+1:0 r'); m.ev=out.ev; m.ch=out.ch; m.bars=out.bars; M=save; return m; }

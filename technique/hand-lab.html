@@ -1447,6 +1447,7 @@ function handNow(s,st){
   return (s.hands&&st&&st.idx>=0)?s.hands[s.plan[st.idx].frame]:s.hand; }
 function fingerDown(f,t){
   let st=stateAt(t+LEAD); if(st.s&&st.s.lead) st=stateAt(t+st.s.lead);
+  if(st.s&&st.s.liftAt&&!st.count&&st.s.liftAt(st)) return false;   // (Custom) the grip let go where its tones end
   if(st.s&&st.s.chord) return (st.s.chords&&st.idx>=0?st.s.chords[st.s.plan[st.idx].frame]:st.s.chord).has(f);   // a chord: its fingers stay down throughout (a song's, its bar's chord)
   if(st.idx<0) return false;
   const s=st.s, e=s.plan[st.idx], h=handNow(s,st).f[f];
@@ -2372,13 +2373,14 @@ function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s
 // a page written out note by note on one string (Semimodes): bars of four [fret, finger, hand] (finger 0 open; hand a name,
 // the bar's group unless given), each bar in a group that shares one name — its tones, low to high
 // a Semimodes page from its function: up from the open string four tones (open, then a frame in its fingering), on up the
-// upper four to the octave at fret 12 (finger 1 shifting up, picked, into the frame), down those four and up them again
+// upper four to the octave at fret 12 (finger 1 shifting up, picked, into the frame), down those four to the 5th, then on
+// down the lower four to the open string — the walk up mirrored, each half paused on its last tone
 function semiBars(pg){
   const m=W_DEG[pg.mode], shp=(a,b)=>a===2&&b===2?'maj':(a===2?'min':'dim');
   const up=[1,2,3].map(j=>wSemi(m+j)-wSemi(m)), fu=W_FING[shp(up[1]-up[0],up[2]-up[1])];
   const dn=[0,1,2,3].map(j=>12-(wSemi(m)-wSemi(m-j))), fd=W_FING[shp(dn[1]-dn[2],dn[0]-dn[1])];
   const U=[[0,0],[up[0],fu[0]],[up[1],fu[1]],[up[2],fu[2]]], D=[[dn[0],fd[2]],[dn[1],fd[1]],[dn[2],fd[0]],[dn[3],1,'shift']];
-  return [{g:0,n:U},{g:1,n:D.slice().reverse()},{g:1,n:D},{g:1,n:D.slice().reverse()}];   // up to the 4th, on up to the octave, down to the 5th, back to the octave
+  return [{g:0,n:U},{g:1,n:D.slice().reverse()},{g:1,n:D},{g:0,n:U.slice().reverse()}];   // up to the 4th, on up to the octave, down to the 5th, on down to the open string
 }
 function seqPlan(pg){
   const plan=[], keys=[], bars=pg.bars||semiBars(pg);
@@ -2623,7 +2625,7 @@ const ROLL=BOOK.roll?(()=>{
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
   inner.addEventListener('transitionend',()=>{ if(R<7||R>13){ R+=R<7?7:-7; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build};
+  return {set(k){ build(); const cur=6-(R%7+7)%7; let d=((k-cur)%7+7)%7; if(d>3) d-=7; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
@@ -3103,6 +3105,7 @@ if(typeof module!=='undefined') module.exports={chordShapes};
    Time is counted in ticks, 24 to a quarter, so every common value lands exactly: whole 96, half 48, quarter 24,
    eighth 12, sixteenth 6, thirty-second 3; dotted ×3/2; triplets ×2/3. */
 function customTool(){
+  const PRE=BOOK.preset||null;                                         // a page that is one exercise, generated (its options in place of the editor)
   const TPQ=24, $q=id=>document.getElementById(id);
   const METERS=[[2,4],[3,4],[4,4],[5,4],[6,8],[9,8],[12,8]];
   const barT=m=>m[0]*4*TPQ/m[1];
@@ -3202,7 +3205,7 @@ function customTool(){
         // one length, held past the bar line with nothing else starting before it ends: tied over the bar line
         const over=L>G&&q===b1&&!M.ev.some(e=>e.t===b1)&&!M.ch.some(c=>c.t===b1)&&!startsIn(b1,p+L);
         const one=L&&(L<=G||over)?split(Math.min(L,G)):null;
-        if(one){ put(toks,one[0]); toks.push(grp.map(e=>tone(e,e.d)).join('+'));   // (its length is written by the ties) one.slice(1).forEach(v=>{ put(toks,v); toks.push('~'); });
+        if(one){ put(toks,one[0]); toks.push(grp.map(e=>tone(e,e.d)).join('+')); one.slice(1).forEach(v=>{ put(toks,v); toks.push('~'); });
           if(over) carry=L-G; else (split(G-L)||[]).forEach(v=>{ put(toks,v); toks.push('r'); }); }
         else{ put(toks,segs[0]); toks.push(grp.map(e=>tone(e,segs[0])).join('+')); segs.slice(1).forEach(v=>{ put(toks,v); toks.push('r'); }); } }
       out.push(toks.join(' ')); }
@@ -3281,7 +3284,8 @@ function customTool(){
   function compile(){
     const evs=M.ev.map(e=>Object.assign({},e)), TT=total(), LOOPB=TT/TPQ;
     if(!evs.length){ C={empty:true,frames:[],hands:[],sets:[],opens:[],pls:[],warn:[]}; return C; }
-    const FG=fingering(evs), plan=[], fig=[], hands=[], sets=[], opens=[], pls=[], strumAt=new Set();
+    const FG=fingering(evs), plan=[], fig=[], hands=[], sets=[], opens=[], pls=[], strumAt=new Set(), lift=[];
+    const GR=strokeGrid(), upAt=t=>{ const g=GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6); return !!g&&g.up; };
     let lastH=null;
     FG.frames.forEach((F,k)=>{
       const S=FG.path[k], L=S?S.L:[];
@@ -3290,12 +3294,14 @@ function customTool(){
       const H=pl.length?handFor(pl):(lastH?cloneHand(lastH):handFor([],Math.max(1,(evs.find(e=>e.f>0)||{f:1}).f-1),NSTR-1));
       if(pl.length) lastH=H; hands.push(H); pls.push(pl); sets.push(new Set(L.map(x=>x.g)));
       opens.push(F.snd.filter(e=>e.f===0).map(e=>e.s));
-      const nw=F.nw.slice().sort((a,b)=>b.s-a.s), nextT=k<FG.frames.length-1?FG.frames[k+1].t:TT+FG.frames[0].t;
+      lift.push(Math.max(-1,...F.snd.filter(e=>e.f>0).map(e=>e.t+e.d)));   // the grip is let go when its fretted tones end
+      const up=F.nw.length>1&&upAt(F.t), nw=F.nw.slice().sort((a,b)=>up?a.s-b.s:b.s-a.s), nextT=   // a strum on an upstroke sweeps high to low
+        k<FG.frames.length-1?FG.frames[k+1].t:TT+FG.frames[0].t;
       const spread=nw.length>1?Math.min(STRUM*drill.bpm/60,0.6*(nextT-F.t)/TPQ/(nw.length-1)):0;
       if(nw.length>1) strumAt.add(F.t);
       nw.forEach((e,i)=>{ const off=i*spread;
         plan.push({string:e.s,fret:e.f,pitch:e.f,push:0,finger:e.f>0?(FG.fing[e.id]||0):0,frame:k,pick:true,glide:false,pre:false,kind:'pick',hi:false,
-          vel:Math.pow(0.96,i),line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off});
+          vel:Math.pow(0.96,i)*(up?0.75:1),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off});
         fig.push({s:e.t/TPQ+off}); }); });
     // where each tone's string is next struck: room to still it at its end, or not
     plan.forEach(p=>{ const later=plan.filter(q=>q.string===p.string&&q.t>p.t).map(q=>q.t), first=Math.min(...plan.filter(q=>q.string===p.string).map(q=>q.t));
@@ -3305,7 +3311,7 @@ function customTool(){
     const D={chord:true,custom:true,walk:true,art:'custom',dir:'up',means:'pick',ham:false,pull:false,plan,bars:M.bars,
       frames:[{string:plan[0].string,tones:[],pl:pls[0],hand:hands[0]}],
       lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[Math.min(1,plan.length-1)].string,f:plan[Math.min(1,plan.length-1)].fret,g:plan[Math.min(1,plan.length-1)].finger}};
-    C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB};
+    C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB,lift};
     return C; }
   const gcd=(a,b)=>{ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||TPQ; };
   function useC(){ if(!C||C.empty){ DRILL=null; FIG=[{s:0,d:4}]; LOOP=total()/TPQ; return; }
@@ -3320,7 +3326,7 @@ function customTool(){
   const doAt=t=>{ const withF=M.ch.filter(c=>c.syl); if(!withF.length) return null; let c=null; for(const x of withF){ if(x.t<=t+1e-6) c=x; } c=c||withF[withF.length-1];
     return ((c.root-fromDo(c.syl))%12+12)%12; };
   function orient(doPc){ if(doPc===null||doPc===PHI.doPc) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:'re'}); }
+    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its Do at 12 o'clock)
   const frameAt=t=>{ if(!C||C.empty) return -1; let k=-1; C.frames.forEach((F,i)=>{ if(F.t<=t+1e-6) k=i; }); return k; };
   const soundingAt=t=>M.ev.filter(e=>e.t<=t+1e-6&&t<e.t+e.d-1e-6);
 
@@ -3337,7 +3343,7 @@ function customTool(){
     const TT=total(), B=barT(M.meter), Q=TT/TPQ;
     const steps=M.ev.map(e=>e.t).concat(M.ev.map(e=>e.t+e.d),M.ch.map(c=>c.t),[TT]); let ms=pal.dur();
     const ts=[...new Set(steps)].sort((a,b)=>a-b); for(let i=1;i<ts.length;i++) ms=Math.min(ms,ts[i]-ts[i-1]); minStep=ms;
-    TB.cw=Math.max(23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms)); TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;
+    TB.cw=Math.max(PRE?36:23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms)); TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;   // (an exercise page: room for its strums to read)
     const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
     tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
     rows.forEach(r=>r.setAttribute('x2',TB.s1));
@@ -3358,9 +3364,12 @@ function customTool(){
     const plan=D?D.plan:[];
     // the numbers on their lines (a strum's numbers stacked, as written), each with its length drawn along its string
     plan.forEach((n,i)=>{ const x=xT(n.t), y=TB.rowY[n.string], txt=String(n.fret), o=numberAt(x,y,txt); tabNotes[i]=o;
-      const g=C&&C.fing?C.fing[n.ev]:0; if(g&&n.fret>0&&M.ev.find(e=>e.id===n.ev&&e.g)){ const fl=el('text',{x:x+3.8*txt.length+5,y:y+6,class:'cuFing'},noteG); fl.textContent=g; o.extra=[fl]; }
+      const g=C&&C.fing?C.fing[n.ev]:0; if(g&&n.fret>0&&M.ev.find(e=>e.id===n.ev&&e.g)&&!plan.some(q=>q!==n&&q.t===n.t)){ const fl=el('text',{x:x+3.8*txt.length+5,y:y+6,class:'cuFing'},noteG); fl.textContent=g; o.extra=[fl]; }
       const x0=x+3.8*txt.length+5, x1=xT(n.t+n.len)-7;
       durBars.push(x1>x0+1?el('line',{x1:x0,y1:y,x2:x1,y2:y,class:'cuDur'},durG):null); });
+    { const by={}; plan.forEach((n,i)=>{ (by[n.t]=by[n.t]||[]).push(n); });
+      Object.values(by).forEach(g=>{ if(g.length<2) return; const x=xT(g[0].t)+13, ya=TB.rowY[g[0].string], yz=TB.rowY[g[g.length-1].string], dir=yz<ya?-1:1;
+        el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(x,yz,dir); }); }
     // rhythm below the staff: a stem for each moment struck, beamed by the beat, flagged alone; a dot, a triplet's 3
     const P_=pulseT(M.meter), groups=[...new Set(plan.map(n=>n.t))].sort((a,b)=>a-b).map(t=>{ const len=Math.max(...plan.filter(n=>n.t===t).map(n=>n.len)); return {t,x:xT(t),V:valueOf(len)}; });
     const stemL=26, stemS=13, foot=stemTop+stemL;
@@ -3384,9 +3393,14 @@ function customTool(){
       const r=el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG);
       const t=el('text',{x:xT(c.t)-6,y:laneY,class:'cuChord'},noteG), L=el('tspan',{},t), S=el('tspan',{class:'cuSyl',dx:5},t);
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
+    sylArt=[]; if(PRE){ const y=((TB.floor+TB.rowY[0])/2+4).toFixed(1);
+      plan.forEach(n=>{ if(plan.some(q=>q!==n&&q.t===n.t)) return; const t=el('text',{x:xT(n.t),y,class:'sylTab cuSylFix'},noteG); sylArt.push({t,n}); }); }
     placeCursor(); paintChords(); }
+  let sylArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
+    sylArt.forEach(({t,n})=>{ const d0=doAt(n.t), dp=d0===null?PHI.doPc:d0, k=((pcOf(n.string,n.pitch)-(dp+2))%12+12)%12;
+      t.textContent=SOLN[k]; t.style.fill=L>0.001?rgbS(mixRGB(ink,relRGB(k),L)):rgbS(ink); });
     chordArt.forEach(a=>{ const d0=doAt(a.c.t), dp=d0===null?PHI.doPc:d0, k=((a.c.root-(dp+2))%12+12)%12, col=relRGB(k), on=a.c===cur;   // the colour the TAB's numbers take (Diatonic filtering as they do)
       a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3));
       const c=L>0.001?rgbS(mixRGB(ink,col,L)):rgbS(ink); a.L.style.fill=c; a.S.style.fill=c; a.S.textContent=SOLN[k]; }); }
@@ -3440,7 +3454,7 @@ function customTool(){
   // the page around it: one page, no Prev/Next or Hold; the header names the drill
   ['means','pageCt','hold','clear'].forEach(id=>{ const e=$q(id); if(e) e.style.display='none'; }); { const p=$q('prev'); if(p) p.parentElement.style.display='none'; }
   // CLEAR, on the TAB: every tone and chord symbol gone (the title, metre, bars and tempo kept); ⌘Z brings them back
-  { const col=document.querySelector('.tabCol'), b=document.createElement('button'); b.type='button'; b.className='pill cuClear'; b.id='cuClear'; b.textContent='Clear';
+  if(!PRE){ const col=document.querySelector('.tabCol'), b=document.createElement('button'); b.type='button'; b.className='pill cuClear'; b.id='cuClear'; b.textContent='Clear';
     b.title='Clear the TAB: every tone and chord symbol (⌘Z undoes)'; col.style.position='relative'; col.appendChild(b);
     b.addEventListener('click',()=>{ if(!M.ev.length&&!M.ch.length) return; edit(()=>{ M.ev=[]; M.ch=[]; cur.t=0; }); tab.focus(); }); }
   tab.setAttribute('tabindex','0'); tab.setAttribute('aria-label','The drill in TAB: click a string and type a fret');
@@ -3451,7 +3465,7 @@ function customTool(){
   function edit(fn,opts){ opts=opts||{}; if(T.on) stopAll(); UNDO.push(snap()); if(UNDO.length>200) UNDO.shift(); REDO.length=0;
     fn(); normalize(); if(!opts.keepText) textEl.value=serialize(); rebuild(); }
   function undo(redo){ const A=redo?REDO:UNDO, Bk=redo?UNDO:REDO; if(!A.length) return; if(T.on) stopAll(); Bk.push(snap()); const o=JSON.parse(A.pop()); M=o.M; Object.assign(cur,o.cur); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); }
-  function store(){ try{ localStorage.setItem('custom-drill-1',JSON.stringify(fileOf())); }catch(err){} }
+  function store(){ if(PRE) return; try{ localStorage.setItem('custom-drill-1',JSON.stringify(fileOf())); }catch(err){} }
   function rebuild(){ lastDo=undefined; cur.t=Math.min(cur.t,total()); setPulse(); compile(); useC(); refresh(); if(!DRILL) tabDraw(null); barsEl.textContent=M.bars; showMsg(); store(); stepNow(true); }
   let parseErr=[];
   function showMsg(){ const w=C&&C.warn?C.warn:[]; const B=barT(M.meter), at=t=>'bar '+(Math.floor(t/B)+1)+', beat '+(1+(t%B)/pulseT(M.meter)).toFixed(2).replace(/\.?0+$/,'');
@@ -3522,7 +3536,7 @@ function customTool(){
   function followCursor(){ if(!tabPanel.classList.contains('wide')) return; const k=tab.clientWidth/(TB.s1+14), x=xT(cur.t)*k;
     if(x<tabPanel.scrollLeft+40||x>tabPanel.scrollLeft+tabPanel.clientWidth-40) tabPanel.scrollLeft=Math.max(0,x-0.3*tabPanel.clientWidth); }
   tab.addEventListener('focus',placeCursor); tab.addEventListener('blur',()=>setTimeout(placeCursor,0));
-  tab.addEventListener('keydown',e=>{
+  tab.addEventListener('keydown',e=>{ if(PRE) return;
     const k=e.key, mod=e.metaKey||e.ctrlKey;
     if(mod&&(k==='z'||k==='Z')){ e.preventDefault(); e.stopPropagation(); undo(e.shiftKey); return; }
     if(mod&&k==='y'){ e.preventDefault(); e.stopPropagation(); undo(true); return; }
@@ -3544,7 +3558,7 @@ function customTool(){
     else done=false;
     if(done){ e.preventDefault(); e.stopPropagation(); } });
   const svgPt=(sv,e)=>{ const p=sv.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(sv.getScreenCTM().inverse()); };
-  tab.addEventListener('pointerdown',e=>{ const p=svgPt(tab,e), TT=total();
+  tab.addEventListener('pointerdown',e=>{ if(PRE) return; const p=svgPt(tab,e), TT=total();
     if(p.x<TB.x0-20) return;
     let t=tOfX(p.x); const ons=[...new Set(M.ev.map(v=>v.t).concat(M.ch.map(c=>c.t)))], near=ons.find(o=>Math.abs(xT(o)-p.x)<10);
     if(near!==undefined) t=near; else{ const g=pal.grid(); t=Math.round(t/g)*g; }
@@ -3554,6 +3568,7 @@ function customTool(){
     setTimeout(()=>tab.focus(),0); cursorMoved(); });
   // the board: a fret clicked is written at the cursor, on that string (the hand's own posing is not used here)
   fb.parentElement.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#fb')) return;
+    if(PRE){ e.stopPropagation(); return; }
     if(e.target.closest('.fbRotBtn')) return;
     e.stopPropagation(); e.preventDefault();
     const p=svgPt(fb,e); if(p.y<FB.top-6||p.y>FB.bot+6) return;
@@ -3566,7 +3581,7 @@ function customTool(){
   function segment(){
     const B=barT(M.meter);
     const lead=Math.min(0.09,0.35*(minStep/TPQ)*60/drill.bpm);
-    return {D:C.D,grid:strokeGrid(),pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
+    return {D:C.D,grid:strokeGrid(),liftAt:st=>st.idx>=0&&st.ph*TPQ>=C.lift[st.s.plan[st.idx].frame]-1e-6,pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
       place(s,t){ s.count=B/TPQ; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=Infinity; s.end=Infinity; },
       showBar(s){ T.shown=s; }}; }
   // THE PICK'S STROKES: each beat cut as finely as what is played in it needs (eighths, triplets, sixteenths …), the pick
@@ -3626,20 +3641,68 @@ function customTool(){
     const L=FIELD.lit, ink=inkColour();
     if(C&&!C.empty) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
-    paintChords(curChord); }
+    paintChords(curChord);
+    if(PRE&&typeof ROLL!=='undefined'&&ROLL) rollStep(tk); }
+  // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
+  // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd ~Do, 1st Ti. The ~Do frame is
+  // not one of the drum's seven: the drum turns to Sol_La_Ti (the tones it shares) and that row is written ~DoSol_La, its
+  // ~Do faint — the index over it, not playing
+  const FRAME_OF={5:'Ti',4:'Mi',3:'La',2:'Re',1:'~Do',0:'Ti'}, DRUM=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  let rollKey='';
+  function rollStep(tk){
+    const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
+    const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
+    const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
+    const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
+    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="'+c(4)+';opacity:.4">~Do</span><span style="'+c(5)+'">Sol</span><span class="us">_</span><span style="'+c(7)+'">La</span>'; } }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */
   function show(){
     if(show.done) return; show.done=true;
     let saved=null; try{ saved=JSON.parse(localStorage.getItem('custom-drill-1')||'null'); }catch(err){}
-    try{ M=saved?fromFile(saved):example(); }catch(err){ M=example(); }
+    if(PRE) M=presetModel(); else try{ M=saved?fromFile(saved):example(); }catch(err){ M=example(); }
     // the ring opens on D as Re, Re at 12 o'clock (as the Chords page does); a drill's own chord symbols then turn it
     let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===5&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:'re'}); RING.goal=RING.m=RING.t=0;
+    pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:PRE?'do':'re'}); RING.goal=RING.m=RING.t=0;
     normalize(); syncCtl(); markPal(); textEl.value=serialize(); setPulse(); compile(); useC();
     const d0=doAt(0); if(d0!==null&&d0!==PHI.doPc){ orient(d0); MORPH=null; FIELD.mx=-1; } lastDo=d0===null?undefined:d0;
     refresh(); if(!DRILL) tabDraw(null); showMsg(); stepNow(true); }
+  /* ---------- CHORDS WITH SEMIMODES (BOOK.preset 'csm'): two bars of the G barre strummed (D · D U · U D, the hand letting go
+     on the & of 4) set against a semimode walk of an octave, in G_Do, played in position: up Do Re Mi (Fa——), Sol La Ti
+     (Do——), and back down Do Ti La (Sol——), Fa Mi Re (Do——) — each bar three eighths and the fourth tone held. The frames:
+     6th string Ti (finger 2 on Do), 5th Mi, 4th La, 3rd Re, 2nd ~Do (fingers 2 and 4 on Sol and La, the index over ~Do),
+     1st Ti. Options: the lower octave, the upper or both; up then down or down then up; the chords in or out. ---------- */
+  const OPT={oct:'lower',dir:'updown',chords:true};
+  try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
+  const OCT={lower:[[6,3,2],[6,5,4],[5,2,1],[5,3,2],[5,5,4],[4,2,1],[4,4,3],[4,5,4]],     // [string, fret, finger], Do to Do
+             upper:[[4,5,4],[3,2,1],[3,4,3],[3,5,4],[2,3,2],[2,5,4],[1,2,1],[1,3,2]]};
+  function presetModel(){
+    const m=fresh(); m.title=PRE==='csm'?'Chords with Semimodes':'Custom'; m.bpm=drill.bpm; const ev=[], BAR=96; let t=0;
+    const add=(t0,d,str,f,g)=>{ const e={t:t0,d,s:str-1,f}; if(g&&f>0) e.g=g; ev.push(e); };
+    function chords(){ const GRIP={6:[3,1],5:[5,3],4:[5,4],3:[4,2],2:[3,1],1:[3,1]}, DN=[6,5,4,3,2,1], UP=[1,2,3];
+      const hits=[]; for(let b=0;b<2;b++) [[0,DN],[24,DN],[36,UP],[60,UP],[72,DN]].forEach(([x,ss])=>hits.push([t+b*BAR+x,ss]));
+      const end=t+BAR+84;                                                // the & of 4: the barre let go
+      for(let str=1;str<=6;str++){ const ts=hits.filter(h=>h[1].includes(str)).map(h=>h[0]);
+        ts.forEach((x,i)=>add(x,(i<ts.length-1?ts[i+1]:end)-x,str,GRIP[str][0],GRIP[str][1])); }
+      t+=2*BAR; }
+    function walk(o){ const T8=OCT[o], up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], bars=OPT.dir==='updown'?up.concat(dn):dn.concat(up);
+      bars.forEach(ix=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const [str,f,g]=T8[ix[j]]; add(t+x,d,str,f,g); }); t+=BAR; }); }
+    (OPT.oct==='both'?['lower','upper']:[OPT.oct]).forEach(o=>{ if(OPT.chords) chords(); walk(o); });
+    m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf('G','Do'),{t:0})]; return m; }
+  if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
+    const row=document.createElement('div'); row.className='cuRow cuOpts';
+    const seg=(lbl,key,items)=>{ const w=document.createElement('span'); w.className='cuLbl'; w.textContent=lbl+' ';
+      const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
+        b.addEventListener('click',()=>{ OPT[key]=v; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
+      w.appendChild(sg); row.appendChild(w); return sg; };
+    const segs=[seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
+    const keys=['oct','dir','chords'];
+    function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])))); }
+    function regen(){ const was=T.on; if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); }
+    panel.appendChild(row); mark(); tabPanel.style.cursor='default';
+    // the drum, just above the fretboard
+    const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement; fp.parentNode.insertBefore(box,fp); box.style.margin='10px 0 6px 4px'; } }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
     const {out}=parse('C_Do e 5:3 4:2 3:0 2:1 q 5:3+4:2+3:0+2:1+1:0 r | Am e 5:0 4:2 3:2 2:1 q 5:0+4:2+3:2+2:1+1:0 r'); m.ev=out.ev; m.ch=out.ch; m.bars=out.bars; M=save; return m; }
