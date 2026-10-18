@@ -285,8 +285,7 @@ const ROLL=BOOK.roll?(()=>{
   const rows=[]; let R=10, built='';                                       // R: the row in the middle (21 rows: the seven, three times)
   const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
     for(let r=0;r<21;r++){ const k=6-(r%7), names=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=names.map((n,i)=>{ const gap=i&&((SEMI[n]-SEMI[names[i-1]]+12)%12)===2?'<span class="us">_</span>':'';
-        return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>'; }).join('');
+      d.innerHTML=names.map(n=>'<span style="grid-column:'+(1+(SEMI[n]-SEMI[names[0]]+12)%12)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
@@ -527,7 +526,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // how far the asked places moved since the last frame (mm): the hand at rest is still
   const moved=(a,b)=>{ if(!a||!b) return 1e9; let m=0; a.f.forEach((g,i)=>{ const h=b.f[i], p=g.barre?[g.barre.w,g.barre.y1,0]:g.p, o=h.barre?[h.barre.w,h.barre.y1,0]:h.p; if(!o||!p) { m=1e9; return; } m=Math.max(m,Math.abs(p[0]-o[0]),Math.abs(p[1]-o[1]),Math.abs(p[2]-o[2])); }); return m; };
   function draw(dt,st,live,plan){
-    const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
+    const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=behindLines.style.display=frontLines.style.display=on?'':'none'; if(!on) return;
     if(fingers.some(F=>F.x===undefined||isNaN(F.x))) return;
     clock+=dt||0.016;
     const nowN=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, TGT=ask(dt,live,nowN);

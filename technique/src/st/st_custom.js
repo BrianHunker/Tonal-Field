@@ -305,7 +305,15 @@ function customTool(){
     const light=(spans,i,c)=>{ const x0=xT(c.t)-TB.cw/2, nx=i<spans.length-1?xT(spans[i+1].t)-TB.cw/2:TB.s1, id='cuG'+c.id;
       const gr=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), s0=el('stop',{offset:0},gr); el('stop',{offset:1,'stop-opacity':0},gr);
       return {s0,r:el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG)}; };
-    MODES=PRE?modeEvents():[]; modeArt=MODES.map((m,i)=>Object.assign({m},light(MODES,i,m)));
+    MODES=PRE?modeEvents():[]; modeArt=[];
+    // a run of the same mode (a chord strummed again, a held tone that is its root) is one light: it comes up smoothly at
+    // each strum and fades from it, the fade reaching nothing at the run's end — no hard edges inside a run
+    { const runs=[]; MODES.forEach(m=>{ const r=runs[runs.length-1]; if(r&&r.root===m.root) r.ms.push(m); else runs.push({t:m.t,root:m.root,ms:[m],id:m.id}); });
+      runs.forEach((R,i)=>{ const x0=xT(R.t)-TB.cw/2, x1=i<runs.length-1?xT(runs[i+1].t)-TB.cw/2:TB.s1, w=Math.max(1,x1-x0), id='cuG'+R.id;
+        const gr=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), xs=R.ms.map(m=>xT(m.t)), ramp=Math.max(6,TB.cw*0.6), stops=[];
+        const env=x=>{ let v=0; xs.forEach(xi=>{ const a=x<xi-ramp?0:(x>=xi?1:(()=>{ const u=(x-(xi-ramp))/ramp; return u*u*(3-2*u); })()); v=Math.max(v,a*Math.max(0,1-(x-Math.max(x0,xi-ramp))/(x1-Math.max(x0,xi-ramp))*(x>xi?1:0))); }); return v; };
+        const N=Math.max(8,Math.min(96,Math.round(w/6))); for(let j=0;j<=N;j++){ const x=x0+w*j/N; stops.push(el('stop',{offset:(j/N).toFixed(4),'stop-opacity':env(x).toFixed(3)},gr)); }
+        modeArt.push({m:R.ms[0],ms:R.ms,stops,r:el('rect',{x:x0,y:yT,width:w,height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG)}); }); }
     M.ch.forEach((c,i)=>{ const {s0,r}=PRE?{s0:null,r:null}:light(M.ch,i,c);
       const t=el('text',{x:xT(c.t)-6,y:laneY,class:'cuChord'},noteG), L=el('tspan',{},t), S=el('tspan',{class:'cuSyl',dx:5},t);
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
@@ -315,8 +323,8 @@ function customTool(){
   let sylArt=[], modeArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
-    modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.m===curMode;
-      a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); });
+    modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.ms.includes(curMode), cs=rgbS(col);
+      if(a.cs!==cs){ a.cs=cs; a.stops.forEach(st=>st.setAttribute('stop-color',cs)); } a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); });
     sylArt.forEach(({t,n})=>{ const d0=doAt(n.t), dp=d0===null?PHI.doPc:d0, k=((pcOf(n.string,n.pitch)-(dp+2))%12+12)%12;
       t.textContent=SOLN[k]; t.style.fill=L>0.001?rgbS(mixRGB(ink,relRGB(k),L)):rgbS(ink); });
     chordArt.forEach(a=>{ const d0=doAt(a.c.t), dp=d0===null?PHI.doPc:d0, k=((a.c.root-(dp+2))%12+12)%12, col=relRGB(k), on=a.c===cur;   // the colour the TAB's numbers take (Diatonic filtering as they do)
@@ -363,7 +371,7 @@ function customTool(){
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
-   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:50px } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
+   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:calc(var(--rh) * .8) } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
     document.head.appendChild(st); }
   const titleIn=$q('cuTitle'), meterIn=$q('cuMeter'), barsEl=$q('cuBars'), palEl=$q('cuPal'), dotB=$q('cuDot'), tripB=$q('cuTrip'), chordIn=$q('cuChord'), textEl=$q('cuText'), msgEl=$q('cuMsg'), fileIn=$q('cuFile');
   // keys typed in the panel stay in the panel (the hand's finger keys, the ring's, Space)
@@ -578,7 +586,7 @@ function customTool(){
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
     const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
     const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
-    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="'+c(4)+';opacity:.4">~Do</span><span style="'+c(5)+'">Sol</span><span class="us">_</span><span style="'+c(7)+'">La</span>'; } }
+    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="grid-column:1;'+c(4)+';opacity:.4">~Do</span><span style="grid-column:2;'+c(5)+'">Sol</span><span style="grid-column:4;'+c(7)+'">La</span>'; } }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */
@@ -632,6 +640,8 @@ function customTool(){
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
       const place=()=>{ if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
+        p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
+        box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
         box.style.left=(0.5*W.width/ZOOM).toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); } }

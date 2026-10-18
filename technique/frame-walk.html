@@ -207,7 +207,7 @@ body:not(.gxOn) .gxOnly{ visibility:hidden }
 .valLbl{ pointer-events:auto }
 .structBtn.static{ cursor:default; pointer-events:none } .structMenu{ display:none !important } #listen{ display:none !important }
 .frameLbl{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; color:var(--ink); letter-spacing:.01em } .frameLbl .us{ color:var(--mid); padding:0 .06em } .frameRow{ min-height:34px }
-.roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; transform:scale(.86); transform-origin:left center; transition:opacity .5s, transform .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
+.roll{ --rh:30px; height:calc(3 * var(--rh)); overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent); mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent) } .rollIn{ transition:transform .5s cubic-bezier(.3,.75,.25,1) } .rollRow{ height:var(--rh); line-height:var(--rh); font-family:var(--serif); font-style:italic; font-weight:500; font-size:22px; white-space:nowrap; opacity:.55; display:grid; grid-template-columns:repeat(5,1.75em); justify-items:center; transition:opacity .5s } .rollRow.cur{ opacity:1; transform:none } .rollRow .us{ color:var(--mid); padding:0 .06em }
 @media (prefers-reduced-motion: reduce){ .rollIn, .rollRow{ transition:none } } .strRow{ display:flex; justify-content:flex-start; margin-top:6px } .semiHost{ margin-bottom:-26px; min-width:0; padding-top:16px } .tabCol{ min-width:0 } @media (max-width:640px){ .semiHost{ margin-bottom:6px } } @media (min-width:641px){ .stage{ grid-template-columns:minmax(0,3fr) minmax(200px,1fr) } } .semiHost > .mLbl, .semiHost > .frameLbl{ display:none } .semiLine{ position:relative; height:86px; margin-left:0 } .semiTrack{ position:absolute; inset:0; will-change:transform } .semiName{ position:absolute; top:19px; transform:translateX(-50%); font-family:var(--serif); font-style:italic; font-weight:500; font-size:26px; line-height:1; white-space:nowrap } .semiPill{ position:absolute; top:2px; height:63px; border:1.5px solid var(--mid); border-radius:999px; pointer-events:none } .semiCap{ position:absolute; top:-19px; left:0; right:0; text-align:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .semiTri{ position:absolute; top:63.5px; height:0; border-top:1.5px solid var(--mid) } .semiTriLbl, .semiHs, .semiIv{ position:absolute; transform:translateX(-50%); color:var(--mid); white-space:nowrap; pointer-events:none } .semiTriLbl{ top:70px; font-size:12px } .semiIv{ top:44px; font-size:11px } .semiHs{ top:5px; font-size:11px } .stage{ align-items:stretch } .tabCol{ display:flex; flex-direction:column; gap:6px } .frameRow{ margin-top:4px } .strSel button{ min-width:2.3em; font-weight:600 } .hlHand{ opacity:.62 } .hlSkin{ fill:var(--bg); stroke:none } .hlLine{ fill:none; stroke:var(--ink); stroke-width:1.7; stroke-linejoin:round; stroke-linecap:round } .hlNail{ stroke-width:1.2; opacity:.55 } .hlCrease{ stroke-width:1.1; opacity:.35 } .hlSel{ stroke:var(--ink); stroke-width:3.2 } .gripPanel{ margin-top:14px; border-top:1px solid var(--faint); padding-top:10px } .gripHd{ margin:0 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600; color:var(--mid) } .gripRow{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px } .gripGrp{ width:52px; font-size:13px; color:var(--mid) } .gripBtn{ font:inherit; font-size:14px; font-weight:600; padding:5px 11px; border:1.5px solid var(--mid); border-radius:999px; background:var(--bg); color:var(--ink); cursor:pointer; min-width:44px } .gripBtn sub{ font-size:10px; font-weight:500; color:var(--mid); margin-left:1px } .gripBtn.on{ background:var(--ink); color:var(--bg); border-color:var(--ink) } .gripBtn.on sub{ color:var(--bg) } body.handOn .fingerC, body.handOn .fingerN, body.handOn .guide, body.handOn .thumbG{ display:none } .strSel.vert{ position:absolute; flex-direction:column-reverse; z-index:3; min-width:0 } .strSel.vert button{ min-width:0; padding:0; border-left:0; border-top:1px solid var(--mid); display:flex; align-items:center; justify-content:center; line-height:1 } .strSel.vert button:last-child{ border-top:0 }
 .pageCt{ font-weight:600; font-size:14px; color:var(--ink); min-width:2.6em; text-align:center; font-variant-numeric:tabular-nums } .wedge{ pointer-events:none }
 .sylTab{ font-family:var(--serif); font-style:italic; font-weight:500; font-size:17px; text-anchor:middle; dominant-baseline:central }
@@ -2621,8 +2621,7 @@ const ROLL=BOOK.roll?(()=>{
   const rows=[]; let R=10, built='';                                       // R: the row in the middle (21 rows: the seven, three times)
   const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
     for(let r=0;r<21;r++){ const k=6-(r%7), names=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=names.map((n,i)=>{ const gap=i&&((SEMI[n]-SEMI[names[i-1]]+12)%12)===2?'<span class="us">_</span>':'';
-        return gap+'<span style="color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>'; }).join('');
+      d.innerHTML=names.map(n=>'<span style="grid-column:'+(1+(SEMI[n]-SEMI[names[0]]+12)%12)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
@@ -2863,7 +2862,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // how far the asked places moved since the last frame (mm): the hand at rest is still
   const moved=(a,b)=>{ if(!a||!b) return 1e9; let m=0; a.f.forEach((g,i)=>{ const h=b.f[i], p=g.barre?[g.barre.w,g.barre.y1,0]:g.p, o=h.barre?[h.barre.w,h.barre.y1,0]:h.p; if(!o||!p) { m=1e9; return; } m=Math.max(m,Math.abs(p[0]-o[0]),Math.abs(p[1]-o[1]),Math.abs(p[2]-o[2])); }); return m; };
   function draw(dt,st,live,plan){
-    const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=on?'':'none'; if(!on) return;
+    const on=document.body.classList.contains('handOn'); front.style.display=behind.style.display=behindLines.style.display=frontLines.style.display=on?'':'none'; if(!on) return;
     if(fingers.some(F=>F.x===undefined||isNaN(F.x))) return;
     clock+=dt||0.016;
     const nowN=live&&st&&st.idx>=0&&plan&&plan[st.idx]?plan[st.idx]:null, TGT=ask(dt,live,nowN);
@@ -3404,7 +3403,15 @@ function customTool(){
     const light=(spans,i,c)=>{ const x0=xT(c.t)-TB.cw/2, nx=i<spans.length-1?xT(spans[i+1].t)-TB.cw/2:TB.s1, id='cuG'+c.id;
       const gr=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), s0=el('stop',{offset:0},gr); el('stop',{offset:1,'stop-opacity':0},gr);
       return {s0,r:el('rect',{x:x0,y:yT,width:Math.max(1,nx-x0),height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG)}; };
-    MODES=PRE?modeEvents():[]; modeArt=MODES.map((m,i)=>Object.assign({m},light(MODES,i,m)));
+    MODES=PRE?modeEvents():[]; modeArt=[];
+    // a run of the same mode (a chord strummed again, a held tone that is its root) is one light: it comes up smoothly at
+    // each strum and fades from it, the fade reaching nothing at the run's end — no hard edges inside a run
+    { const runs=[]; MODES.forEach(m=>{ const r=runs[runs.length-1]; if(r&&r.root===m.root) r.ms.push(m); else runs.push({t:m.t,root:m.root,ms:[m],id:m.id}); });
+      runs.forEach((R,i)=>{ const x0=xT(R.t)-TB.cw/2, x1=i<runs.length-1?xT(runs[i+1].t)-TB.cw/2:TB.s1, w=Math.max(1,x1-x0), id='cuG'+R.id;
+        const gr=el('linearGradient',{id,x1:0,y1:0,x2:1,y2:0},bgG), xs=R.ms.map(m=>xT(m.t)), ramp=Math.max(6,TB.cw*0.6), stops=[];
+        const env=x=>{ let v=0; xs.forEach(xi=>{ const a=x<xi-ramp?0:(x>=xi?1:(()=>{ const u=(x-(xi-ramp))/ramp; return u*u*(3-2*u); })()); v=Math.max(v,a*Math.max(0,1-(x-Math.max(x0,xi-ramp))/(x1-Math.max(x0,xi-ramp))*(x>xi?1:0))); }); return v; };
+        const N=Math.max(8,Math.min(96,Math.round(w/6))); for(let j=0;j<=N;j++){ const x=x0+w*j/N; stops.push(el('stop',{offset:(j/N).toFixed(4),'stop-opacity':env(x).toFixed(3)},gr)); }
+        modeArt.push({m:R.ms[0],ms:R.ms,stops,r:el('rect',{x:x0,y:yT,width:w,height:yB-yT,fill:'url(#'+id+')',opacity:0},bgG)}); }); }
     M.ch.forEach((c,i)=>{ const {s0,r}=PRE?{s0:null,r:null}:light(M.ch,i,c);
       const t=el('text',{x:xT(c.t)-6,y:laneY,class:'cuChord'},noteG), L=el('tspan',{},t), S=el('tspan',{class:'cuSyl',dx:5},t);
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
@@ -3414,8 +3421,8 @@ function customTool(){
   let sylArt=[], modeArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
-    modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.m===curMode;
-      a.s0.setAttribute('stop-color',rgbS(col)); a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); });
+    modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.ms.includes(curMode), cs=rgbS(col);
+      if(a.cs!==cs){ a.cs=cs; a.stops.forEach(st=>st.setAttribute('stop-color',cs)); } a.r.setAttribute('opacity',(L*(on?0.36:0.12)).toFixed(3)); });
     sylArt.forEach(({t,n})=>{ const d0=doAt(n.t), dp=d0===null?PHI.doPc:d0, k=((pcOf(n.string,n.pitch)-(dp+2))%12+12)%12;
       t.textContent=SOLN[k]; t.style.fill=L>0.001?rgbS(mixRGB(ink,relRGB(k),L)):rgbS(ink); });
     chordArt.forEach(a=>{ const d0=doAt(a.c.t), dp=d0===null?PHI.doPc:d0, k=((a.c.root-(dp+2))%12+12)%12, col=relRGB(k), on=a.c===cur;   // the colour the TAB's numbers take (Diatonic filtering as they do)
@@ -3462,7 +3469,7 @@ function customTool(){
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
-   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:50px } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
+   +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:calc(var(--rh) * .8) } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
     document.head.appendChild(st); }
   const titleIn=$q('cuTitle'), meterIn=$q('cuMeter'), barsEl=$q('cuBars'), palEl=$q('cuPal'), dotB=$q('cuDot'), tripB=$q('cuTrip'), chordIn=$q('cuChord'), textEl=$q('cuText'), msgEl=$q('cuMsg'), fileIn=$q('cuFile');
   // keys typed in the panel stay in the panel (the hand's finger keys, the ring's, Space)
@@ -3677,7 +3684,7 @@ function customTool(){
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=FRAME_OF[e.s];
     const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
     const k=DRUM.indexOf(fr==='~Do'?'Sol':fr); ROLL.rebuild(); ROLL.set(k);
-    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="'+c(4)+';opacity:.4">~Do</span><span style="'+c(5)+'">Sol</span><span class="us">_</span><span style="'+c(7)+'">La</span>'; } }
+    if(fr==='~Do'){ const c=n=>FIELD.on?'color:'+rgbS(relRGB(n)):''; ROLL.row().innerHTML='<span style="grid-column:1;'+c(4)+';opacity:.4">~Do</span><span style="grid-column:2;'+c(5)+'">Sol</span><span style="grid-column:4;'+c(7)+'">La</span>'; } }
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
   /* ---------- the hooks the drill pages call ---------- */
@@ -3731,6 +3738,8 @@ function customTool(){
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
       const place=()=>{ if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
+        p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
+        box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
         box.style.left=(0.5*W.width/ZOOM).toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); } }
