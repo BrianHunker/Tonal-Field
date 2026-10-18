@@ -83,7 +83,7 @@ assert dbg!=page
 open(os.path.join(D,'..','structures-dbg.html'),'w').write(dbg)
 
 # ---------- drill books: the same tool turned to a set of pages ----------
-def walk_page(eyebrow,title,label,book):
+def walk_page(eyebrow,title,label,book,fmax=None):
     p=open(os.path.join(D,'st_page.html')).read().replace('/*@COPY:7-167*/','/*@COPY:12-167*/')
     def rep(a,b):
         nonlocal p
@@ -105,10 +105,14 @@ def walk_page(eyebrow,title,label,book):
     g=g.replace(a,"FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book")
     g=g.replace("localStorage.setItem('structures-gx',","localStorage.setItem('walk-gx',")
     parts[-1]=g
-    return p.replace('/*@JS*/','\n'.join(parts))
+    js='\n'.join(parts)
+    if fmax:                                   # a page whose board shows frets past the 12th (they are drawn where the true neck has them)
+        assert js.count('const FMAX=12;')==1; js=js.replace('const FMAX=12;','const FMAX='+str(fmax)+';')
+        n=js.count('for(let k=1;k<=FB.n;k++)'); assert n>=2,n; js=js.replace('for(let k=1;k<=FB.n;k++)','for(let k=1;k<=FMAX;k++)')
+    return p.replace('/*@JS*/',js)
 DBG="\napplySample(0); window.__T=()=>({si:T.si,n:T.segs.length,on:T.on,ahead:T.segs.length?T.segs[T.segs.length-1].end-ctx.currentTime:0}); window.__w=()=>({page:PAGE,doPc:PHI.doPc,off:LET.off,goal:RING.goal,bars:DRILL&&DRILL.bars,frames:DRILL&&DRILL.frames.map(F=>F.string+':'+F.tones.map(t=>t.fret).join(',')),plan:DRILL&&DRILL.plan.map(n=>n.string+':'+n.fret+'g'+n.finger).join(' '),P:P.map(p=>p.g+'@'+p.s+':'+p.f).join(','),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret).join(' '),gx:FIELD.on,label:(document.getElementById('frameLbl')||{}).textContent}); window.__fing=()=>fingers.map(F=>[Math.round(F.x),Math.round(F.y),F.isDown?1:0]); window.__fbY=FB.strY; window.__tip=n=>Math.round(tipX(n)); window.__cu=(typeof CHORDS!=='undefined'&&CHORDS&&CHORDS._)||null; window.__st2=()=>({on:T.on,ph:T.on&&ctx?stateAt(ctx.currentTime).ph:null,idx:T.on&&ctx?stateAt(ctx.currentTime).idx:null,doPc:PHI.doPc,inst:[...INST],lit:TAB_LIT?[...TAB_LIT]:null,P:P.map(q=>q.g+'@'+q.s+':'+q.f+(q.barre?'b':'')),hand:[1,2,3,4].map(k=>HAND.f[k].string+':'+HAND.f[k].fret),strokes:STROKES,loop:LOOP,pulse:PULSE&&PULSE.u});"
-def book(name,eyebrow,title,label,pages):
-    wp=walk_page(eyebrow,title,label,pages)
+def book(name,eyebrow,title,label,pages,fmax=None):
+    wp=walk_page(eyebrow,title,label,pages,fmax)
     open(os.path.join(D,'..',name+'.html'),'w').write(wp)
     open(os.path.join(D,'..',name+'-dbg.html'),'w').write(wp.replace("\napplySample(0);",DBG,1))
     print(name,len(wp.split('\n')),'lines')
@@ -139,7 +143,8 @@ book('semimodes','Drill Exercise 10/11/26','Semimodes','Semimode',"""{hand:true,
 # Custom: a drill written by hand, in TAB and as a line of text; chord symbols orient the ring
 book('custom','Tool','Custom','Chord',"""{handLab:true, custom:true, loops:1, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
-# Chords with Semimodes: the G barre strummed, set against semimode walks in G_Do, in position
-book('chords-with-semimodes','Drill Exercise 10/18/26','Chords with Semimodes','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
+# The E Shape: a mode's E-shape barre on its root along the low E, strummed, set against its semimode walk in position; the
+# seven modes, and the ring moving the whole set along the neck (to fret 14)
+book('the-e-shape','Drill Exercise 10/18/26','The E Shape','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
   drum:[[['Ti','Do','Re'],[1,2,4]],[['Mi','Fa','Sol'],[1,2,4]],[['La','Ti','Do'],[1,3,4]],[['Re','Mi','Fa'],[1,3,4]],[['Sol','La'],[2,4]]], pages:[
-  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""")
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14)
