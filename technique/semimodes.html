@@ -2185,7 +2185,8 @@ function makeHand(G){
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
-  const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
+  // BARPULL: beside a barre each pressing finger turns at its knuckle to bring its tip up to its wire (Brian, Oct 2026)
+  const BARPULL=1.1, ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
   let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
@@ -2204,7 +2205,7 @@ function makeHand(G){
       else if(g.press&&g.cell){ const C=g.cell, x=Fk.pad[0], tip=Math.max(fl[1][0][0]+fl[1][1],fl[2][0][0]+fl[2][1]);   // pressing: anywhere in its fret's cell sounds the note, nearer the wire is cleaner
         // (the nearness is the tip's: a finger does not get there by hooking its end joint forward); a finger a neighbour
         // tucks under has nothing in its way, so it keeps to its wire as a finger alone would
-        put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(tip-(C[1]-1))*tuckPull(k)); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
+        put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(tip-(C[1]-1))*(TG.f[0].barre?Math.max(BARPULL,tuckPull(k)):tuckPull(k))); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
       else { const w=g.press?1.4:0.2; put((Fk.pad[0]-g.p[0])*w); put((Fk.pad[1]-g.p[1])*w); put((Fk.pad[2]-g.p[2])*w); for(let j=0;j<5;j++) put(0); }
       // the bones keep out of the neck (the pressing pad only touches it)
       for(let s=0;s<3;s++) for(const tt of [0.15,0.6,1]){ const pt=lerp(Fk.j[s],Fk.j[s+1],tt), need=RAD[k][s]*THK*(s===2&&(g.press||g.barre)?0.9:1);
