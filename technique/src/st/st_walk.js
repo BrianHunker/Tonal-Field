@@ -40,13 +40,14 @@ function walkFig(bars){ FIG=[]; for(let b=0;b<bars;b++) FIG.push({s:4*b,d:.5},{s
 // a page written out note by note on one string (Semimodes): bars of four [fret, finger, hand] (finger 0 open; hand a name,
 // the bar's group unless given), each bar in a group that shares one name — its tones, low to high
 // a Semimodes page from its function: up from the open string four tones (open, then a frame in its fingering), on up the
-// upper four to the octave at fret 12 (finger 1 shifting up, picked, into the frame), down those four and up them again
+// upper four to the octave at fret 12 (finger 1 shifting up, picked, into the frame), down those four to the 5th, then on
+// down the lower four to the open string — the walk up mirrored, each half paused on its last tone
 function semiBars(pg){
   const m=W_DEG[pg.mode], shp=(a,b)=>a===2&&b===2?'maj':(a===2?'min':'dim');
   const up=[1,2,3].map(j=>wSemi(m+j)-wSemi(m)), fu=W_FING[shp(up[1]-up[0],up[2]-up[1])];
   const dn=[0,1,2,3].map(j=>12-(wSemi(m)-wSemi(m-j))), fd=W_FING[shp(dn[1]-dn[2],dn[0]-dn[1])];
   const U=[[0,0],[up[0],fu[0]],[up[1],fu[1]],[up[2],fu[2]]], D=[[dn[0],fd[2]],[dn[1],fd[1]],[dn[2],fd[0]],[dn[3],1,'shift']];
-  return [{g:0,n:U},{g:1,n:D.slice().reverse()},{g:1,n:D},{g:1,n:D.slice().reverse()}];   // up to the 4th, on up to the octave, down to the 5th, back to the octave
+  return [{g:0,n:U},{g:1,n:D.slice().reverse()},{g:1,n:D},{g:0,n:U.slice().reverse()}];   // up to the 4th, on up to the octave, down to the 5th, on down to the open string
 }
 function seqPlan(pg){
   const plan=[], keys=[], bars=pg.bars||semiBars(pg);
