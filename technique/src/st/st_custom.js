@@ -675,7 +675,7 @@ function customTool(){
   // the mode's root on the low E, its position, and its two octaves' walk: [string (1–6), fret, finger, frame] each
   function layout(key,mode){ const om=s=>Math.round(openMidi(s));       // (an open string's pitch, whole)
     const [syl,semi,q]=MODE7.find(m=>m[0]===mode), root=(key+semi)%12, rf=((root-pcOf(LOWE,0))%12+12)%12;
-    let open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3; const fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
+    let open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3; const p0=p; const fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
     const base=om(LOWE)+rf, out=[]; let s=LOWE, prev=null;
     for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-om(s);
       // a half step stays on its string where the hand can reach it (a fret on with the fourth finger)
@@ -694,7 +694,7 @@ function customTool(){
       const at=[p,p+1].map(f=>{ const k=((pcOf(st-1,f)-key)%12+12)%12; return MAJ.includes(k)?SYL[MAJ.indexOf(k)]:null; }).find(x=>x);
       let best=null, bs=-1; FRAMES.forEach(([h,set])=>{ const sc=sy.filter(x=>set.includes(x)).length+(h===at?0.5:0); if(sc>bs){ bs=sc; best=h; } });
       on.forEach(n=>{ n.fr=best; }); }
-    return {syl,q,root,rf,p,lower:out.slice(0,8),upper:out.slice(7,15)}; }
+    return {syl,q,root,rf,p:p0,lower:out.slice(0,8),upper:out.slice(7,15)}; }
   // where the hand is along the board (board units, from its knuckles' side to the far finger), for what sits above it
   function handSpan(){ if(PRE!=='csm') return null; const L=layout(KEY,OPT.mode), a=L.p<=1?FB.x0-90:cellL(L.p)-50, b=cellR(Math.min(FMAX,L.p+4))+10; return [a,b]; }
   const toScreenX=x=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=x; p.y=FB.top; return p.matrixTransform(m).x; };

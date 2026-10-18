@@ -387,7 +387,7 @@ const SEMI=BOOK.strings?(()=>{
    bone in front of the ones behind it; the whole hand semi-transparent. */
 const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  fb.setAttribute('viewBox','-10 -60 1000 420');                          // headroom for the knuckles, room below for the thumb
+  fb.setAttribute('viewBox','-10 -100 1000 460');                          // headroom for the knuckles, room below for the thumb
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.35;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
   const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
@@ -452,6 +452,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const fg=mk('linearGradient',{id:gid+'f'+i,gradientUnits:'userSpaceOnUse'},defs);   // and a wash of it inside, clear by half way
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
+  const TIP_FLAT=false;   // (Brian, Oct 2026: seen from the player's eye a pressing tip does not flatten on its string — its round reaches on over the string's line)
   const WST=[-0.06,-0.05,0.09], TIPR=0.86;   // the flesh along each bone (see skin); the very end of a finger's round, against its pad
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1], press=[1,1,1,1];
   let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false, settled=false, ease=null; const EASE=0.45;   // resettle: form the hand afresh once a new grip's dots have come to rest
@@ -655,7 +656,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const at2=(g)=>({pa:proj(g.A),pb:proj(g.B)}), byKS={}; segs.forEach((g,n)=>{ byKS[g.k*3+g.s]=g; g.n=n; Object.assign(g,at2(g)); });
     segs.forEach(g=>{ const nb=[], lo=byKS[g.k*3+g.s-1], hi=byKS[g.k*3+g.s+1];
       if(g.s>0) nb.push({J:lo.pb,O:lo.pa,rJ:lo.rb,rO:lo.ra,w:WST[g.s-1]}); if(g.s<2) nb.push({J:hi.pa,O:hi.pb,rJ:hi.ra,rO:hi.rb,w:WST[g.s+1]});
-      const tg=TGT.f[g.k], pr=(g.s===2&&tg.press&&!tg.barre&&tg.line!==undefined)?{y:tg.line,dir:g.pb.y>=g.pa.y?1:-1,amt:press[g.k]}:null;
+      const tg=TGT.f[g.k], pr=(TIP_FLAT&&g.s===2&&tg.press&&!tg.barre&&tg.line!==undefined)?{y:tg.line,dir:g.pb.y>=g.pa.y?1:-1,amt:press[g.k]}:null;
       g.pr=pr; g.pts=skin(g.pa,g.pb,g.ra,g.rb,WST[g.s],pr); g.d=polyD(g.pts); g.od=openD(g.pts,nb); g.cd=''; g.cs=0; });
     S.F.forEach((Fk,k)=>{ for(let s=1;s<3;s++){ const a=byKS[k*3+s-1], b=byKS[k*3+s], own=a.n>b.n?a:b, c=creases(Fk.j[s],Fk.j[s-1],Fk.j[s+1],Math.min(a.rb,b.ra),Fk.j[s][0]);
       if(c.d){ own.cd+=c.d+' '; own.cs=Math.max(own.cs,c.str); } } });

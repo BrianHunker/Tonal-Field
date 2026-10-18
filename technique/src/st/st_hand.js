@@ -119,7 +119,7 @@ function makeHand(G){
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
-  let TG=null, RINGW=1, PULL=0.25, YAW=+1, TURNW=10;
+  let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)

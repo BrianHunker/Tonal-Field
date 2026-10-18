@@ -2185,7 +2185,7 @@ function makeHand(G){
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
-  let TG=null, RINGW=1, PULL=0.25, YAW=+1, TURNW=10;
+  let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)
@@ -2628,7 +2628,9 @@ const ROLL=BOOK.roll?(()=>{
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
   inner.addEventListener('transitionend',()=>{ if(R<N||R>=2*N){ R+=R<N?N:-N; show(false); } });   // back into the middle copy, unseen
   build(); show(false);
-  return {set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  // a frame's columns set afresh (where the walk plays it): true if they changed
+  const cols=(k,c)=>{ const was=FR[k][1]; if(was&&c&&was.join()===c.join()) return false; FR[k]=[FR[k][0],c]; built=''; return true; };
+  return {cols, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
@@ -2720,7 +2722,7 @@ const SEMI=BOOK.strings?(()=>{
    bone in front of the ones behind it; the whole hand semi-transparent. */
 const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   const NS='http://www.w3.org/2000/svg', mk=(tag,at,par)=>{ const e=document.createElementNS(NS,tag); for(const k in at) e.setAttribute(k,at[k]); if(par) par.appendChild(e); return e; };
-  fb.setAttribute('viewBox','-10 -60 1000 420');                          // headroom for the knuckles, room below for the thumb
+  fb.setAttribute('viewBox','-10 -100 1000 460');                          // headroom for the knuckles, room below for the thumb
   // the neck in millimetres, laid on the board as drawn: frets at their true places, strings parallel, a little apart
   const LMM=648, U=FB.strY[1]-FB.strY[0], K=0.35;                        // K: how far up the screen a millimetre of height shows (the player looks nearly straight down)
   const gapAt=X=>BASS?(16+5*X/LMM):(35.5+17*X/LMM)/5;
@@ -2785,6 +2787,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const fg=mk('linearGradient',{id:gid+'f'+i,gradientUnits:'userSpaceOnUse'},defs);   // and a wash of it inside, clear by half way
     return {g, a:mk('stop',{offset:0},g), b:mk('stop',{offset:0.2},g), c:mk('stop',{offset:0.55},g), d:mk('stop',{offset:1},g),
       fg, fa:mk('stop',{offset:0},fg), fb:mk('stop',{offset:0.2},fg), fc:mk('stop',{offset:0.55,'stop-opacity':0},fg)}; });
+  const TIP_FLAT=false;   // (Brian, Oct 2026: seen from the player's eye a pressing tip does not flatten on its string — its round reaches on over the string's line)
   const WST=[-0.06,-0.05,0.09], TIPR=0.86;   // the flesh along each bone (see skin); the very end of a finger's round, against its pad
   const tone=[0,0,0,0], toneCol=[null,null,null,null], alpha=[1,1,1,1], lift=[1,1,1,1], press=[1,1,1,1];
   let SELK=0, fresh=true, lastFresh=-1e9, clock=0, qd=null, still=0, lastAsk=null, resettle=false, settled=false, ease=null; const EASE=0.45;   // resettle: form the hand afresh once a new grip's dots have come to rest
@@ -2988,7 +2991,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     const at2=(g)=>({pa:proj(g.A),pb:proj(g.B)}), byKS={}; segs.forEach((g,n)=>{ byKS[g.k*3+g.s]=g; g.n=n; Object.assign(g,at2(g)); });
     segs.forEach(g=>{ const nb=[], lo=byKS[g.k*3+g.s-1], hi=byKS[g.k*3+g.s+1];
       if(g.s>0) nb.push({J:lo.pb,O:lo.pa,rJ:lo.rb,rO:lo.ra,w:WST[g.s-1]}); if(g.s<2) nb.push({J:hi.pa,O:hi.pb,rJ:hi.ra,rO:hi.rb,w:WST[g.s+1]});
-      const tg=TGT.f[g.k], pr=(g.s===2&&tg.press&&!tg.barre&&tg.line!==undefined)?{y:tg.line,dir:g.pb.y>=g.pa.y?1:-1,amt:press[g.k]}:null;
+      const tg=TGT.f[g.k], pr=(TIP_FLAT&&g.s===2&&tg.press&&!tg.barre&&tg.line!==undefined)?{y:tg.line,dir:g.pb.y>=g.pa.y?1:-1,amt:press[g.k]}:null;
       g.pr=pr; g.pts=skin(g.pa,g.pb,g.ra,g.rb,WST[g.s],pr); g.d=polyD(g.pts); g.od=openD(g.pts,nb); g.cd=''; g.cs=0; });
     S.F.forEach((Fk,k)=>{ for(let s=1;s<3;s++){ const a=byKS[k*3+s-1], b=byKS[k*3+s], own=a.n>b.n?a:b, c=creases(Fk.j[s],Fk.j[s-1],Fk.j[s+1],Math.min(a.rb,b.ra),Fk.j[s][0]);
       if(c.d){ own.cd+=c.d+' '; own.cs=Math.max(own.cs,c.str); } } });
@@ -3431,8 +3434,8 @@ function customTool(){
   let lastDo=undefined;
   const doAt=t=>{ const withF=M.ch.filter(c=>c.syl); if(!withF.length) return null; let c=null; for(const x of withF){ if(x.t<=t+1e-6) c=x; } c=c||withF[withF.length-1];
     return ((c.root-fromDo(c.syl))%12+12)%12; };
-  function orient(doPc){ if(doPc===null||doPc===PHI.doPc) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its Do at 12 o'clock)
+  function orient(doPc,force){ if(doPc===null||doPc===PHI.doPc&&!force) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
+    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?(PRE==='csm'?OPT.mode.toLowerCase():'do'):'re'}); }   // (an exercise page: its mode's root at 12 o'clock)
   /* THE MODE FOLLOWS THE LINE (an exercise page): a tone held — longer than a beat, alone — is heard as the mode's root
      (Fa, Sol or Do held in the walks, each its own mode); a strummed chord restores its own root's mode. In force from
      that moment to the next, on the Ring (its mode cone), the TAB (its light fading across the span) and the fretboard. */
@@ -3735,6 +3738,7 @@ function customTool(){
   function stepNow(force){ if(force) shownK=-2; step(null,false); }
   function step(st,live){
     if(keyWatch) keyWatch();                                            // (an exercise page: the ring turned)
+    if(modePaint) modePaint();
     if(wasOn&&!T.on){ TAB_LIT=null; shownK=-2; placeCursor(); } wasOn=T.on;
     if(!DRILL&&!noteG.firstChild&&M.ch.length) tabDraw(null);           // (the page redrew an empty TAB: the chord lane back)
     const playing=!!(T.on&&st&&st.s&&st.s.D&&st.s.D.custom);
@@ -3784,11 +3788,18 @@ function customTool(){
     const row0=ROLL.row(), key=rollKey+'|'+[...on].sort().join(','); if(key===litKey&&row0===litRow) return; litKey=key; litRow=row0;
     document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
     const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
+  function solLaCols(e){ const dp=PHI.doPc, on=M.ev.filter(x=>x.s===e.s&&x.fr==='Sol'&&x.g), at={};
+    on.forEach(x=>{ const k=((pcOf(x.s,x.f)-dp)%12+12)%12; if(k===7) at.Sol=x.g; if(k===9) at.La=x.g; });
+    if(at.Sol===undefined&&at.La!==undefined) at.Sol=at.La-2; if(at.La===undefined&&at.Sol!==undefined) at.La=at.Sol+2;
+    return at.Sol>=1&&at.La<=4&&at.La>at.Sol?[at.Sol,at.La]:null; }
   function rollStep(tk){
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=e.fr||FRAME_OF[e.s];
-    const key=fr+'|'+FIELD.on+'|'+diatonic; if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr); ROLL.rebuild(); ROLL.set(k);
+    // Sol_La placed where the walk plays it: in position its two tones fall a fret further on across the G–B string's
+    // major third than on any other string — under the fingers that play them
+    const solCols=fr==='Sol'?solLaCols(e):null;
+    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+(solCols?solCols.join():''); if(key===rollKey) return; rollKey=key;
+    const k=DRUM.indexOf(fr); if(solCols&&ROLL.cols) ROLL.cols(k,solCols); ROLL.rebuild(); ROLL.set(k);
   }
   /* THE RHYTHM CLOCK (an exercise page): the bar round a clock, its sixteen sixteenths, the beats at 12, 3, 6 and 9; each
      tone struck in the bar a dot where it falls — a downstroke filled, an upstroke a ring, a strum larger — joined in turn.
@@ -3811,7 +3822,9 @@ function customTool(){
     // over the nut, in the room between the TAB and the strings
     const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM, sz=Math.max(90,Math.min(210,bot-top-30));
-      sv.style.width=sv.style.height=sz.toFixed(0)+'px'; sv.style.top=(top+(bot-top-sz)/2).toFixed(0)+'px'; sv.style.left=Math.max(0,(q.x-W.left)/ZOOM-sz/2).toFixed(0)+'px'; };
+      sv.style.width=sv.style.height=sz.toFixed(0)+'px'; sv.style.top=(top+(bot-top-sz)/2).toFixed(0)+'px';
+      const hs=handSpan(), nutL=(q.x-W.left)/ZOOM-sz/2, away=!!hs&&hs[0]<FB.nut;   // the hand over the nut: the clock to the far end
+      sv.style.left=(away?Math.max(0,W.width/ZOOM-sz-8):Math.max(0,nutL)).toFixed(0)+'px'; };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); setTimeout(place,0); setTimeout(place,600);
     let barShown=-1, dots=[], clock=0, lastSix=-1, modeCol=null;
     function build(b){ barShown=b; while(dotsG.firstChild) dotsG.firstChild.remove(); dots=[]; const B=barT(M.meter), b0=b*B, GR=strokeGrid();
@@ -3855,7 +3868,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null;
+  let keyWatch=null, modePaint=null;
   const OPT={mode:'Do',oct:'lower',dir:'updown',chords:true};
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -3865,22 +3878,31 @@ function customTool(){
   const flatKey=k=>[1,4,6,8,11].includes(k), pcName=(pc,k)=>(flatKey(k)?LETTER_B:LETTER)[((pc%12)+12)%12];
   const LOWE=NSTR-1;
   // the mode's root on the low E, its position, and its two octaves' walk: [string (1–6), fret, finger, frame] each
-  function layout(key,mode){
+  function layout(key,mode){ const om=s=>Math.round(openMidi(s));       // (an open string's pitch, whole)
     const [syl,semi,q]=MODE7.find(m=>m[0]===mode), root=(key+semi)%12, rf=((root-pcOf(LOWE,0))%12+12)%12;
-    const open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3, fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
-    const base=openMidi(LOWE)+rf, out=[]; let s=LOWE;
-    for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-openMidi(s);
-      if(i>0&&here>hi&&s>0){ const nxt=m-openMidi(s-1); if(nxt>=lo-1||here>hi+1){ s--; } }
-      const f=m-openMidi(s); out.push({str:s+1,f,g:fin(f)}); }
+    let open=rf===0, p=open?0:(q==='maj'?rf-1:rf), lo=p, hi=open?4:p+3; const p0=p; const fin=f=>f===0?0:(open?Math.min(4,f):Math.max(1,Math.min(4,f-p+1)));
+    const base=om(LOWE)+rf, out=[]; let s=LOWE, prev=null;
+    for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-om(s);
+      // a half step stays on its string where the hand can reach it (a fret on with the fourth finger)
+      if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
+      prev=m;
+      const f=m-om(s);
+      // reached past the hand's frets (a half step kept on its string): the hand moves up to take it under the fourth finger,
+      // and the tones already on this string past its new first fret are fingered from there
+      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo) n.g=fin(n.f); }); }
+      out.push({str:s+1,f,g:fin(f)}); }
     // the frame each string is played in: of the five, the one holding most of its tones (a tie: the one led by its tone at
     // the hand's first fret, or the fret after)
     const solOf=m=>SYL[MAJ.indexOf((((m-69)-key)%12+12)%12)];
-    out.forEach(n=>{ n.syl=solOf(openMidi(n.str-1)+n.f); });
+    out.forEach(n=>{ n.syl=solOf(om(n.str-1)+n.f); });
     for(let st=1;st<=NSTR;st++){ const on=out.filter(n=>n.str===st); if(!on.length) continue; const sy=on.map(n=>n.syl);
       const at=[p,p+1].map(f=>{ const k=((pcOf(st-1,f)-key)%12+12)%12; return MAJ.includes(k)?SYL[MAJ.indexOf(k)]:null; }).find(x=>x);
       let best=null, bs=-1; FRAMES.forEach(([h,set])=>{ const sc=sy.filter(x=>set.includes(x)).length+(h===at?0.5:0); if(sc>bs){ bs=sc; best=h; } });
       on.forEach(n=>{ n.fr=best; }); }
-    return {syl,q,root,rf,p,lower:out.slice(0,8),upper:out.slice(7,15)}; }
+    return {syl,q,root,rf,p:p0,lower:out.slice(0,8),upper:out.slice(7,15)}; }
+  // where the hand is along the board (board units, from its knuckles' side to the far finger), for what sits above it
+  function handSpan(){ if(PRE!=='csm') return null; const L=layout(KEY,OPT.mode), a=L.p<=1?FB.x0-90:cellL(L.p)-50, b=cellR(Math.min(FMAX,L.p+4))+10; return [a,b]; }
+  const toScreenX=x=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=x; p.y=FB.top; return p.matrixTransform(m).x; };
   // the E-shape grip on the root's fret: {string:[fret, finger]} and the strings a strum takes (down, up)
   function grip(L){ const r=L.rf, o=r===0;
     if(L.q==='dim') return {G:o?{6:[0,0],5:[1,1],4:[2,2],3:[0,0]}:{6:[r,1],5:[r+1,2],4:[r+2,3],3:[r,1]}, DN:[6,5,4,3], UP:[3,4]};
@@ -3913,9 +3935,17 @@ function customTool(){
     const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
     const keys=['mode','oct','dir','chords'];
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
-    function relabel(){ segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
+    // the bank in the order the roots lie along the low E, nut to body
+    function relabel(){ const bs=[...segs[0].querySelectorAll('button')]; bs.sort((a,b)=>layout(KEY,JSON.parse(a.dataset.v)).rf-layout(KEY,JSON.parse(b.dataset.v)).rf).forEach(b=>segs[0].appendChild(b));
+      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
       b.innerHTML=nm.slice(0,i)+'<span class="cuSub">_'+md+'</span>'; b.title=nm; }); }
-    relabel(); segs[0].classList.add('cuModes');
+    // the bank in colour: each mode its root's colour (g(x) on), the one chosen lit in it
+    let paintKey='';
+    function paintModes(){ const key=FIELD.on+'|'+FIELD.lit.toFixed(2)+'|'+OPT.mode+'|'+KEY; if(key===paintKey) return; paintKey=key;
+      const ink=inkColour(), bg=bgColour(), L=FIELD.on?FIELD.lit:0;
+      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), semi=MODE7.find(x=>x[0]===md)[1], c=mixRGB(ink,relRGB((semi+10)%12),L), on=md===OPT.mode;
+        b.style.color=on?rgbS(L>0.5?bg:ink):rgbS(c); b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
+    relabel(); segs[0].classList.add('cuModes'); modePaint=paintModes;
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
@@ -3923,7 +3953,7 @@ function customTool(){
       if(PHI.doPc!==keyWant){ keyWant=PHI.doPc; keyAt=now; return; } if(now-keyAt<350) return;
       KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){} relabel(); regen(); };
     function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])))); }
-    function regen(){ const was=T.on; if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); }
+    function regen(){ const was=T.on; orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
     // the drum, just above the fretboard
     // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
@@ -3935,7 +3965,12 @@ function customTool(){
         p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
-        box.style.left=(0.5*W.width/ZOOM).toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
+        const bw=box.offsetWidth, hs=handSpan(); let left=0.5*W.width/ZOOM;
+        if(hs){ const OP=(box.offsetParent||wrap).getBoundingClientRect(), hl=toScreenX(hs[0]), hr=toScreenX(hs[1]), ck=document.querySelector('.cuClock'), cb=ck?ck.getBoundingClientRect():null, B=bw*ZOOM;
+          // (screen px) between the hand and the clock, or the clock and the page's edge
+          const lo=(cb&&cb.left<hl?cb.right:W.left)+12, hi=(cb&&cb.left>hr?cb.left:W.right)-12, roomR=hi-hr, roomL=hl-lo, mid=W.left+0.5*W.width;
+          const x=roomR>=roomL?Math.max(hr+12,Math.min(hi-B,mid)):Math.max(lo,Math.min(hl-12-B,mid)); left=(x-OP.left)/ZOOM; }
+        box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); } }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
