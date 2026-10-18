@@ -220,7 +220,7 @@ function modeLight(held,dt){
     const hx=held.fret?(cellL(held.fret)+cellR(held.fret))/2:(FB.x0+FB.nut)/2; L.grad.setAttribute('cx',hx.toFixed(1)); L.grad.setAttribute('cy',FB.strY[held.string].toFixed(1)); }
   LIGHTS.forEach((L,i)=>{ const goal=i===MODE.cur?FIELD.lit:0; L.op+=(goal-L.op)*kk; if(L.op<0.002&&i!==MODE.cur){ L.op=0; }
     if(!L.held) return; const pc=pcOf(L.held.string,L.held.pitch), col=rgbS(valRGB(pc)), [x,y]=pt(RG.RL,pc);
-    L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(0.85*L.op).toFixed(3));
+    L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(CONE.mode?0:0.85*L.op).toFixed(3));
     L.stops.forEach(s=>s.setAttribute('stop-color',col)); L.rect.setAttribute('opacity',L.op.toFixed(3)); });
 }
 // Let Go: the hand lifts off the page's first frame

@@ -1513,6 +1513,48 @@ function stepSyl(st,live,plan,fxV,sy,amp){
     const a=Math.min(1,age/0.16), k=reduce?1:(a>=1?1:0.55+0.45*a+0.3*Math.sin(Math.PI*a)), r=Math.min(1,age/o.dur), y=o.y0-6-(reduce?24:46*(1-(1-r)*(1-r)));
     o.t.setAttribute('transform','translate('+o.x.toFixed(1)+' '+y.toFixed(1)+') scale('+k.toFixed(3)+')'); o.t.setAttribute('opacity',o.o.toFixed(3)); }
 }
+/* THE RING'S LIGHT: in place of the pointer, a cone of light from the centre, faint there, growing through the solfège and
+   landing as a spotlight on the chromatic letter — in the tone's colour (g(x) on), grey without it. The TONE's cone fades
+   up as the tone sounds and down as it dies, and lets go as the next tone takes over (the tones of a strum fade together).
+   The MODE's cone, where a chord symbol names the mode (its root), stays lit until the chord changes, crossfading to the next. */
+const CONE=(()=>{
+  const defs=el('defs',{},ringSvg), id='cn'+Math.random().toString(36).slice(2,6), C=RG.c, RL=RG.RL, W=0.17;
+  const mask=el('mask',{id:id+'m',maskUnits:'userSpaceOnUse',x:0,y:0,width:2*C,height:2*C},defs);
+  const gr=el('radialGradient',{id:id+'g',gradientUnits:'userSpaceOnUse',cx:C,cy:C,r:RL+10},defs);
+  [[0,0.12],[0.25,0.3],[0.55,0.52],[0.82,0.72],[0.94,0.95],[1,0]].forEach(([o,a])=>el('stop',{offset:o,'stop-color':'#fff','stop-opacity':a},gr));
+  el('rect',{x:0,y:0,width:2*C,height:2*C,fill:'url(#'+id+'g)'},mask);
+  const soft=el('filter',{id:id+'b',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs); el('feGaussianBlur',{stdDeviation:2.2},soft);
+  const spotF=el('filter',{id:id+'s',x:'-100%',y:'-100%',width:'300%',height:'300%'},defs); el('feGaussianBlur',{stdDeviation:5},spotF);
+  const beam='M'+C+' '+C+' L'+(C+(RL+8)*Math.sin(W)).toFixed(2)+' '+(C-(RL+8)*Math.cos(W)).toFixed(2)+' A'+(RL+8)+' '+(RL+8)+' 0 0 0 '+(C-(RL+8)*Math.sin(W)).toFixed(2)+' '+(C-(RL+8)*Math.cos(W)).toFixed(2)+' Z';
+  // the cones over the field, under the names; the spots under the letters
+  const coneL=el('g',{'pointer-events':'none'}), spotL=el('g',{'pointer-events':'none'});
+  ringSvg.insertBefore(coneL,valLbls[0]); ringSvg.insertBefore(spotL,rDots[0]);
+  function make(){ const g=el('g',{mask:'url(#'+id+'m)',opacity:0},coneL), p=el('path',{d:beam,filter:'url(#'+id+'b)'},g);
+    const s=el('circle',{cx:C,cy:C-RL,r:14,filter:'url(#'+id+'s)',opacity:0},spotL); return {g,p,s,o:0,pc:null}; }
+  const degOf=pc=>{ const [x,y]=pt(RL,pc); return Math.atan2(x-C,C-y)*180/Math.PI; };
+  function draw(k,gain,spotGain){ const dark=bgColour()[0]<128, rgb=rgbS(toneColour(Math.round(k.pc)%12)), tr='rotate('+degOf(k.pc).toFixed(2)+' '+C+' '+C+')';
+    coneL.style.mixBlendMode=spotL.style.mixBlendMode=dark?'screen':'multiply';
+    k.g.setAttribute('transform',tr); k.s.setAttribute('transform',tr); k.p.setAttribute('fill',rgb); k.s.setAttribute('fill',rgb);
+    k.g.setAttribute('opacity',(gain*k.o).toFixed(3)); k.s.setAttribute('opacity',(spotGain*k.o).toFixed(3)); }
+  const free=[]; const take=()=>free.pop()||make(), drop=k=>{ k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); free.push(k); };
+  let cur=null, curKey=null, curT=0; const gone=[];
+  const modes=[make(),make()]; let mi=0, modeKey=null;
+  let clock=0;
+  function step(live,pcF,amp,key,chord,modePc){
+    const now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
+    // the tone
+    if(live&&pcF!==null){
+      if(key!==curKey){ const strum=chord&&cur&&now-curT<0.09; if(cur){ cur.tau=strum?0.9:0.13; gone.push(cur); } cur=take(); cur.o=0; curKey=key; curT=now; }
+      cur.pc=pcF; const want=0.3+0.7*amp; cur.o+=(want-cur.o)*Math.min(1,reduce?1:dt/0.035); }
+    else if(cur){ cur.tau=0.2; gone.push(cur); cur=null; curKey=null; }
+    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62,0.95); }
+    if(cur) draw(cur,0.62,0.95);
+    // the mode
+    if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
+    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); }); }
+  return {step, get mode(){ return modeKey!==null; }};
+})();
+hand.style.display='none';                                              // the cone takes the pointer's place
 function frame(){
   stepField();
   const t=(T.on&&ctx)?ctx.currentTime:null, st=t!==null?stateAt(t):null, s=st?st.s:null;
@@ -1582,12 +1624,14 @@ function frame(){
     const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
     { const r=plan[st.idx].root; if(r!==undefined) setHand(r,r); else setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx))); }   // a song's ring shows its bar's root, not each tone
+    { const r=plan[st.idx].root, mr=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null;
+      CONE.step(r===undefined,r===undefined?pcOf(strI,p):null,amp,st.onset.toFixed(4)+':'+st.idx,!!s.chord,r!==undefined?r:mr); }
   }else{
     ringLine.setAttribute('visibility','hidden');
     tabNotes.forEach(o=>{ o.bar.classList.remove('on'); o.num.classList.remove('on'); });
     if(st&&!st.done){ head.setAttribute('x1',xBeat(0)); head.setAttribute('x2',xBeat(0)); head.setAttribute('visibility','visible'); countLbl.setAttribute('visibility','visible'); }
     else{ head.setAttribute('visibility','hidden'); countLbl.setAttribute('visibility','hidden'); }
-    { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); }
+    { const r=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null; if(r!==null) setHand(r,r); else setHand(null,-1); CONE.step(false,null,0,null,false,r); }
   }
   let bx=xBeat(0), u=0, hb=1;
   if(st&&!st.done){ if(st.count) u=PULSE?((((t-st.s.loopStart)/T.beat/PULSE.u)%1)+1)%1:Math.max(0,(t-st.beatT)/T.beat)%1; else { u=PULSE?(st.ph/PULSE.u)%1:st.ph%1;   // a pulse of u beats: the ball lands on each
@@ -2508,7 +2552,7 @@ function modeLight(held,dt){
     const hx=held.fret?(cellL(held.fret)+cellR(held.fret))/2:(FB.x0+FB.nut)/2; L.grad.setAttribute('cx',hx.toFixed(1)); L.grad.setAttribute('cy',FB.strY[held.string].toFixed(1)); }
   LIGHTS.forEach((L,i)=>{ const goal=i===MODE.cur?FIELD.lit:0; L.op+=(goal-L.op)*kk; if(L.op<0.002&&i!==MODE.cur){ L.op=0; }
     if(!L.held) return; const pc=pcOf(L.held.string,L.held.pitch), col=rgbS(valRGB(pc)), [x,y]=pt(RG.RL,pc);
-    L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(0.85*L.op).toFixed(3));
+    L.spot.setAttribute('cx',x.toFixed(1)); L.spot.setAttribute('cy',y.toFixed(1)); L.spot.setAttribute('fill',col); L.spot.setAttribute('opacity',(CONE.mode?0:0.85*L.op).toFixed(3));
     L.stops.forEach(s=>s.setAttribute('stop-color',col)); L.rect.setAttribute('opacity',L.op.toFixed(3)); });
 }
 // Let Go: the hand lifts off the page's first frame
