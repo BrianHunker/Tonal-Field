@@ -1727,7 +1727,7 @@ const SURF=(()=>{
   function open(el,k){
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
-    const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
+    const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
@@ -1736,7 +1736,7 @@ const SURF=(()=>{
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
-    if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
+    if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
@@ -4068,9 +4068,18 @@ function customTool(){
       A('line',{x1:X0,y1:MID,x2:X1,y2:MID,class:'gpHinge'},sv); [1,-1].forEach(g=>A('line',{x1:X0,y1:yOf(g),x2:X1,y2:yOf(g),class:'gpReach'},sv));
       for(let k=0;k<=12;k++) A('line',{x1:xOf(k),y1:MID-4,x2:xOf(k),y2:MID+4,class:'gpTick'},sv);
       [['0',0],['π/2',3],['π',6],['3π/2',9],['2π',12]].forEach(([t,k])=>{ const e=A('text',{x:xOf(k),y:RY,class:'gpRad'},sv); e.textContent=t; });
-      const curve=A('path',{d:'',class:'gpCurve',stroke:'url(#'+gid+')'},sv), beadG=A('g',{},sv);
-      const cells=Array.from({length:13},(_,k)=>({k,t:A('text',{x:xOf(k),y:LY,class:'gpLet'},sv),b:A('circle',{cx:xOf(k),cy:MID,r:7,class:'gpBead',opacity:0},beadG),lv:0,flex:0,pc:null}));
-      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center }';
+      // what sounds, under the curve: a tone off the axis fills its own lobe (between the zero crossings either side of it),
+      // fading to clear at the hinge; a tone on the axis (no area) a thin dashed line through it
+      const cp=A('clipPath',{id:gid+'c'},defs); A('rect',{x:X0,y:-20,width:X1-X0,height:VH+40},cp);
+      const areaG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
+      const curve=A('path',{d:'',class:'gpCurve',stroke:'url(#'+gid+')'},sv), beadG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
+      // the twelve letters, each at its seat from Re as the Ring's letters stand (sliding as they turn), twice over so the one
+      // at the seam shows at both ends; drag them along and the Ring's letters turn with them, settling on a seat
+      const letG=A('g',{class:'gpLetters'},sv); A('rect',{x:X0-20,y:LY-22,width:X1-X0+40,height:46,fill:'transparent',class:'gpGrab'},letG);
+      const cells=Array.from({length:12},(_,pc)=>{ const fg=A('linearGradient',{id:gid+'f'+pc,gradientUnits:'userSpaceOnUse',x1:0,y1:0,x2:0,y2:MID},defs), s0=A('stop',{offset:0,'stop-opacity':0.85},fg), s1=A('stop',{offset:1,'stop-opacity':0},fg);
+        return {pc,ts:[0,1].map(()=>A('text',{x:0,y:LY,class:'gpLet'},letG)),bs:[0,1].map(()=>A('circle',{cx:0,cy:MID,r:7,opacity:0},beadG)),
+          area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
+      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center; pointer-events:none } .gpGrab{ cursor:ew-resize } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
       document.head.appendChild(css);
       const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
       const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
@@ -4081,7 +4090,16 @@ function customTool(){
         const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
       let key='', shapeKey='', dia=new Set();
       function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+PHI.doPc; if(k===key) return; key=k; const nm=spell(L); dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
-        cells.forEach(c=>{ c.pc=(PHI.doPc+2+c.k)%12; c.dia=dia.has(c.pc); c.t.textContent=nm[c.pc]; c.t.setAttribute('font-size',nm[c.pc].length>1?18:21); }); }
+        cells.forEach(c=>{ c.dia=dia.has(c.pc); c.ts.forEach(t=>{ t.textContent=nm[c.pc]; t.setAttribute('font-size',nm[c.pc].length>1?18:21); }); }); }
+      // a drag along the letters turns the Ring's letters seat by seat (with g(x) on, the orientation with them), as a drag
+      // round the Ring's own letters does
+      { let drag=null; const seatW=()=>{ const m=sv.getScreenCTM(); return m?(X1-X0)/12*m.a:1; };
+        const grab=letG.querySelector('.gpGrab');
+        grab.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); if(T.on&&typeof ringStops==='function'&&ringStops()) stopAll(); drag={x:e.clientX,off:LET.off,was:PHI.doPc,id:e.pointerId}; try{ grab.setPointerCapture(e.pointerId); }catch(err){} });
+        grab.addEventListener('pointermove',e=>{ if(!drag) return; const want=drag.off+Math.round((e.clientX-drag.x)/seatW()), step=want-LET.off; if(!step) return;
+          LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
+        const end=()=>{ if(drag&&drag.was!==PHI.doPc) GHOST.doPc=drag.was; drag=null; };
+        grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end); grab.addEventListener('dblclick',e=>e.stopPropagation()); }
       function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), h=Math.min(sz*0.62,w*0.36), cy=top+sz/2;
         box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(cy-h*MID/VH-h*0.0).toFixed(0)+'px'; }   // the curve's hinge level with the clock's centre
       let clock=0;
@@ -4090,14 +4108,24 @@ function customTool(){
         // the curve, its height and colour with g(x)'s light (flat and grey without it); mid-morph, the field as the ring has it
         const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+diatonic+'|'+bg.join();
         if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fieldAt(k,false)).toFixed(2); } curve.setAttribute('d',d);
-          stops.forEach((s,i)=>{ const c=fieldRGB(12*i/NST,false); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); });
-          cells.forEach(c=>{ c.g=fieldAt(c.k,false); c.b.setAttribute('cy',yOf(L*c.g).toFixed(2)); }); }
-        cells.forEach(c=>{ if(c.pc===null) return; const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
+          stops.forEach((s,i)=>{ const c=fieldRGB(12*i/NST,false); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
+        const gA=s=>L*fieldAt(s,false);
+        cells.forEach(c=>{ const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
           const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), base=c.dia?0.62:(diatonic?0.16:0.72), lit=c.dia||!diatonic?1:0.55;
-          const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v);
-          c.t.style.fill=rgbS(show); c.t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')';
-          c.t.style.filter=c.lv>0.02?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+rgbS(L>0.001?col:ink)+')':'';
-          c.b.setAttribute('fill',rgbS(L>0.001?col:ink)); c.b.setAttribute('opacity',(c.lv*(c.dia||!diatonic?1:0.5)).toFixed(3)); c.b.setAttribute('r',(5+3*c.lv).toFixed(2)); });
+          const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v), cs=rgbS(L>0.001?col:ink), vis=c.dia||!diatonic?1:0.5;
+          // its seat from Re as the Ring's letters stand now (eased as they turn): here and a turn along, so the seam shows both
+          const p=(((c.pc+LET.offA-FIELD.re)%12)+12)%12, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
+          [p,p-12<-0.45?p+12:p-12].forEach((q,j)=>{ const t=c.ts[j], b=c.bs[j], edge=Math.max(0,Math.min(1,(q+0.45)/0.3,(12.45-q)/0.3));
+            t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=edge.toFixed(3); t.style.fill=rgbS(show);
+            t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')'; t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
+            b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
+            const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(axis?0.9*c.lv*vis:0).toFixed(3)); });
+          // its lobe, filled while it sounds: from the zero crossing before it to the one after, faded to clear at the hinge
+          if(c.lv>0.01&&!axis){ const sg=Math.sign(g); let a=p, z=p; for(let n=0;n<80&&Math.sign(gA(a-0.05))===sg;n++) a-=0.05; for(let n=0;n<80&&Math.sign(gA(z+0.05))===sg;n++) z+=0.05;
+            let d=''; [0,12,-12].forEach(o=>{ if(z+o<-0.5||a+o>12.5) return; d+='M'+xOf(a+o).toFixed(1)+' '+MID; for(let s=a;s<=z+1e-6;s+=0.05) d+=' L'+xOf(s+o).toFixed(1)+' '+yOf(gA(s)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+MID+' Z'; });
+            c.area.setAttribute('d',d); c.fg.setAttribute('y1',yOf(g>0?1:-1)*1+0); c.fg.setAttribute('y1',yOf(sg*Math.max(Math.abs(g),0.2)).toFixed(1)); c.fg.setAttribute('y2',MID);
+            c.s0.setAttribute('stop-color',cs); c.s1.setAttribute('stop-color',cs); c.area.setAttribute('opacity',(c.lv*vis).toFixed(3)); }
+          else c.area.setAttribute('opacity',0); });
         gxc.setAttribute('aria-pressed',FIELD.on);
         requestAnimationFrame(frame); })(0);
       return {place}; })();

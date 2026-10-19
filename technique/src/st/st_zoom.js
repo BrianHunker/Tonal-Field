@@ -49,7 +49,7 @@ const SURF=(()=>{
   function open(el,k){
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
-    const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
+    const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
@@ -58,7 +58,7 @@ const SURF=(()=>{
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
-    if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
+    if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
