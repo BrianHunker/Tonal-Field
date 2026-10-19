@@ -72,6 +72,7 @@ const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;""")
     if (a,b)==(755,793):
         t=must(t,"plan=planFor(cfgOf(drill))","plan=curPlan()")
         t=must(t,"noteLv[i]=i===cur?","noteLv[i]=(TAB_LIT?cur>=0&&TAB_LIT.has(i):i===cur)?")
+        t=must(t,"  tabNotes.forEach((o,i)=>{\n    noteLv[i]=","  tabNotes.forEach((o,i)=>{ if(!plan||!plan[i]) return;   // (a TAB drawn for another plan than the one playing: a new pass's, a bar before it is drawn)\n    noteLv[i]=")
         t=must(t,"c=valRGB(e0.root!==undefined?e0.root:pcOf(e0.string,p));","c=valRGB(e0.ballRoot!==undefined?e0.ballRoot:e0.root!==undefined?e0.root:pcOf(e0.string,p));")   # a strum: the ball in its chord's root's colour
     return t
 def fill(s):

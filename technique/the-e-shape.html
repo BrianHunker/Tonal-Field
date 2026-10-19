@@ -1041,7 +1041,7 @@ function paintTabField(st,live,p,amp){
   if(bloomG.nextSibling) tab.appendChild(bloomG);
   bloomG.style.mixBlendMode=dark?'screen':'multiply';                   // light added on dark, a tint on light
   const gain=dark?0.9:0.55, plan=curPlan(), cur=(live&&L>0.001)?st.idx:-1;
-  tabNotes.forEach((o,i)=>{
+  tabNotes.forEach((o,i)=>{ if(!plan||!plan[i]) return;   // (a TAB drawn for another plan than the one playing: a new pass's, a bar before it is drawn)
     noteLv[i]=(TAB_LIT?cur>=0&&TAB_LIT.has(i):i===cur)?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
     const w=L*noteLv[i], c=valRGB(pcOf(plan[i].string,plan[i].pitch));
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
@@ -4054,7 +4054,8 @@ function customTool(){
     function walk(octs){ const up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], ups=[], dns=[];
       octs.forEach(o=>up.forEach(ix=>ups.push([o,ix]))); octs.slice().reverse().forEach(o=>dn.forEach(ix=>dns.push([o,ix])));
       (OPT.dir==='updown'?ups.concat(dns):dns.concat(ups)).forEach(([o,ix])=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const n=L[o][ix[j]]; add(t+x,d,n.str,n.f,n.g,n.fr); }); t+=BAR; }); }
-    if(OPT.chords) chords(); walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
+    // the walk off: the chords alone (whatever Chords says — an exercise has something to play)
+    if(OPT.chords||OPT.dir==='off') chords(); if(OPT.dir!=='off') walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
     const nm=pcName(L.root,KEY)+(L.q==='min'?'m':L.q==='dim'?'°':'');
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,(OPT.anti?'~':'')+L.syl),{t:0})]; m.key=KEY; return m; }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
@@ -4063,7 +4064,7 @@ function customTool(){
       const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
         b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
       w.appendChild(sg); row.appendChild(w); return sg; };
-    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
+    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
     const keys=['mode','oct','dir','chords'];
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
