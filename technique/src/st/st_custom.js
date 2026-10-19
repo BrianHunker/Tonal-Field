@@ -858,7 +858,7 @@ function customTool(){
       const cells=Array.from({length:12},(_,pc)=>{ const fg=A('linearGradient',{id:gid+'f'+pc,gradientUnits:'userSpaceOnUse',x1:0,y1:0,x2:0,y2:MID},defs), s0=A('stop',{offset:0,'stop-opacity':0.85},fg), s1=A('stop',{offset:1,'stop-opacity':0},fg);
         return {pc,ts:[0,1].map(()=>A('text',{x:0,y:LY,class:'gpLet'},letG)),bs:[0,1].map(()=>A('circle',{cx:0,cy:MID,r:7,opacity:0},beadG)),
           area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
-      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center; pointer-events:none } .gpGrab{ cursor:ew-resize } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
+      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center; pointer-events:none } .gpGrab{ cursor:ew-resize } body.gxOn .gpField{ cursor:grab } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
       document.head.appendChild(css);
       const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
       const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
@@ -880,6 +880,18 @@ function customTool(){
           LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
         const end=()=>{ if(drag&&drag.was!==PHI.doPc) GHOST.doPc=drag.was; drag=null; };
         grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end); grab.addEventListener('dblclick',e=>e.stopPropagation()); }
+      { const fg=A('rect',{x:X0,y:2,width:X1-X0,height:LY-26,fill:'transparent',class:'gpField'},sv); sv.insertBefore(fg,letG); let fd=null;
+        const seatW=()=>{ const m=sv.getScreenCTM(); return m?(X1-X0)/12*m.a:1; };
+        fg.addEventListener('pointerdown',e=>{ if(FIELD.lit<0.5) return; e.stopPropagation(); fd={x:e.clientX,id:e.pointerId,was:PHI.doPc}; });
+        fg.addEventListener('pointermove',e=>{ if(!fd) return; const acc=(e.clientX-fd.x)/seatW();
+          if(!DRAGF){ if(Math.abs(acc)<0.35) return; if(typeof ringStops==='function'&&ringStops()) stopForEdit(); try{ fg.setPointerCapture(fd.id); }catch(err){}
+            MORPH=null; FIELD.mx=-1; const re=PHI.doPc+2+LET.off; DRAGF={re,reC:fifth(re),x:0,chain:RING.m>=0.5}; }
+          DRAGF.x=acc; });
+        const end=()=>{ if(DRAGF&&fd){ const n=Math.round(DRAGF.x);   // let go: the field settles on the nearest seat, and that is φ
+            FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x;
+            PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; DRAGF=null; dragFEnd=performance.now(); fieldMoved(); }
+          if(fd&&fd.was!==PHI.doPc) GHOST.doPc=fd.was; fd=null; };
+        fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
       function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), h=Math.min(sz*0.62,w*0.36), cy=top+sz/2;
         box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(cy-h*MID/VH-h*0.0).toFixed(0)+'px'; }   // the curve's hinge level with the clock's centre
       let clock=0;
@@ -888,7 +900,7 @@ function customTool(){
         // the curve, its height and colour with g(x)'s light (flat and grey without it); mid-morph, the field as the ring has it
         // the order, as the Ring has it (1: chromatic, 5: the dominant chain, where g is the carrier's pure cosine), mid-change
         // the two curves blended and the letters swapping places as the Ring's do
-        const w=RING.m, fv=s=>(1-w)*fieldAt(s,false)+w*fieldAt(s,true), fc=s=>w<=0?fieldRGB(s,false):w>=1?fieldRGB(s,true):mixRGB(fieldRGB(s,false),fieldRGB(s,true),w);
+        const w=RING.m, fv=s=>(1-w)*fieldAt(s-FIELD.re,false)+w*fieldAt(s-FIELD.reC,true), fc=s=>w<=0?fieldRGB(s-FIELD.re,false):w>=1?fieldRGB(s-FIELD.reC,true):mixRGB(fieldRGB(s-FIELD.re,false),fieldRGB(s-FIELD.reC,true),w);   // (x: seats from 12 o'clock)
         const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+FIELD.reC.toFixed(3)+'|'+w.toFixed(4)+'|'+diatonic+'|'+bg.join();
         if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fv(k)).toFixed(2); } curve.setAttribute('d',d);
           stops.forEach((s,i)=>{ const c=fc(12*i/NST); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
@@ -899,7 +911,7 @@ function customTool(){
           const v=base+(lit-base)*c.lv, show=mixRGB(bg,col,v), cs=rgbS(col), vis=1+((c.dia||!diatonic?1:0.5)-1)*L;
           // its seat from Re as the Ring's letters stand now (eased as they turn): in the chromatic order and on the chain; mid-
           // change, a seat the two orders share (to within a seat's drift) glides, one they don't swaps at halfway, faded
-          const pa=md(c.pc+LET.offA-FIELD.re), pb=md(7*c.pc+LET.offC-FIELD.reC), sw=Math.abs(wrap(pb-pa))>3;
+          const pa=md(c.pc+LET.offA), pb=md(7*c.pc+LET.offC), sw=Math.abs(wrap(pb-pa))>3;   // (its seat from 12 o'clock, as the Ring shows it)
           const p=w<=0?pa:w>=1?pb:sw?(w<0.5?pa:pb):md(pa+wrap(pb-pa)*w), fade=w>0&&w<1&&sw?Math.abs(1-2*w):1, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
           [p,p-12<-0.45?p+12:p-12].forEach((q,j)=>{ const t=c.ts[j], b=c.bs[j], edge=Math.max(0,Math.min(1,(q+0.45)/0.3,(12.45-q)/0.3));
             t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=(edge*fade).toFixed(3); t.style.fill=rgbS(show);
