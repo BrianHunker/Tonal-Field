@@ -124,9 +124,11 @@ function customTool(){
   const GRIPMAP={}; if(NSTR===6&&HANDLAB.grips) HANDLAB.grips.forEach(([,list])=>list.forEach(([,fr,fi])=>{ GRIPMAP[fr]=fi; }));
   function validHand(L,opens,strict){
     const by={}; L.forEach(x=>{ (by[x.g]=by[x.g]||[]).push(x); });
-    for(const g in by) if(by[g].length>1){ if(+g!==1) return false; if(by[g].some(x=>x.f!==by[g][0].f)) return false; }
+    for(const g in by) if(by[g].length>1){ if(+g!==1&&!L.given) return false; if(by[g].some(x=>x.f!==by[g][0].f)) return false; }
+    for(const g in by) if(by[g].length>1){ const a=by[g], bar={g:+g,f:a[0].f,low:Math.max(...a.map(x=>x.s)),hi:+g===1?0:Math.min(...a.map(x=>x.s))};
+      if(L.some(x=>x.g!==bar.g&&x.s>=bar.hi&&x.s<=bar.low&&x.f<=bar.f)) return false; if(opens.some(s=>s>=bar.hi&&s<=bar.low)) return false; }
+    if(L.given) return true;                                           // a grip fingered as asked: the hand's reach is the player's word
     const bar=by[1]&&by[1].length>1?{f:by[1][0].f,low:Math.max(...by[1].map(x=>x.s))}:null;
-    if(bar){ if(L.some(x=>x.g!==1&&x.s<=bar.low&&x.f<=bar.f)) return false; if(opens.some(s=>s<=bar.low)) return false; }
     if(!strict) return true;
     const reps=Object.keys(by).map(g=>({g:+g,f:by[g][0].f,s:bar&&+g===1?-1:by[g][0].s}));
     for(let i=0;i<reps.length;i++) for(let j=i+1;j<reps.length;j++) if(!fingersFit(reps[i].g,reps[i].f,reps[i].s,reps[j].g,reps[j].f,reps[j].s)) return false;
@@ -165,9 +167,11 @@ function customTool(){
             if(under.length+held.filter(h=>h.e.f===fb&&h.g===1).length>=2&&(!usedG.has(1)||heldBar||held.some(h=>h.g===1&&h.e.f===fb))){
               const free2=[2,3,4].filter(g=>!usedG.has(g));
               if(rest.length<=free2.length) perms(free2,rest.length).forEach(p=>opts.push(under.map(e=>({e,g:1})).concat(rest.map((e,i)=>({e,g:p[i]}))))); } }
+          // a grip whose every new tone names its finger: that fingering, barres (any finger's) and all
+          if(fretNew.length&&fretNew.every(e=>e.g)&&fretNew.every(e=>!usedG.has(e.g)||held.some(h=>h.g===e.g&&h.e.f===e.f))) opts.push(Object.assign(fretNew.map(e=>({e,g:e.g})),{given:true}));
           for(const o of opts){
             if(o.some(x=>{ const fx=fixedOf(x.e); return fx&&fx!==x.g; })) continue;
-            const L=held.map(h=>({g:h.g,s:h.e.s,f:h.e.f,id:h.e.id})).concat(o.map(x=>({g:x.g,s:x.e.s,f:x.e.f,id:x.e.id})));
+            const L=held.map(h=>({g:h.g,s:h.e.s,f:h.e.f,id:h.e.id})).concat(o.map(x=>({g:x.g,s:x.e.s,f:x.e.f,id:x.e.id}))); if(o.given) L.given=true;
             if(!validHand(L,opens,strict)) continue;
             const bar=L.filter(x=>x.g===1).length>1, {c,mean}=costOf(L,S.mean,bar&&!heldBar,prevAt);
             const a=new Map(); L.forEach(x=>a.set(x.id,x.g));
@@ -193,8 +197,10 @@ function customTool(){
     let lastH=null;
     FG.frames.forEach((F,k)=>{
       const S=FG.path[k], L=S?S.L:[];
-      const bar=L.filter(x=>x.g===1).length>1?{f:L.find(x=>x.g===1).f,low:Math.max(...L.filter(x=>x.g===1).map(x=>x.s))}:null;
-      const pl=L.filter(x=>!(bar&&x.g===1)).map(x=>({g:x.g,s:x.s,f:x.f})); if(bar) pl.push({g:1,s:bar.low,f:bar.f,barre:true});
+      // a finger on more than one string lies across them as a barre: the index from the high e side down to its lowest
+      // string, any other finger across just the strings it holds (a half barre: hi..s)
+      const bars=[1,2,3,4].map(g=>{ const a=L.filter(x=>x.g===g); return a.length>1?{g,f:a[0].f,low:Math.max(...a.map(x=>x.s)),hi:g===1?0:Math.min(...a.map(x=>x.s))}:null; }).filter(Boolean);
+      const pl=L.filter(x=>!bars.some(b=>b.g===x.g)).map(x=>({g:x.g,s:x.s,f:x.f})); bars.forEach(b=>pl.push({g:b.g,s:b.low,hi:b.hi,f:b.f,barre:true}));
       const H=pl.length?handFor(pl):(lastH?cloneHand(lastH):handFor([],Math.max(1,(evs.find(e=>e.f>0)||{f:1}).f-1),NSTR-1));
       if(pl.length) lastH=H; hands.push(H); pls.push(pl); sets.push(new Set(L.map(x=>x.g)));
       opens.push(F.snd.filter(e=>e.f===0).map(e=>e.s));
@@ -825,6 +831,12 @@ function customTool(){
   function grip4(L){ const {i3,i5,i7}=chordIv(), near=d=>((d+6)%12+12)%12-6; let r=L.rf;
     const off={4:near(i7-10),3:near(i3-15),2:near(i5-19)}; if(r+Math.min(0,...Object.values(off))<0) r+=12;
     const G={6:[r,null]}; for(const k in off) G[k]=[r+off[k],null];
+    const q=i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7');
+    // as Brian fingers them (Oct 2026): m7 — 2 on the root, 3 laid across the D, G and B; 7 — the index barred across the
+    // low E, D and B, 3 on the fifth an octave down on the A, 2 on the third on the G (the others the hand's own)
+    if(q==='m7'&&r>0){ G[6][1]=2; G[4][1]=G[3][1]=G[2][1]=3; }
+    if(q==='7'){ G[5]=[r+2,null]; if(r>0){ G[6][1]=G[4][1]=G[2][1]=1; G[5][1]=3; G[3][1]=2; } else { G[5][1]=2; G[3][1]=1; }
+      return {G, DN:[6,5,4,3,2], UP:[2,3,4]}; }
     return {G, DN:[6,4,3,2], UP:[2,3,4]}; }
   const chordSuffix=L=>{ if(!OPT.tetra) return L.q==='min'?'m':L.q==='dim'?'°':''; const {i3,i5,i7}=chordIv();
     return i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7'); };
@@ -855,6 +867,9 @@ function customTool(){
     if(OPT.dir!=='off') walk(octs);
     const nm=pcName(L.root,KEY)+chordSuffix(L);
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,(OPT.anti?'~':'')+L.syl),{t:0})]; m.key=KEY; return m; }
+  // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
+  // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
+  if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
     const row=document.createElement('div'); row.className='cuRow cuOpts';
     const seg=(lbl,key,items)=>{ const w=document.createElement('span'); w.className='cuLbl'; w.textContent=lbl+' ';
