@@ -770,8 +770,9 @@ function customTool(){
     M=m.M; C=m.C; PEEK=null; useC(); MODES=modeEvents(); lastDo=undefined; shownK=-2; pendingTab=true;
     drumNames(); orient(KEY,true); if(typeof markModes==='function') markModes(); }
   let markModes=null; const BOARD_DROP=250;   // board units the fretboard sits lower on the E Shape, under the clock
-  const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
+  const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:'strum',tetra:false};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
+  if(OPT.chords===true) OPT.chords='strum'; else if(OPT.chords===false) OPT.chords='off';   // (an earlier visit's On | Off)
   let KEY=10;                                                            // Do's pitch (from A): G
   try{ const k=+localStorage.getItem('eshape-key'); if(localStorage.getItem('eshape-key')!==null&&k>=0&&k<12) KEY=k; }catch(err){}
   const MODE7=[['Do',0,'maj'],['Re',2,'min'],['Mi',4,'min'],['Fa',5,'maj'],['Sol',7,'maj'],['La',9,'min'],['Ti',11,'dim']];
@@ -816,9 +817,20 @@ function customTool(){
     const G=o?{6:[0,0],5:[2,2],4:[2,3],3:L.q==='maj'?[1,1]:[0,0],2:[0,0],1:[0,0]}:{6:[r,1],5:[r+2,3],4:[r+2,4],3:L.q==='maj'?[r+1,2]:[r,1],2:[r,1],1:[r,1]};
     return {G, DN:[6,5,4,3,2,1], UP:[1,2,3]}; }
   const modeName=(mode,key)=>{ const L=layout(key,mode); return pcName(L.root,key)+'_'+mode; };
+  /* THE CHORD'S TONES from its root, in the mode: third, fifth and seventh (steps 2, 4 and 6 up its scale), in semitones */
+  function chordIv(){ const m=MAJ.indexOf(MODE7.find(x=>x[0]===OPT.mode)[1]), iv=k=>((MAJ[(m+k)%7]-MAJ[m])%12+12)%12; return {i3:iv(2),i5:iv(4),i7:iv(6)}; }
+  /* THE TETRACHORD's grip: the root on the low E; the A string silent; the seventh on the D string, the third on the G, the
+     fifth on the B; the high e silent — each the fret nearest the root's (maj7 3x443x, 7 3x343x, m7 3x333x, m7♭5 3x332x
+     from a root at the 3rd); fingered by the hand */
+  function grip4(L){ const {i3,i5,i7}=chordIv(), near=d=>((d+6)%12+12)%12-6; let r=L.rf;
+    const off={4:near(i7-10),3:near(i3-15),2:near(i5-19)}; if(r+Math.min(0,...Object.values(off))<0) r+=12;
+    const G={6:[r,null]}; for(const k in off) G[k]=[r+off[k],null];
+    return {G, DN:[6,4,3,2], UP:[2,3,4]}; }
+  const chordSuffix=L=>{ if(!OPT.tetra) return L.q==='min'?'m':L.q==='dim'?'°':''; const {i3,i5,i7}=chordIv();
+    return i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7'); };
   function presetModel(){
     const m=fresh(); m.title='The E Shape'; m.bpm=drill.bpm; const ev=[], BAR=96; let t=0;
-    const L=curL(), Gp=grip(L);
+    const L=curL(), Gp=OPT.tetra?grip4(L):grip(L);
     const add=(t0,d,str,f,g,fr)=>{ const e={t:t0,d,s:str-1,f}; if(g&&f>0) e.g=g; if(fr) e.fr=fr; ev.push(e); };
     function chords(){ const hits=[]; for(let b=0;b<2;b++) [[0,Gp.DN],[24,Gp.DN],[36,Gp.UP],[60,Gp.UP],[72,Gp.DN]].forEach(([x,ss])=>hits.push([t+b*BAR+x,ss]));
       const end=t+BAR+84;                                                // the & of 4: the barre let go
@@ -830,9 +842,18 @@ function customTool(){
     function walk(octs){ const up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], ups=[], dns=[];
       octs.forEach(o=>up.forEach(ix=>ups.push([o,ix]))); octs.slice().reverse().forEach(o=>dn.forEach(ix=>dns.push([o,ix])));
       (OPT.dir==='updown'?ups.concat(dns):dns.concat(ups)).forEach(([o,ix])=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const n=L[o][ix[j]]; add(t+x,d,n.str,n.f,n.g,n.fr); }); t+=BAR; }); }
-    // the walk off: the chords alone (whatever Chords says — an exercise has something to play)
-    if(OPT.chords||OPT.dir==='off') chords(); if(OPT.dir!=='off') walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
-    const nm=pcName(L.root,KEY)+(L.q==='min'?'m':L.q==='dim'?'°':'');
+    /* THE CHORD ARPEGGIATED: its tones (root, third, fifth — and with Tetrachords the seventh) in eighths, then its root an
+       octave on, held, a bar each octave, the way the walk goes; played where the walk plays them, in position. Up then
+       down (↑↓) or down then up (↓↑), over the octaves chosen. */
+    function arps(octs,first){ const ALL=L.lower.concat(L.upper.slice(1)), set=OPT.tetra?[0,2,4,6]:[0,2,4], base={lower:0,upper:7}, ups=[], dns=[];
+      octs.forEach(o=>{ const b=base[o]; ups.push(set.map(i=>b+i).concat([b+7])); });
+      octs.slice().reverse().forEach(o=>{ const b=base[o]; dns.push([b+7].concat(set.slice(1).reverse().map(i=>b+i)).concat([b])); });
+      (first==='up'?ups.concat(dns):dns.concat(ups)).forEach(ix=>{ const n0=ix.length-1; ix.forEach((k,j)=>{ const n=ALL[k], x=12*j, d=j<n0?12:BAR-12*n0; add(t+x,d,n.str,n.f,n.g,n.fr); }); t+=BAR; }); }
+    // the walk off with the chords off as well: the chords strummed (an exercise has something to play)
+    const CH=OPT.chords==='off'&&OPT.dir==='off'?'strum':OPT.chords, octs=OPT.oct==='both'?['lower','upper']:[OPT.oct];
+    if(CH==='strum') chords(); else if(CH==='up'||CH==='down') arps(octs,CH);
+    if(OPT.dir!=='off') walk(octs);
+    const nm=pcName(L.root,KEY)+chordSuffix(L);
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,(OPT.anti?'~':'')+L.syl),{t:0})]; m.key=KEY; return m; }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
     const row=document.createElement('div'); row.className='cuRow cuOpts';
@@ -840,8 +861,8 @@ function customTool(){
       const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
         b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
       w.appendChild(sg); row.appendChild(w); return sg; };
-    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
-    const keys=['mode','oct','dir','chords'];
+    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[['strum','Strum'],['up','↑↓'],['down','↓↑'],['off','Off']]),seg('','tetra',[[false,'Triads'],[true,'Tetrachords']])];
+    const keys=['mode','oct','dir','chords','tetra'];
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
     function relabel(){ const bs=[...segs[0].querySelectorAll('button')], ord=bankOrder(); bs.sort((a,b)=>ord.indexOf(JSON.parse(a.dataset.v))-ord.indexOf(JSON.parse(b.dataset.v))).forEach(b=>segs[0].appendChild(b));
