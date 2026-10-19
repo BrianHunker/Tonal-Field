@@ -332,7 +332,7 @@ function frame(){
   if(live){
     ringLine.setAttribute('x1',fxV); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
-    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
+    const J0=st.s.jumpGap?st.s.jumpGap():0, x=xBeat(st.ph+(J0&&st.ph>LOOP-1?(st.ph-(LOOP-1))*J0:0)); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
     { const r=plan[st.idx].root; if(r!==undefined) setHand(r,r); else setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx))); }   // a song's ring shows its bar's root, not each tone
     { const r=plan[st.idx].root, mr=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null;

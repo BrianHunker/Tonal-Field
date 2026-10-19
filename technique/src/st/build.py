@@ -64,6 +64,7 @@ const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;""")
     if (a,b)==(672,688):
         t=must(t,"  if(chain!==wedgeChain) buildWedge();\n","  buildWedge();\n")
         t=must(t,"shapeField(FIELD.u);","shapeField();")
+        t=must(t,"t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):'';","t.style.fill=FIELD.lit>0.001?rgbS(diatonic&&sylOf(pc)===null?mixRGB(inkColour(),SOLF_DIA[1],FIELD.lit):mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):'';")   # (an anti under Diatonic: its grey, not lightened)
         t=must(t,"valG.setAttribute('opacity',(FIELD.lit*swing).toFixed(3));","valG.setAttribute('opacity',(FLAT_OFF?1:FIELD.lit).toFixed(3));")
         t=must(t,"valG.setAttribute('transform','rotate('+((chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')');","valG.setAttribute('transform','rotate('+(ordMid()?0:(chain?FIELD.reC:FIELD.re)*30).toFixed(2)+' '+RG.c+' '+RG.c+')'); /* mid-morph: drawn in the screen's own seats */")
         i0=t.index('  const u=FIELD.u, fr='); i1=t.index("toFixed(3)); });",i0)+len("toFixed(3)); });")
