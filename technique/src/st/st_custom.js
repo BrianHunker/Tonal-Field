@@ -617,7 +617,7 @@ function customTool(){
     // the light (the mode's glow and the sweep's trail) on a canvas just under the clock's lines
     const cv=document.createElement('canvas'); cv.className='cuClockCv'; cv.setAttribute('aria-hidden','true'); const cx=cv.getContext('2d');
     const host=document.querySelector('.wrap'); host.appendChild(cv); host.appendChild(sv);
-    const css=document.createElement('style'); css.textContent='.cuClock,.cuClockCv{ position:absolute; z-index:3; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    const css=document.createElement('style'); css.textContent='.cuClock,.cuClockCv{ position:absolute; z-index:6; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
     document.head.appendChild(css);
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
@@ -625,8 +625,8 @@ function customTool(){
     const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
       const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.max(120,rw||200), room=bot-top;
-      const hs=handSpan(), nutL=(q.x-W.left)/ZOOM-sz/2, away=!!hs&&hs[0]<FB.nut;   // the hand over the nut: the clock to the far end
-      const T=(sz<=room-16?top+(room-sz)/2:bot-sz-6).toFixed(0)+'px', Lf=(away?Math.max(0,W.width/ZOOM-sz-8):Math.max(0,nutL)).toFixed(0)+'px';
+      const nutL=(q.x-W.left)/ZOOM-sz/2;                                // always over the nut, wherever the hand is (over it, the clock on top)
+      const T=(sz<=room-16?top+(room-sz)/2:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';
       [sv,cv].forEach(e=>{ e.style.width=e.style.height=sz.toFixed(0)+'px'; e.style.top=T; e.style.left=Lf; });
       const n=Math.round(sz*Math.min(3,(window.devicePixelRatio||1)*ZOOM)); if(n!==px){ px=n; cv.width=cv.height=n; } };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
@@ -664,6 +664,9 @@ function customTool(){
         lbls.forEach(l=>{ l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
         // the canvas: the mode's glow, then the sweep
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
+        // the page's own ground behind the clock, so whatever passes under it (the hand's knuckles in low positions) sits back
+        { const bgc=bg.join(','), gd=cx.createRadialGradient(C,C,R+22,C,C,C); gd.addColorStop(0,'rgba('+bgc+',0.92)'); gd.addColorStop(1,'rgba('+bgc+',0)');
+          cx.fillStyle='rgba('+bgc+',0.92)'; cx.beginPath(); cx.arc(C,C,R+22,0,2*Math.PI); cx.fill(); cx.fillStyle=gd; cx.beginPath(); cx.arc(C,C,C,0,2*Math.PI); cx.fill(); }
         const mc=curMode?valRGB(curMode.root):(curChord?valRGB(curChord.root):null);
         if(mc&&L>0.001){ const gg=cx.createRadialGradient(C,C,0,C,C,R+30), c=mc.join(',');
           gg.addColorStop(0,'rgba('+c+','+(0.55*L).toFixed(3)+')'); gg.addColorStop(0.62,'rgba('+c+','+(0.22*L).toFixed(3)+')'); gg.addColorStop(1,'rgba('+c+',0)');
