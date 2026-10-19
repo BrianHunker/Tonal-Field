@@ -1709,10 +1709,11 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const W=innerWidth, H=innerHeight-BAR;
+    if(!cur) return; const TOP=document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
     if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=Math.max(W,h*v.w/v.h); cur.style.width=w+'px'; cur.style.height=(w*v.h/v.w)+'px'; cur.style.maxWidth='none'; }
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
+    else if(kind==='plot'){ const svg=cur.querySelector('svg'), v=vbOf(svg), k=Math.min(W*0.94/v.w,H*0.86/v.h); svg.style.width=(v.w*k)+'px'; svg.style.height=(v.h*k)+'px'; svg.style.maxWidth='none'; svg.style.flex='none'; }   // a wide surface: fitted whole
     else if(kind==='pat'){ const svg=cur.querySelector('svg'), v=vbOf(svg), w=Math.min(W*0.94,H*0.62*v.w/v.h);
       cur.style.width=w+'px'; cur.style.maxWidth='none'; svg.style.width=w+'px'; svg.style.height=(w*v.h/v.w)+'px'; svg.style.maxWidth='none'; }
     else { const svg=cur.querySelector('svg'), v=vbOf(svg); let h=H*0.7, w=h*v.w/v.h; if(w<W*0.96){ w=W*0.96; h=w*v.h/v.w; }
@@ -3479,7 +3480,8 @@ function customTool(){
     const steps=M.ev.map(e=>e.t).concat(M.ev.map(e=>e.t+e.d),M.ch.map(c=>c.t),[TT]); let ms=pal.dur();
     const ts=[...new Set(steps)].sort((a,b)=>a-b); for(let i=1;i<ts.length;i++) ms=Math.min(ms,ts[i]-ts[i-1]); minStep=ms;
     TB.cw=Math.max(PRE?36:23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms)); TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;   // (an exercise page: room for its strums to read)
-    const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
+    // (an exercise page: the first bars again after the repeat, and room past them for the view to follow the ball)
+    const W=Math.max(900,Math.round(TB.s1+14+(PRE?GHOST_GAP+2*TB.cw*Math.min(M.bars,GHOST_BARS)*B/TPQ+360:0))); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
     tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
     rows.forEach(r=>r.setAttribute('x2',TB.s1));
     while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
@@ -3540,7 +3542,19 @@ function customTool(){
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
     sylArt=[]; if(PRE){ const y=((TB.floor+TB.rowY[0])/2+4).toFixed(1);
       plan.forEach(n=>{ if(plan.some(q=>q!==n&&q.t===n.t)) return; const t=el('text',{x:xT(n.t),y,class:'sylTab cuSylFix'},noteG); sylArt.push({t,n}); }); }
-    placeCursor(); paintChords(); }
+    if(PRE) ghostBar(); placeCursor(); paintChords(); }
+  /* AFTER THE REPEAT SIGN (an exercise page): the first bar again — a live copy of it, lit as it is lit — so at the repeat the
+     ball bounces over the sign and lands in it, and the TAB goes on from there with nothing jumping back: once the ball
+     passes into the second bar, the view is moved back by the loop's length at once, and what is on screen is the same. */
+  const GHOST_GAP=48, GHOST_BARS=3; let ghostG=null;   // (the first bars, enough for the view to keep the ball where it follows it)
+  function ghostBar(){ if(ghostG) ghostG.remove(); const B=barT(M.meter), G=Math.min(M.bars,GHOST_BARS), xb=TB.x0+2*TB.cw*G*B/TPQ, dx=TB.s1+GHOST_GAP-TB.x0;
+    [[bgG,'cuBgG'],[durG,'cuDurG'],[noteG,'cuNoteG'],[gridG,'cuGridG']].forEach(([g,id])=>{ if(!g.id) g.id=id; });
+    ghostG=el('g',{transform:'translate('+dx.toFixed(2)+' 0)','pointer-events':'none'},tab);
+    const cp=el('clipPath',{id:'cuGhostClip'},ghostG); el('rect',{x:TB.x0+1,y:-40,width:xb-TB.x0-3,height:320},cp);
+    TB.rowY.forEach(y=>el('line',{x1:TB.x0-4,y1:y,x2:xb,y2:y,class:'inkS','stroke-width':1,opacity:0.55},ghostG));
+    for(let b=1;b<=G;b++){ const x=TB.x0+2*TB.cw*b*B/TPQ; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},ghostG); }
+    const cg=el('g',{'clip-path':'url(#cuGhostClip)'},ghostG);
+    [bgG,durG,noteG,gridG].forEach(g=>{ const u=el('use',{},cg); u.setAttribute('href','#'+g.id); }); }
   let sylArt=[], modeArt=[];
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
@@ -3730,7 +3744,8 @@ function customTool(){
     const lead=Math.min(0.09,0.35*(minStep/TPQ)*60/drill.bpm);
     return {D:C.D,grid:strokeGrid(),liftAt:st=>st.idx>=0&&st.ph*TPQ>=C.lift[st.s.plan[st.idx].frame]-1e-6,pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
       place(s,t){ s.count=B/TPQ; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=Infinity; s.end=Infinity; },
-      showBar(s){ T.shown=s; }}; }
+      showBar(s){ T.shown=s; },
+      ...(PRE?{jumpGap:()=>GHOST_GAP/(2*TB.cw), loopsBack:()=>false}:{})}; }
   // THE PICK'S STROKES: each beat cut as finely as what is played in it needs (eighths, triplets, sixteenths …), the pick
   // alternating through the cuts from a downstroke on the beat — a tone struck where it falls, the rest silent passes
   function strokeGrid(){
@@ -3762,6 +3777,11 @@ function customTool(){
     if(playing){ tk=st.count?0:st.ph*TPQ; }
     else if(T.on) return;
     else tk=cur.t;
+    if(PRE){ const B=barT(M.meter), cyc=playing&&!st.count?Math.floor((ctx.currentTime-st.s.loopStart)/(LOOP*T.beat)+1e-6):0, want=cyc>=1&&tk<B-1e-6?LOOP+GHOST_GAP/(2*TB.cw):0;
+      if(want!==(TB.boff||0)){ const was=TB.boff||0; TB.boff=want;
+        if(was>0&&want===0){ const dxU=was*2*TB.cw, vb=tab.viewBox.baseVal.width||1;   // on into the second bar: the view back by the loop's length
+          if(tabPanel.classList.contains('wide')) tabPanel.scrollLeft-=dxU*tab.getBoundingClientRect().width/vb;
+          if(typeof SURF!=='undefined'&&SURF&&SURF.shiftTab) SURF.shiftTab(-dxU); } } }
     // the orientation in force, and the chord
     // a chord symbol's orientation is applied as its span is entered; between, the ring is the listener's to turn
     const dp=doAt(Math.min(tk,total()-1e-3)); if(dp!==null&&dp!==lastDo){ lastDo=dp; orient(dp); }
@@ -3840,7 +3860,7 @@ function customTool(){
     // both in one box: placed over the nut, and what a double click brings up to fill the screen (playback carries on)
     const box=document.createElement('div'); box.className='cuClockBox'; box.appendChild(cv); box.appendChild(sv);
     const host=document.querySelector('.wrap'); host.appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'clock');
-    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckn, .cuClock .cks{ transform-box:fill-box; transform-origin:center } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
     document.head.appendChild(css);
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
@@ -3880,11 +3900,11 @@ function customTool(){
         const tw=((tk%TT)+TT)%TT, b=Math.floor(tw/B), key=b+'|'+M.ev.length+'|'+(M.ev[0]&&M.ev[0].id); if(b!==barShown||key!==shownKey){ shownKey=key; build(b); }
         const ph=(tw-b*B)/B, six=Math.floor(ph*16+1e-6), L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
         const a=ph*2*Math.PI; hand.setAttribute('x2',(C+(R-14)*Math.sin(a)).toFixed(1)); hand.setAttribute('y2',(C-(R-14)*Math.cos(a)).toFixed(1));
-        if(playing&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null) lbls[six].lv=1; } lastSix=playing?six:-1;
+        if(playing&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null){ lbls[six].lv=1; lbls[six].fx=1; } } lastSix=playing?six:-1;
         const colOf=pc=>L>0.001?mixRGB(ink,valRGB(pc),L):ink, k6=Math.exp(-dt/0.35);
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
           d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
-        lbls.forEach(l=>{ l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
+        lbls.forEach(l=>{ l.fx=(l.fx||0)*Math.exp(-dt/0.18); l.e.style.transform=l.fx>0.005?'scale('+(1+0.7*l.fx).toFixed(3)+')':''; l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
         // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
         { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
@@ -3930,7 +3950,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set(); const BOARD_DROP=300;   // board units the fretboard sits lower on the E Shape, under the clock
+  let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set(); const BOARD_DROP=250;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -4020,19 +4040,37 @@ function customTool(){
        two). The letters fade in as the field fades out. */
     document.body.classList.add('csmPage'); boardLetters=true;
     fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP));   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
-    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after{ animation:none } body.csmPage:not(.gxOn) #gx::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
+    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx, body.csmPage .gxCopy{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) .gxCopy{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy, body.csmPage:not(.gxOn) .gxCopy::after{ animation:none } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
-    /* THE MODE'S TWELVE: the chromatic letters from the mode's root up to its octave, each in its colour under the field —
-       the seven diatonic tones in theirs; the five antis greatly dimmed under Diatonic, in their own (anti) colours without
-       it — every one lighting up while it sounds. Spelled from the mode: the diatonic letters in order from the root's, an
-       anti as the diatonic tone above it, lowered (or the one below, raised, where that would take a double flat).
-       Beside the rhythm clock. g(x) off: in grey, lit white. */
-    STRIP=(()=>{ const box=document.createElement('div'); box.className='csmStrip'; box.setAttribute('aria-hidden','true');
-      const cells=Array.from({length:13},()=>{ const c=document.createElement('div'); c.className='csmCell'; const t=document.createElement('span'); c.appendChild(t); box.appendChild(c); return {c,t,lv:0,pc:null}; });
-      document.querySelector('.wrap').appendChild(box);
-      const css=document.createElement('style'); css.textContent='.csmStrip{ position:absolute; z-index:4; display:grid; grid-template-columns:repeat(13,1fr); border:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); pointer-events:none; -webkit-user-select:none; user-select:none } .csmCell{ display:grid; place-items:center; border-left:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); min-width:0 } .csmCell:first-child{ border-left:0 } .csmCell span{ font-family:var(--sans); font-weight:800; letter-spacing:-.02em; line-height:1; white-space:nowrap; transform-origin:center; will-change:transform }';
+    /* THE CURVE: g(x) drawn as a line over the circle laid flat — x from 0 (Re, where g is 1) round to 2π — the twelve
+       chromatic letters at their places along it (π/6 apart, from Re), each in its colour under the field: the seven
+       diatonic tones in theirs, the five antis greatly dimmed under Diatonic, in their own (anti) colours without it, every
+       one lighting up while it sounds, a bead on the curve at its value. The radians marked 0, π/2, π, 3π/2. A live g(x)
+       button at its left reads "g(x) =": it is what raises the curve (and the valences) from the flat line. Level with
+       the rhythm clock's centre; a double click brings it up to fill the screen. Letters spelled from the mode: the
+       diatonic ones in order from the root's letter, an anti as the diatonic tone above it lowered (or below it raised,
+       where that would take a double flat). */
+    STRIP=(()=>{ const NSV='http://www.w3.org/2000/svg', VW=640, VH=250, X0=28, X1=VW-18, MID=104, AMP=74, LY=212, RY=240;
+      const A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); par.appendChild(e); return e; };
+      const box=document.createElement('div'); box.className='csmPlotBox';
+      const gxc=document.createElement('button'); gxc.type='button'; gxc.className='gx gxCopy'; gxc.title='g(x): the tonal field — what raises the curve'; gxc.innerHTML='g(x)';
+      gxc.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); gxc.addEventListener('dblclick',e=>e.stopPropagation());
+      const eq=document.createElement('span'); eq.className='csmEq'; eq.textContent='=';
+      const lead=document.createElement('div'); lead.className='csmLead'; lead.appendChild(gxc); lead.appendChild(eq); box.appendChild(lead);
+      const sv=document.createElementNS(NSV,'svg'); sv.setAttribute('viewBox','0 0 '+VW+' '+VH); sv.setAttribute('class','csmPlot'); sv.setAttribute('preserveAspectRatio','xMinYMid meet'); sv.setAttribute('aria-label','g(x) over the circle, with the twelve chromatic letters'); box.appendChild(sv);
+      document.querySelector('.wrap').appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'plot');
+      const xOf=k=>X0+(X1-X0)*k/12, yOf=g=>MID-AMP*g;
+      const gid='gp'+Math.random().toString(36).slice(2,6), defs=A('defs',{},sv), grad=A('linearGradient',{id:gid,gradientUnits:'userSpaceOnUse',x1:X0,y1:0,x2:X1,y2:0},defs);
+      const NST=48, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
+      // the frame: the hinge (g = 0), the reach (±1) faint, a tick at each seat, the radians under the letters
+      A('line',{x1:X0,y1:MID,x2:X1,y2:MID,class:'gpHinge'},sv); [1,-1].forEach(g=>A('line',{x1:X0,y1:yOf(g),x2:X1,y2:yOf(g),class:'gpReach'},sv));
+      for(let k=0;k<=12;k++) A('line',{x1:xOf(k),y1:MID-4,x2:xOf(k),y2:MID+4,class:'gpTick'},sv);
+      [['0',0],['π/2',3],['π',6],['3π/2',9],['2π',12]].forEach(([t,k])=>{ const e=A('text',{x:xOf(k),y:RY,class:'gpRad'},sv); e.textContent=t; });
+      const curve=A('path',{d:'',class:'gpCurve',stroke:'url(#'+gid+')'},sv), beadG=A('g',{},sv);
+      const cells=Array.from({length:13},(_,k)=>({k,t:A('text',{x:xOf(k),y:LY,class:'gpLet'},sv),b:A('circle',{cx:xOf(k),cy:MID,r:7,class:'gpBead',opacity:0},beadG),lv:0,flex:0,pc:null}));
+      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center }';
       document.head.appendChild(css);
       const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
       const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
@@ -4041,22 +4079,35 @@ function customTool(){
         for(let k=0;k<12;k++){ const pc=(r+k)%12; if(out[pc]) continue; const up=out[(pc+1)%12], dn=out[(pc+11)%12];
           out[pc]=up&&up[1]-1>=-1?[up[0],up[1]-1]:dn?[dn[0],dn[1]+1]:[up[0],up[1]-1]; }
         const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
-      let key='', fs=40;
-      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY; if(k===key) return; key=k; const nm=spell(L), dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
-        cells.forEach((c,i)=>{ const pc=(L.root+i)%12; c.pc=pc; c.dia=dia.has(pc); c.t.textContent=nm[pc]; c.lv=0; }); }
-      function place(sz,top,W){ const left=sz+28, w=Math.max(200,W-left), cw=w/13, h=Math.max(44,Math.min(84,cw*1.05)); fs=Math.min(h*0.62,cw*0.62);
-        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(top+sz*0.5-h-sz*0.12).toFixed(0)+'px';
-        cells.forEach(c=>{ c.t.style.fontSize=(fs*(c.t.textContent.length>1?0.82:1)).toFixed(1)+'px'; }); }
+      let key='', shapeKey='', dia=new Set();
+      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+PHI.doPc; if(k===key) return; key=k; const nm=spell(L); dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
+        cells.forEach(c=>{ c.pc=(PHI.doPc+2+c.k)%12; c.dia=dia.has(c.pc); c.t.textContent=nm[c.pc]; c.t.setAttribute('font-size',nm[c.pc].length>1?18:21); }); }
+      function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), h=Math.min(sz*0.62,w*0.36), cy=top+sz/2;
+        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(cy-h*MID/VH-h*0.0).toFixed(0)+'px'; }   // the curve's hinge level with the clock's centre
       let clock=0;
       (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
-        const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
-        cells.forEach(c=>{ if(soundNow.has(c.pc)) c.lv=1; else c.lv*=Math.exp(-dt/0.35);
+        const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5), gry=mixRGB(bg,ink,0.55);
+        // the curve, its height and colour with g(x)'s light (flat and grey without it); mid-morph, the field as the ring has it
+        const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+diatonic+'|'+bg.join();
+        if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fieldAt(k,false)).toFixed(2); } curve.setAttribute('d',d);
+          stops.forEach((s,i)=>{ const c=fieldRGB(12*i/NST,false); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); });
+          cells.forEach(c=>{ c.g=fieldAt(c.k,false); c.b.setAttribute('cy',yOf(L*c.g).toFixed(2)); }); }
+        cells.forEach(c=>{ if(c.pc===null) return; const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
           const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), base=c.dia?0.62:(diatonic?0.16:0.72), lit=c.dia||!diatonic?1:0.55;
           const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v);
-          c.t.style.color=rgbS(show); c.t.style.transform='scale('+(1+0.1*c.lv).toFixed(3)+')';
-          c.t.style.textShadow=c.lv>0.02?'0 0 '+(18*c.lv).toFixed(1)+'px '+rgbS(L>0.001?col:ink):''; });
+          c.t.style.fill=rgbS(show); c.t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')';
+          c.t.style.filter=c.lv>0.02?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+rgbS(L>0.001?col:ink)+')':'';
+          c.b.setAttribute('fill',rgbS(L>0.001?col:ink)); c.b.setAttribute('opacity',(c.lv*(c.dia||!diatonic?1:0.5)).toFixed(3)); c.b.setAttribute('r',(5+3*c.lv).toFixed(2)); });
+        gxc.setAttribute('aria-pressed',FIELD.on);
         requestAnimationFrame(frame); })(0);
       return {place}; })();
+    /* FULL SCREEN, the Ring or the curve: a live g(x) button and its equation over it */
+    { const head=document.createElement('div'); head.className='zoomGxHead'; const eqn=document.getElementById('eqn'), eqc=eqn?eqn.cloneNode(true):null;
+      if(eqc){ eqc.removeAttribute('id'); head.appendChild(eqc); }
+      const b=document.createElement('button'); b.type='button'; b.className='gx gxCopy'; b.textContent='g(x)'; b.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); b.addEventListener('dblclick',e=>e.stopPropagation()); head.appendChild(b);
+      const css=document.createElement('style'); css.textContent='.zoomGxHead{ position:fixed; top:14px; left:0; right:0; z-index:61; display:none; align-items:center; justify-content:center; gap:14px; pointer-events:none } .zoomGxHead > *{ pointer-events:auto } body.zoomed .zoomGxHead.show{ display:flex }'; document.head.appendChild(css);
+      document.body.appendChild(head);
+      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=k==='ring'||k==='plot'; head.classList.toggle('show',sh); if(document.body.classList.contains('zoomHead')!==sh){ document.body.classList.toggle('zoomHead',sh); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
@@ -4074,7 +4125,7 @@ function customTool(){
       const place=()=>{ if(!box.offsetParent) return;   // hidden (g(x) off): placed when it shows again
         if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
-        p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
+        p.y=fb.viewBox.baseVal.y; const pb=document.querySelector('.csmPlotBox'), pr=pb&&pb.parentNode===wrap?pb.getBoundingClientRect():null, ty=Math.max(p.matrixTransform(m).y,pr?pr.bottom+10*ZOOM:-1e9), rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));   // (below the curve, above the board)
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
         const bw=box.offsetWidth, hs=handSpan(); let left=0.5*W.width/ZOOM;
