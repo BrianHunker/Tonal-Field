@@ -205,7 +205,7 @@ function customTool(){
       if(nw.length>1) strumAt.add(F.t);
       nw.forEach((e,i)=>{ const off=i*spread;
         plan.push({string:e.s,fret:e.f,pitch:e.f,push:0,finger:e.f>0?(FG.fing[e.id]||0):0,frame:k,pick:true,glide:false,pre:false,kind:'pick',hi:false,
-          vel:Math.pow(0.96,i)*(up?0.75:1),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off});
+          vel:Math.pow(0.96,i)*(up?0.75:1),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off,ballRoot:nw.length>1&&chordAt(e.t)?chordAt(e.t).root:undefined});
         fig.push({s:e.t/TPQ+off}); }); });
     // where each tone's string is next struck: room to still it at its end, or not
     plan.forEach(p=>{ const later=plan.filter(q=>q.string===p.string&&q.t>p.t).map(q=>q.t), first=Math.min(...plan.filter(q=>q.string===p.string).map(q=>q.t));
@@ -875,7 +875,8 @@ function customTool(){
       { let drag=null; const seatW=()=>{ const m=sv.getScreenCTM(); return m?(X1-X0)/12*m.a:1; };
         const grab=letG.querySelector('.gpGrab');
         grab.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); if(T.on&&typeof ringStops==='function'&&ringStops()) stopAll(); drag={x:e.clientX,off:LET.off,was:PHI.doPc,id:e.pointerId}; try{ grab.setPointerCapture(e.pointerId); }catch(err){} });
-        grab.addEventListener('pointermove',e=>{ if(!drag) return; const want=drag.off+Math.round((e.clientX-drag.x)/seatW()), step=want-LET.off; if(!step) return;
+        grab.addEventListener('pointermove',e=>{ if(!drag) return; let da=Math.round((e.clientX-drag.x)/seatW()); if(RING.m>=0.5){ da=((7*da)%12+12)%12; if(da>6) da-=12; }
+          const want=drag.off+da, step=want-LET.off; if(!step) return;
           LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
         const end=()=>{ if(drag&&drag.was!==PHI.doPc) GHOST.doPc=drag.was; drag=null; };
         grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end); grab.addEventListener('dblclick',e=>e.stopPropagation()); }
@@ -885,17 +886,23 @@ function customTool(){
       (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
         const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5), gry=mixRGB(bg,ink,0.55);
         // the curve, its height and colour with g(x)'s light (flat and grey without it); mid-morph, the field as the ring has it
-        const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+diatonic+'|'+bg.join();
-        if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fieldAt(k,false)).toFixed(2); } curve.setAttribute('d',d);
-          stops.forEach((s,i)=>{ const c=fieldRGB(12*i/NST,false); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
-        const gA=s=>L*fieldAt(s,false);
+        // the order, as the Ring has it (1: chromatic, 5: the dominant chain, where g is the carrier's pure cosine), mid-change
+        // the two curves blended and the letters swapping places as the Ring's do
+        const w=RING.m, fv=s=>(1-w)*fieldAt(s,false)+w*fieldAt(s,true), fc=s=>w<=0?fieldRGB(s,false):w>=1?fieldRGB(s,true):mixRGB(fieldRGB(s,false),fieldRGB(s,true),w);
+        const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+FIELD.reC.toFixed(3)+'|'+w.toFixed(4)+'|'+diatonic+'|'+bg.join();
+        if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fv(k)).toFixed(2); } curve.setAttribute('d',d);
+          stops.forEach((s,i)=>{ const c=fc(12*i/NST); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
+        const gA=s=>L*fv(s), md=v=>((v%12)+12)%12, wrap=v=>{ v=md(v+6)-6; return v; };
         cells.forEach(c=>{ const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
-          const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), base=c.dia?0.62:(diatonic?0.16:0.72), lit=c.dia||!diatonic?1:0.55;
-          const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v), cs=rgbS(L>0.001?col:ink), vis=c.dia||!diatonic?1:0.5;
-          // its seat from Re as the Ring's letters stand now (eased as they turn): here and a turn along, so the seam shows both
-          const p=(((c.pc+LET.offA-FIELD.re)%12)+12)%12, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
+          // g(x) off, nothing is preferred: every letter at the same light, lit alike when it sounds
+          const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), b0=c.dia?0.62:(diatonic?0.16:0.72), l0=c.dia||!diatonic?1:0.55, base=0.62+(b0-0.62)*L, lit=1+(l0-1)*L;
+          const v=base+(lit-base)*c.lv, show=mixRGB(bg,col,v), cs=rgbS(col), vis=1+((c.dia||!diatonic?1:0.5)-1)*L;
+          // its seat from Re as the Ring's letters stand now (eased as they turn): in the chromatic order and on the chain; mid-
+          // change, a seat the two orders share (to within a seat's drift) glides, one they don't swaps at halfway, faded
+          const pa=md(c.pc+LET.offA-FIELD.re), pb=md(7*c.pc+LET.offC-FIELD.reC), sw=Math.abs(wrap(pb-pa))>3;
+          const p=w<=0?pa:w>=1?pb:sw?(w<0.5?pa:pb):md(pa+wrap(pb-pa)*w), fade=w>0&&w<1&&sw?Math.abs(1-2*w):1, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
           [p,p-12<-0.45?p+12:p-12].forEach((q,j)=>{ const t=c.ts[j], b=c.bs[j], edge=Math.max(0,Math.min(1,(q+0.45)/0.3,(12.45-q)/0.3));
-            t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=edge.toFixed(3); t.style.fill=rgbS(show);
+            t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=(edge*fade).toFixed(3); t.style.fill=rgbS(show);
             t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')'; t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
             b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
             const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(0.9*c.lv*vis).toFixed(3)); });
