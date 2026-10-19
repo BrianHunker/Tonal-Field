@@ -55,9 +55,10 @@ const ordMid=()=>RING.m>1e-4&&RING.m<1-1e-4;""")
         t=re.sub(r"const FIELD=\{on:true[^\n]*","const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA",t)
         t=re.sub(r"const tickOf=[^\n]*\n","",t); t=re.sub(r"const trio=[^\n]*\n","",t)
         t=must(t,"const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, a=SOLF_RGB[i], b=SOLF_RGB[(i+1)%12];",
-          "const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey\nconst relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12];")
+          "const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey\n// a tone's colour holds out to its quarter-tone marks either side, turning over to its neighbour's only in a narrow band there\nconst QT=f=>Math.max(0,Math.min(1,(f-0.5)/0.12+0.5));\nconst relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=QT(k-i), TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12];")
         t=must(t,"const valRGB=pc=>morphRGB(pc-FIELD.re,FIELD.u);","const valRGB=pc=>{ const a=relRGB(pc+LET.offA-FIELD.re); return FIELD.mx<0?a:mixRGB(relRGB(pc+LET.offA-FIELD.reA),a,FIELD.mx); };   // mid-morph: the two orientations' colours, blended")
     if (a,b)==(644,671):
+        t=must(t,"const chainRGB=x=>{ const i=Math.floor(x), f=x-i, a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };","const chainRGB=x=>{ const i=Math.floor(x), f=QT(x-i), a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };")
         i0=t.index('function shapeField(u){'); i1=t.index('\n}',i0)+2
         t=t[:i0]+open(os.path.join(D,'st_shape.js')).read()+t[i1:]
     if (a,b)==(672,688):

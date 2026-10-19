@@ -787,7 +787,9 @@ const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
 const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA
 const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey
-const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
+// a tone's colour holds out to its quarter-tone marks either side, turning over to its neighbour's only in a narrow band there
+const QT=f=>Math.max(0,Math.min(1,(f-0.5)/0.12+0.5));
+const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=QT(k-i), TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const morphRGB=(k,u)=>{ const fl=Math.floor(u), f=u-fl, a=relRGB(k+5*fl); return f<1e-6?a:mixRGB(a,relRGB(k+5*(fl+1)),f); };   // each tick, every place's colour steps one station
 const valRGB=pc=>{ const a=relRGB(pc+LET.offA-FIELD.re); return FIELD.mx<0?a:mixRGB(relRGB(pc+LET.offA-FIELD.reA),a,FIELD.mx); };   // mid-morph: the two orientations' colours, blended                       // the field's colour at a pitch (continuous: a glide passes through)
@@ -800,7 +802,7 @@ el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':
   for(let k=0;k<12;k++) valDots.push(el('circle',{r:2.4,class:'valDot'},valG));
 }
 // draw the curve for dial u (in Do:Re's frame, Re at 12; the group is turned to the drill)
-const chainRGB=x=>{ const i=Math.floor(x), f=x-i, a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };   // the field's colour round the chain (Re's seat 0)
+const chainRGB=x=>{ const i=Math.floor(x), f=QT(x-i), a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };   // the field's colour round the chain (Re's seat 0)
 /* THE MORPH: every point of the circle goes straight from its old value to its new one, all at the same rate; the colours
    blend the same way. A tritone (π) morph is the fold, g → −g, so half way through the circle lies flat. */
 const fieldW=(x,chain)=>chain?Math.cos(x*Math.PI/6):gOf(x*Math.PI/6);
@@ -4064,7 +4066,7 @@ function customTool(){
       document.querySelector('.wrap').appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'plot');
       const xOf=k=>X0+(X1-X0)*k/12, yOf=g=>MID-AMP*g;
       const gid='gp'+Math.random().toString(36).slice(2,6), defs=A('defs',{},sv), grad=A('linearGradient',{id:gid,gradientUnits:'userSpaceOnUse',x1:X0,y1:0,x2:X1,y2:0},defs);
-      const NST=48, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
+      const NST=480, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
       // the frame: the hinge (g = 0), the reach (±1) faint, a tick at each seat, the radians under the letters
       A('line',{x1:X0,y1:MID,x2:X1,y2:MID,class:'gpHinge'},sv); [1,-1].forEach(g=>A('line',{x1:X0,y1:yOf(g),x2:X1,y2:yOf(g),class:'gpReach'},sv));
       for(let k=0;k<=12;k++) A('line',{x1:xOf(k),y1:MID-4,x2:xOf(k),y2:MID+4,class:'gpTick'},sv);

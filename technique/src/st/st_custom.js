@@ -842,7 +842,7 @@ function customTool(){
       document.querySelector('.wrap').appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'plot');
       const xOf=k=>X0+(X1-X0)*k/12, yOf=g=>MID-AMP*g;
       const gid='gp'+Math.random().toString(36).slice(2,6), defs=A('defs',{},sv), grad=A('linearGradient',{id:gid,gradientUnits:'userSpaceOnUse',x1:X0,y1:0,x2:X1,y2:0},defs);
-      const NST=48, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
+      const NST=480, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
       // the frame: the hinge (g = 0), the reach (±1) faint, a tick at each seat, the radians under the letters
       A('line',{x1:X0,y1:MID,x2:X1,y2:MID,class:'gpHinge'},sv); [1,-1].forEach(g=>A('line',{x1:X0,y1:yOf(g),x2:X1,y2:yOf(g),class:'gpReach'},sv));
       for(let k=0;k<=12;k++) A('line',{x1:xOf(k),y1:MID-4,x2:xOf(k),y2:MID+4,class:'gpTick'},sv);
