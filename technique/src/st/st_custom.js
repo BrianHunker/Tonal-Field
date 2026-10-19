@@ -546,7 +546,7 @@ function customTool(){
     const dp=doAt(Math.min(tk,total()-1e-3)); if(dp!==null&&dp!==lastDo){ lastDo=dp; orient(dp); }
     curChord=M.ch.length?chordAt(tk):null;
     // what is sounding: lit on the board and in the TAB
-    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f));
+    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f)); soundNow=playing?new Set(snd.map(e=>pcOf(e.s,e.f))):new Set();
     if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
     // the mode's light, from the chord's root: where the root sounds lowest now, else lowest in the chord's span, else
     // the root nearest the hand
@@ -626,10 +626,11 @@ function customTool(){
     let px=0;
     const place=()=>{ if(box.parentNode!==host) return; const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
-      const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.max(120,rw||200), room=bot-top;
-      const nutL=(q.x-W.left)/ZOOM-sz/2;                                // always over the nut, wherever the hand is (over it, the clock on top)
-      const T=(sz<=room-16?top+8:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';   // just under the TAB (the board kept far enough down for the hand to pass beneath)
-      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T; box.style.left=Lf; };
+      const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.round(1.3*Math.max(120,rw||200)), room=bot-top;   // a third larger than the ring
+      // at the page's left edge, just under the TAB (the board kept far enough down for the hand to pass beneath it)
+      const T=(sz<=room-16?top+8:bot-sz-6);
+      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T.toFixed(0)+'px'; box.style.left='0px';
+      if(STRIP) STRIP.place(sz,T,W.width/ZOOM); };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
@@ -708,7 +709,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null, CONST=null; const BOARD_DROP=185;   // board units the fretboard sits lower on the E Shape, under the clock
+  let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set(); const BOARD_DROP=300;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -802,6 +803,39 @@ function customTool(){
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
+    /* THE MODE'S TWELVE: the chromatic letters from the mode's root up to its octave, each in its colour under the field —
+       the seven diatonic tones in theirs; the five antis greatly dimmed under Diatonic, in their own (anti) colours without
+       it — every one lighting up while it sounds. Spelled from the mode: the diatonic letters in order from the root's, an
+       anti as the diatonic tone above it, lowered (or the one below, raised, where that would take a double flat).
+       Beside the rhythm clock. g(x) off: in grey, lit white. */
+    STRIP=(()=>{ const box=document.createElement('div'); box.className='csmStrip'; box.setAttribute('aria-hidden','true');
+      const cells=Array.from({length:13},()=>{ const c=document.createElement('div'); c.className='csmCell'; const t=document.createElement('span'); c.appendChild(t); box.appendChild(c); return {c,t,lv:0,pc:null}; });
+      document.querySelector('.wrap').appendChild(box);
+      const css=document.createElement('style'); css.textContent='.csmStrip{ position:absolute; z-index:4; display:grid; grid-template-columns:repeat(13,1fr); border:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); pointer-events:none; -webkit-user-select:none; user-select:none } .csmCell{ display:grid; place-items:center; border-left:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); min-width:0 } .csmCell:first-child{ border-left:0 } .csmCell span{ font-family:var(--sans); font-weight:800; letter-spacing:-.02em; line-height:1; white-space:nowrap; transform-origin:center; will-change:transform }';
+      document.head.appendChild(css);
+      const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
+      const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
+      function spell(L){ const r=L.root, nm=pcName(r,walkDo()), l0=LET7.indexOf(nm[0]), scale=[...new Set(L.lower.map(n=>pcOf(n.str-1,n.f)))].sort((a,b)=>((a-r)%12+12)%12-((b-r)%12+12)%12), out={};
+        scale.forEach((pc,i)=>{ const Lt=LET7[(l0+i)%7]; out[pc]=[Lt,accOf(pc,Lt)]; });
+        for(let k=0;k<12;k++){ const pc=(r+k)%12; if(out[pc]) continue; const up=out[(pc+1)%12], dn=out[(pc+11)%12];
+          out[pc]=up&&up[1]-1>=-1?[up[0],up[1]-1]:dn?[dn[0],dn[1]+1]:[up[0],up[1]-1]; }
+        const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
+      let key='', fs=40;
+      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY; if(k===key) return; key=k; const nm=spell(L), dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
+        cells.forEach((c,i)=>{ const pc=(L.root+i)%12; c.pc=pc; c.dia=dia.has(pc); c.t.textContent=nm[pc]; c.lv=0; }); }
+      function place(sz,top,W){ const left=sz+28, w=Math.max(200,W-left), cw=w/13, h=Math.max(44,Math.min(84,cw*1.05)); fs=Math.min(h*0.62,cw*0.62);
+        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(top+sz*0.5-h-sz*0.12).toFixed(0)+'px';
+        cells.forEach(c=>{ c.t.style.fontSize=(fs*(c.t.textContent.length>1?0.82:1)).toFixed(1)+'px'; }); }
+      let clock=0;
+      (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
+        const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
+        cells.forEach(c=>{ if(soundNow.has(c.pc)) c.lv=1; else c.lv*=Math.exp(-dt/0.35);
+          const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), base=c.dia?0.62:(diatonic?0.16:0.72), lit=c.dia||!diatonic?1:0.55;
+          const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v);
+          c.t.style.color=rgbS(show); c.t.style.transform='scale('+(1+0.1*c.lv).toFixed(3)+')';
+          c.t.style.textShadow=c.lv>0.02?'0 0 '+(18*c.lv).toFixed(1)+'px '+rgbS(L>0.001?col:ink):''; });
+        requestAnimationFrame(frame); })(0);
+      return {place}; })();
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;

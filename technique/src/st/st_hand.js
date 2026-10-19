@@ -110,7 +110,7 @@ function makeHand(G){
   // nearer the high e may lie under the other's arch — with these of its bones (1 middle, 2 end): of the index and middle
   // fingers, either's end bone; of the ring and little fingers, the little finger's middle and end bones, never the ring
   // finger's; of the middle and ring fingers, none. pull: how firmly a tucking pair keeps to its wire
-  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:3},null,{segs:[new Set(),new Set([1,2])],pull:3}];
+  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:0.6},null,{segs:[new Set(),new Set([1,2])],pull:1.2}];
   // the pair's tucking finger (0 the first, 1 the second) and its bones, when it tucks: both pressing on one fret
   const tucker=k=>{ const T=TUCK[k], a=TG.f[k], b=TG.f[k+1]; if(!T||!(a.press&&a.cell&&b.press&&b.cell)||Math.abs(a.cell[1]-b.cell[1])>0.5||a.s===b.s) return null;
     const w=a.s<b.s?0:1; return T.segs[w].size?{who:w,segs:T.segs[w],pull:T.pull}:null; };
@@ -120,8 +120,8 @@ function makeHand(G){
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
   // BARPULL: beside a barre each pressing finger turns at its knuckle to bring its tip up to its wire (Brian, Oct 2026)
-  let BARPULL=3; const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
-  let TG=null, RINGW=1, RINGK=1, PULL=3, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
+  const BARPULL=1.1, ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
+  let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)
@@ -149,7 +149,7 @@ function makeHand(G){
       for(const ds of [-1,1]){ const s2=g.s+ds, st=!g.barre&&TG.ring&&s2>=0&&s2<G.nstr?TG.ring[s2]:null;
         for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
           if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
-          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW*RINGK); } } }
+          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW); } } }
     // A PRESSING FINGER'S ARCH stands straight over the line from its knuckle to its tip — the middle finger's leaning a
     // little toward the index (Brian's photo of the E-shape barre, Oct 2026): its middle joint's place across the palm
     { for(let k=0;k<4;k++){ const g=TG.f[k]; if(!g.press||g.barre){ put(0); continue; } const F=S.F[k], v=add(F.end,F.mcp,-1), L2=dot(v,v)||1, t=Math.max(0,Math.min(1,dot(add(F.pip,F.mcp,-1),v)/L2));
@@ -270,5 +270,5 @@ function makeHand(G){
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
         for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, setBarPull:v=>{BARPULL=v;}, setRingK:v=>{RINGK=v;}, setTuckPull:(i,v)=>{ if(TUCK[i]) TUCK[i].pull=v; }, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }

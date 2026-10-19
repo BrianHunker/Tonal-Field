@@ -537,7 +537,7 @@ FB.edge=990; const BRIDGE_X=FB.right+(FB.right-FB.nut), PICK_X=940;    // the 12
 const SCALE=2*FB.n*FB.cw, fretX=n=>FB.nut+SCALE*(1-Math.pow(2,-n/12));
 const cellL=n=>n===0?FB.x0:fretX(n-1);
 const cellR=n=>n===0?FB.nut:fretX(n);
-const tipX=n=>cellR(n)-Math.min(24,0.55*(cellR(n)-cellL(n)));   // fingertip just behind the fret wire
+const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
 const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };   // mid-slide, between two fretted cells
 const cellM=n=>(cellL(n)+cellR(n))/2;
 const fb=document.getElementById('fb');
@@ -2184,7 +2184,7 @@ function makeHand(G){
   // nearer the high e may lie under the other's arch — with these of its bones (1 middle, 2 end): of the index and middle
   // fingers, either's end bone; of the ring and little fingers, the little finger's middle and end bones, never the ring
   // finger's; of the middle and ring fingers, none. pull: how firmly a tucking pair keeps to its wire
-  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:3},null,{segs:[new Set(),new Set([1,2])],pull:3}];
+  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:0.6},null,{segs:[new Set(),new Set([1,2])],pull:1.2}];
   // the pair's tucking finger (0 the first, 1 the second) and its bones, when it tucks: both pressing on one fret
   const tucker=k=>{ const T=TUCK[k], a=TG.f[k], b=TG.f[k+1]; if(!T||!(a.press&&a.cell&&b.press&&b.cell)||Math.abs(a.cell[1]-b.cell[1])>0.5||a.s===b.s) return null;
     const w=a.s<b.s?0:1; return T.segs[w].size?{who:w,segs:T.segs[w],pull:T.pull}:null; };
@@ -2194,8 +2194,8 @@ function makeHand(G){
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
   // BARPULL: beside a barre each pressing finger turns at its knuckle to bring its tip up to its wire (Brian, Oct 2026)
-  let BARPULL=3; const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
-  let TG=null, RINGW=1, RINGK=1, PULL=3, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
+  const BARPULL=1.1, ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
+  let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)
@@ -2223,7 +2223,7 @@ function makeHand(G){
       for(const ds of [-1,1]){ const s2=g.s+ds, st=!g.barre&&TG.ring&&s2>=0&&s2<G.nstr?TG.ring[s2]:null;
         for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
           if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
-          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW*RINGK); } } }
+          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW); } } }
     // A PRESSING FINGER'S ARCH stands straight over the line from its knuckle to its tip — the middle finger's leaning a
     // little toward the index (Brian's photo of the E-shape barre, Oct 2026): its middle joint's place across the palm
     { for(let k=0;k<4;k++){ const g=TG.f[k]; if(!g.press||g.barre){ put(0); continue; } const F=S.F[k], v=add(F.end,F.mcp,-1), L2=dot(v,v)||1, t=Math.max(0,Math.min(1,dot(add(F.pip,F.mcp,-1),v)/L2));
@@ -2344,7 +2344,7 @@ function makeHand(G){
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
         for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, setBarPull:v=>{BARPULL=v;}, setRingK:v=>{RINGK=v;}, setTuckPull:(i,v)=>{ if(TUCK[i]) TUCK[i].pull=v; }, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }
 
 /* ---------- a student's drill book: pages of walks ----------
@@ -2959,8 +2959,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
       const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
-      // the dot's fret: the cell it lies in — the cell's length, and the wire at its far end
-      let nC=1; while(nC<FMAX&&F.x>=cellR(nC)) nC++; const wire=Xof(cellR(nC)), fg=wire-Xof(cellL(nC)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
+      // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
+      const XR=realX(F.x), fgR=(LMM-XR)*0.0561/(1-0.66*0.0561), wire=Xof(boardX(XR+0.34*fgR)), fg=wire-Xof(boardX(XR-0.66*fgR)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
       if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
       return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire],line:F.y+FR*PRESS_H}:{s,p:[X,Y,Z],press:false}; });   // line: the string it presses, on the board (where its dot is pressed flat)
     const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
@@ -2993,7 +2993,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       ease.t=Math.min(1,ease.t+(dt||0.016)/EASE); const u=ease.t*ease.t*(3-2*ease.t);
       for(let i=0;i<qs.length;i++) qd[i]=ease.t>=1?qs[i]:ease.from[i]+(qs[i]-ease.from[i])*u; }
     else { ease=null; const kq=Math.min(1,(dt||0.016)/0.04); for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq; }
-    const S=HM.poseAt(qd); window.__handS=S; window.__hm=HM;   // (for checking the hand's measure)
+    const S=HM.poseAt(qd); window.__handS=S;   // (for checking the hand's measure)
     if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); press[i]=Math.max(0,Math.min(1,(alpha[i]-0.38)/0.62)); press[i]*=press[i]*(3-2*press[i]); }
     // the fingers' bones, farthest first
@@ -3767,7 +3767,7 @@ function customTool(){
     const dp=doAt(Math.min(tk,total()-1e-3)); if(dp!==null&&dp!==lastDo){ lastDo=dp; orient(dp); }
     curChord=M.ch.length?chordAt(tk):null;
     // what is sounding: lit on the board and in the TAB
-    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f));
+    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f)); soundNow=playing?new Set(snd.map(e=>pcOf(e.s,e.f))):new Set();
     if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
     // the mode's light, from the chord's root: where the root sounds lowest now, else lowest in the chord's span, else
     // the root nearest the hand
@@ -3847,10 +3847,11 @@ function customTool(){
     let px=0;
     const place=()=>{ if(box.parentNode!==host) return; const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
-      const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.max(120,rw||200), room=bot-top;
-      const nutL=(q.x-W.left)/ZOOM-sz/2;                                // always over the nut, wherever the hand is (over it, the clock on top)
-      const T=(sz<=room-16?top+8:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';   // just under the TAB (the board kept far enough down for the hand to pass beneath)
-      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T; box.style.left=Lf; };
+      const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.round(1.3*Math.max(120,rw||200)), room=bot-top;   // a third larger than the ring
+      // at the page's left edge, just under the TAB (the board kept far enough down for the hand to pass beneath it)
+      const T=(sz<=room-16?top+8:bot-sz-6);
+      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T.toFixed(0)+'px'; box.style.left='0px';
+      if(STRIP) STRIP.place(sz,T,W.width/ZOOM); };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
@@ -3929,7 +3930,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null, CONST=null; const BOARD_DROP=185;   // board units the fretboard sits lower on the E Shape, under the clock
+  let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set(); const BOARD_DROP=300;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -4023,6 +4024,39 @@ function customTool(){
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
+    /* THE MODE'S TWELVE: the chromatic letters from the mode's root up to its octave, each in its colour under the field —
+       the seven diatonic tones in theirs; the five antis greatly dimmed under Diatonic, in their own (anti) colours without
+       it — every one lighting up while it sounds. Spelled from the mode: the diatonic letters in order from the root's, an
+       anti as the diatonic tone above it, lowered (or the one below, raised, where that would take a double flat).
+       Beside the rhythm clock. g(x) off: in grey, lit white. */
+    STRIP=(()=>{ const box=document.createElement('div'); box.className='csmStrip'; box.setAttribute('aria-hidden','true');
+      const cells=Array.from({length:13},()=>{ const c=document.createElement('div'); c.className='csmCell'; const t=document.createElement('span'); c.appendChild(t); box.appendChild(c); return {c,t,lv:0,pc:null}; });
+      document.querySelector('.wrap').appendChild(box);
+      const css=document.createElement('style'); css.textContent='.csmStrip{ position:absolute; z-index:4; display:grid; grid-template-columns:repeat(13,1fr); border:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); pointer-events:none; -webkit-user-select:none; user-select:none } .csmCell{ display:grid; place-items:center; border-left:1.5px solid color-mix(in srgb, var(--mid) 70%, transparent); min-width:0 } .csmCell:first-child{ border-left:0 } .csmCell span{ font-family:var(--sans); font-weight:800; letter-spacing:-.02em; line-height:1; white-space:nowrap; transform-origin:center; will-change:transform }';
+      document.head.appendChild(css);
+      const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
+      const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
+      function spell(L){ const r=L.root, nm=pcName(r,walkDo()), l0=LET7.indexOf(nm[0]), scale=[...new Set(L.lower.map(n=>pcOf(n.str-1,n.f)))].sort((a,b)=>((a-r)%12+12)%12-((b-r)%12+12)%12), out={};
+        scale.forEach((pc,i)=>{ const Lt=LET7[(l0+i)%7]; out[pc]=[Lt,accOf(pc,Lt)]; });
+        for(let k=0;k<12;k++){ const pc=(r+k)%12; if(out[pc]) continue; const up=out[(pc+1)%12], dn=out[(pc+11)%12];
+          out[pc]=up&&up[1]-1>=-1?[up[0],up[1]-1]:dn?[dn[0],dn[1]+1]:[up[0],up[1]-1]; }
+        const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
+      let key='', fs=40;
+      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY; if(k===key) return; key=k; const nm=spell(L), dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
+        cells.forEach((c,i)=>{ const pc=(L.root+i)%12; c.pc=pc; c.dia=dia.has(pc); c.t.textContent=nm[pc]; c.lv=0; }); }
+      function place(sz,top,W){ const left=sz+28, w=Math.max(200,W-left), cw=w/13, h=Math.max(44,Math.min(84,cw*1.05)); fs=Math.min(h*0.62,cw*0.62);
+        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(top+sz*0.5-h-sz*0.12).toFixed(0)+'px';
+        cells.forEach(c=>{ c.t.style.fontSize=(fs*(c.t.textContent.length>1?0.82:1)).toFixed(1)+'px'; }); }
+      let clock=0;
+      (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
+        const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
+        cells.forEach(c=>{ if(soundNow.has(c.pc)) c.lv=1; else c.lv*=Math.exp(-dt/0.35);
+          const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), base=c.dia?0.62:(diatonic?0.16:0.72), lit=c.dia||!diatonic?1:0.55;
+          const v=base+(lit-base)*c.lv, show=mixRGB(bg,L>0.001?col:(c.dia?ink:mid),v);
+          c.t.style.color=rgbS(show); c.t.style.transform='scale('+(1+0.1*c.lv).toFixed(3)+')';
+          c.t.style.textShadow=c.lv>0.02?'0 0 '+(18*c.lv).toFixed(1)+'px '+rgbS(L>0.001?col:ink):''; });
+        requestAnimationFrame(frame); })(0);
+      return {place}; })();
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;

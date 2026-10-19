@@ -9,9 +9,6 @@ def block(a,b):
     if (a,b)==(378,394):
         t=must(t,"const cellL=n=>n===0?FB.x0:FB.nut+(n-1)*FB.cw;","// real fret spacing: the 12th fret is the octave, half the string; each fret a semitone shorter than the last\nconst SCALE=2*FB.n*FB.cw, fretX=n=>FB.nut+SCALE*(1-Math.pow(2,-n/12));\nconst cellL=n=>n===0?FB.x0:fretX(n-1);")
         t=must(t,"const cellR=n=>n===0?FB.nut:FB.nut+n*FB.cw;","const cellR=n=>n===0?FB.nut:fretX(n);")
-        # the tone comes from where the fret stops the string: a fingertip's mark sits just behind its wire — a finger dot's
-        # edge about 10 board units off it (half the cell at most, where the frets crowd together) — not in the cell's middle
-        t=must(t,"const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire","const tipX=n=>cellR(n)-Math.min(24,0.55*(cellR(n)-cellL(n)));   // fingertip just behind the fret wire")
         t=must(t,"const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*FB.cw; };","const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };")
         t=must(t,"el('line',{x1:FB.nut+k*FB.cw,y1:FB.top,x2:FB.nut+k*FB.cw,y2:FB.bot,","el('line',{x1:fretX(k),y1:FB.top,x2:fretX(k),y2:FB.bot,")
     if (a,b)==(428,469):
