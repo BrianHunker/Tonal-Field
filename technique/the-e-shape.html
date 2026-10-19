@@ -2046,10 +2046,10 @@ segHand.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)
 syncHand();
 // g(x): off by default, so the field is a choice made against the world without it (remembered on this device)
 const gxBtn=$('gx'), eqn=$('eqn');
-FIELD.on=true; try{ FIELD.on=localStorage.getItem('walk-gx')!=='off'; }catch(err){}   // g(x) on for the drill book
+FIELD.on=false; try{ FIELD.on=localStorage.getItem('eshape-gx')==='on'; }catch(err){}   // g(x) off until the visitor turns it on
 function syncGx(){ gxBtn.setAttribute('aria-pressed',FIELD.on); eqn.classList.toggle('on',FIELD.on); listenEl.hidden=!FIELD.on; document.body.classList.toggle('gxOn',FIELD.on); }
 gxBtn.addEventListener('click',()=>{ FIELD.on=!FIELD.on;   // colour only: playback carries on
-  try{ localStorage.setItem('walk-gx',FIELD.on?'on':'off'); }catch(err){} syncGx();
+  try{ localStorage.setItem('eshape-gx',FIELD.on?'on':'off'); }catch(err){} syncGx();
   const keep=DRILL; SAMPLES=sampling(); if(keep){ const i=SAMPLES.findIndex(x=>x.r.lo.s===keep.lo.s&&x.r.lo.f===keep.lo.f&&x.r.hi.s===keep.hi.s&&x.r.hi.f===keep.hi.f); if(i>=0) SI=i; } else if(!T.on){ P=[]; settle(); } refresh(); });
 try{ if(localStorage.getItem('structures-ring')==='chain'){ RING.goal=RING.m=RING.t=1; } }catch(err){}
 const segStrobe=document.getElementById('segStrobe');
@@ -4013,7 +4013,7 @@ function customTool(){
        letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
        two). The letters fade in as the field fades out. */
     document.body.classList.add('csmPage'); boardLetters=true;
-    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
+    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxGlint{ 0%,86%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 93%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 16px -2px var(--gxg) } } body.csmPage:not(.gxOn) #gx{ animation:gxGlint 15s ease-in-out infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx{ animation:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
@@ -4031,7 +4031,8 @@ function customTool(){
     // flow above the fretboard)
     const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
-      const place=()=>{ if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
+      const place=()=>{ if(!box.offsetParent) return;   // hidden (g(x) off): placed when it shows again
+        if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
         p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
@@ -4042,7 +4043,8 @@ function customTool(){
           const lo=(cb&&cb.left<hl?cb.right:W.left)+12, hi=(cb&&cb.left>hr?cb.left:W.right)-12, roomR=hi-hr, roomL=hl-lo, mid=W.left+0.5*W.width;
           const x=roomR>=roomL?Math.max(hr+12,Math.min(hi-B,mid)):Math.max(lo,Math.min(hl-12-B,mid)); left=(x-OP.left)/ZOOM; }
         box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
-      afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); }
+      afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600);
+      let gxWas=document.body.classList.contains('gxOn'); new MutationObserver(()=>{ const on=document.body.classList.contains('gxOn'); if(on===gxWas) return; gxWas=on; if(on){ place(); requestAnimationFrame(place); setTimeout(place,120); } }).observe(document.body,{attributes:true,attributeFilter:['class']}); }
     /* THE ROOT CONSTELLATION: the E shape's root and its octaves — on the low E, the high e (the same fret) and the D string
        (two frets on) — three rings sliding along the board together, in the colour of the root's valence. Grab any of them
        and the constellation drags smoothly to any of the twelve places; let go and it settles onto the nearest fret, the
@@ -4050,8 +4052,10 @@ function customTool(){
        would), its root at 12 o'clock; an anti's root goes to 12 o'clock too, its shape and frames its tritone partner's. */
     CONST=(()=>{ const NSV='http://www.w3.org/2000/svg', g=document.createElementNS(NSV,'g'); g.setAttribute('class','csmRoots');
       const PTS=[[LOWE,0],[0,0],[Math.max(0,NSTR-3),2]];                   // [string, frets above the root]: low E, high e, D
-      const dots=PTS.map(([s,o])=>{ const c=document.createElementNS(NSV,'circle'); c.setAttribute('r','10'); c.setAttribute('cy',FB.strY[s]); g.appendChild(c); return {s,o,c}; });
-      const css=document.createElement('style'); css.textContent='.csmRoots circle{ fill-opacity:.16; stroke-width:3; cursor:grab; pointer-events:all; touch-action:none } .csmRoots.drag circle{ cursor:grabbing } body.csmDrag, body.csmDrag *{ cursor:grabbing !important; -webkit-user-select:none; user-select:none }';
+      const hits=document.createElementNS(NSV,'g'); hits.setAttribute('class','csmRootHits');
+      const dots=PTS.map(([s,o])=>{ const c=document.createElementNS(NSV,'circle'); c.setAttribute('r','10'); c.setAttribute('cy',FB.strY[s]); g.appendChild(c);
+        const h=document.createElementNS(NSV,'circle'); h.setAttribute('r','12'); h.setAttribute('cy',FB.strY[s]); hits.appendChild(h); return {s,o,c,h}; });
+      const css=document.createElement('style'); css.textContent='.csmRoots circle{ fill-opacity:.16; stroke-width:3; pointer-events:none } .csmRootHits circle{ fill:transparent; stroke:none; cursor:grab; pointer-events:all; touch-action:none } .csmRootHits.drag circle{ cursor:grabbing } body.csmDrag, body.csmDrag *{ cursor:grabbing !important; -webkit-user-select:none; user-select:none }';
       document.head.appendChild(css);
       const UMAX=11;                                                       // the root's twelve places along the low E: open to the 11th
       // a fret position (fractional) to the board, where a fingertip stops it — just behind its fret wire — and back
@@ -4062,9 +4066,11 @@ function customTool(){
       const target=()=>curL().rf;
       function paint(){ const L=FIELD.lit, ink=inkColour(), pc=drag?pcOf(LOWE,Math.round(u)):curL().root, col=L>0.001?mixRGB(ink,valRGB(pc),L):ink, k=rgbS(col);
         if(k!==colKey){ colKey=k; dots.forEach(d=>{ d.c.setAttribute('stroke',k); d.c.setAttribute('fill',k); }); }
-        dots.forEach(d=>d.c.setAttribute('cx',xAt(u+d.o).toFixed(2))); }
+        dots.forEach(d=>{ const x=xAt(u+d.o).toFixed(2); d.c.setAttribute('cx',x); d.h.setAttribute('cx',x); }); }
       function frame(now){ const dt=Math.min(0.1,lastT?(now-lastT)/1000:0.016); lastT=now;
-        if(g.parentNode!==fb||g!==fb.lastChild) fb.appendChild(g);       // over the hand and everything else on the board
+        // the rings under the fingers (just beneath the hand's front layer); their grips over everything
+        const front=fb.querySelectorAll('.hlHand')[1]||null; if(front&&g.nextSibling!==front) fb.insertBefore(g,front); else if(!front&&g.parentNode!==fb) fb.appendChild(g);
+        if(hits!==fb.lastChild) fb.appendChild(hits);
         if(u===null) u=target();
         if(snap){ const k=Math.min(1,(now-snap.t0)/snap.ms), e=k*k*(3-2*k); u=snap.a+(snap.b-snap.a)*e; if(k>=1){ u=snap.b; const f=snap.b; snap=null; land(f); } }
         else if(!drag){ const tg=target(); u+=(tg-u)*(1-Math.exp(-dt/0.12)); if(Math.abs(tg-u)<1e-3) u=tg; }
@@ -4073,17 +4079,16 @@ function customTool(){
       function land(f){ const rel=((pcOf(LOWE,f)-KEY)%12+12)%12, i=MAJ.indexOf(rel), mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)], anti=i<0;
         if(mode===OPT.mode&&anti===OPT.anti) return;
         OPT.mode=mode; OPT.anti=anti; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }
-      g.addEventListener('pointerdown',e=>{ const x=svgX(e); if(x===null) return; e.preventDefault(); e.stopPropagation();
-        const c=e.target.closest('circle'), d=dots.find(q=>q.c===c)||dots[0]; snap=null;
-        drag={id:e.pointerId,off:vAt(x)-(u+d.o)}; g.classList.add('drag'); document.body.classList.add('csmDrag'); try{ g.setPointerCapture(e.pointerId); }catch(err){} });
-      g.addEventListener('pointermove',e=>{ if(!drag) return; const x=svgX(e); if(x===null) return; const d=dots.find(q=>q.c===e.target)||null;
-        u=Math.max(0,Math.min(UMAX,vAt(x)-drag.off-(d?0:0))); });
-      const end=e=>{ if(!drag) return; drag=null; g.classList.remove('drag'); document.body.classList.remove('csmDrag'); try{ g.releasePointerCapture(e.pointerId); }catch(err){}
+      hits.addEventListener('pointerdown',e=>{ const x=svgX(e); if(x===null) return; e.preventDefault(); e.stopPropagation();
+        const c=e.target.closest('circle'), d=dots.find(q=>q.h===c)||dots[0]; snap=null;
+        drag={id:e.pointerId,off:vAt(x)-(u+d.o)}; hits.classList.add('drag'); document.body.classList.add('csmDrag'); try{ hits.setPointerCapture(e.pointerId); }catch(err){} });
+      hits.addEventListener('pointermove',e=>{ if(!drag) return; const x=svgX(e); if(x===null) return; u=Math.max(0,Math.min(UMAX,vAt(x)-drag.off)); });
+      const end=e=>{ if(!drag) return; drag=null; hits.classList.remove('drag'); document.body.classList.remove('csmDrag'); try{ hits.releasePointerCapture(e.pointerId); }catch(err){}
         const b=Math.max(0,Math.min(UMAX,Math.round(u))); snap={a:u,b,t0:performance.now(),ms:110+140*Math.abs(b-u)}; };
-      g.addEventListener('pointerup',end); g.addEventListener('pointercancel',end);
-      g.addEventListener('click',e=>e.stopPropagation());
+      hits.addEventListener('pointerup',end); hits.addEventListener('pointercancel',end);
+      hits.addEventListener('click',e=>e.stopPropagation());
       let mounted=false;
-      return {mount(){ if(mounted) return; mounted=true; fb.appendChild(g); requestAnimationFrame(frame); }}; })();
+      return {mount(){ if(mounted) return; mounted=true; fb.appendChild(g); fb.appendChild(hits); requestAnimationFrame(frame); }}; })();
   }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
