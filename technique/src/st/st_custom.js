@@ -831,7 +831,7 @@ function customTool(){
        the rhythm clock's centre; a double click brings it up to fill the screen. Letters spelled from the mode: the
        diatonic ones in order from the root's letter, an anti as the diatonic tone above it lowered (or below it raised,
        where that would take a double flat). */
-    STRIP=(()=>{ const NSV='http://www.w3.org/2000/svg', VW=640, VH=250, X0=28, X1=VW-18, MID=104, AMP=74, LY=212, RY=240;
+    STRIP=(()=>{ const NSV='http://www.w3.org/2000/svg', VW=640, VH=232, X0=28, X1=VW-18, MID=104, AMP=74, LY=212, RY=MID+19;   // (the radians just under their ticks on the hinge)
       const A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); par.appendChild(e); return e; };
       const box=document.createElement('div'); box.className='csmPlotBox';
       const gxc=document.createElement('button'); gxc.type='button'; gxc.className='gx gxCopy'; gxc.title='g(x): the tonal field — what raises the curve'; gxc.innerHTML='g(x)';
@@ -894,8 +894,11 @@ function customTool(){
             PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; DRAGF=null; dragFEnd=performance.now(); fieldMoved(); }
           if(fd&&fd.was!==PHI.doPc) GHOST.doPc=fd.was; fd=null; };
         fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
-      function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), h=Math.min(sz*0.62,w*0.36), cy=top+sz/2;
-        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=(cy-h*MID/VH-h*0.0).toFixed(0)+'px'; }   // the curve's hinge level with the clock's centre
+      // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
+      // hinge stays at the clock's centre unless that would lift it into the TAB
+      function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(top-4,cy-h*MID/VH);
+        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=t.toFixed(0)+'px';
+        lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; }
       let clock=0;
       (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
         const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5), gry=mixRGB(bg,ink,0.55);
