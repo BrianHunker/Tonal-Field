@@ -77,7 +77,8 @@ function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg}, was
   if(phiReady&&was!==PHI.doPc){ let d=((PHI.doPc-was)%12+12)%12; if(d>6) d-=12; GHOST.doPc=was;
     if(Math.abs(d)>1&&!reduce&&FIELD.lit>0.001) MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC}; else MORPH=null; }
   phiReady=true;
-  let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
+  // (pg.topPc: a pitch class itself at 12 o'clock — an anti as readily as a diatonic tone)
+  let off=-((pg.topPc!==undefined?pg.topPc:PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
   pagePhi(pg); RING.goal=0;                          // stopped: the order of the page's first half
@@ -284,10 +285,11 @@ const ROLL=BOOK.roll?(()=>{
   const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, N=FR.length, colOf=(F,i)=>F[1]?F[1][i]:1+(SEMI[F[0][i]]-SEMI[F[0][0]]+12)%12;
   const box=document.createElement('div'); box.className='roll'; const inner=document.createElement('div'); inner.className='rollIn'; box.appendChild(inner);
   frameLbl.replaceWith(box); box.id='frameLbl';
-  const rows=[]; let R=N+Math.floor(N/2), built='';                        // R: the row in the middle (the frames, three times over)
-  const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
+  const rows=[]; let R=N+Math.floor(N/2), built='', XF=null, xfKey='';      // R: the row in the middle (the frames, three times over)
+  // XF: the names the frames are shown by (a name → [shown name, semitones above Do]) — the frames' own names when null
+  const build=()=>{ const key=FIELD.on+'|'+diatonic+'|'+xfKey; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
     for(let r=0;r<3*N;r++){ const k=N-1-(r%N), F=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=F[0].map((n,i)=>'<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
+      d.innerHTML=F[0].map((n,i)=>{ const [nm,sm]=XF?XF(n):[n,SEMI[n]]; return '<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(sm-2)):'')+'">'+nm+'</span>'; }).join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
@@ -295,7 +297,7 @@ const ROLL=BOOK.roll?(()=>{
   build(); show(false);
   // a frame's columns set afresh (where the walk plays it): true if they changed
   const cols=(k,c)=>{ const was=FR[k][1]; if(was&&c&&was.join()===c.join()) return false; FR[k]=[FR[k][0],c]; built=''; return true; };
-  return {cols, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  return {cols, names(f,key){ if(key===xfKey) return; XF=f; xfKey=key||''; built=''; build(); show(false); }, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
