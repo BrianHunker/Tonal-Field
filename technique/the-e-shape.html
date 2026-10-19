@@ -3772,7 +3772,7 @@ function customTool(){
     ensureCtx().then(()=>{
       if(T.on) stopAll();
       T.beat=60/drill.bpm; setPulse(); compile(); useC(); if(!DRILL) return;
-      PEEK=null; const s=segment(); placeSeg(s,ctx.currentTime+0.1);
+      PEEK=null; for(const k in PASS_STRS) delete PASS_STRS[k]; const s=segment(); placeSeg(s,ctx.currentTime+0.1);
       T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-s.count/PULSE.u; T.live=[]; T.shown=null; T.on=true;
       tick(); T.timer=setInterval(tick,25);
       playBtn.textContent='Stop'; playBtn.classList.add('on'); placeCursor(); }); }
@@ -3826,7 +3826,7 @@ function customTool(){
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
     paintChords(curChord);
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
-    if(CLOCK) CLOCK.step(tk,playing); }
+    if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count); }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
   // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
@@ -3910,11 +3910,11 @@ function customTool(){
         if(lbls[i]){ lbls[i].e.classList.remove('ckIdle'); lbls[i].pc=pc; lbls[i].dur=Math.max(...g.map(e=>e.d))/TPQ*60/drill.bpm; } });
       neck.setAttribute('points',dots.length>1?dots.map(d=>at(d.i,R).map(v=>v.toFixed(1)).join(',')).join(' '):''); }
     const TRAIL=1.1, FLOOR=0.06, REST=0.42;                              // the trail's fade (s), what a full turn leaves, stopped
-    return {place, step(tk,playing){ const B=barT(M.meter), TT=total(), NB=Math.max(1,Math.round(TT/B)), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
+    return {place, step(tk,playing,counting){ const B=barT(M.meter), TT=total(), NB=Math.max(1,Math.round(TT/B)), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
         const tw=((tk%TT)+TT)%TT, b=Math.floor(tw/B), key=b+'|'+M.ev.length+'|'+(M.ev[0]&&M.ev[0].id); if(b!==barShown||key!==shownKey){ shownKey=key; build(b); }
         const ph=(tw-b*B)/B, six=Math.floor(ph*16+1e-6), L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
         const a=ph*2*Math.PI; hand.setAttribute('x2',(C+(R-14)*Math.sin(a)).toFixed(1)); hand.setAttribute('y2',(C-(R-14)*Math.cos(a)).toFixed(1));
-        if(playing&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null){ lbls[six].lv=1; lbls[six].fx=1; } } lastSix=playing?six:-1;
+        if(playing&&!counting&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null){ lbls[six].lv=1; lbls[six].fx=1; } } lastSix=playing&&!counting?six:-1;
         const colOf=pc=>L>0.001?mixRGB(ink,valRGB(pc),L):ink, k6=Math.exp(-dt/0.35);
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
           d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
