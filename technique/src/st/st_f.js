@@ -167,7 +167,8 @@ function fingerDown(f,t){
 }
 const BEND_PX=16;
 /*@COPY:1136-1138*/
-let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
+let frameHook=null, paintOnly=null, boardLetters=false;   // boardLetters: g(x) off, the board carries its letters instead of grey paint
+// paintOnly: a page may paint only some strings
                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
@@ -243,6 +244,10 @@ const CONE=(()=>{
   const free=[]; const take=()=>free.pop()||make(), drop=k=>{ k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); free.push(k); };
   let cur=null, curKey=null, curT=0; const gone=[];
   const modes=[make(),make()]; let mi=0, modeKey=null;
+  // g(x) off: the letter a grey spotlight lands on is shown in black over it (a copy of the letter, faded in with the light)
+  const inkL=el('g',{'pointer-events':'none'}), inks=rLbls.map(g=>{ const c=g.cloneNode(true); c.removeAttribute('class'); for(const t of c.children){ t.removeAttribute('class'); t.setAttribute('class','rl'); t.style.fill='#000'; t.style.fontWeight='700'; } c.setAttribute('opacity',0); inkL.appendChild(c); return c; });
+  ringSvg.appendChild(inkL); const litAt=new Array(12).fill(0);
+  const mark=(k,spotGain)=>{ if(k.pc===null) return; const pc=((Math.round(k.pc)%12)+12)%12; litAt[pc]=Math.max(litAt[pc],spotGain*k.o); };
   let clock=0;
   function step(live,pcF,amp,key,chord,modePc){
     const now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
@@ -255,7 +260,9 @@ const CONE=(()=>{
     if(cur) draw(cur,0.62,0.95);
     // the mode
     if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
-    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); }); }
+    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); });
+    litAt.fill(0); gone.forEach(k=>mark(k,0.95)); if(cur) mark(cur,0.95); modes.forEach(k=>mark(k,0.7));
+    const off=1-FIELD.lit; inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',(off*Math.min(1,litAt[pc]/0.55)).toFixed(3)); }); }
   return {step, get mode(){ return modeKey!==null; }};
 })();
 hand.style.display='none';                                              // the cone takes the pointer's place
@@ -363,7 +370,7 @@ function paintBoard(H,shift,dt){
     c.lv=1;                                                           // the whole board at the lit level
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
     if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
-    else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
+    else if(c.lv>0.003&&!boardLetters){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
     const g=L>0.001&&INST.has(i)?L*0.55:0;
     if(g){ c.glow.setAttribute('stroke',rgbS(valRGB(pc))); }

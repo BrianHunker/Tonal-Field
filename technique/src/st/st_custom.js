@@ -785,8 +785,17 @@ function customTool(){
     function paintModes(){ const key=FIELD.on+'|'+FIELD.lit.toFixed(2)+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY; if(key===paintKey) return; paintKey=key;
       const ink=inkColour(), bg=bgColour(), L=FIELD.on?FIELD.lit:0;
       segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), semi=MODE7.find(x=>x[0]===md)[1], c=mixRGB(ink,relRGB((semi+10)%12),L), on=md===OPT.mode&&!OPT.anti;
-        b.style.color=on?rgbS(L>0.5?bg:ink):rgbS(c); b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
+        b.title=L>0.001?modeName(md,KEY):pcName(layout(KEY,md).root,KEY);
+        b.style.color=L>0.001?(on?rgbS(L>0.5?bg:ink):rgbS(c)):''; b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
     relabel(); segs[0].classList.add('cuModes'); modePaint=paintModes;
+    /* G(X) OFF: no solfège anywhere on the page — no drum, no syllables in the TAB or on the chord, the mode bank by its
+       letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
+       two). The letters fade in as the field fades out. */
+    document.body.classList.add('csmPage'); boardLetters=true;
+    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
+    const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
+    for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
+    (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
