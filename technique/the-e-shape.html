@@ -1021,7 +1021,7 @@ function layoutTab(bars){
   for(let b=0;b<4*bars;b++){ const xb=TB.x0+TB.cw/2+b*2*TB.cw; el('line',{x1:xb-5,y1:TB.floor+1.5,x2:xb+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 }
 function followHead(x){ if(!tabPanel.classList.contains('wide')) return;
-  const k=tab.clientWidth/(TB.s1+14), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
+  const k=tab.clientWidth/((tab.viewBox&&tab.viewBox.baseVal&&tab.viewBox.baseVal.width)||(TB.s1+14)), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
   tabPanel.scrollLeft+=Math.abs(d)>0.4*tabPanel.clientWidth?d*0.16:d; }   // at the repeat it sweeps back to the start rather than jumping
 layoutTab(2);
 // the blooms (g(x) on): each TAB number has its own, centred on it, in its own field colour — lit while its tone sounds, as
@@ -3893,7 +3893,7 @@ function customTool(){
       ons.forEach(t=>{ const i=Math.round((t-b0)/D), g=M.ev.filter(e=>e.t===t), up=!!(GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6)||{}).up, big=g.length>1, [x,y]=at(i,R);
         const pc=big?((chordAt(t)||{}).root):pcOf(g[0].s,g[0].f), r=big?(up?6.5:8.5):6, gg=A('g',{class:'ckdot'},dotsG);
         A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.6:0},gg); dots.push({i,t,pc,g:gg,lv:0});
-        if(lbls[i]) lbls[i].pc=pc; });
+        if(lbls[i]){ lbls[i].pc=pc; lbls[i].dur=Math.max(...g.map(e=>e.d))/TPQ*60/drill.bpm; } });
       neck.setAttribute('points',dots.length>1?dots.map(d=>at(d.i,R).map(v=>v.toFixed(1)).join(',')).join(' '):''); }
     const TRAIL=1.1, FLOOR=0.06, REST=0.42;                              // the trail's fade (s), what a full turn leaves, stopped
     return {place, step(tk,playing){ const B=barT(M.meter), TT=total(), NB=Math.max(1,Math.round(TT/B)), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
@@ -3904,7 +3904,8 @@ function customTool(){
         const colOf=pc=>L>0.001?mixRGB(ink,valRGB(pc),L):ink, k6=Math.exp(-dt/0.35);
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
           d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
-        lbls.forEach(l=>{ l.fx=(l.fx||0)*Math.exp(-dt/0.18); l.e.style.transform=l.fx>0.005?'scale('+(1+0.7*l.fx).toFixed(3)+')':''; l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
+        lbls.forEach(l=>{ l.fx=(l.fx||0)*Math.exp(-dt/Math.max(0.1,0.4*(l.dur||0.4)));   // (a half note stays flexed longer than an eighth)
+           l.e.style.transform=l.fx>0.005?'scale('+(1+0.7*l.fx).toFixed(3)+')':''; l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
         // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
         { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
@@ -4119,7 +4120,7 @@ function customTool(){
             t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=edge.toFixed(3); t.style.fill=rgbS(show);
             t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')'; t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
             b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
-            const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(axis?0.9*c.lv*vis:0).toFixed(3)); });
+            const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(0.9*c.lv*vis).toFixed(3)); });
           // its lobe, filled while it sounds: from the zero crossing before it to the one after, faded to clear at the hinge
           if(c.lv>0.01&&!axis){ const sg=Math.sign(g); let a=p, z=p; for(let n=0;n<80&&Math.sign(gA(a-0.05))===sg;n++) a-=0.05; for(let n=0;n<80&&Math.sign(gA(z+0.05))===sg;n++) z+=0.05;
             let d=''; [0,12,-12].forEach(o=>{ if(z+o<-0.5||a+o>12.5) return; d+='M'+xOf(a+o).toFixed(1)+' '+MID; for(let s=a;s<=z+1e-6;s+=0.05) d+=' L'+xOf(s+o).toFixed(1)+' '+yOf(gA(s)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+MID+' Z'; });

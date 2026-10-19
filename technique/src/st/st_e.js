@@ -15,7 +15,7 @@ function layoutTab(bars){
   for(let b=0;b<4*bars;b++){ const xb=TB.x0+TB.cw/2+b*2*TB.cw; el('line',{x1:xb-5,y1:TB.floor+1.5,x2:xb+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 }
 function followHead(x){ if(!tabPanel.classList.contains('wide')) return;
-  const k=tab.clientWidth/(TB.s1+14), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
+  const k=tab.clientWidth/((tab.viewBox&&tab.viewBox.baseVal&&tab.viewBox.baseVal.width)||(TB.s1+14)), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
   tabPanel.scrollLeft+=Math.abs(d)>0.4*tabPanel.clientWidth?d*0.16:d; }   // at the repeat it sweeps back to the start rather than jumping
 layoutTab(2);
 /*@COPY:755-793*/
