@@ -647,9 +647,10 @@ function customTool(){
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
       const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.round(1.3*Math.max(120,rw||200)), room=bot-top;   // a third larger than the ring
       // at the page's left edge, just under the TAB (the board kept far enough down for the hand to pass beneath it)
-      const T=(sz<=room-16?top+8:bot-sz-6);
+      // up under the TAB itself (the Ring and its buttons are to the right), so the open-position hand passes below it
+      const tb=tabPanel.getBoundingClientRect(), tabBot=(tb.bottom-W.top)/ZOOM, T=Math.min(sz<=room-16?top+8:bot-sz-6,tabBot+10);
       box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T.toFixed(0)+'px'; box.style.left='0px';
-      if(STRIP) STRIP.place(sz,T,W.width/ZOOM); };
+      if(STRIP) STRIP.place(sz,T,W.width/ZOOM,top); };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
@@ -896,7 +897,7 @@ function customTool(){
         fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
       // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
       // hinge stays at the clock's centre unless that would lift it into the TAB
-      function place(sz,top,W){ const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(top-4,cy-h*MID/VH);
+      function place(sz,top,W,stageBot){ const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(stageBot+4,cy-h*MID/VH);   // (clear of the Ring's buttons above it)
         box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=t.toFixed(0)+'px';
         lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; }
       let clock=0;
