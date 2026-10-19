@@ -1017,13 +1017,28 @@ function customTool(){
         p.y=fb.viewBox.baseVal.y; const pb=document.querySelector('.csmPlotBox'), pr=pb&&pb.parentNode===wrap?pb.getBoundingClientRect():null, ty=Math.max(p.matrixTransform(m).y,pr?pr.bottom+10*ZOOM:-1e9), rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));   // (below the curve, above the board)
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
-        const bw=box.offsetWidth, hs=handSpan(); let left=0.5*W.width/ZOOM;
-        if(hs){ const OP=(box.offsetParent||wrap).getBoundingClientRect(), hl=toScreenX(hs[0]), hr=toScreenX(hs[1]), ck=document.querySelector('.cuClock'), cb=ck?ck.getBoundingClientRect():null, B=bw*ZOOM;
-          // (screen px) between the hand and the clock, or the clock and the page's edge
-          const lo=(cb&&cb.left<hl?cb.right:W.left)+12, hi=(cb&&cb.left>hr?cb.left:W.right)-12, roomR=hi-hr, roomL=hl-lo, mid=W.left+0.5*W.width;
-          const x=roomR>=roomL?Math.max(hr+12,Math.min(hi-B,mid)):Math.max(lo,Math.min(hl-12-B,mid)); left=(x-OP.left)/ZOOM; }
+        const hs=handSpan(); let left=0.5*W.width/ZOOM;
+        if(hs){ const OP=(box.offsetParent||wrap).getBoundingClientRect(), ck=document.querySelector('.cuClock'), cr=ck?ck.getBoundingClientRect():null;
+          // the hand: where its grip is going (handSpan) and where it is drawn now, both (screen px)
+          let hl=toScreenX(hs[0]), hr=toScreenX(hs[1]); const hf=fb.querySelectorAll('.hlHand')[1]; if(hf){ const r=hf.getBoundingClientRect(); if(r.width>0){ hl=Math.min(hl,r.left); hr=Math.max(hr,r.right); } }
+          const hi=W.right-12, roomR=hi-(hr+12);
+          // the largest the drum can be and still sit beside the hand: right of it up to the page's edge, or left of it down to
+          // the clock where the clock reaches down beside it (else the page's edge); a smaller drum sits lower, so the clock
+          // may no longer be in its way
+          let x=null;
+          for(let r=rh;r>=14;r*=0.92){ box.style.setProperty('--rh',r.toFixed(1)+'px'); const B=box.offsetWidth*ZOOM, topY=by-(box.offsetHeight+14)*ZOOM;
+            const cb=cr&&cr.bottom>topY&&cr.left<hl?cr:null, lo=(cb?Math.max(cb.right,W.left):W.left)+12, roomL=(hl-12)-lo, mid=W.left+0.5*W.width-B/2;
+            if(roomR>=B){ x=Math.max(hr+12,Math.min(hi-B,mid)); break; }
+            if(roomL>=B){ x=Math.max(lo,Math.min(hl-12-B,mid)); break; } }
+          // no size fits beside it: the smallest, kept inside the page on the roomier side
+          if(x===null){ const B=box.offsetWidth*ZOOM; x=roomR>=(hl-W.left)?hi-B:W.left+12; }
+          left=(Math.max(W.left,Math.min(W.right-box.offsetWidth*ZOOM,x))-OP.left)/ZOOM; }
         box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600);
+      box.style.transition='left .45s ease, top .3s ease';
+      // the hand moving on (a pass into the next mode, a mode chosen, the constellation dragged) or the drum's names changing:
+      // placed afresh, and again once the hand has settled where it went
+      { let wk='', again=null; setInterval(()=>{ const hs=handSpan(), k=(hs?hs.join():'')+'|'+box.offsetWidth+'|'+box.offsetHeight; if(k===wk) return; wk=k; place(); clearTimeout(again); again=setTimeout(place,900); },200); }
       let gxWas=document.body.classList.contains('gxOn'); new MutationObserver(()=>{ const on=document.body.classList.contains('gxOn'); if(on===gxWas) return; gxWas=on; if(on){ place(); requestAnimationFrame(place); setTimeout(place,120); } }).observe(document.body,{attributes:true,attributeFilter:['class']}); }
     /* THE ROOT CONSTELLATION: the E shape's root and its octaves — on the low E, the high e (the same fret) and the D string
        (two frets on) — three rings sliding along the board together, in the colour of the root's valence. Grab any of them
