@@ -262,7 +262,7 @@ const CONE=(()=>{
     if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
     modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); });
     litAt.fill(0); gone.forEach(k=>mark(k,0.95)); if(cur) mark(cur,0.95); modes.forEach(k=>mark(k,0.7));
-    const off=1-FIELD.lit; inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',(off*Math.min(1,litAt[pc]/0.55)).toFixed(3)); }); }
+    inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',Math.min(1,litAt[pc]/0.55).toFixed(3)); }); }   // (in colour or grey, the light is bright: a dark letter reads on it)
   return {step, get mode(){ return modeKey!==null; }};
 })();
 hand.style.display='none';                                              // the cone takes the pointer's place

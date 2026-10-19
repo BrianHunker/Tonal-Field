@@ -868,7 +868,9 @@ function customTool(){
           out[pc]=up&&up[1]-1>=-1?[up[0],up[1]-1]:dn?[dn[0],dn[1]+1]:[up[0],up[1]-1]; }
         const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
       let key='', shapeKey='', dia=new Set();
-      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+PHI.doPc; if(k===key) return; key=k; const nm=spell(L); dia=new Set(L.lower.map(n=>pcOf(n.str-1,n.f)));
+      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+PHI.doPc; if(k===key) return; key=k;
+        // the field's own seven (not the walk's: an anti's E shape walks its tritone partner's scale), spelled from them
+        const nm=spell(OPT.anti?layout(KEY,'Do'):L); dia=new Set(); for(let pc=0;pc<12;pc++) if(MAJ.includes(((pc-PHI.doPc)%12+12)%12)) dia.add(pc);
         cells.forEach(c=>{ c.dia=dia.has(c.pc); c.ts.forEach(t=>{ t.textContent=nm[c.pc]; t.setAttribute('font-size',nm[c.pc].length>1?18:21); }); }); }
       // a drag along the letters turns the Ring's letters seat by seat (with g(x) on, the orientation with them), as a drag
       // round the Ring's own letters does
