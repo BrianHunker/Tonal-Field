@@ -908,7 +908,9 @@ function customTool(){
             const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(0.9*c.lv*vis).toFixed(3)); });
           // its lobe, filled while it sounds: from the zero crossing before it to the one after, faded to clear at the hinge
           if(c.lv>0.01&&!axis){ const sg=Math.sign(g); let a=p, z=p; for(let n=0;n<80&&Math.sign(gA(a-0.05))===sg;n++) a-=0.05; for(let n=0;n<80&&Math.sign(gA(z+0.05))===sg;n++) z+=0.05;
-            let d=''; [0,12,-12].forEach(o=>{ if(z+o<-0.5||a+o>12.5) return; d+='M'+xOf(a+o).toFixed(1)+' '+MID; for(let s=a;s<=z+1e-6;s+=0.05) d+=' L'+xOf(s+o).toFixed(1)+' '+yOf(gA(s)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+MID+' Z'; });
+            // on the chain (the carrier's cosine, one lobe for all) each tone lights only its own π/6 slice
+            if(w>0){ a+=(Math.max(a,p-0.5)-a)*w; z+=(Math.min(z,p+0.5)-z)*w; }
+            let d=''; [0,12,-12].forEach(o=>{ if(z+o<-0.5||a+o>12.5) return; d+='M'+xOf(a+o).toFixed(1)+' '+MID; for(let s=a;s<z;s+=0.05) d+=' L'+xOf(s+o).toFixed(1)+' '+yOf(gA(s)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+yOf(gA(z)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+MID+' Z'; });
             c.area.setAttribute('d',d); c.fg.setAttribute('y1',yOf(g>0?1:-1)*1+0); c.fg.setAttribute('y1',yOf(sg*Math.max(Math.abs(g),0.2)).toFixed(1)); c.fg.setAttribute('y2',MID);
             c.s0.setAttribute('stop-color',cs); c.s1.setAttribute('stop-color',cs); c.area.setAttribute('opacity',(c.lv*vis).toFixed(3)); }
           else c.area.setAttribute('opacity',0); });
