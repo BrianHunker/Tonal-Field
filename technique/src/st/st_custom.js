@@ -616,19 +616,20 @@ function customTool(){
     const neck=A('polygon',{points:'',class:'ckneck'}), dotsG=A('g',{}), hand=A('line',{x1:C,y1:C,x2:C,y2:C-R+14,class:'ckhand'}); A('circle',{cx:C,cy:C,r:3.5,class:'ckhub'});
     // the light (the mode's glow and the sweep's trail) on a canvas just under the clock's lines
     const cv=document.createElement('canvas'); cv.className='cuClockCv'; cv.setAttribute('aria-hidden','true'); const cx=cv.getContext('2d');
-    const host=document.querySelector('.wrap'); host.appendChild(cv); host.appendChild(sv);
-    const css=document.createElement('style'); css.textContent='.cuClock,.cuClockCv{ position:absolute; z-index:6; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    // both in one box: placed over the nut, and what a double click brings up to fill the screen (playback carries on)
+    const box=document.createElement('div'); box.className='cuClockBox'; box.appendChild(cv); box.appendChild(sv);
+    const host=document.querySelector('.wrap'); host.appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'clock');
+    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
     document.head.appendChild(css);
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
     let px=0;
-    const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
+    const place=()=>{ if(box.parentNode!==host) return; const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
       const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.max(120,rw||200), room=bot-top;
       const nutL=(q.x-W.left)/ZOOM-sz/2;                                // always over the nut, wherever the hand is (over it, the clock on top)
-      const T=(sz<=room-16?top+(room-sz)/2:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';
-      [sv,cv].forEach(e=>{ e.style.width=e.style.height=sz.toFixed(0)+'px'; e.style.top=T; e.style.left=Lf; });
-      const n=Math.round(sz*Math.min(3,(window.devicePixelRatio||1)*ZOOM)); if(n!==px){ px=n; cv.width=cv.height=n; } };
+      const T=(sz<=room-16?top+8:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';   // just under the TAB (the board kept far enough down for the hand to pass beneath)
+      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T; box.style.left=Lf; };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
@@ -662,7 +663,8 @@ function customTool(){
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
           d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
         lbls.forEach(l=>{ l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
-        // the canvas: the mode's glow, then the sweep
+        // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
+        { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
         // the page's own ground behind the clock, so whatever passes under it (the hand's knuckles in low positions) sits back
         { const bgc=bg.join(','), gd=cx.createRadialGradient(C,C,R+22,C,C,C); gd.addColorStop(0,'rgba('+bgc+',0.92)'); gd.addColorStop(1,'rgba('+bgc+',0)');
@@ -706,7 +708,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null, CONST=null;
+  let keyWatch=null, modePaint=null, CONST=null; const BOARD_DROP=185;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -795,6 +797,7 @@ function customTool(){
        letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
        two). The letters fade in as the field fades out. */
     document.body.classList.add('csmPage'); boardLetters=true;
+    fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP));   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
     { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after{ animation:none } body.csmPage:not(.gxOn) #gx::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
@@ -841,8 +844,9 @@ function customTool(){
       document.head.appendChild(css);
       const UMAX=11;                                                       // the root's twelve places along the low E: open to the 11th
       // a fret position (fractional) to the board, where a fingertip stops it — just behind its fret wire — and back
-      const xAt=v=>{ v=Math.max(0,Math.min(FMAX,v)); const n=Math.min(FMAX-1,Math.floor(v)), a=tipX(n), b=tipX(n+1); return a+(v-n)*(b-a); };
-      const vAt=x=>{ if(x<=tipX(0)) return 0; for(let n=0;n<FMAX;n++){ const a=tipX(n), b=tipX(n+1); if(x<b) return n+(x-a)/(b-a); } return FMAX; };
+      const ringX=n=>cellR(n)-Math.min(20,0.5*(cellR(n)-cellL(n)));      // a ring's edge about 10 units off its fret's wire
+      const xAt=v=>{ v=Math.max(0,Math.min(FMAX,v)); const n=Math.min(FMAX-1,Math.floor(v)), a=ringX(n), b=ringX(n+1); return a+(v-n)*(b-a); };
+      const vAt=x=>{ if(x<=ringX(0)) return 0; for(let n=0;n<FMAX;n++){ const a=ringX(n), b=ringX(n+1); if(x<b) return n+(x-a)/(b-a); } return FMAX; };
       const svgX=e=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(m.inverse()).x; };
       let u=null, drag=null, snap=null, lastT=0, colKey='';
       const target=()=>curL().rf;

@@ -610,8 +610,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
       const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
-      // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
-      const XR=realX(F.x), fgR=(LMM-XR)*0.0561/(1-0.66*0.0561), wire=Xof(boardX(XR+0.34*fgR)), fg=wire-Xof(boardX(XR-0.66*fgR)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
+      // the dot's fret: the cell it lies in — the cell's length, and the wire at its far end
+      let nC=1; while(nC<FMAX&&F.x>=cellR(nC)) nC++; const wire=Xof(cellR(nC)), fg=wire-Xof(cellL(nC)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
       if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
       return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire],line:F.y+FR*PRESS_H}:{s,p:[X,Y,Z],press:false}; });   // line: the string it presses, on the board (where its dot is pressed flat)
     const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
@@ -644,7 +644,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       ease.t=Math.min(1,ease.t+(dt||0.016)/EASE); const u=ease.t*ease.t*(3-2*ease.t);
       for(let i=0;i<qs.length;i++) qd[i]=ease.t>=1?qs[i]:ease.from[i]+(qs[i]-ease.from[i])*u; }
     else { ease=null; const kq=Math.min(1,(dt||0.016)/0.04); for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq; }
-    const S=HM.poseAt(qd); window.__handS=S;   // (for checking the hand's measure)
+    const S=HM.poseAt(qd); window.__handS=S; window.__hm=HM;   // (for checking the hand's measure)
     if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); press[i]=Math.max(0,Math.min(1,(alpha[i]-0.38)/0.62)); press[i]*=press[i]*(3-2*press[i]); }
     // the fingers' bones, farthest first

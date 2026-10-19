@@ -537,7 +537,7 @@ FB.edge=990; const BRIDGE_X=FB.right+(FB.right-FB.nut), PICK_X=940;    // the 12
 const SCALE=2*FB.n*FB.cw, fretX=n=>FB.nut+SCALE*(1-Math.pow(2,-n/12));
 const cellL=n=>n===0?FB.x0:fretX(n-1);
 const cellR=n=>n===0?FB.nut:fretX(n);
-const tipX=n=>cellL(n)+0.66*(cellR(n)-cellL(n));        // fingertip just behind the fret wire
+const tipX=n=>cellR(n)-Math.min(24,0.55*(cellR(n)-cellL(n)));   // fingertip just behind the fret wire
 const tipXf=fr=>{ const n=Math.floor(fr); return tipX(n)+(fr-n)*(tipX(n+1)-tipX(n)); };   // mid-slide, between two fretted cells
 const cellM=n=>(cellL(n)+cellR(n))/2;
 const fb=document.getElementById('fb');
@@ -2184,7 +2184,7 @@ function makeHand(G){
   // nearer the high e may lie under the other's arch — with these of its bones (1 middle, 2 end): of the index and middle
   // fingers, either's end bone; of the ring and little fingers, the little finger's middle and end bones, never the ring
   // finger's; of the middle and ring fingers, none. pull: how firmly a tucking pair keeps to its wire
-  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:0.6},null,{segs:[new Set(),new Set([1,2])],pull:1.2}];
+  const TUCK=[{segs:[new Set([2]),new Set([2])],pull:3},null,{segs:[new Set(),new Set([1,2])],pull:3}];
   // the pair's tucking finger (0 the first, 1 the second) and its bones, when it tucks: both pressing on one fret
   const tucker=k=>{ const T=TUCK[k], a=TG.f[k], b=TG.f[k+1]; if(!T||!(a.press&&a.cell&&b.press&&b.cell)||Math.abs(a.cell[1]-b.cell[1])>0.5||a.s===b.s) return null;
     const w=a.s<b.s?0:1; return T.segs[w].size?{who:w,segs:T.segs[w],pull:T.pull}:null; };
@@ -2194,8 +2194,8 @@ function makeHand(G){
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
   // BARPULL: beside a barre each pressing finger turns at its knuckle to bring its tip up to its wire (Brian, Oct 2026)
-  const BARPULL=1.1, ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
-  let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
+  let BARPULL=3; const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
+  let TG=null, RINGW=1, RINGK=1, PULL=3, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
   // above it)
@@ -2223,7 +2223,7 @@ function makeHand(G){
       for(const ds of [-1,1]){ const s2=g.s+ds, st=!g.barre&&TG.ring&&s2>=0&&s2<G.nstr?TG.ring[s2]:null;
         for(const [P,r] of [[lerp(Fk.pip,Fk.dip,0.6),R[1]],...fl]){
           if(st===null||st===undefined||P[0]+r<st){ put(0); continue; }
-          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW); } } }
+          pen(band(P,r)+0.4-Math.abs(P[1]-G.strY(s2,P[0])),3*RINGW*RINGK); } } }
     // A PRESSING FINGER'S ARCH stands straight over the line from its knuckle to its tip — the middle finger's leaning a
     // little toward the index (Brian's photo of the E-shape barre, Oct 2026): its middle joint's place across the palm
     { for(let k=0;k<4;k++){ const g=TG.f[k]; if(!g.press||g.barre){ put(0); continue; } const F=S.F[k], v=add(F.end,F.mcp,-1), L2=dot(v,v)||1, t=Math.max(0,Math.min(1,dot(add(F.pip,F.mcp,-1),v)/L2));
@@ -2344,7 +2344,7 @@ function makeHand(G){
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
         for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, setBarPull:v=>{BARPULL=v;}, setRingK:v=>{RINGK=v;}, setTuckPull:(i,v)=>{ if(TUCK[i]) TUCK[i].pull=v; }, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }
 
 /* ---------- a student's drill book: pages of walks ----------
@@ -2959,8 +2959,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
       const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
-      // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
-      const XR=realX(F.x), fgR=(LMM-XR)*0.0561/(1-0.66*0.0561), wire=Xof(boardX(XR+0.34*fgR)), fg=wire-Xof(boardX(XR-0.66*fgR)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
+      // the dot's fret: the cell it lies in — the cell's length, and the wire at its far end
+      let nC=1; while(nC<FMAX&&F.x>=cellR(nC)) nC++; const wire=Xof(cellR(nC)), fg=wire-Xof(cellL(nC)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
       if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
       return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire],line:F.y+FR*PRESS_H}:{s,p:[X,Y,Z],press:false}; });   // line: the string it presses, on the board (where its dot is pressed flat)
     const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
@@ -2993,7 +2993,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
       ease.t=Math.min(1,ease.t+(dt||0.016)/EASE); const u=ease.t*ease.t*(3-2*ease.t);
       for(let i=0;i<qs.length;i++) qd[i]=ease.t>=1?qs[i]:ease.from[i]+(qs[i]-ease.from[i])*u; }
     else { ease=null; const kq=Math.min(1,(dt||0.016)/0.04); for(let i=0;i<qs.length;i++) qd[i]+=(qs[i]-qd[i])*kq; }
-    const S=HM.poseAt(qd); window.__handS=S;   // (for checking the hand's measure)
+    const S=HM.poseAt(qd); window.__handS=S; window.__hm=HM;   // (for checking the hand's measure)
     if(SELK&&!MARKS.some(m=>m.getAttribute('visibility')==='visible')) marks();   // a refresh clears the pulsing frets; while a finger is picked they come back
     for(let i=0;i<4;i++){ const pr=TGT.f[i].press||TGT.f[i].barre; alpha[i]+=((pr?1:0.38)-alpha[i])*Math.min(1,(dt||0.016)/0.08); press[i]=Math.max(0,Math.min(1,(alpha[i]-0.38)/0.62)); press[i]*=press[i]*(3-2*press[i]); }
     // the fingers' bones, farthest first
@@ -3837,19 +3837,20 @@ function customTool(){
     const neck=A('polygon',{points:'',class:'ckneck'}), dotsG=A('g',{}), hand=A('line',{x1:C,y1:C,x2:C,y2:C-R+14,class:'ckhand'}); A('circle',{cx:C,cy:C,r:3.5,class:'ckhub'});
     // the light (the mode's glow and the sweep's trail) on a canvas just under the clock's lines
     const cv=document.createElement('canvas'); cv.className='cuClockCv'; cv.setAttribute('aria-hidden','true'); const cx=cv.getContext('2d');
-    const host=document.querySelector('.wrap'); host.appendChild(cv); host.appendChild(sv);
-    const css=document.createElement('style'); css.textContent='.cuClock,.cuClockCv{ position:absolute; z-index:6; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    // both in one box: placed over the nut, and what a double click brings up to fill the screen (playback carries on)
+    const box=document.createElement('div'); box.className='cuClockBox'; box.appendChild(cv); box.appendChild(sv);
+    const host=document.querySelector('.wrap'); host.appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'clock');
+    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
     document.head.appendChild(css);
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
     let px=0;
-    const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
+    const place=()=>{ if(box.parentNode!==host) return; const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
       const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.max(120,rw||200), room=bot-top;
       const nutL=(q.x-W.left)/ZOOM-sz/2;                                // always over the nut, wherever the hand is (over it, the clock on top)
-      const T=(sz<=room-16?top+(room-sz)/2:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';
-      [sv,cv].forEach(e=>{ e.style.width=e.style.height=sz.toFixed(0)+'px'; e.style.top=T; e.style.left=Lf; });
-      const n=Math.round(sz*Math.min(3,(window.devicePixelRatio||1)*ZOOM)); if(n!==px){ px=n; cv.width=cv.height=n; } };
+      const T=(sz<=room-16?top+8:bot-sz-6).toFixed(0)+'px', Lf=Math.max(0,nutL).toFixed(0)+'px';   // just under the TAB (the board kept far enough down for the hand to pass beneath)
+      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T; box.style.left=Lf; };
     afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
@@ -3883,7 +3884,8 @@ function customTool(){
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
           d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
         lbls.forEach(l=>{ l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
-        // the canvas: the mode's glow, then the sweep
+        // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
+        { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
         // the page's own ground behind the clock, so whatever passes under it (the hand's knuckles in low positions) sits back
         { const bgc=bg.join(','), gd=cx.createRadialGradient(C,C,R+22,C,C,C); gd.addColorStop(0,'rgba('+bgc+',0.92)'); gd.addColorStop(1,'rgba('+bgc+',0)');
@@ -3927,7 +3929,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null, CONST=null;
+  let keyWatch=null, modePaint=null, CONST=null; const BOARD_DROP=185;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:true};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
   let KEY=10;                                                            // Do's pitch (from A): G
@@ -4016,6 +4018,7 @@ function customTool(){
        letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
        two). The letters fade in as the field fades out. */
     document.body.classList.add('csmPage'); boardLetters=true;
+    fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP));   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
     { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) #frameLbl, body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after{ animation:none } body.csmPage:not(.gxOn) #gx::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
@@ -4062,8 +4065,9 @@ function customTool(){
       document.head.appendChild(css);
       const UMAX=11;                                                       // the root's twelve places along the low E: open to the 11th
       // a fret position (fractional) to the board, where a fingertip stops it — just behind its fret wire — and back
-      const xAt=v=>{ v=Math.max(0,Math.min(FMAX,v)); const n=Math.min(FMAX-1,Math.floor(v)), a=tipX(n), b=tipX(n+1); return a+(v-n)*(b-a); };
-      const vAt=x=>{ if(x<=tipX(0)) return 0; for(let n=0;n<FMAX;n++){ const a=tipX(n), b=tipX(n+1); if(x<b) return n+(x-a)/(b-a); } return FMAX; };
+      const ringX=n=>cellR(n)-Math.min(20,0.5*(cellR(n)-cellL(n)));      // a ring's edge about 10 units off its fret's wire
+      const xAt=v=>{ v=Math.max(0,Math.min(FMAX,v)); const n=Math.min(FMAX-1,Math.floor(v)), a=ringX(n), b=ringX(n+1); return a+(v-n)*(b-a); };
+      const vAt=x=>{ if(x<=ringX(0)) return 0; for(let n=0;n<FMAX;n++){ const a=ringX(n), b=ringX(n+1); if(x<b) return n+(x-a)/(b-a); } return FMAX; };
       const svgX=e=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(m.inverse()).x; };
       let u=null, drag=null, snap=null, lastT=0, colKey='';
       const target=()=>curL().rf;
