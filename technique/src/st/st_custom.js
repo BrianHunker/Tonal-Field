@@ -941,7 +941,11 @@ function customTool(){
     let keyWant=null, keyAt=0;
     keyWatch=()=>{ if(PHI.doPc===KEY){ keyWant=null; return; } const now=performance.now();
       if(PHI.doPc!==keyWant){ keyWant=PHI.doPc; keyAt=now; return; } if(now-keyAt<350) return;
-      KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){} relabel(); regen(); };
+      // the root keeps its letter: it takes whatever function the new orientation gives it (an anti's, its tritone partner's
+      // frames), as the constellation does when it is dropped there — only the mode bank's own buttons choose a mode
+      const r=curL().root; KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){}
+      { const rel=((r-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} }
+      relabel(); mark(); regen(); };
     function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])&&!(i===0&&OPT.anti)))); paintKey=''; }
     function regen(){ const was=T.on; drumNames(); orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
