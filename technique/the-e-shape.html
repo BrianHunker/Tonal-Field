@@ -4129,8 +4129,9 @@ function customTool(){
         const gA=s=>L*fv(s), md=v=>((v%12)+12)%12, wrap=v=>{ v=md(v+6)-6; return v; };
         cells.forEach(c=>{ const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
           // g(x) off, nothing is preferred: every letter at the same light, lit alike when it sounds
-          const raw=SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), b0=c.dia?0.62:(diatonic?0.16:0.72), l0=c.dia||!diatonic?1:0.55, base=0.62+(b0-0.62)*L, lit=1+(l0-1)*L;
-          const v=base+(lit-base)*c.lv, show=mixRGB(bg,col,v), cs=rgbS(col), vis=1+((c.dia||!diatonic?1:0.5)-1)*L;
+          // an anti under Diatonic in grey (lit toward white as it sounds); without Diatonic in its own anti colour
+          const ad=!c.dia&&diatonic, raw=ad?gry:SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), b0=c.dia?0.62:(ad?1:0.72), base=0.62+(b0-0.62)*L;
+          const v=base+(1-base)*c.lv, show=ad&&L>0.001?mixRGB(mixRGB(bg,col,v),ink,0.7*c.lv*L):mixRGB(bg,col,v), cs=rgbS(col), vis=1;
           // its seat from Re as the Ring's letters stand now (eased as they turn): in the chromatic order and on the chain; mid-
           // change, a seat the two orders share (to within a seat's drift) glides, one they don't swaps at halfway, faded
           const pa=md(c.pc+LET.offA), pb=md(7*c.pc+LET.offC), sw=Math.abs(wrap(pb-pa))>3;   // (its seat from 12 o'clock, as the Ring shows it)
