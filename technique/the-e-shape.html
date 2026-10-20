@@ -3940,7 +3940,14 @@ function customTool(){
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
     let px=0;
-    const place=()=>{ if(box.parentNode!==host) return; const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
+    /* ON A PHONE (narrow): no room to lay the clock and the curve over the board's headroom — the clock sits beside the Ring
+       in the Ring's box (the two side by side, the Ring's buttons under both), the curve full width under them, the drum
+       in the flow above the board, and the board without the headroom they would have used */
+    const NARROW=matchMedia('(max-width:640px)');
+    const place=()=>{ if(box.closest('.zoomLayer')) return; const rb=document.querySelector('.ringBox');
+      document.body.classList.toggle('csmNarrow',NARROW.matches);
+      if(NARROW.matches&&rb){ if(box.parentNode!==rb) rb.insertBefore(box,rb.firstChild); box.style.top=box.style.left=box.style.width=box.style.height=''; if(STRIP) STRIP.place(0,0,0,0,true); return; }
+      if(box.parentNode!==host) host.appendChild(box); const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
       p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
       const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.round(1.3*Math.max(120,rw||200)), room=bot-top;   // a third larger than the ring
       // at the page's left edge, just under the TAB (the board kept far enough down for the hand to pass beneath it)
@@ -3948,7 +3955,7 @@ function customTool(){
       const tb=tabPanel.getBoundingClientRect(), tabBot=(tb.bottom-W.top)/ZOOM, T=Math.min(sz<=room-16?top+8:bot-sz-6,tabBot+10);
       box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T.toFixed(0)+'px'; box.style.left='0px';
       if(STRIP) STRIP.place(sz,T,W.width/ZOOM,top); };
-    afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
+    afterFit.push(place); addEventListener('resize',place); NARROW.addEventListener('change',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
     // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
     // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
     const HIER=[0,4,2,6,1,5,3];
@@ -4205,7 +4212,7 @@ function customTool(){
     { let dk=''; (function dim(){ const bg=bgColour(), ink=inkColour(), k=bg.join()+'|'+ink.join(); if(k!==dk){ dk=k; const D=mixRGB(bg,ink,0.3);
         SOLF.forEach(([n],i)=>{ if(n.startsWith('~')) SOLF_DIA[i]=D; }); document.documentElement.style.setProperty('--dim',rgbS(D)); if(typeof ringRebind==='function') ringRebind(); }
       requestAnimationFrame(dim); })(); }
-    fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP)); fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
+    { const NB=matchMedia('(max-width:640px)'), vb=()=>{ const d=NB.matches?0:BOARD_DROP; fb.setAttribute('viewBox','-10 -'+(100+d)+' 1000 '+(380+d)); }; vb(); NB.addEventListener('change',vb); } fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
     { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx, body.csmPage .gxCopy{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) .gxCopy{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy, body.csmPage:not(.gxOn) .gxCopy::after{ animation:none } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
@@ -4309,7 +4316,11 @@ function customTool(){
         fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
       // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
       // hinge stays at the clock's centre unless that would lift it into the TAB
-      function place(sz,top,W,stageBot){ const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(stageBot+4,cy-h*MID/VH);   // (clear of the Ring's buttons above it)
+      function place(sz,top,W,stageBot,narrow){
+        if(narrow){ const st=document.querySelector('.stage'); if(st&&box.previousElementSibling!==st) st.after(box); box.style.left=box.style.top=''; box.style.width='';
+          const lw=lead.offsetWidth+10, w=box.getBoundingClientRect().width/ZOOM, h=Math.max(90,(w-lw)*VH/VW); box.style.height=h.toFixed(0)+'px'; lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; return; }
+        if(box.parentNode!==document.querySelector('.wrap')) document.querySelector('.wrap').appendChild(box);
+        const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(stageBot+4,cy-h*MID/VH);   // (clear of the Ring's buttons above it)
         box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=t.toFixed(0)+'px';
         lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; }
       let clock=0;
@@ -4386,8 +4397,9 @@ function customTool(){
     /* ZOOMED, ANY SURFACE: at its foot the tool's own controls — Play and Hold, the Ring's Diatonic, 1|5 (and Ghost), and the
        whole row of options below the board, moved down while it is zoomed and back after (no Prev | Next: the E Shape has
        none) */
+    { const css=document.createElement('style'); css.textContent='body.csmNarrow .ringBox{ display:grid; grid-template-columns:1fr 1fr; column-gap:14px; row-gap:8px; align-items:center; justify-items:center } body.csmNarrow .ringBox > .cuClockBox{ position:relative !important; width:82% !important; height:auto !important; aspect-ratio:1; margin:9% } body.csmNarrow .ringBox > svg#ring{ width:100%; max-width:none } body.csmNarrow .ringBox > .ringFoot{ grid-column:1 / span 2 } body.csmNarrow .csmPlotBox{ position:relative !important; margin:14px 0 4px } body.csmNarrow .eqn{ display:flex; flex-wrap:wrap; justify-content:flex-end; column-gap:.35em } body.csmNarrow #frameLbl{ display:block } body.csmNarrow .cuModes button{ font-size:12.5px; padding:5px 6px } body.csmNarrow .cuOpts .cseg button{ padding:5px 10px } body.csmNarrow .cuOpts .cuLbl{ display:inline-flex; flex-wrap:wrap; align-items:center; column-gap:8px; row-gap:6px; max-width:100% }'; document.head.appendChild(css); }
     window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
-      api.move(row,api.row()); return true; };
+      if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
     { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }
     // the drum, just above the fretboard
     // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
@@ -4414,7 +4426,7 @@ function customTool(){
     const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
       const place=()=>{ if(!box.offsetParent||box.closest('.zoomLayer')) return;   // hidden (g(x) off): placed when it shows again
-        if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
+        if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px auto 6px'; const W0=(box.parentNode.getBoundingClientRect().width||340)/ZOOM; box.style.setProperty('--rh',Math.max(18,Math.min(44,(W0-16)/7.3)).toFixed(1)+'px'); return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
         p.y=fb.viewBox.baseVal.y; const pb=document.querySelector('.csmPlotBox'), pr=pb&&pb.parentNode===wrap?pb.getBoundingClientRect():null, ty=Math.max(p.matrixTransform(m).y,pr?pr.bottom+10*ZOOM:-1e9), rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));   // (below the curve, above the board)
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
