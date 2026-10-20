@@ -183,7 +183,7 @@ function fingerDown(f,t){
 }
 const BEND_PX=16;
 /*@COPY:1136-1138*/
-let frameHook=null, paintOnly=null, boardLetters=false;   // boardLetters: g(x) off, the board carries its letters instead of grey paint
+let frameHook=null, paintOnly=null, boardLetters=false, boardCells=false;   // boardCells: a page paints the fret spaces itself (the strings lit only where a tone rings)   // boardLetters: g(x) off, the board carries its letters instead of grey paint
 // paintOnly: a page may paint only some strings
                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
@@ -406,7 +406,7 @@ function paintBoard(H,shift,dt){
   CELLS.forEach((c,i)=>{
     c.lv=1;                                                           // the whole board at the lit level
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
-    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
+    if(show&&(!boardCells||INST.has(i))){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
     else if(c.lv>0.003&&!boardLetters){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
     const g=L>0.001&&INST.has(i)?L*0.55:0;

@@ -930,12 +930,17 @@ function customTool(){
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
-    /* G(X) OFF, THE MODE ON THE BOARD: every fret holding one of the mode's seven in one even grey, under its letter */
+    /* THE FRET SPACES PAINTED (not the strings): g(x) off, every fret holding one of the mode's seven in one even grey, under
+       its letter; turning g(x) on fades those same spaces into the field's colours (an anti's left dark under Diatonic) — the
+       strings themselves lit only where a tone rings, and where they vibrate */
+    boardCells=true;
     { const hiG=el('g',{class:'fbScale','pointer-events':'none'},null); fb.insertBefore(hiG,lettersG); const gap=FB.strY[1]-FB.strY[0], hh=Math.abs(gap)*0.78;
       const rs=[]; for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const x0=f===0?FB.x0:cellL(f), x1=f===0?FB.nut:cellR(f);
         rs.push({pc:pcOf(st,f),r:el('rect',{x:(x0+1.5).toFixed(1),y:(FB.strY[st]-hh/2).toFixed(1),width:Math.max(1,x1-x0-3).toFixed(1),height:hh.toFixed(1),rx:3,opacity:0},hiG)}); }
-      let hk=''; (function hi(){ const set=scaleSet(), a=(1-FIELD.lit), k=[...set].join()+'|'+a.toFixed(3)+'|'+inkColour().join();
-        if(k!==hk){ hk=k; const ink=rgbS(inkColour()); rs.forEach(q=>{ q.r.setAttribute('fill',ink); q.r.setAttribute('opacity',set.has(q.pc)?(0.13*a).toFixed(3):0); }); }
+      let hk=''; (function hi(){ const set=scaleSet(), L=FIELD.lit, ink=inkColour(), k=[...set].join()+'|'+L.toFixed(3)+'|'+ink.join()+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reC.toFixed(3)+'|'+FIELD.mx.toFixed(3)+'|'+RING.m.toFixed(3)+'|'+diatonic+'|'+PHI.doPc;
+        if(k!==hk){ hk=k; const cols={}; for(let pc=0;pc<12;pc++) cols[pc]=L>0.001?valRGB(pc):ink;
+          rs.forEach(q=>{ const show=!(diatonic&&sylOf(q.pc)===null), op=(set.has(q.pc)?0.13:0)*(1-L)+(show?0.4:0)*L;
+            q.r.setAttribute('fill',rgbS(mixRGB(ink,cols[q.pc],L))); q.r.setAttribute('opacity',op.toFixed(3)); }); }
         requestAnimationFrame(hi); })(); }
     /* G(X) OFF, THE MODE BY NAME: the bank of root letters gives way to a list of the church modes — Ionian, Dorian … —
        each with its root */
