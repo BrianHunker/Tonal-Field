@@ -1166,13 +1166,19 @@ function customTool(){
         box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600);
       box.style.transition='left .45s ease, top .3s ease';
-      /* THE BOARD ZOOMED: the drum (or, g(x) off, the clef) comes along — fixed at the right of the screen in the hand's headroom,
-         as large as that room allows, its foot just above the strings — and goes back to its place after */
-      { let zh=null; (function zd(){ const L=document.querySelector('.zoomLayer'), on=typeof SURF!=='undefined'&&SURF&&SURF.kind==='fb'&&L&&!L.hidden&&L.contains(fb);
-          if(on){ if(!zh){ zh={parent:box.parentNode,next:box.nextSibling,style:box.getAttribute('style')}; L.appendChild(box); }
-            const r=fb.getBoundingClientRect(), v=fb.viewBox.baseVal, k=r.height/v.height, bt=r.top+(FB.top-v.y)*k, top=Math.max(document.body.classList.contains('zoomHead')?70:10,10), rh=Math.max(18,Math.min(70,(bt-top-16)/3));
-            box.style.cssText='position:fixed; margin:0; z-index:62; pointer-events:none; transition:none; right:4vw; left:auto; top:'+(bt-3*rh-10).toFixed(0)+'px; --rh:'+rh.toFixed(1)+'px'; }
-          else if(zh){ zh.parent.insertBefore(box,zh.next); if(zh.style===null) box.removeAttribute('style'); else box.setAttribute('style',zh.style); zh=null; place(); }
+      /* THE BOARD ZOOMED: the drum (or, g(x) off, the clef) comes along, in the same proportion to the board as on the page and
+         in the same place beside the hand — measured on the page in the board's own units (its row height, its offset from the
+         hand, its gap above the strings) and drawn from them on the zoomed board, following the hand there; the zoomed board
+         given headroom enough to hold it. Back to its place after. */
+      { let zh=null, PR=null; (function zd(){ const L=document.querySelector('.zoomLayer'), on=typeof SURF!=='undefined'&&SURF&&SURF.kind==='fb'&&L&&!L.hidden&&L.contains(fb);
+          const r=fb.getBoundingClientRect(), v=fb.viewBox.baseVal, k=r.height/v.height, hs=handSpan(), h0=hs?hs[0]:0;
+          if(!on&&!zh&&box.offsetParent&&r.height>0){ const b=box.getBoundingClientRect(); if(b.height>0){
+              PR={u:b.height/3/k, dx:(b.left-r.left)/k+v.x-h0, gap:FB.top-((b.bottom-r.top)/k+v.y)};
+              const vy=Math.min(-100,Math.floor(FB.top-PR.gap-3*PR.u-12)); fb.dataset.zoomVb='-10 '+vy+' 1000 '+(280-vy); } }
+          if(on&&PR){ if(!zh){ zh={parent:box.parentNode,next:box.nextSibling,style:box.getAttribute('style')}; L.appendChild(box); }
+            const rh=PR.u*k, left=r.left+(h0+PR.dx-v.x)*k, top=r.top+(FB.top-PR.gap-v.y)*k-3*rh;
+            box.style.cssText='position:fixed; margin:0; z-index:62; pointer-events:none; transition:none; left:'+left.toFixed(1)+'px; top:'+top.toFixed(1)+'px; --rh:'+rh.toFixed(2)+'px'; }
+          else if(!on&&zh){ zh.parent.insertBefore(box,zh.next); if(zh.style===null) box.removeAttribute('style'); else box.setAttribute('style',zh.style); zh=null; place(); }
           requestAnimationFrame(zd); })(); }
       // the hand moving on (a pass into the next mode, a mode chosen, the constellation dragged) or the drum's names changing:
       // placed afresh, and again once the hand has settled where it went
