@@ -281,7 +281,7 @@ function customTool(){
   const valueOf=len=>{ for(const [v,n] of NAMED) if(v<=len) return {v,n,base:n[0],dot:n.includes('.'),trip:n.includes('3')}; return {v:len,n:'x',base:'x',dot:false,trip:false}; };
   const BEAMS={w:0,h:0,q:0,e:1,s:2,x:3};
   function tabDraw(D){
-    lay(); durBars=[]; chordArt=[]; while(bgG.firstChild) bgG.firstChild.remove(); while(durG.firstChild) durG.firstChild.remove();
+    lay(); durBars=[]; chordArt=[]; strumArt=[]; while(bgG.firstChild) bgG.firstChild.remove(); while(durG.firstChild) durG.firstChild.remove();
     const plan=D?D.plan:[];
     // the numbers on their lines (a strum's numbers stacked, as written), each with its length drawn along its string
     plan.forEach((n,i)=>{ const x=xT(n.t), y=TB.rowY[n.string], txt=String(n.fret), o=numberAt(x,y,txt); tabNotes[i]=o;
@@ -290,7 +290,10 @@ function customTool(){
       durBars.push(x1>x0+1?el('line',{x1:x0,y1:y,x2:x1,y2:y,class:'cuDur'},durG):null); });
     { const by={}; plan.forEach((n,i)=>{ (by[n.t]=by[n.t]||[]).push(n); });
       Object.values(by).forEach(g=>{ if(g.length<2) return; const x=xT(g[0].t)+13, ya=TB.rowY[g[0].string], yz=TB.rowY[g[g.length-1].string], dir=yz<ya?-1:1;
-        el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(x,yz,dir); }); }
+        // (each strum's arrow its own group, to flex and take its root's colour as it is struck)
+        const ag=el('g',{style:'color:var(--ink)'},noteG); el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,stroke:'currentColor','stroke-width':1.1},ag);
+        el('path',{d:'M'+(x-3.5)+' '+(yz-dir*6)+' L'+x+' '+yz+' L'+(x+3.5)+' '+(yz-dir*6)+' Z',fill:'currentColor'},ag);
+        strumArt.push({g:ag,t:g[0].t,x,ym:(ya+yz)/2,root:g[0].ballRoot!==undefined?g[0].ballRoot:(chordAt(g[0].t)||{}).root,fx:0,lv:0}); }); }
     // rhythm below the staff: a stem for each moment struck, beamed by the beat, flagged alone; a dot, a triplet's 3
     const P_=pulseT(M.meter), groups=[...new Set(plan.map(n=>n.t))].sort((a,b)=>a-b).map(t=>{ const len=Math.max(...plan.filter(n=>n.t===t).map(n=>n.len)); return {t,x:xT(t),V:valueOf(len)}; });
     const stemL=26, stemS=13, foot=stemTop+stemL;
@@ -348,7 +351,19 @@ function customTool(){
     const cg=el('g',{'clip-path':'url(#cuGhostClip)'},ghostG);
     if(frozen) frozen.forEach(g=>{ g.removeAttribute('id'); cg.appendChild(g); });
     else [bgG,durG,noteG,gridG].forEach(g=>{ const u=el('use',{},cg); u.setAttribute('href','#'+g.id); }); }
-  let sylArt=[], modeArt=[];
+  let sylArt=[], modeArt=[], strumArt=[];
+  /* WHAT IS STRUCK THIS FRAME (playing): the pitch classes and the moments — the curve's letters, the TAB's names and its strum
+     arrows flex as they are struck, every strum of a held chord again */
+  let STRIKE=new Set(), STRIKET=new Set(), prevTk=null, flexClock=0;
+  function strikes(playing,counting,tk){ STRIKE=new Set(); STRIKET=new Set();
+    if(!playing){ prevTk=null; return; } if(counting){ prevTk=-1; return; }
+    if(prevTk!==null){ const a=prevTk, inW=t=>a<=tk?(t>a&&t<=tk):(t>a||t<=tk); M.ev.forEach(e=>{ if(inW(e.t)){ STRIKE.add(pcOf(e.s,e.f)); STRIKET.add(e.t); } }); }
+    prevTk=tk; }
+  function flexTab(){ const now=performance.now()/1000, dt=Math.min(0.1,flexClock?now-flexClock:0.016); flexClock=now; const L=FIELD.lit, ink=inkColour();
+    sylArt.forEach(a=>{ if(STRIKET.has(a.n.t)) a.fx=1; a.fx=(a.fx||0)*Math.exp(-dt/0.22); svgScale(a.t,1+0.45*a.fx,+a.t.getAttribute('x'),+a.t.getAttribute('y')-5); });
+    strumArt.forEach(a=>{ if(STRIKET.has(a.t)){ a.fx=1; a.lv=1; } a.fx*=Math.exp(-dt/0.2); a.lv*=Math.exp(-dt/0.6); svgScale(a.g,1+0.35*a.fx,a.x,a.ym);
+      let c=ink; if(a.root!==undefined&&L>0.001&&a.lv>0.003){ const d0=doAt(a.t), dp=d0===null?PHI.doPc:d0; c=mixRGB(ink,relRGB(((a.root-(dp+2))%12+12)%12),L*a.lv); }
+      const cs=rgbS(c); if(a.cs!==cs){ a.cs=cs; a.g.style.color=cs; } }); }
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
     modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.ms.includes(curMode), cs=rgbS(col);
@@ -582,6 +597,7 @@ function customTool(){
     const dp=doAt(Math.min(tk,total()-1e-3)); if(dp!==null&&dp!==lastDo){ lastDo=dp; orient(dp); }
     curChord=M.ch.length?chordAt(tk):null;
     // what is sounding: lit on the board and in the TAB
+    strikes(playing,!!(playing&&st.count),tk);
     const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f)); soundNow=playing?new Set(snd.map(e=>pcOf(e.s,e.f))):new Set();
     if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); if(!pendingTab) C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
     // the mode's light, from the chord's root: where the root sounds lowest now, else lowest in the chord's span, else
@@ -606,7 +622,7 @@ function customTool(){
     const L=FIELD.lit, ink=inkColour();
     if(C&&!C.empty&&!pendingTab) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
-    paintChords(curChord);
+    paintChords(curChord); if(PRE) flexTab();
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
     if(PRE==='csm'&&CONE.scale) CONE.scale(scaleSet(),soundNow,1-FIELD.lit,SCDRAG-Math.round(SCDRAG));
     if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count); }
@@ -1064,7 +1080,7 @@ function customTool(){
           stops.forEach((s,i)=>{ const c=fc(12*i/NST); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
         const gA=s=>L*fv(s), md=v=>((v%12)+12)%12, wrap=v=>{ v=md(v+6)-6; return v; };
         const SS=scaleSet(), inkS=rgbS(ink); if(bandGr.dataset.c!==inkS){ bandGr.dataset.c=inkS; bandGr.querySelectorAll('stop').forEach(st=>st.setAttribute('stop-color',inkS)); }
-        cells.forEach(c=>{ const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
+        cells.forEach(c=>{ const on=soundNow.has(c.pc); if((on&&c.lv<0.5)||STRIKE.has(c.pc)) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
           // g(x) off, nothing is preferred: every letter at the same light, lit alike when it sounds
           // an anti under Diatonic in grey (lit toward white as it sounds); without Diatonic in its own anti colour
           const ad=!c.dia&&diatonic, raw=ad?SOLF_DIA[1]:SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), b0=c.dia?0.62:(ad?1:0.72), base=0.62+(b0-0.62)*L;

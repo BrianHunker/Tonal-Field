@@ -73,17 +73,21 @@ const SURF=(()=>{
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
   function toggle(el,k){ if(cur) close(); else open(el,k); }
   // a double tap: two taps close together in time and place (a mouse double-click counts the same)
+  let tapT=-1e9;
   function onDouble(el,k){ let t0=0, x0=0, y0=0;
+    // (a touch screen: the surface takes its own double tap — touch-action keeps the browser from reading it as its own zoom —
+    // and hears it first, before anything on it that would keep the tap to itself)
+    el.style.touchAction=el.style.touchAction||'manipulation';
     el.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse') return; const now=performance.now();
-      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); toggle(el,k); return; } t0=now; x0=e.clientX; y0=e.clientY; });
-    el.addEventListener('dblclick',e=>{ e.preventDefault(); toggle(el,k); }); }
+      if(now-t0<380&&Math.hypot(e.clientX-x0,e.clientY-y0)<36){ t0=0; e.preventDefault(); tapT=now; toggle(el,k); return; } t0=now; x0=e.clientX; y0=e.clientY; },true);
+    el.addEventListener('dblclick',e=>{ e.preventDefault(); if(performance.now()-tapT<700) return; toggle(el,k); }); }   // (a touch browser that also sends a dblclick for the double tap: taken once)
   const tabPanel=document.getElementById('tabPanel'), ringEl=document.getElementById('ring'), fbEl=document.getElementById('fb');
   if(tabPanel) onDouble(tabPanel,'tab'); if(ringEl) onDouble(ringEl,'ring'); if(fbEl) onDouble(fbEl,'fb');
   addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur){ e.preventDefault(); e.stopPropagation(); close(); } },true);   // before anything else takes the key
   // a double click (or double tap) anywhere in the zoomed view returns it — on the surface itself its own toggle does
-  layer.addEventListener('dblclick',e=>{ if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
+  layer.addEventListener('dblclick',e=>{ if(performance.now()-tapT<700) return; if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
   { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
-      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
+      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); tapT=now; close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
   addEventListener('resize',()=>{ size(); follow(false); });
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;
