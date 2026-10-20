@@ -51,7 +51,8 @@ const SURF=(()=>{
     if(kind!=='fb') return; const v=vbOf(cur), hx=handX(), px=(hx-v.x)/v.w*cur.getBoundingClientRect().width;
     layer.scrollTo({left:Math.max(0,px-innerWidth/2),behavior:smooth&&!reduce?'smooth':'auto'}); lastHx=hx; }
   const turned=()=>typeof FBROT!=='undefined'&&FBROT&&FBROT.on;
-  function open(el,k){
+  let opened=null;
+  function open(el,k){ opened={el,k,w:innerWidth,h:innerHeight};
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
@@ -88,7 +89,12 @@ const SURF=(()=>{
   layer.addEventListener('dblclick',e=>{ if(performance.now()-tapT<700) return; if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
   { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
       if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); tapT=now; close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
-  addEventListener('resize',()=>{ size(); follow(false); });
+  // the screen turned (or resized) while zoomed: sized at once, then — once the browser has settled its new size (a phone
+  // reports it late) — put back and brought up afresh, so the page lays itself out for the new shape and the zoomed view is
+  // made from that (its bar, its proportions) rather than stretched from the old
+  let rt=0; const turned2=()=>{ if(!cur) return; size(); follow(false); clearTimeout(rt); rt=setTimeout(()=>{ if(!cur||!opened) return; const o=opened; if(o.w===innerWidth&&o.h===innerHeight) return;   // (a page's own nudge, not the screen: nothing to rebuild)
+       close(); setTimeout(()=>{ if(!cur) open(o.el,o.k); },350); },300); };
+  addEventListener('resize',turned2); addEventListener('orientationchange',turned2);
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;
   (function watch(){ if(cur) sync();

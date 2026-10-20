@@ -1768,7 +1768,8 @@ const SURF=(()=>{
     if(kind!=='fb') return; const v=vbOf(cur), hx=handX(), px=(hx-v.x)/v.w*cur.getBoundingClientRect().width;
     layer.scrollTo({left:Math.max(0,px-innerWidth/2),behavior:smooth&&!reduce?'smooth':'auto'}); lastHx=hx; }
   const turned=()=>typeof FBROT!=='undefined'&&FBROT&&FBROT.on;
-  function open(el,k){
+  let opened=null;
+  function open(el,k){ opened={el,k,w:innerWidth,h:innerHeight};
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
@@ -1805,7 +1806,12 @@ const SURF=(()=>{
   layer.addEventListener('dblclick',e=>{ if(performance.now()-tapT<700) return; if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
   { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
       if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); tapT=now; close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
-  addEventListener('resize',()=>{ size(); follow(false); });
+  // the screen turned (or resized) while zoomed: sized at once, then — once the browser has settled its new size (a phone
+  // reports it late) — put back and brought up afresh, so the page lays itself out for the new shape and the zoomed view is
+  // made from that (its bar, its proportions) rather than stretched from the old
+  let rt=0; const turned2=()=>{ if(!cur) return; size(); follow(false); clearTimeout(rt); rt=setTimeout(()=>{ if(!cur||!opened) return; const o=opened; if(o.w===innerWidth&&o.h===innerHeight) return;   // (a page's own nudge, not the screen: nothing to rebuild)
+       close(); setTimeout(()=>{ if(!cur) open(o.el,o.k); },350); },300); };
+  addEventListener('resize',turned2); addEventListener('orientationchange',turned2);
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;
   (function watch(){ if(cur) sync();
@@ -3569,7 +3575,9 @@ function customTool(){
         // (each strum's arrow its own group, to flex and take its root's colour as it is struck)
         const ag=el('g',{style:'color:var(--ink)'},noteG); el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,stroke:'currentColor','stroke-width':1.1},ag);
         el('path',{d:'M'+(x-3.5)+' '+(yz-dir*6)+' L'+x+' '+yz+' L'+(x+3.5)+' '+(yz-dir*6)+' Z',fill:'currentColor'},ag);
-        strumArt.push({g:ag,t:g[0].t,x,ym:(ya+yz)/2,root:g[0].ballRoot!==undefined?g[0].ballRoot:(chordAt(g[0].t)||{}).root,fx:0,lv:0}); }); }
+        // over it, in the names' lane, its stroke: a bold D (down) or U (up)
+        const ly=(TB.floor+TB.rowY[0])/2+4, lab=el('text',{x:xT(g[0].t),y:ly,class:'cuDU',fill:'currentColor'},ag.parentNode); lab.textContent=g[0].up?'U':'D'; lab.style.color='var(--ink)';
+        strumArt.push({lab,ly,lx:xT(g[0].t),g:ag,t:g[0].t,x,ym:(ya+yz)/2,root:g[0].ballRoot!==undefined?g[0].ballRoot:(chordAt(g[0].t)||{}).root,fx:0,lv:0}); }); }
     // rhythm below the staff: a stem for each moment struck, beamed by the beat, flagged alone; a dot, a triplet's 3
     const P_=pulseT(M.meter), groups=[...new Set(plan.map(n=>n.t))].sort((a,b)=>a-b).map(t=>{ const len=Math.max(...plan.filter(n=>n.t===t).map(n=>n.len)); return {t,x:xT(t),V:valueOf(len)}; });
     const stemL=26, stemS=13, foot=stemTop+stemL;
@@ -3639,7 +3647,7 @@ function customTool(){
     sylArt.forEach(a=>{ if(STRIKET.has(a.n.t)) a.fx=1; a.fx=(a.fx||0)*Math.exp(-dt/0.22); svgScale(a.t,1+0.45*a.fx,+a.t.getAttribute('x'),+a.t.getAttribute('y')-5); });
     strumArt.forEach(a=>{ if(STRIKET.has(a.t)){ a.fx=1; a.lv=1; } a.fx*=Math.exp(-dt/0.2); a.lv*=Math.exp(-dt/0.6); svgScale(a.g,1+0.35*a.fx,a.x,a.ym);
       let c=ink; if(a.root!==undefined&&L>0.001&&a.lv>0.003){ const d0=doAt(a.t), dp=d0===null?PHI.doPc:d0; c=mixRGB(ink,relRGB(((a.root-(dp+2))%12+12)%12),L*a.lv); }
-      const cs=rgbS(c); if(a.cs!==cs){ a.cs=cs; a.g.style.color=cs; } }); }
+      const cs=rgbS(c); if(a.cs!==cs){ a.cs=cs; a.g.style.color=cs; a.lab.style.color=cs; } svgScale(a.lab,1+0.5*a.fx,a.lx,a.ly-5); }); }
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
     modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.ms.includes(curMode), cs=rgbS(col);
@@ -3688,6 +3696,7 @@ function customTool(){
    +'.cuKey{ font-size:13px; color:var(--mid) } .cuKey summary{ cursor:pointer; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600 } .cuKey p{ margin:6px 0 } .cuKey b{ color:var(--ink); font-family:ui-monospace,Menlo,monospace; font-weight:600 }'
    +'#tab .cuCursor{ fill:var(--ink); fill-opacity:.07; stroke:var(--ink); stroke-width:1.2; stroke-dasharray:3 2 } #tab .cuCaret{ fill:var(--mid) }'
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
+   +'#tab .cuDU{ font-family:var(--sans); font-weight:800; font-size:13px; text-anchor:middle }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
    +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:calc(var(--rh) * .8) } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
@@ -3964,7 +3973,7 @@ function customTool(){
        in the Ring's box (the two side by side, the Ring's buttons under both), the curve full width under them, the drum
        in the flow above the board, and the board without the headroom they would have used */
     const NARROW=matchMedia('(max-width:640px)');
-    const place=()=>{ if(box.closest('.zoomLayer')) return; const rb=document.querySelector('.ringBox');
+    const place=()=>{ if(window.__csmVb) window.__csmVb(); if(box.closest('.zoomLayer')) return; const rb=document.querySelector('.ringBox');
       document.body.classList.toggle('csmNarrow',NARROW.matches);
       if(NARROW.matches&&rb){ if(box.parentNode!==rb) rb.insertBefore(box,rb.firstChild); box.style.top=box.style.left=box.style.width=box.style.height=''; if(STRIP) STRIP.place(0,0,0,0,true); return; }
       if(box.parentNode!==host) host.appendChild(box); const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
@@ -4233,7 +4242,7 @@ function customTool(){
     { let dk=''; (function dim(){ const bg=bgColour(), ink=inkColour(), k=bg.join()+'|'+ink.join(); if(k!==dk){ dk=k; const D=mixRGB(bg,ink,0.3);
         SOLF.forEach(([n],i)=>{ if(n.startsWith('~')) SOLF_DIA[i]=D; }); document.documentElement.style.setProperty('--dim',rgbS(D)); if(typeof ringRebind==='function') ringRebind(); }
       requestAnimationFrame(dim); })(); }
-    { const NB=matchMedia('(max-width:640px)'), vb=()=>{ const d=NB.matches?0:BOARD_DROP; fb.setAttribute('viewBox','-10 -'+(100+d)+' 1000 '+(380+d)); }; vb(); NB.addEventListener('change',vb); } fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
+    { const NB=matchMedia('(max-width:640px)'), vb=()=>{ if(fb.closest('.zoomLayer')) return; const d=NB.matches?0:BOARD_DROP; fb.setAttribute('viewBox','-10 -'+(100+d)+' 1000 '+(380+d)); }; vb(); NB.addEventListener('change',vb); window.__csmVb=vb; } fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
     { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx, body.csmPage .gxCopy{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) .gxCopy{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy, body.csmPage:not(.gxOn) .gxCopy::after{ animation:none } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
@@ -4337,7 +4346,7 @@ function customTool(){
         fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
       // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
       // hinge stays at the clock's centre unless that would lift it into the TAB
-      function place(sz,top,W,stageBot,narrow){
+      function place(sz,top,W,stageBot,narrow){ if(box.closest('.zoomLayer')) return;
         if(narrow){ const st=document.querySelector('.stage'); if(st&&box.previousElementSibling!==st) st.after(box); box.style.left=box.style.top=''; box.style.width='';
           const lw=lead.offsetWidth+10, w=box.getBoundingClientRect().width/ZOOM, h=Math.max(90,(w-lw)*VH/VW); box.style.height=h.toFixed(0)+'px'; lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; return; }
         if(box.parentNode!==document.querySelector('.wrap')) document.querySelector('.wrap').appendChild(box);
