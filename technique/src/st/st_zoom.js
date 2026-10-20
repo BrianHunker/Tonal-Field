@@ -31,9 +31,9 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const TOP=document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
+    if(!cur) return; const TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
-    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=Math.max(W,h*v.w/v.h); cur.style.width=w+'px'; cur.style.height=(w*v.h/v.w)+'px'; cur.style.maxWidth='none'; }
+    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=h*v.w/v.h; cur.style.width=w+'px'; cur.style.height=h+'px'; cur.style.maxWidth='none'; cur.style.margin=w<W?'0 auto':''; cur.style.display='block'; }   // (fitted by height, the hand's headroom and all: wider than the screen, it scrolls along with the hand)
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
     else if(kind==='plot'){ const svg=cur.querySelector('svg'), v=vbOf(svg), k=Math.min(W*0.94/v.w,H*0.86/v.h); svg.style.width=(v.w*k)+'px'; svg.style.height=(v.h*k)+'px'; svg.style.maxWidth='none'; svg.style.flex='none'; }   // a wide surface: fitted whole
     else if(kind==='pat'){ const svg=cur.querySelector('svg'), v=vbOf(svg), w=Math.min(W*0.94,H*0.62*v.w/v.h);
@@ -49,6 +49,7 @@ const SURF=(()=>{
   function open(el,k){
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
+    if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
     const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
@@ -58,6 +59,7 @@ const SURF=(()=>{
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
+    if(home.vb) el.setAttribute('viewBox',home.vb);
     if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }

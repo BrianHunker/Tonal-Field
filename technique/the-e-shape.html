@@ -1718,9 +1718,9 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const TOP=document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
+    if(!cur) return; const TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
-    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=Math.max(W,h*v.w/v.h); cur.style.width=w+'px'; cur.style.height=(w*v.h/v.w)+'px'; cur.style.maxWidth='none'; }
+    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=h*v.w/v.h; cur.style.width=w+'px'; cur.style.height=h+'px'; cur.style.maxWidth='none'; cur.style.margin=w<W?'0 auto':''; cur.style.display='block'; }   // (fitted by height, the hand's headroom and all: wider than the screen, it scrolls along with the hand)
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
     else if(kind==='plot'){ const svg=cur.querySelector('svg'), v=vbOf(svg), k=Math.min(W*0.94/v.w,H*0.86/v.h); svg.style.width=(v.w*k)+'px'; svg.style.height=(v.h*k)+'px'; svg.style.maxWidth='none'; svg.style.flex='none'; }   // a wide surface: fitted whole
     else if(kind==='pat'){ const svg=cur.querySelector('svg'), v=vbOf(svg), w=Math.min(W*0.94,H*0.62*v.w/v.h);
@@ -1736,6 +1736,7 @@ const SURF=(()=>{
   function open(el,k){
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
+    if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
     const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
     layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
@@ -1745,6 +1746,7 @@ const SURF=(()=>{
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
+    if(home.vb) el.setAttribute('viewBox',home.vb);
     if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
@@ -4159,7 +4161,7 @@ function customTool(){
     { let dk=''; (function dim(){ const bg=bgColour(), ink=inkColour(), k=bg.join()+'|'+ink.join(); if(k!==dk){ dk=k; const D=mixRGB(bg,ink,0.3);
         SOLF.forEach(([n],i)=>{ if(n.startsWith('~')) SOLF_DIA[i]=D; }); document.documentElement.style.setProperty('--dim',rgbS(D)); if(typeof ringRebind==='function') ringRebind(); }
       requestAnimationFrame(dim); })(); }
-    fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP));   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
+    fb.setAttribute('viewBox','-10 -'+(100+BOARD_DROP)+' 1000 '+(380+BOARD_DROP)); fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
     { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx, body.csmPage .gxCopy{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) .gxCopy{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy, body.csmPage:not(.gxOn) .gxCopy::after{ animation:none } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
@@ -4304,9 +4306,9 @@ function customTool(){
     { const head=document.createElement('div'); head.className='zoomGxHead'; const eqn=document.getElementById('eqn'), eqc=eqn?eqn.cloneNode(true):null;
       if(eqc){ eqc.removeAttribute('id'); head.appendChild(eqc); }
       const b=document.createElement('button'); b.type='button'; b.className='gx gxCopy'; b.textContent='g(x)'; b.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); b.addEventListener('dblclick',e=>e.stopPropagation()); head.appendChild(b);
-      const css=document.createElement('style'); css.textContent='.zoomGxHead{ position:fixed; top:14px; left:0; right:0; z-index:61; display:none; align-items:center; justify-content:center; gap:14px; pointer-events:none } .zoomGxHead > *{ pointer-events:auto } body.zoomed .zoomGxHead.show{ display:flex }'; document.head.appendChild(css);
+      const css=document.createElement('style'); css.textContent='.zoomGxHead{ position:fixed; top:14px; left:0; right:0; z-index:61; display:none; align-items:center; justify-content:center; gap:14px; pointer-events:none } .zoomGxHead > *{ pointer-events:auto } body.zoomed .zoomGxHead.show{ display:flex } .zoomGxHead.big{ top:22px; gap:20px } .zoomGxHead.big .eqn{ font-size:clamp(18px,2.3vw,34px) } .zoomGxHead.big .gx{ width:62px; height:62px; font-size:24px }'; document.head.appendChild(css);
       document.body.appendChild(head);
-      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=k==='ring'||k==='plot'; head.classList.toggle('show',sh); if(document.body.classList.contains('zoomHead')!==sh){ document.body.classList.toggle('zoomHead',sh); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
+      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=k==='ring'||k==='plot', big=k==='plot'; head.classList.toggle('show',sh); head.classList.toggle('big',big); if(document.body.classList.contains('zoomHead')!==sh||document.body.classList.contains('zoomHeadBig')!==big){ document.body.classList.toggle('zoomHead',sh); document.body.classList.toggle('zoomHeadBig',big); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
