@@ -248,6 +248,10 @@ const CONE=(()=>{
   const inkL=el('g',{'pointer-events':'none'}), inks=rLbls.map(g=>{ const c=g.cloneNode(true); c.removeAttribute('class'); for(const t of c.children){ t.removeAttribute('class'); t.setAttribute('class','rl'); t.style.fill='#000'; t.style.fontWeight='700'; } c.setAttribute('opacity',0); inkL.appendChild(c); return c; });
   ringSvg.appendChild(inkL); const litAt=new Array(12).fill(0);
   const mark=(k,spotGain)=>{ if(k.pc===null) return; const pc=((Math.round(k.pc)%12)+12)%12; litAt[pc]=Math.max(litAt[pc],spotGain*k.o); };
+  /* THE SCALE'S LIGHTS (a page may ask, g(x) off): a dim grey spotlight standing on each of the mode's seven letters all the
+     time, brightening while its tone sounds and easing back as it ends — in place of the tone's and the mode's own cones */
+  const SC=[]; let scSet=null, scOn=null, scGain=0;
+  const scale=(set,on,gain)=>{ scSet=set; scOn=on; scGain=gain; if(gain>0.001&&!SC.length) for(let pc=0;pc<12;pc++){ const k=make(); k.pc=pc; k.o=0; k.lv=0; SC.push(k); } };
   let clock=0;
   function step(live,pcF,amp,key,chord,modePc){
     const now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
@@ -256,14 +260,17 @@ const CONE=(()=>{
       if(key!==curKey){ const strum=chord&&cur&&now-curT<0.09; if(cur){ cur.tau=strum?0.9:0.13; gone.push(cur); } cur=take(); cur.o=0; curKey=key; curT=now; }
       cur.pc=pcF; const want=0.3+0.7*amp; cur.o+=(want-cur.o)*Math.min(1,reduce?1:dt/0.035); }
     else if(cur){ cur.tau=0.2; gone.push(cur); cur=null; curKey=null; }
-    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62,0.95); }
-    if(cur) draw(cur,0.62,0.95);
+    const ng=1-scGain;                                                  // (the scale's lights, where they stand, in their place)
+    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62*ng,0.95*ng); }
+    if(cur) draw(cur,0.62*ng,0.95*ng);
     // the mode
     if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
-    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); });
-    litAt.fill(0); gone.forEach(k=>mark(k,0.95)); if(cur) mark(cur,0.95); modes.forEach(k=>mark(k,0.7));
+    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4*ng,0.7*ng); });
+    SC.forEach(k=>{ const on=!!scOn&&scOn.has(k.pc), inS=!!scSet&&scSet.has(k.pc); if(on) k.lv=1; else k.lv*=Math.exp(-dt/0.35);
+      const want=inS?scGain*(0.24+0.76*k.lv):0; k.o+=(want-k.o)*Math.min(1,reduce?1:dt/0.08); if(k.o<0.003&&!want){ k.o=0; k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); return; } draw(k,0.62,0.95); });
+    litAt.fill(0); gone.forEach(k=>mark(k,0.95*ng)); if(cur) mark(cur,0.95*ng); modes.forEach(k=>mark(k,0.7*ng)); SC.forEach(k=>{ const pc=k.pc; litAt[pc]=Math.max(litAt[pc],0.95*k.lv*scGain*(scSet&&scSet.has(pc)?1:0)); });
     inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',Math.min(1,litAt[pc]/0.55).toFixed(3)); }); }   // (in colour or grey, the light is bright: a dark letter reads on it)
-  return {step, get mode(){ return modeKey!==null; }};
+  return {step, scale, get mode(){ return modeKey!==null; }};
 })();
 hand.style.display='none';                                              // the cone takes the pointer's place
 function frame(){

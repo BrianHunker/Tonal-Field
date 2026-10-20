@@ -1547,6 +1547,10 @@ const CONE=(()=>{
   const inkL=el('g',{'pointer-events':'none'}), inks=rLbls.map(g=>{ const c=g.cloneNode(true); c.removeAttribute('class'); for(const t of c.children){ t.removeAttribute('class'); t.setAttribute('class','rl'); t.style.fill='#000'; t.style.fontWeight='700'; } c.setAttribute('opacity',0); inkL.appendChild(c); return c; });
   ringSvg.appendChild(inkL); const litAt=new Array(12).fill(0);
   const mark=(k,spotGain)=>{ if(k.pc===null) return; const pc=((Math.round(k.pc)%12)+12)%12; litAt[pc]=Math.max(litAt[pc],spotGain*k.o); };
+  /* THE SCALE'S LIGHTS (a page may ask, g(x) off): a dim grey spotlight standing on each of the mode's seven letters all the
+     time, brightening while its tone sounds and easing back as it ends — in place of the tone's and the mode's own cones */
+  const SC=[]; let scSet=null, scOn=null, scGain=0;
+  const scale=(set,on,gain)=>{ scSet=set; scOn=on; scGain=gain; if(gain>0.001&&!SC.length) for(let pc=0;pc<12;pc++){ const k=make(); k.pc=pc; k.o=0; k.lv=0; SC.push(k); } };
   let clock=0;
   function step(live,pcF,amp,key,chord,modePc){
     const now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
@@ -1555,14 +1559,17 @@ const CONE=(()=>{
       if(key!==curKey){ const strum=chord&&cur&&now-curT<0.09; if(cur){ cur.tau=strum?0.9:0.13; gone.push(cur); } cur=take(); cur.o=0; curKey=key; curT=now; }
       cur.pc=pcF; const want=0.3+0.7*amp; cur.o+=(want-cur.o)*Math.min(1,reduce?1:dt/0.035); }
     else if(cur){ cur.tau=0.2; gone.push(cur); cur=null; curKey=null; }
-    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62,0.95); }
-    if(cur) draw(cur,0.62,0.95);
+    const ng=1-scGain;                                                  // (the scale's lights, where they stand, in their place)
+    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62*ng,0.95*ng); }
+    if(cur) draw(cur,0.62*ng,0.95*ng);
     // the mode
     if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
-    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); });
-    litAt.fill(0); gone.forEach(k=>mark(k,0.95)); if(cur) mark(cur,0.95); modes.forEach(k=>mark(k,0.7));
+    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4*ng,0.7*ng); });
+    SC.forEach(k=>{ const on=!!scOn&&scOn.has(k.pc), inS=!!scSet&&scSet.has(k.pc); if(on) k.lv=1; else k.lv*=Math.exp(-dt/0.35);
+      const want=inS?scGain*(0.24+0.76*k.lv):0; k.o+=(want-k.o)*Math.min(1,reduce?1:dt/0.08); if(k.o<0.003&&!want){ k.o=0; k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); return; } draw(k,0.62,0.95); });
+    litAt.fill(0); gone.forEach(k=>mark(k,0.95*ng)); if(cur) mark(cur,0.95*ng); modes.forEach(k=>mark(k,0.7*ng)); SC.forEach(k=>{ const pc=k.pc; litAt[pc]=Math.max(litAt[pc],0.95*k.lv*scGain*(scSet&&scSet.has(pc)?1:0)); });
     inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',Math.min(1,litAt[pc]/0.55).toFixed(3)); }); }   // (in colour or grey, the light is bright: a dark letter reads on it)
-  return {step, get mode(){ return modeKey!==null; }};
+  return {step, scale, get mode(){ return modeKey!==null; }};
 })();
 hand.style.display='none';                                              // the cone takes the pointer's place
 function frame(){
@@ -3835,6 +3842,7 @@ function customTool(){
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
     paintChords(curChord);
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
+    if(PRE==='csm'&&CONE.scale) CONE.scale(scaleSet(),soundNow,1-FIELD.lit);
     if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count); }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
@@ -4048,6 +4056,9 @@ function customTool(){
   /* AN ANTI'S E SHAPE: an anti root plays its tritone partner's frames — the whole set laid out as if Do stood a tritone away
      (the orientation itself unmoved: the walk's tones keep their own valences, ~ names and all, on the ring and in the TAB) */
   const walkDo=()=>OPT.anti?(KEY+6)%12:KEY, curL=()=>layout(walkDo(),OPT.mode);
+  // g(x) off: the seven the walk plays (the mode's own pitches), and the modes by their church names
+  const scaleSet=()=>{ const d=walkDo(), out=new Set(); MAJ.forEach(x=>out.add((d+x)%12)); return out; };
+  const CHURCH={Do:'Ionian',Re:'Dorian',Mi:'Phrygian',Fa:'Lydian',Sol:'Mixolydian',La:'Aeolian',Ti:'Locrian'};
   // a name in the frames (the partner's) as the field hears it: a tritone on — Do → ~Do … and Fa ↔ Ti
   const antiName=n=>{ const sm=(SYLPC[SYL.indexOf(n)]+6)%12, i=SYLPC.indexOf(sm); return [i>=0?SYL[i]:'~'+SYL[SYLPC.indexOf((sm+6)%12)],sm]; };
   const drumNames=()=>{ if(typeof ROLL!=='undefined'&&ROLL&&ROLL.names) ROLL.names(OPT.anti?antiName:null,OPT.anti?'anti':''); };
@@ -4146,6 +4157,23 @@ function customTool(){
     const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
     for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
     (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
+    /* G(X) OFF, THE MODE ON THE BOARD: every fret holding one of the mode's seven in one even grey, under its letter */
+    { const hiG=el('g',{class:'fbScale','pointer-events':'none'},null); fb.insertBefore(hiG,lettersG); const gap=FB.strY[1]-FB.strY[0], hh=Math.abs(gap)*0.78;
+      const rs=[]; for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const x0=f===0?FB.x0:cellL(f), x1=f===0?FB.nut:cellR(f);
+        rs.push({pc:pcOf(st,f),r:el('rect',{x:(x0+1.5).toFixed(1),y:(FB.strY[st]-hh/2).toFixed(1),width:Math.max(1,x1-x0-3).toFixed(1),height:hh.toFixed(1),rx:3,opacity:0},hiG)}); }
+      let hk=''; (function hi(){ const set=scaleSet(), a=(1-FIELD.lit), k=[...set].join()+'|'+a.toFixed(3)+'|'+inkColour().join();
+        if(k!==hk){ hk=k; const ink=rgbS(inkColour()); rs.forEach(q=>{ q.r.setAttribute('fill',ink); q.r.setAttribute('opacity',set.has(q.pc)?(0.13*a).toFixed(3):0); }); }
+        requestAnimationFrame(hi); })(); }
+    /* G(X) OFF, THE MODE BY NAME: the bank of root letters gives way to a list of the church modes — Ionian, Dorian … —
+       each with its root */
+    { const sel=document.createElement('select'); sel.className='cuModeSel'; sel.setAttribute('aria-label','Mode'); segs[0].parentNode.appendChild(sel);
+      sel.addEventListener('change',()=>{ const v=sel.value; if(!CHURCH[v]) return; OPT.mode=v; OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); });
+      let sk=''; (function sync(){ const k=KEY+'|'+OPT.mode+'|'+OPT.anti; if(k!==sk){ sk=k; sel.innerHTML='';
+          ['Do','Re','Mi','Fa','Sol','La','Ti'].forEach(md=>{ const o=document.createElement('option'); o.value=md; o.textContent=pcName(layout(KEY,md).root,KEY)+' '+CHURCH[md]; sel.appendChild(o); });
+          if(OPT.anti){ const o=document.createElement('option'); o.value='~'; o.textContent=pcName(curL().root,KEY)+' '+CHURCH[OPT.mode]; sel.appendChild(o); sel.value='~'; } else sel.value=OPT.mode; }
+        requestAnimationFrame(sync); })();
+      const css=document.createElement('style'); css.textContent='body.csmPage .cuPanel select.cuModeSel, body.csmPage select.cuModeSel{ display:none; font:inherit; font-size:14px; font-weight:600; text-transform:none; letter-spacing:0; color:var(--ink); background-color:var(--bg); border:1.5px solid var(--mid); border-radius:999px; padding:5px 30px 5px 14px; -webkit-appearance:none; appearance:none; cursor:pointer; background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%); background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%; background-size:5px 5px,5px 5px; background-repeat:no-repeat } body.csmPage:not(.gxOn) select.cuModeSel{ display:inline-block } body.csmPage:not(.gxOn) .cuModes{ display:none !important }';
+      document.head.appendChild(css); }
     /* THE CURVE: g(x) drawn as a line over the circle laid flat — x from 0 (Re, where g is 1) round to 2π — the twelve
        chromatic letters at their places along it (π/6 apart, from Re), each in its colour under the field: the seven
        diatonic tones in theirs, the five antis greatly dimmed under Diatonic, in their own (anti) colours without it, every
@@ -4173,6 +4201,9 @@ function customTool(){
       // what sounds, under the curve: a tone off the axis fills its own lobe (between the zero crossings either side of it),
       // fading to clear at the hinge; a tone on the axis (no area) a thin dashed line through it
       const cp=A('clipPath',{id:gid+'c'},defs); A('rect',{x:X0,y:-20,width:X1-X0,height:VH+40},cp);
+      // g(x) off: a dim grey band rising from each of the mode's seven letters, brightening while it sounds
+      const bandGr=A('linearGradient',{id:gid+'band',x1:0,y1:0,x2:0,y2:1},defs); [[0,0],[0.45,0.35],[1,1]].forEach(([o,a])=>A('stop',{offset:o,'stop-color':'#fff','stop-opacity':a},bandGr));
+      const bandG=A('g',{'clip-path':'url(#'+gid+'c)','pointer-events':'none'},sv);
       const areaG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
       const curve=A('path',{d:'',class:'gpCurve',stroke:'url(#'+gid+')'},sv), beadG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
       // the twelve letters, each at its seat from Re as the Ring's letters stand (sliding as they turn), twice over so the one
@@ -4180,7 +4211,7 @@ function customTool(){
       const letG=A('g',{class:'gpLetters'},sv); A('rect',{x:X0-20,y:LY-22,width:X1-X0+40,height:46,fill:'transparent',class:'gpGrab'},letG);
       const cells=Array.from({length:12},(_,pc)=>{ const fg=A('linearGradient',{id:gid+'f'+pc,gradientUnits:'userSpaceOnUse',x1:0,y1:0,x2:0,y2:MID},defs), s0=A('stop',{offset:0,'stop-opacity':0.85},fg), s1=A('stop',{offset:1,'stop-opacity':0},fg);
         return {pc,ts:[0,1].map(()=>A('text',{x:0,y:LY,class:'gpLet'},letG)),bs:[0,1].map(()=>A('circle',{cx:0,cy:MID,r:7,opacity:0},beadG)),
-          area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
+          area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),band:[0,1].map(()=>A('rect',{x:0,y:4,width:(X1-X0)/12,height:LY+10-4,fill:'url(#'+gid+'band)',opacity:0},bandG)),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
       const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center; pointer-events:none } .gpGrab{ cursor:ew-resize } body.gxOn .gpField{ cursor:grab } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
       document.head.appendChild(css);
       const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
@@ -4233,6 +4264,7 @@ function customTool(){
         if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fv(k)).toFixed(2); } curve.setAttribute('d',d);
           stops.forEach((s,i)=>{ const c=fc(12*i/NST); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
         const gA=s=>L*fv(s), md=v=>((v%12)+12)%12, wrap=v=>{ v=md(v+6)-6; return v; };
+        const SS=scaleSet(), inkS=rgbS(ink); if(bandGr.dataset.c!==inkS){ bandGr.dataset.c=inkS; bandGr.querySelectorAll('stop').forEach(st=>st.setAttribute('stop-color',inkS)); }
         cells.forEach(c=>{ const on=soundNow.has(c.pc); if(on&&c.lv<0.5) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
           // g(x) off, nothing is preferred: every letter at the same light, lit alike when it sounds
           // an anti under Diatonic in grey (lit toward white as it sounds); without Diatonic in its own anti colour
@@ -4246,6 +4278,8 @@ function customTool(){
             t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=(edge*fade).toFixed(3); t.style.fill=rgbS(show);
             t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')'; t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
             b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
+            const bd=c.band[j], sw2=(X1-X0)/12; bd.setAttribute('x',(xOf(q)-sw2*0.42).toFixed(1)); bd.setAttribute('width',(sw2*0.84).toFixed(1));
+            bd.setAttribute('opacity',(SS.has(c.pc)?(1-L)*(0.1+0.32*c.lv)*edge*fade:0).toFixed(3));
             const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(0.9*c.lv*vis).toFixed(3)); });
           // its lobe, filled while it sounds: from the zero crossing before it to the one after, faded to clear at the hinge
           if(c.lv>0.01&&!axis){ const sg=Math.sign(g); let a=p, z=p; for(let n=0;n<80&&Math.sign(gA(a-0.05))===sg;n++) a-=0.05; for(let n=0;n<80&&Math.sign(gA(z+0.05))===sg;n++) z+=0.05;
