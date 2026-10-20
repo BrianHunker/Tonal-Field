@@ -1616,7 +1616,13 @@ function frame(){
   if(live&&(mode!=='pick'||s.D.ham||s.D.pull)){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!s.plan[st.idx].pick) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
   else { boost.key=null; boost.v=0; }
   boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
-  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null, ts=FB.strY[(sa&&sa.idx>=0)?sa.s.plan[sa.idx].string:strI];
+  // where the pick heads: the tone a little ahead — but a strum is swept, string by string, from its first: coming up on one, the
+  // pick goes to the string it starts on (looking ahead it would see only the strum's far end, and skip the strings before);
+  // in it, to the string after the one just struck
+  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null; let si=sa&&sa.idx>=0?sa.idx:-1;
+    if(si>=0){ const pl=sa.s.plan, q=pl[si]; if(q.t!==undefined){ let f0=si; while(f0>0&&pl[f0-1].t===q.t&&pl[f0-1].frame===q.frame&&pl[f0-1].pick) f0--;
+      if(f0<si){ const sn=stateAt(t+catchT()); si=(sn&&sn.s===sa.s&&sn.idx>=f0&&sn.idx<=si)?Math.min(si,sn.idx+1):f0; } } }
+    const ts=FB.strY[si>=0?sa.s.plan[si].string:strI];
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
   const held=placePick(st,pickSy,t,amp,live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
