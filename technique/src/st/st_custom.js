@@ -663,7 +663,7 @@ function customTool(){
     // both in one box: placed over the nut, and what a double click brings up to fill the screen (playback carries on)
     const box=document.createElement('div'); box.className='cuClockBox'; box.appendChild(cv); box.appendChild(sv);
     const host=document.querySelector('.wrap'); host.appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'clock');
-    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckn, .cuClock .cks{ transform-box:fill-box; transform-origin:center } .cuClock .ckIdle{ fill:var(--dim,var(--mid)) } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckIdle{ fill:var(--dim,var(--mid)) } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor }';
     document.head.appendChild(css);
     // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
     // room is short)
@@ -703,7 +703,7 @@ function customTool(){
       lbls.forEach(l=>{ l.pc=null; l.lv=0; l.e.classList.add('ckIdle'); });
       ons.forEach(t=>{ const i=Math.round((t-b0)/D), g=M.ev.filter(e=>e.t===t), up=!!(GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6)||{}).up, big=g.length>1, [x,y]=at(i,R);
         const pc=big?((chordAt(t)||{}).root):pcOf(g[0].s,g[0].f), r=big?(up?6.5:8.5):6, gg=A('g',{class:'ckdot'},dotsG);
-        A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.6:0},gg); dots.push({i,t,pc,g:gg,lv:0});
+        A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.6:0},gg); dots.push({i,t,pc,g:gg,lv:0,x,y});
         if(lbls[i]){ lbls[i].e.classList.remove('ckIdle'); lbls[i].pc=pc; lbls[i].dur=Math.max(...g.map(e=>e.d))/TPQ*60/drill.bpm; } });
       neck.setAttribute('points',dots.length>1?dots.map(d=>at(d.i,R).map(v=>v.toFixed(1)).join(',')).join(' '):''); }
     const TRAIL=1.1, FLOOR=0.06, REST=0.42;                              // the trail's fade (s), what a full turn leaves, stopped
@@ -714,9 +714,9 @@ function customTool(){
         if(playing&&!counting&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null){ lbls[six].lv=1; lbls[six].fx=1; } } lastSix=playing&&!counting?six:-1;
         const colOf=pc=>L>0.001?mixRGB(ink,valRGB(pc),L):ink, k6=Math.exp(-dt/0.35);
         dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
-          d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
+          d.g.style.color=col; svgScale(d.g,1+0.4*d.lv,d.x,d.y); });
         lbls.forEach(l=>{ l.fx=(l.fx||0)*Math.exp(-dt/Math.max(0.1,0.4*(l.dur||0.4)));   // (a half note stays flexed longer than an eighth)
-           l.e.style.transform=l.fx>0.005?'scale('+(1+0.7*l.fx).toFixed(3)+')':''; l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
+           svgScale(l.e,l.fx>0.005?1+0.7*l.fx:1,+l.e.getAttribute('x'),+l.e.getAttribute('y')-5); l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
         // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
         { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
         if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
@@ -836,6 +836,7 @@ function customTool(){
     return {syl,q,root,rf,p:p0,lower:out.slice(0,8),upper:out.slice(7,15)}; }
   /* AN ANTI'S E SHAPE: an anti root plays its tritone partner's frames — the whole set laid out as if Do stood a tritone away
      (the orientation itself unmoved: the walk's tones keep their own valences, ~ names and all, on the ring and in the TAB) */
+  const svgScale=(el,k,cx,cy)=>{ if(Math.abs(k-1)<0.002){ el.removeAttribute('transform'); return; } el.setAttribute('transform','translate('+cx.toFixed(1)+' '+cy.toFixed(1)+') scale('+k.toFixed(3)+') translate('+(-cx).toFixed(1)+' '+(-cy).toFixed(1)+')'); };
   const walkDo=()=>OPT.anti?(KEY+6)%12:KEY, curL=()=>layout(walkDo(),OPT.mode);
   // g(x) off: the seven the walk plays (the mode's own pitches), and the modes by their church names
   const scaleSet=()=>{ const d=(walkDo()+SCKEY())%12, out=new Set(); MAJ.forEach(x=>out.add((d+x)%12)); return out; };
@@ -1006,7 +1007,7 @@ function customTool(){
       const cells=Array.from({length:12},(_,pc)=>{ const fg=A('linearGradient',{id:gid+'f'+pc,gradientUnits:'userSpaceOnUse',x1:0,y1:0,x2:0,y2:MID},defs), s0=A('stop',{offset:0,'stop-opacity':0.85},fg), s1=A('stop',{offset:1,'stop-opacity':0},fg);
         return {pc,ts:[0,1].map(()=>A('text',{x:0,y:LY,class:'gpLet'},letG)),bs:[0,1].map(()=>A('circle',{cx:0,cy:MID,r:7,opacity:0},beadG)),
           area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),band:[0,1].map(()=>A('rect',{x:0,y:4,width:(X1-X0)/12,height:LY+10-4,fill:'url(#'+gid+'band)',opacity:0},bandG)),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
-      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; transform-box:fill-box; transform-origin:center; pointer-events:none } .gpGrab{ cursor:ew-resize } body.gxOn .gpField{ cursor:grab } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
+      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .gpGrab{ cursor:ew-resize } body.gxOn .gpField{ cursor:grab } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
       document.head.appendChild(css);
       const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
       const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
@@ -1074,7 +1075,7 @@ function customTool(){
           const p=w<=0?pa:w>=1?pb:sw?(w<0.5?pa:pb):md(pa+wrap(pb-pa)*w), fade=w>0&&w<1&&sw?Math.abs(1-2*w):1, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
           [p,p-12<-0.45?p+12:p-12].forEach((q,j)=>{ const t=c.ts[j], b=c.bs[j], edge=Math.max(0,Math.min(1,(q+0.45)/0.3,(12.45-q)/0.3));
             t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=(edge*fade).toFixed(3); t.style.fill=rgbS(show);
-            t.style.transform='scale('+(1+0.12*c.lv+0.25*c.flex).toFixed(3)+')'; t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
+            svgScale(t,1+0.12*c.lv+0.25*c.flex,xOf(q),LY); t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
             b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
             const bd=c.band[j], sw2=(X1-X0)/12, fr=SCDRAG-Math.round(SCDRAG); bd.setAttribute('x',(xOf(q+fr)-sw2*0.42).toFixed(1)); bd.setAttribute('width',(sw2*0.84).toFixed(1));
             bd.setAttribute('opacity',(SS.has(c.pc)?(1-L)*(0.1+0.32*c.lv)*edge*fade:0).toFixed(3));
@@ -1132,7 +1133,7 @@ function customTool(){
         let pk=''; (function hp(){ if(ht.parentNode===wrap){ const m=fb.getScreenCTM(); if(m){ const p=fb.createSVGPoint(); p.x=FB.nut; p.y=FB.bot; const q=p.matrixTransform(m), W=wrap.getBoundingClientRect(), w=ht.offsetWidth;
               const x=(q.x-W.left)/ZOOM-w/2, y=(q.y-W.top)/ZOOM+8, k=x.toFixed(1)+'|'+y.toFixed(1); if(k!==pk){ pk=k; ht.style.left=Math.max(0,x).toFixed(1)+'px'; ht.style.top=y.toFixed(1)+'px'; } } }
           requestAnimationFrame(hp); })(); } }
-    window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
+    window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); if(k==='fb') api.copy('handTog',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
       if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
     { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }
     // the drum, just above the fretboard
