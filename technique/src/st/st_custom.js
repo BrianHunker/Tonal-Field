@@ -876,7 +876,7 @@ function customTool(){
       const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
         b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
       w.appendChild(sg); row.appendChild(w); return sg; };
-    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[['strum','Strum'],['up','↑↓'],['down','↓↑'],['off','Off']]),seg('','tetra',[[false,'Triads'],[true,'Tetrachords']])];
+    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Mode','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[['strum','Strum'],['up','↑↓'],['down','↓↑'],['off','Off']]),seg('','tetra',[[false,'Triads'],[true,'Tetrachords']])];
     const keys=['mode','oct','dir','chords','tetra'];
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
