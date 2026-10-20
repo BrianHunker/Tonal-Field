@@ -1152,6 +1152,24 @@ function customTool(){
         let pk=''; (function hp(){ if(ht.parentNode===wrap){ const m=fb.getScreenCTM(); if(m){ const p=fb.createSVGPoint(); p.x=FB.nut; p.y=FB.bot; const q=p.matrixTransform(m), W=wrap.getBoundingClientRect(), w=ht.offsetWidth;
               const x=(q.x-W.left)/ZOOM-w/2, y=(q.y-W.top)/ZOOM+8, k=x.toFixed(1)+'|'+y.toFixed(1); if(k!==pk){ pk=k; ht.style.left=Math.max(0,x).toFixed(1)+'px'; ht.style.top=y.toFixed(1)+'px'; } } }
           requestAnimationFrame(hp); })(); } }
+    /* THE RING ON A TOUCH SCREEN, A DIAL: one finger only scrolls the page past it (taps and double taps still its own); two
+       fingers turned on it turn it, as a dial is turned — the twist of the line between them, carried round the ring from
+       where they came down (between them: inside the letters, the field — g(x) off, the pattern; on the letters, the
+       letters), handed to the Ring as the one-finger drag it already knows */
+    { let tp=new Map(), dial=null, synth=false;
+      const C0=()=>{ const r=ringSvg.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,R:r.width/2}; };
+      const ang=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+      const fire=(type,x,y,id)=>{ synth=true; try{ ringSvg.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:id,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1})); } finally{ synth=false; } };
+      const at=()=>{ const c=C0(), a=dial.a0+dial.tw; return [c.x+dial.r*c.R*Math.sin(a), c.y-dial.r*c.R*Math.cos(a)]; };
+      ringSvg.style.touchAction='pan-y';
+      ringSvg.addEventListener('pointerdown',e=>{ if(synth||e.pointerType!=='touch') return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+        if(tp.size===2&&!dial){ const [p,q]=[...tp.values()], c=C0(), m={x:(p.x+q.x)/2,y:(p.y+q.y)/2};
+          dial={id:e.pointerId,v0:ang(p,q),tw:0,a0:Math.atan2(m.x-c.x,-(m.y-c.y)),r:Math.min(0.95,Math.hypot(m.x-c.x,m.y-c.y)/c.R)};
+          try{ ringSvg.setPointerCapture(e.pointerId); }catch(err){} const [x,y]=at(); fire('pointerdown',x,y,e.pointerId); } },true);
+      ringSvg.addEventListener('pointermove',e=>{ if(synth||e.pointerType!=='touch'||!tp.has(e.pointerId)) return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+        if(dial&&tp.size>=2){ const [p,q]=[...tp.values()]; const v=ang(p,q); let d=v-dial.v0; d=Math.atan2(Math.sin(d),Math.cos(d)); dial.v0=v; dial.tw+=d; const [x,y]=at(); fire('pointermove',x,y,dial.id); } },true);
+      const up=e=>{ if(synth||e.pointerType!=='touch') return; tp.delete(e.pointerId); if(dial&&tp.size<2){ const [x,y]=at(); fire('pointerup',x,y,dial.id); dial=null; } };
+      ringSvg.addEventListener('pointerup',up,true); ringSvg.addEventListener('pointercancel',up,true); }
     window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); if(k==='fb') api.copy('handTog',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
       if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
     { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }
