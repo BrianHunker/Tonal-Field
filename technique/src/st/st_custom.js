@@ -818,6 +818,14 @@ function customTool(){
       const at=[p,p+1].map(f=>{ const k=((pcOf(st-1,f)-key)%12+12)%12; return MAJ.includes(k)?SYL[MAJ.indexOf(k)]:null; }).find(x=>x);
       let best=null, bs=-1; FRAMES.forEach(([h,set])=>{ const sc=sy.filter(x=>set.includes(x)).length+(h===at?0.5:0); if(sc>bs){ bs=sc; best=h; } });
       on.forEach(n=>{ n.fr=best; }); }
+    /* THE HAND SHIFTS FOR A FRAME: a three-tone frame (Ti's diminished, Mi's, La's and Re's minor) is played with its own three
+       fingers — 1 2 4 (a half step, then a whole) or 1 3 4 (a whole, then a half) — its first tone under the first finger. Where
+       a string's frame starts a fret off the hand's place, the hand moves that fret for the string (and stays there for the
+       next) rather than slide a finger or swap one mid-frame. Sol's two tones are taken where the hand is. (In open position
+       the open strings hold it: nothing moves.) */
+    if(p0>0){ let run=p0; for(let st=NSTR;st>=1;st--){ const on=out.filter(n=>n.str===st&&n.f>0); if(!on.length) continue; const fr=on[0].fr;
+        if(fr&&fr!=='Sol'){ const hp=(key+SYLPC[SYL.indexOf(fr)])%12, f0=Math.min(...on.map(n=>n.f)); for(let f=f0;f>=Math.max(1,f0-3);f--) if(pcOf(st-1,f)===hp){ run=f; break; } }
+        on.forEach(n=>{ n.g=Math.max(1,Math.min(4,n.f-run+1)); }); } }
     return {syl,q,root,rf,p:p0,lower:out.slice(0,8),upper:out.slice(7,15)}; }
   /* AN ANTI'S E SHAPE: an anti root plays its tritone partner's frames — the whole set laid out as if Do stood a tritone away
      (the orientation itself unmoved: the walk's tones keep their own valences, ~ names and all, on the ring and in the TAB) */
