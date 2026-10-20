@@ -750,16 +750,16 @@ function customTool(){
   let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set();
   /* HOLD (the toolbar's Hold, off by default): on, each pass is this mode again; off, the exercise moves on to the next
      diatonic mode at each pass's end — the next button along the mode bank, which follows the Ring's order: 1, up the
-     scale (La Ti Do Re Mi Fa Sol …); 5, along the dominant chain (Fa Do Sol Re La Mi Ti). The next pass comes in on the bar
+     scale (La Ti Do Re Mi Fa Sol …); 5, down the dominant chain (Ti Mi La Re Sol Do Fa, then Ti again — Brian, Oct 2026). The next pass comes in on the bar
      line, with no count; what is shown changes with it (its TAB once the ball has passed the copy of its first bars). */
   let HOLD=false, PEEK=null, pendingTab=false; const PASS_STRS={};   // (the passes share their strings: what rings carries over the bar line) try{ HOLD=localStorage.getItem('eshape-hold')==='on'; }catch(err){}
-  const CHAIN7=['Fa','Do','Sol','Re','La','Mi','Ti'];
-  // the bank's order: the roots up the low E from the nut (1), or round the dominant chain from Fa (5)
+  const CHAIN7=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  // the bank's order: the roots up the low E from the nut (1), or down the dominant chain from Ti (5)
   const bankOrder=()=>RING.goal===1?CHAIN7.slice():MODE7.map(m=>m[0]).sort((a,b)=>layout(KEY,a).rf-layout(KEY,b).rf);
   function nextOpt(){ const o=Object.assign({},OPT); if(HOLD) return o;
     const ord=bankOrder(); let i;
     if(!OPT.anti) i=ord.indexOf(OPT.mode);
-    else { const r=curL().root, step=RING.goal===1?7:1; let pc=r; for(let k=0;k<12;k++){ pc=(pc+step)%12; const rel=((pc-KEY)%12+12)%12; if(MAJ.includes(rel)){ o.mode=SYL[MAJ.indexOf(rel)]; o.anti=false; return o; } } i=0; }
+    else { const r=curL().root, step=RING.goal===1?5:1; let pc=r; for(let k=0;k<12;k++){ pc=(pc+step)%12; const rel=((pc-KEY)%12+12)%12; if(MAJ.includes(rel)){ o.mode=SYL[MAJ.indexOf(rel)]; o.anti=false; return o; } } i=0; }
     o.mode=ord[(i+1)%ord.length]; o.anti=false; return o; }
   // the next pass, made once (the copy after the repeat shows it; the segment plays it)
   function peekNext(){ const o=nextOpt(), k=JSON.stringify(o)+'|'+KEY+'|'+M.bars+'|'+M.ev.length+'|'+(M.ev[0]&&M.ev[0].id);
