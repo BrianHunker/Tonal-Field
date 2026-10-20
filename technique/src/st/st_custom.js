@@ -1047,7 +1047,7 @@ function customTool(){
         grab.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); if(T.on&&typeof ringStops==='function'&&ringStops()) stopAll(); drag={x:e.clientX,off:LET.off,was:PHI.doPc,id:e.pointerId}; try{ grab.setPointerCapture(e.pointerId); }catch(err){} });
         grab.addEventListener('pointermove',e=>{ if(!drag) return; let da=Math.round((e.clientX-drag.x)/seatW()); if(RING.m>=0.5){ da=((7*da)%12+12)%12; if(da>6) da-=12; }
           const want=drag.off+da, step=want-LET.off; if(!step) return;
-          LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
+          LET.off=want; if(FIELD.on&&!RING_TURNS_WHOLE) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
         const end=()=>{ if(drag&&drag.was!==PHI.doPc) GHOST.doPc=drag.was; drag=null; };
         grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end); grab.addEventListener('dblclick',e=>e.stopPropagation()); }
       { const fg=A('rect',{x:X0,y:2,width:X1-X0,height:LY-26,fill:'transparent',class:'gpField'},sv); sv.insertBefore(fg,letG); let fd=null;
@@ -1184,6 +1184,16 @@ function customTool(){
         if(dial&&tp.size>=2){ const [p,q]=[...tp.values()]; const v=ang(p,q); let d=v-dial.v0; d=Math.atan2(Math.sin(d),Math.cos(d)); dial.v0=v; dial.tw+=d; const [x,y]=at(); fire('pointermove',x,y,dial.id); } },true);
       const up=e=>{ if(synth||e.pointerType!=='touch') return; tp.delete(e.pointerId); if(dial&&tp.size<2){ const [x,y]=at(); fire('pointerup',x,y,dial.id); dial=null; } };
       ringSvg.addEventListener('pointerup',up,true); ringSvg.addEventListener('pointercancel',up,true); }
+    /* THE RING TURNED BY ITS LETTERS: letters and valences go round together (the key kept), and the tone that comes to 12
+       o'clock, once the Ring is let go, is the mode — its root, in its function (an anti's, its tritone partner's frames),
+       as if chosen from the mode bank */
+    RING_TURNS_WHOLE=true;
+    { let lastOff=LET.off, at=0; (function follow12(){ const now=performance.now();
+        if(LET.off!==lastOff){ lastOff=LET.off; at=now; }
+        else if(at&&now-at>300){ at=0; const pc=((-LET.off)%12+12)%12;
+          if(pc!==curL().root){ const rel=((pc-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0;
+            try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); } }
+        requestAnimationFrame(follow12); })(); }
     window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); if(k==='fb') api.copy('handTog',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
       if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
     { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }

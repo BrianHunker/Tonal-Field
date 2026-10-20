@@ -78,6 +78,9 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{ if(e.key==='ArrowUp') ARROW.up=false; if(e.key==='ArrowDown') ARROW.down=false; if(solHeld===e.key.toLowerCase()) solHeld=null; });
 window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; });
+// RING_TURNS_WHOLE (a page may set it): the letters dragged round carry the field with them — the whole Ring turns, the key
+// kept, and what comes to 12 o'clock is what is chosen (else, g(x) on, the letters turn against the field: a new orientation)
+var RING_TURNS_WHOLE=false;
 { let drag=null;
   const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
   ringSvg.addEventListener('pointerdown',e=>{ const p=angOf(e); if(!FIELD.on&&p.d<0.72) return;   // g(x) off: the letters still turn (only the field inside waits for it)
@@ -99,7 +102,7 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
     let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
     if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is −5 semitones
     const want=drag.off+Math.round(da), step=want-LET.off; if(!step) return;
-    LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });   // g(x) off: only the clock face turns, the orientation kept
+    LET.off=want; if(FIELD.on&&!RING_TURNS_WHOLE) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });   // g(x) off: only the clock face turns, the orientation kept
   const end=()=>{
     if(DRAGF){ const n=Math.round(DRAGF.x);                                // let go: the field settles on the nearest seat, and that is φ
       FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x;
