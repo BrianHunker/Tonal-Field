@@ -624,13 +624,12 @@ function customTool(){
      strings do — the dominant chain, a fret a column — with the one deviation the board itself has: across the G and B
      strings' major third the frame above falls a fret further on. Known from the layout before a note is played. */
   let drumKey='';
-  function drumCols(){ const L=curL(), dp=walkDo(), all=L.lower.concat(L.upper), by={};
+  function drumCols(){ const L=curL(), dp=walkDo(), all=L.lower.concat(L.upper), p=L.p, by={};
     for(let st=NSTR;st>=1;st--){ const on=all.filter(n=>n.str===st); if(!on.length) continue; const fr=on[0].fr, k=DRUM.indexOf(fr); if(k<0||by[fr]) continue;
-      // the frets themselves (the G–B deviation included); only a string the hand left open position to play is counted from
-      // where it moved to
-      const sh=L.p===0?Math.max(...on.map(n=>(n.p===undefined?L.p:n.p)-L.p)):0, lo=Math.max(0,L.p+sh-1), hi=L.p+sh+4;
-      by[fr]=FRAMES[k][1].map(n=>{ const pc=(dp+SYLPC[SYL.indexOf(n)])%12, mine=on.find(x=>pcOf(st-1,x.f)===pc); if(mine) return mine.f-sh;
-        let best=null; const ps=L.p+sh; for(let f=lo;f<=hi;f++) if(pcOf(st-1,f)===pc){ const d=f<ps?ps-f:f>ps+3?f-ps-3:0; if(!best||d<best.d) best={f,d}; } return best?best.f-sh:null; }); }
+      // a frame tone not played on this string stands where the string would have it, the fret nearest the hand's (in open
+      // position that may be the fret before the nut: Ti, in the G string's frame, is played on the D)
+      by[fr]=FRAMES[k][1].map(n=>{ const pc=(dp+SYLPC[SYL.indexOf(n)])%12, mine=on.find(x=>pcOf(st-1,x.f)===pc); if(mine) return mine.f;
+        let best=null; for(let f=p-1;f<=p+4;f++) if(((pcOf(st-1,0)+f)%12+12)%12===pc){ const d=f<p?p-f:f>p+3?f-p-3:0; if(!best||d<best.d) best={f,d}; } return best?best.f:null; }); }
     const fs=Object.values(by).flat().filter(f=>f!==null), base=fs.length?Math.min(...fs):0;
     return DRUM.map(fr=>by[fr]&&by[fr].every(f=>f!==null)?by[fr].map(f=>f-base+1):null); }
   function rollStep(tk){
@@ -800,13 +799,16 @@ function customTool(){
     const base=om(LOWE)+rf, out=[]; let s=LOWE, prev=null;
     for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-om(s);
       // a half step stays on its string where the hand can reach it (a fret on with the fourth finger)
-      if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
+      // in open position the next string takes a tone the moment it can sound it (its open string or above): each string its
+      // own frame, up the strings as the frames go (E_La: La on the E, Re on the A, Sol La Ti on the D, Do Re on the G …)
+      if(open&&i>0&&s>0){ if(m-om(s-1)>=0) s--; }
+      else if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
       prev=m;
       const f=m-om(s);
       // reached past the hand's frets (a half step kept on its string): the hand moves up to take it under the fourth finger,
       // and the tones already on this string past its new first fret are fingered from there
-      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo){ n.g=fin(n.f); n.p=p; } }); }
-      out.push({str:s+1,f,g:fin(f),p}); }
+      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo) n.g=fin(n.f); }); }
+      out.push({str:s+1,f,g:fin(f)}); }
     // the frame each string is played in: of the five, the one holding most of its tones (a tie: the one led by its tone at
     // the hand's first fret, or the fret after)
     const solOf=m=>SYL[MAJ.indexOf((((m-69)-key)%12+12)%12)];
