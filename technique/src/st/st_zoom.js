@@ -15,14 +15,19 @@ const SURF=(()=>{
   let cur=null, home=null, kind=null, lastHx=null;
   const BAR=76;                                                  // the room the button bar takes at the foot
   const zbar=document.createElement('div'); zbar.className='zoomBar'; layer.appendChild(zbar);
-  let prox=[], foot=null;                                        // [page button, its copy]; the Ring's own controls, moved in
+  let prox=[], foot=null, moved=[];                                        // [page button, its copy]; the Ring's own controls, moved in
+  const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
+    c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
   function buildBar(){
-    zbar.innerHTML=''; prox=[];
+    zbar.innerHTML=''; prox=[]; zbar.classList.remove('stack');
+    // a page may lay out the bar itself (ZOOM_BAR(kind, {copy, move, row})): copies of its buttons, its own controls moved in
+    if(typeof ZOOM_BAR==='function'){ const api={row:()=>{ const r=document.createElement('div'); r.className='zoomRow'; zbar.appendChild(r); zbar.classList.add('stack'); return r; },
+        copy:(id,into)=>{ const o=document.getElementById(id); if(o) copy(o,into||zbar); },
+        move:(el,into)=>{ if(!el) return; moved.push({el,parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')}); (into||zbar).appendChild(el); }};
+      if(ZOOM_BAR(kind,api)){ sync(); return; } zbar.innerHTML=''; prox=[]; }
     if(kind==='ring'){ const f=document.querySelector('.ringFoot'); if(f){ foot={el:f,parent:f.parentNode,next:f.nextSibling,style:f.getAttribute('style')}; f.style.width='auto'; f.style.display='flex'; zbar.appendChild(f); } return; }
     const k=kind==='rot'?'fb':kind;
     const shown=id=>{ const o=document.getElementById(id); return o&&getComputedStyle(o).display!=='none'&&!o.hidden?o:null; };
-    const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
-      c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
     ['play','hold'].forEach(id=>{ const o=shown(id); if(o) copy(o,zbar); });
     const pv=shown('prev'), nx=shown('next'); if(pv||nx){ const pair=document.createElement('div'); pair.className='pillPair'; if(pv) copy(pv,pair); if(nx) copy(nx,pair); zbar.appendChild(pair); }
     document.querySelectorAll('[data-zoom]').forEach(o=>{ const z=o.getAttribute('data-zoom'); if(z&&!z.split(' ').includes(k)) return; if(getComputedStyle(o).display!=='none') copy(o,zbar); });
@@ -31,7 +36,7 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
+    if(!cur) return; const BAR=Math.max(76,(zbar.offsetHeight||0)+24), TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px'; layer.style.paddingBottom=BAR+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
     if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=h*v.w/v.h; cur.style.width=w+'px'; cur.style.height=h+'px'; cur.style.maxWidth='none'; cur.style.margin=w<W?'0 auto':''; cur.style.display='block'; }   // (fitted by height, the hand's headroom and all: wider than the screen, it scrolls along with the hand)
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
@@ -51,7 +56,7 @@ const SURF=(()=>{
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
     const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
-    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
+    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); buildBar(); layer.style.paddingBottom=Math.max(BAR,zbar.offsetHeight+24)+'px'; layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
   // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
@@ -62,6 +67,7 @@ const SURF=(()=>{
     if(home.vb) el.setAttribute('viewBox',home.vb);
     if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
+    for(let i=moved.length-1;i>=0;i--){ const m=moved[i]; if(m.style===null) m.el.removeAttribute('style'); else m.el.setAttribute('style',m.style); m.parent.insertBefore(m.el,m.next); } moved=[];
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }

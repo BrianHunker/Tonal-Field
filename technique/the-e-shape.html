@@ -1732,14 +1732,19 @@ const SURF=(()=>{
   let cur=null, home=null, kind=null, lastHx=null;
   const BAR=76;                                                  // the room the button bar takes at the foot
   const zbar=document.createElement('div'); zbar.className='zoomBar'; layer.appendChild(zbar);
-  let prox=[], foot=null;                                        // [page button, its copy]; the Ring's own controls, moved in
+  let prox=[], foot=null, moved=[];                                        // [page button, its copy]; the Ring's own controls, moved in
+  const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
+    c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
   function buildBar(){
-    zbar.innerHTML=''; prox=[];
+    zbar.innerHTML=''; prox=[]; zbar.classList.remove('stack');
+    // a page may lay out the bar itself (ZOOM_BAR(kind, {copy, move, row})): copies of its buttons, its own controls moved in
+    if(typeof ZOOM_BAR==='function'){ const api={row:()=>{ const r=document.createElement('div'); r.className='zoomRow'; zbar.appendChild(r); zbar.classList.add('stack'); return r; },
+        copy:(id,into)=>{ const o=document.getElementById(id); if(o) copy(o,into||zbar); },
+        move:(el,into)=>{ if(!el) return; moved.push({el,parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')}); (into||zbar).appendChild(el); }};
+      if(ZOOM_BAR(kind,api)){ sync(); return; } zbar.innerHTML=''; prox=[]; }
     if(kind==='ring'){ const f=document.querySelector('.ringFoot'); if(f){ foot={el:f,parent:f.parentNode,next:f.nextSibling,style:f.getAttribute('style')}; f.style.width='auto'; f.style.display='flex'; zbar.appendChild(f); } return; }
     const k=kind==='rot'?'fb':kind;
     const shown=id=>{ const o=document.getElementById(id); return o&&getComputedStyle(o).display!=='none'&&!o.hidden?o:null; };
-    const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
-      c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
     ['play','hold'].forEach(id=>{ const o=shown(id); if(o) copy(o,zbar); });
     const pv=shown('prev'), nx=shown('next'); if(pv||nx){ const pair=document.createElement('div'); pair.className='pillPair'; if(pv) copy(pv,pair); if(nx) copy(nx,pair); zbar.appendChild(pair); }
     document.querySelectorAll('[data-zoom]').forEach(o=>{ const z=o.getAttribute('data-zoom'); if(z&&!z.split(' ').includes(k)) return; if(getComputedStyle(o).display!=='none') copy(o,zbar); });
@@ -1748,7 +1753,7 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px';   // (a page's own head over the zoomed view: room for it)
+    if(!cur) return; const BAR=Math.max(76,(zbar.offsetHeight||0)+24), TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px'; layer.style.paddingBottom=BAR+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
     if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=h*v.w/v.h; cur.style.width=w+'px'; cur.style.height=h+'px'; cur.style.maxWidth='none'; cur.style.margin=w<W?'0 auto':''; cur.style.display='block'; }   // (fitted by height, the hand's headroom and all: wider than the screen, it scrolls along with the hand)
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
@@ -1768,7 +1773,7 @@ const SURF=(()=>{
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
     if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
     const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
-    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
+    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); buildBar(); layer.style.paddingBottom=Math.max(BAR,zbar.offsetHeight+24)+'px'; layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
   // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
@@ -1779,6 +1784,7 @@ const SURF=(()=>{
     if(home.vb) el.setAttribute('viewBox',home.vb);
     if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
+    for(let i=moved.length-1;i>=0;i--){ const m=moved[i]; if(m.style===null) m.el.removeAttribute('style'); else m.el.setAttribute('style',m.style); m.parent.insertBefore(m.el,m.next); } moved=[];
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
@@ -4351,7 +4357,7 @@ function customTool(){
       const b=document.createElement('button'); b.type='button'; b.className='gx gxCopy'; b.textContent='g(x)'; b.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); b.addEventListener('dblclick',e=>e.stopPropagation()); head.appendChild(b);
       const css=document.createElement('style'); css.textContent='.zoomGxHead{ position:fixed; top:14px; left:0; right:0; z-index:61; display:none; align-items:center; justify-content:center; gap:14px; pointer-events:none } .zoomGxHead > *{ pointer-events:auto } body.zoomed .zoomGxHead.show{ display:flex } .zoomGxHead.big{ top:22px; gap:20px } .zoomGxHead.big .eqn{ font-size:clamp(18px,2.3vw,34px) } .zoomGxHead.big .gx{ width:62px; height:62px; font-size:24px }'; document.head.appendChild(css);
       document.body.appendChild(head);
-      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=k==='ring'||k==='plot', big=k==='plot'; head.classList.toggle('show',sh); head.classList.toggle('big',big); if(document.body.classList.contains('zoomHead')!==sh||document.body.classList.contains('zoomHeadBig')!==big){ document.body.classList.toggle('zoomHead',sh); document.body.classList.toggle('zoomHeadBig',big); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
+      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=!!k, big=k==='plot'; head.classList.toggle('show',sh); head.classList.toggle('big',big); if(document.body.classList.contains('zoomHead')!==sh||document.body.classList.contains('zoomHeadBig')!==big){ document.body.classList.toggle('zoomHead',sh); document.body.classList.toggle('zoomHeadBig',big); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
@@ -4377,6 +4383,12 @@ function customTool(){
     markModes=mark;
     function regen(){ const was=T.on; drumNames(); orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
+    /* ZOOMED, ANY SURFACE: at its foot the tool's own controls — Play and Hold, the Ring's Diatonic, 1|5 (and Ghost), and the
+       whole row of options below the board, moved down while it is zoomed and back after (no Prev | Next: the E Shape has
+       none) */
+    window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
+      api.move(row,api.row()); return true; };
+    { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }
     // the drum, just above the fretboard
     // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
     // flow above the fretboard)
@@ -4401,7 +4413,7 @@ function customTool(){
       document.head.appendChild(css); } }
     const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
-      const place=()=>{ if(!box.offsetParent) return;   // hidden (g(x) off): placed when it shows again
+      const place=()=>{ if(!box.offsetParent||box.closest('.zoomLayer')) return;   // hidden (g(x) off): placed when it shows again
         if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
         p.y=fb.viewBox.baseVal.y; const pb=document.querySelector('.csmPlotBox'), pr=pb&&pb.parentNode===wrap?pb.getBoundingClientRect():null, ty=Math.max(p.matrixTransform(m).y,pr?pr.bottom+10*ZOOM:-1e9), rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));   // (below the curve, above the board)
@@ -4426,6 +4438,14 @@ function customTool(){
         box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
       afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600);
       box.style.transition='left .45s ease, top .3s ease';
+      /* THE BOARD ZOOMED: the drum (or, g(x) off, the clef) comes along — fixed at the right of the screen in the hand's headroom,
+         as large as that room allows, its foot just above the strings — and goes back to its place after */
+      { let zh=null; (function zd(){ const L=document.querySelector('.zoomLayer'), on=typeof SURF!=='undefined'&&SURF&&SURF.kind==='fb'&&L&&!L.hidden&&L.contains(fb);
+          if(on){ if(!zh){ zh={parent:box.parentNode,next:box.nextSibling,style:box.getAttribute('style')}; L.appendChild(box); }
+            const r=fb.getBoundingClientRect(), v=fb.viewBox.baseVal, k=r.height/v.height, bt=r.top+(FB.top-v.y)*k, top=Math.max(document.body.classList.contains('zoomHead')?70:10,10), rh=Math.max(18,Math.min(70,(bt-top-16)/3));
+            box.style.cssText='position:fixed; margin:0; z-index:62; pointer-events:none; transition:none; right:4vw; left:auto; top:'+(bt-3*rh-10).toFixed(0)+'px; --rh:'+rh.toFixed(1)+'px'; }
+          else if(zh){ zh.parent.insertBefore(box,zh.next); if(zh.style===null) box.removeAttribute('style'); else box.setAttribute('style',zh.style); zh=null; place(); }
+          requestAnimationFrame(zd); })(); }
       // the hand moving on (a pass into the next mode, a mode chosen, the constellation dragged) or the drum's names changing:
       // placed afresh, and again once the hand has settled where it went
       { let wk='', again=null; setInterval(()=>{ const hs=handSpan(), k=(hs?hs.join():'')+'|'+box.offsetWidth+'|'+box.offsetHeight; if(k===wk) return; wk=k; place(); clearTimeout(again); again=setTimeout(place,900); },200); }
