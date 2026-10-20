@@ -133,12 +133,15 @@ function pendOf(s){
   const st=[]; for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
     let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++; if(n>1) st.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); }
   if(!st.length) return null; const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp));
-  for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return null; }
-  s._pend={b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1))}; return s._pend; }
+  const hit=new Set(); for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return null; hit.add(Math.round(j)); }
+  s._pend={b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}; return s._pend; }
 function pendY(s,ph){ const P=pendOf(s); if(!P||ph<P.b0||ph>=P.b1) return null;
   const j=Math.floor((ph-P.b0)/0.5+1e-9), u=ph-P.b0-j*0.5, down=j%2===0, lo=FB.strY[NSTR-1], hi=FB.strY[0], a=down?lo:hi, b=down?hi:lo;
+  // ghost: a stroke that strikes nothing (eased in and out at its ends, 0–1)
+  const gh=P.hit.has(j)?0:Math.max(0,Math.min(1,u/0.08,(0.5-u)/0.08)); PEND_GHOST=gh;
   if(u<P.sd) return a+(b-a)*(u/P.sd);
   const v=(u-P.sd)/(0.5-P.sd), over=0.6*Math.abs(FB.strY[1]-FB.strY[0]); return b+Math.sign(b-a)*over*Math.sin(Math.PI*v); }
+let PEND_GHOST=0;
 function stateAt(t){
   const s=segAt(t), b=(t-s.loopStart)/T.beat;
   if(b<0){ const k=Math.floor(b); return {s,count:true,idx:-1,beatIdx:((k%LOOP)+LOOP)%LOOP,beatT:s.loopStart+k*T.beat}; }
@@ -334,7 +337,7 @@ function frame(){
   // off-beat, struck or not — a missed stroke (a down on 3 between two ups) still traced, passing over the strings — so
   // consecutive strokes in one direction read, and are, one continuous motion. Each swing crosses the strings at the strum's
   // own speed (each string as it sounds), then carries on out past the last and turns back for the next.
-  const pend=live&&!reduce?pendY(s,st.ph):null;
+  PEND_GHOST=0; const pend=live&&!reduce?pendY(s,st.ph):null;
   if(pend!==null) pickSy=pend; else
   // where the pick heads: the tone a little ahead — but a strum is swept, string by string, from its first: coming up on one, the
   // pick goes to the string it starts on (looking ahead it would see only the strum's far end, and skip the strings before);
@@ -344,7 +347,9 @@ function frame(){
       if(f0<si){ const sn=stateAt(t+catchT()); si=(sn&&sn.s===sa.s&&sn.idx>=f0&&sn.idx<=si)?Math.min(si,sn.idx+1):f0; } } }
     const ts=FB.strY[si>=0?sa.s.plan[si].string:strI];
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
-  const held=placePick(st,pickSy,t,amp,live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
+  // (a chord strummed: the pick its root's colour, as the ball; a ghost stroke, grey)
+  const held=placePick(st,pickSy,t,amp*(1-PEND_GHOST),live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:plan[st.idx].ballRoot!==undefined?plan[st.idx].ballRoot:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
+  if(PEND_GHOST>0){ const m=/(\d+),\s*(\d+),\s*(\d+)/.exec(pickBody.style.fill||''), r=pickRest(); if(m) pickBody.style.fill='rgb('+[1,2,3].map((k,i)=>Math.round(+m[k]+(r[i]-m[k])*PEND_GHOST)).join(',')+')'; }   // (the ghost grey through its stroke: no bloom into the next until it is nearly there)
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
   stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
