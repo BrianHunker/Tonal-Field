@@ -1062,6 +1062,19 @@ function customTool(){
             PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; DRAGF=null; dragFEnd=performance.now(); fieldMoved(); }
           if(fd&&fd.was!==PHI.doPc) GHOST.doPc=fd.was; fd=null; };
         fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
+      /* ON A TOUCH SCREEN: one finger scrolls the page past the curve; two fingers swiped along it slide its letters (on
+         the letters) or its field / pattern (above them), handed on as the one-finger drag they already know */
+      { const tp=new Map(); let sw=null, synth=false;
+        const fire=(el,type,x,y,id)=>{ synth=true; try{ el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:id,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1})); } finally{ synth=false; } };
+        const mid=()=>{ const v=[...tp.values()]; return {x:(v[0].x+v[1].x)/2,y:(v[0].y+v[1].y)/2}; };
+        sv.style.touchAction='pan-y';
+        sv.addEventListener('pointerdown',e=>{ if(synth||e.pointerType!=='touch') return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+          if(tp.size===2&&!sw){ const m=mid(), hit=document.elementFromPoint(m.x,m.y), el=hit&&hit.closest?hit.closest('.gpGrab, .gpField'):null; if(!el) return;
+            sw={el,id:e.pointerId,y:m.y}; try{ el.setPointerCapture(e.pointerId); }catch(err){} fire(el,'pointerdown',m.x,m.y,e.pointerId); } },true);
+        sv.addEventListener('pointermove',e=>{ if(synth||e.pointerType!=='touch'||!tp.has(e.pointerId)) return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+          if(sw&&tp.size>=2){ const m=mid(); fire(sw.el,'pointermove',m.x,sw.y,sw.id); } },true);
+        const up=e=>{ if(synth||e.pointerType!=='touch') return; const m=tp.size>=2?mid():null; tp.delete(e.pointerId); if(sw&&tp.size<2){ fire(sw.el,'pointerup',m?m.x:e.clientX,sw.y,sw.id); sw=null; } };
+        sv.addEventListener('pointerup',up,true); sv.addEventListener('pointercancel',up,true); }
       // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
       // hinge stays at the clock's centre unless that would lift it into the TAB
       function place(sz,top,W,stageBot,narrow){ if(box.closest('.zoomLayer')) return;
@@ -1155,7 +1168,7 @@ function customTool(){
     /* THE RING ON A TOUCH SCREEN, A DIAL: one finger only scrolls the page past it (taps and double taps still its own); two
        fingers turned on it turn it, as a dial is turned — the twist of the line between them, carried round the ring from
        where they came down (between them: inside the letters, the field — g(x) off, the pattern; on the letters, the
-       letters), handed to the Ring as the one-finger drag it already knows */
+       letters — where the fingers are), handed to the Ring as the one-finger drag it already knows */
     { let tp=new Map(), dial=null, synth=false;
       const C0=()=>{ const r=ringSvg.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,R:r.width/2}; };
       const ang=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
@@ -1163,8 +1176,9 @@ function customTool(){
       const at=()=>{ const c=C0(), a=dial.a0+dial.tw; return [c.x+dial.r*c.R*Math.sin(a), c.y-dial.r*c.R*Math.cos(a)]; };
       ringSvg.style.touchAction='pan-y';
       ringSvg.addEventListener('pointerdown',e=>{ if(synth||e.pointerType!=='touch') return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
-        if(tp.size===2&&!dial){ const [p,q]=[...tp.values()], c=C0(), m={x:(p.x+q.x)/2,y:(p.y+q.y)/2};
-          dial={id:e.pointerId,v0:ang(p,q),tw:0,a0:Math.atan2(m.x-c.x,-(m.y-c.y)),r:Math.min(0.95,Math.hypot(m.x-c.x,m.y-c.y)/c.R)};
+        if(tp.size===2&&!dial){ const [p,q]=[...tp.values()], c=C0(), rp=Math.hypot(p.x-c.x,p.y-c.y)/c.R, rq=Math.hypot(q.x-c.x,q.y-c.y)/c.R;
+          // (on the letters or inside them: where the fingers themselves are, the turn carried from the first one's place)
+          dial={id:e.pointerId,v0:ang(p,q),tw:0,a0:Math.atan2(p.x-c.x,-(p.y-c.y)),r:Math.max(0.15,Math.min(0.95,(rp+rq)/2))};
           try{ ringSvg.setPointerCapture(e.pointerId); }catch(err){} const [x,y]=at(); fire('pointerdown',x,y,e.pointerId); } },true);
       ringSvg.addEventListener('pointermove',e=>{ if(synth||e.pointerType!=='touch'||!tp.has(e.pointerId)) return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
         if(dial&&tp.size>=2){ const [p,q]=[...tp.values()]; const v=ang(p,q); let d=v-dial.v0; d=Math.atan2(Math.sin(d),Math.cos(d)); dial.v0=v; dial.tw+=d; const [x,y]=at(); fire('pointermove',x,y,dial.id); } },true);
