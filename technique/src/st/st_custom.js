@@ -619,18 +619,26 @@ function customTool(){
     const row0=ROLL.row(), key=rollKey+'|'+[...on].sort().join(','); if(key===litKey&&row0===litRow) return; litKey=key; litRow=row0;
     document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
     const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
-  function solLaCols(e){ const dp=PRE==='csm'?walkDo():PHI.doPc, on=M.ev.filter(x=>x.s===e.s&&x.fr==='Sol'&&x.g), at={};
-    on.forEach(x=>{ const k=((pcOf(x.s,x.f)-dp)%12+12)%12; if(k===7) at.Sol=x.g; if(k===9) at.La=x.g; });
-    if(at.Sol===undefined&&at.La!==undefined) at.Sol=at.La-2; if(at.La===undefined&&at.Sol!==undefined) at.La=at.Sol+2;
-    return at.Sol>=1&&at.La<=4&&at.La>at.Sol?[at.Sol,at.La]:null; }
+  /* THE DRUM'S COLUMNS, set whole when a mode is chosen: each frame's names stand over the frets the walk plays them at in
+     this mode's position (a column a fret, the hand's first at the left), so that read down the drum the frames stack as the
+     strings do — the dominant chain, a fret a column — with the one deviation the board itself has: across the G and B
+     strings' major third the frame above falls a fret further on. Known from the layout before a note is played. */
+  let drumKey='';
+  function drumCols(){ const L=curL(), dp=walkDo(), all=L.lower.concat(L.upper), by={};
+    for(let st=NSTR;st>=1;st--){ const on=all.filter(n=>n.str===st); if(!on.length) continue; const fr=on[0].fr, k=DRUM.indexOf(fr); if(k<0||by[fr]) continue;
+      // the frets themselves (the G–B deviation included); only a string the hand left open position to play is counted from
+      // where it moved to
+      const sh=L.p===0?Math.max(...on.map(n=>(n.p===undefined?L.p:n.p)-L.p)):0, lo=Math.max(0,L.p+sh-1), hi=L.p+sh+4;
+      by[fr]=FRAMES[k][1].map(n=>{ const pc=(dp+SYLPC[SYL.indexOf(n)])%12, mine=on.find(x=>pcOf(st-1,x.f)===pc); if(mine) return mine.f-sh;
+        let best=null; const ps=L.p+sh; for(let f=lo;f<=hi;f++) if(pcOf(st-1,f)===pc){ const d=f<ps?ps-f:f>ps+3?f-ps-3:0; if(!best||d<best.d) best={f,d}; } return best?best.f-sh:null; }); }
+    const fs=Object.values(by).flat().filter(f=>f!==null), base=fs.length?Math.min(...fs):0;
+    return DRUM.map(fr=>by[fr]&&by[fr].every(f=>f!==null)?by[fr].map(f=>f-base+1):null); }
   function rollStep(tk){
+    const dk=OPT.mode+'|'+OPT.anti+'|'+KEY; if(dk!==drumKey){ drumKey=dk; if(ROLL.cols) drumCols().forEach((c,k)=>{ if(c) ROLL.cols(k,c); }); ROLL.rebuild(); rollKey=''; }
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=e.fr||FRAME_OF[e.s];
-    // Sol_La placed where the walk plays it: in position its two tones fall a fret further on across the G–B string's
-    // major third than on any other string — under the fingers that play them
-    const solCols=fr==='Sol'?solLaCols(e):null;
-    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+(solCols?solCols.join():''); if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr); if(solCols&&ROLL.cols) ROLL.cols(k,solCols); ROLL.rebuild(); ROLL.set(k);
+    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+drumKey; if(key===rollKey) return; rollKey=key;
+    ROLL.rebuild(); ROLL.set(DRUM.indexOf(fr));
   }
   /* THE RHYTHM CLOCK (an exercise page): the bar round a clock the ring's own size, its sixteen sixteenths named round the
      rim (1 e & a 2 e & a …) in grey, each lighting in its tone's colour as it is struck. Each tone struck in the bar a dot
@@ -797,8 +805,8 @@ function customTool(){
       const f=m-om(s);
       // reached past the hand's frets (a half step kept on its string): the hand moves up to take it under the fourth finger,
       // and the tones already on this string past its new first fret are fingered from there
-      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo) n.g=fin(n.f); }); }
-      out.push({str:s+1,f,g:fin(f)}); }
+      if(f>hi){ p=f-3; lo=p; hi=p+3; open=false; out.forEach(n=>{ if(n.str===s+1&&n.f>lo){ n.g=fin(n.f); n.p=p; } }); }
+      out.push({str:s+1,f,g:fin(f),p}); }
     // the frame each string is played in: of the five, the one holding most of its tones (a tie: the one led by its tone at
     // the hand's first fret, or the fret after)
     const solOf=m=>SYL[MAJ.indexOf((((m-69)-key)%12+12)%12)];
