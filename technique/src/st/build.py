@@ -158,3 +158,18 @@ book('custom','Tool','Custom','Chord',"""{handLab:true, custom:true, loops:1, pa
 book('the-e-shape','Drill Exercise 10/18/26','The E Shape','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
   drum:[[['Ti','Do','Re'],[1,2,4]],[['Mi','Fa','Sol'],[1,2,4]],[['La','Ti','Do'],[1,3,4]],[['Re','Mi','Fa'],[1,3,4]],[['Sol','La'],[2,4]]], pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='eshape-gx')
+
+# Vivaldi Concerto: Brian's transcription (D major, eight bars) played on the E Shape's page — the Ring, the clock, the curve,
+# the board's letters and the clef — its bars chosen whole or in pairs, bar 1 in either of its two fingerings
+book('vivaldi-concerto','Drill Exercise 10/21/26','Vivaldi Concerto','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
+  piece:{id:'vivaldi', title:'Vivaldi Concerto', key:5, bpm:50, sections:{'1–2':[1,2],'3–4':[3,4],'5–6':[5,6],'7–8':[7,8]},
+   altLabel:'Bar 1', alt:{'Smoother':{}, 'Easier':{1:'D s. 4:0=e+3:2@1=q+2:3@3 x 1:2@2 s. 4:0=e+1:3@4 x 1:5@4 s. 4:0=e+3:2@1=q+2:3@2 x 1:2@1 s. 4:0=e+1:5@4 x 1:2@1 A s. 5:0=e+3:2@1=q+2:2@2+1:0 x 2:2@2 s. 5:0=e+2:3@3 x 1:0 s. 5:0=e+3:2@1=q x 1:7@4 s. 5:0=e+1:5@4 x 1:3@3'}}, bars:[
+    'D s. 4:0=e+3:2@1=q+2:3@2 x 1:2@1 s. 4:0=e+1:3@3 x 1:5@4 s. 4:0=e+3:2@1=q+2:3@2 x 1:2@1 s. 4:0=e+1:5@4 x 1:2@1 A s. 5:0=e+3:2@1=q+2:2@2+1:0 x 2:2@2 s. 5:0=e+2:3@3 x 1:0 s. 5:0=e+3:2@1=q x 1:7@4 s. 5:0=e+1:5@4 x 1:3@3',
+    'D s. 4:0=e+3:2@1=q+2:3@2=e+1:2@1 x 1:5@4 s. 4:0=e+2:3@2 x 1:2@1 s. 4:0=e+3:2@1=q+2:3@2=e.~x+1:5@4 x 1:2@1 s. 4:0=e+1:0 x 2:3@2 A e 5:0+3:2@1+2:2@2+1:0 5:0+3:2@1 5:0 5:0+1:5@1',
+    'D s. 4:0=e+3:7@2=e.~x+2:7@3+1:5@1 x 2:7@3 s. 4:0=e+1:0 x 3:7@2 s. 4:0=e+3:7@2=e.~x+2:7@3+1:5@1 x 2:7@3 s. 4:0=e+1:0 x 3:7@2 Gmaj7 s 3:0=e+2:7@3=q+1:7@4 1:5@1 3:0=e+1:7@4 1:7@4 3:0=e+2:7@3=q+1:7@4 1:5@1 3:0=e+1:7@4 1:7@4',
+    'C#m7♭5 s. 5:4@1=e+3:4@1=q+2:5@2+1:7@4 x 2:5@2 s. 5:4@1=e+2:7@4 x 2:5@2 s. 5:4@1=e+3:4@1=q+2:5@2+1:7@4 x 2:5@2 s. 5:4@1=e+2:7@4 x 2:5@3 F#m7 s 4:4@2=e+2:5@3=q+1:5@4 1:3@1 4:4@2=e+1:5@4 1:5@4 4:4@2=e+2:5@3=q+1:5@4 1:3@1 4:4@2=e+1:5@4 1:5@4',
+    'Bm7 s. 5:2@1=e+3:2@1=q+2:3@2+1:5@4 x 2:3@2 s. 5:2@1=e+2:5@4 x 2:3@2 s. 5:2@1=e+3:2@1=q+2:3@2+1:5@4 x 2:3@2 s. 5:2@1=e+2:5@4 x 2:3@2 E7 s 6:0=e+3:4@3=q+2:3@2=q+1:4@4 1:5@4 6:0=e+1:7@4 1:5@4 6:0=e+3:4@3=q+2:3@2=e.+1:4@4 1:2@1 6:0=e+1:0 2:3@4',
+    'A s. 5:0=e+4:2@1=h+3:2@2=q+2:2@3 x 2:2@3 s. 5:0=e+2:0 x 3:2@2 s. 5:0=e+3:2@2=q+2:2@3+1:0 x 2:2@3 s. 5:0=e+2:0 x 3:2@1 s. 5:0=e+3:2@1=q+2:2@1+1:5@4 x 2:2@1 s. 5:0=e+2:0 x 3:2@1 s. 5:0=e+3:2@1=q+2:2@2+1:0 x 2:2@2 s. 5:0=e+2:0 x 4:7@3',
+    'A s 5:0=e+3:6@2=q+2:5@1=q+1:5@1 1:7@4 4:7@3=e+1:5@1 1:7@4 5:0=e+3:6@2=q+2:5@1=q+1:5@1 1:7@4 4:7@3=e+1:5@1 1:7@4 e 5:0=q+4:7@3+3:6@2+2:5@1+1:5@1 s 1:4@1 2:7@4 2:5@2 2:3@2 2:2@1 2:0',
+    'A s. 5:0=e+3:2@2=q+2:2@1 x 1:0 s. 5:0=e+1:5@4 x 2:2@1 E e 6:0+3:1@1+2:0 6:0+1:4@4 A h 5:0+4:2@1+3:2@1+2:2@1+1:5@4']}, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='vivaldi-gx')

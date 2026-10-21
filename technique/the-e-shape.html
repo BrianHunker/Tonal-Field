@@ -3295,6 +3295,10 @@ if(typeof module!=='undefined') module.exports={chordShapes};
    eighth 12, sixteenth 6, thirty-second 3; dotted ×3/2; triplets ×2/3. */
 function customTool(){
   const PRE=BOOK.preset||null;                                         // a page that is one exercise, generated (its options in place of the editor)
+  /* A PIECE on the E Shape's page (BOOK.piece): a passage written out in this page's text, bar by bar, played as written on
+     the same page — the Ring, the clock, the curve, the board's letters, the clef — in place of the generated E shape. Its
+     options are its own (which bars; a bar's other fingering); no mode bank, no root constellation, no next mode. */
+  const PIECE=BOOK.piece||null, SK=k=>PIECE?'piece-'+PIECE.id+'-'+k:k;
   const TPQ=24, $q=id=>document.getElementById(id);
   const METERS=[[2,4],[3,4],[4,4],[5,4],[6,8],[9,8],[12,8]];
   const barT=m=>m[0]*4*TPQ/m[1];
@@ -4071,11 +4075,11 @@ function customTool(){
      diatonic mode at each pass's end — the next button along the mode bank, which follows the Ring's order: 1, up the
      scale (La Ti Do Re Mi Fa Sol …); 5, down the dominant chain (Ti Mi La Re Sol Do Fa, then Ti again — Brian, Oct 2026). The next pass comes in on the bar
      line, with no count; what is shown changes with it (its TAB once the ball has passed the copy of its first bars). */
-  let HOLD=false, PEEK=null, pendingTab=false; const PASS_STRS={};   // (the passes share their strings: what rings carries over the bar line) try{ HOLD=localStorage.getItem('eshape-hold')==='on'; }catch(err){}
+  let HOLD=false, PEEK=null, pendingTab=false; const PASS_STRS={};   // (the passes share their strings: what rings carries over the bar line) try{ HOLD=localStorage.getItem(SK('eshape-hold'))==='on'; }catch(err){}
   const CHAIN7=['Ti','Mi','La','Re','Sol','Do','Fa'];
   // the bank's order: the roots up the low E from the nut (1), or down the dominant chain from Ti (5)
   const bankOrder=()=>RING.goal===1?CHAIN7.slice():MODE7.map(m=>m[0]).sort((a,b)=>layout(KEY,a).rf-layout(KEY,b).rf);
-  function nextOpt(){ const o=Object.assign({},OPT); if(HOLD) return o;
+  function nextOpt(){ const o=Object.assign({},OPT); if(HOLD||PIECE) return o;
     const ord=bankOrder(); let i;
     if(!OPT.anti) i=ord.indexOf(OPT.mode);
     else { const r=curL().root, step=RING.goal===1?5:1; let pc=r; for(let k=0;k<12;k++){ pc=(pc+step)%12; const rel=((pc-KEY)%12+12)%12; if(MAJ.includes(rel)){ o.mode=SYL[MAJ.indexOf(rel)]; o.anti=false; return o; } } i=0; }
@@ -4091,15 +4095,16 @@ function customTool(){
   function nextPass(after){ const last=T.segs[T.segs.length-1], nx=peekNext(), n=(last&&last.passN||0)+1;
     const s=segment(nx.same?C:nx.C,n,nx.same?null:nx); if(nx.same){ s.model=null; } return s; }
   // a pass of another mode begins: it becomes what is shown (the TAB a bar later)
-  function passTo(m){ Object.assign(OPT,m.opt); try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){}
+  function passTo(m){ Object.assign(OPT,m.opt); try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){}
     M=m.M; C=m.C; PEEK=null; useC(); MODES=modeEvents(); lastDo=undefined; shownK=-2; pendingTab=true;
     drumNames(); orient(KEY,true); if(typeof markModes==='function') markModes(); }
   let markModes=null; const BOARD_DROP=250;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:'strum',tetra:false};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
-  try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
+  try{ Object.assign(OPT,JSON.parse(localStorage.getItem(SK('csm-opts'))||'{}')); }catch(err){}
+  if(PIECE){ OPT.mode='Do'; OPT.anti=false; OPT.chords='off'; if(!OPT.sec) OPT.sec='all'; if(!OPT.fing) OPT.fing=PIECE.alt?Object.keys(PIECE.alt)[0]:''; }
   if(OPT.chords===true) OPT.chords='strum'; else if(OPT.chords===false) OPT.chords='off';   // (an earlier visit's On | Off)
   let KEY=10;                                                            // Do's pitch (from A): G
-  try{ const k=+localStorage.getItem('eshape-key'); if(localStorage.getItem('eshape-key')!==null&&k>=0&&k<12) KEY=k; }catch(err){}
+  if(PIECE) KEY=PIECE.key; else try{ const k=+localStorage.getItem(SK('eshape-key')); if(localStorage.getItem(SK('eshape-key'))!==null&&k>=0&&k<12) KEY=k; }catch(err){}
   const MODE7=[['Do',0,'maj'],['Re',2,'min'],['Mi',4,'min'],['Fa',5,'maj'],['Sol',7,'maj'],['La',9,'min'],['Ti',11,'dim']];
   const MAJ=[0,2,4,5,7,9,11], FRAMES=[['Ti',['Ti','Do','Re']],['Mi',['Mi','Fa','Sol']],['La',['La','Ti','Do']],['Re',['Re','Mi','Fa']],['Sol',['Sol','La']]];
   const flatKey=k=>[1,4,6,8,11].includes(k), pcName=(pc,k)=>(flatKey(k)?LETTER_B:LETTER)[((pc%12)+12)%12];
@@ -4181,7 +4186,7 @@ function customTool(){
     return {G, DN:[6,4,3,2], UP:[2,3,4]}; }
   const chordSuffix=L=>{ if(!OPT.tetra) return L.q==='min'?'m':L.q==='dim'?'°':''; const {i3,i5,i7}=chordIv();
     return i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7'); };
-  function presetModel(){
+  function presetModel(){ if(PIECE) return pieceModel();
     const m=fresh(); m.title='The E Shape'; m.bpm=drill.bpm; const ev=[], BAR=96; let t=0;
     const L=curL(), Gp=OPT.tetra?grip4(L):grip(L);
     const add=(t0,d,str,f,g,fr)=>{ const e={t:t0,d,s:str-1,f}; if(g&&f>0) e.g=g; if(fr) e.fr=fr; ev.push(e); };
@@ -4208,6 +4213,21 @@ function customTool(){
     if(OPT.dir!=='off') walk(octs);
     const nm=pcName(L.root,KEY)+chordSuffix(L);
     m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,(OPT.anti?'~':'')+L.syl),{t:0})]; m.key=KEY; return m; }
+  /* THE PIECE: its bars (with the fingering chosen for a bar that has another), read as the Custom page reads a drill; the
+     bars chosen played alone, from their own start — the chord in force there written at it */
+  let pieceBpm=PIECE?PIECE.bpm:0;
+  function pieceModel(){
+    const m=fresh(); m.title=PIECE.title; m.bpm=pieceBpm||drill.bpm; pieceBpm=0;
+    const bars=PIECE.bars.map((b,i)=>PIECE.alt&&PIECE.alt[OPT.fing]&&PIECE.alt[OPT.fing][i+1]||b);
+    const save=M; M=m; let r; try{ r=parse(bars.join(' | ')); } finally{ M=save; }
+    if(r.errs.length) console.warn(PIECE.title+':',r.errs);
+    const B=barT(m.meter), sec=(PIECE.sections||{})[OPT.sec], a=sec?(sec[0]-1)*B:0, b=sec?sec[1]*B:Infinity;
+    m.ev=r.out.ev.filter(e=>e.t>=a&&e.t<b).map(e=>Object.assign({},e,{t:e.t-a,d:Math.min(e.d,b-e.t)}));
+    const before=r.out.ch.filter(c=>c.t<=a).pop();
+    m.ch=r.out.ch.filter(c=>c.t>a&&c.t<b).map(c=>Object.assign({},c,{t:c.t-a})); if(before) m.ch.unshift(Object.assign({},before,{t:0}));
+    // the opening chord carries its root's function in the orientation in force (D_Do in D): the Ring set by it, the rest bare
+    if(m.ch[0]&&m.ch[0].t===0&&!m.ch[0].syl) m.ch[0]=Object.assign({},m.ch[0],{syl:SOLN[((m.ch[0].root-KEY-2)%12+12)%12]});
+    m.bars=sec?sec[1]-sec[0]+1:r.out.bars; m.key=KEY; return m; }
   // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
   // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
   if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
@@ -4215,10 +4235,15 @@ function customTool(){
     const row=document.createElement('div'); row.className='cuRow cuOpts';
     const seg=(lbl,key,items)=>{ const w=document.createElement('span'); w.className='cuLbl'; w.textContent=lbl+' ';
       const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
-        b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
+        b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
       w.appendChild(sg); row.appendChild(w); return sg; };
     const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Scale','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[['strum','Strum'],['up','↑↓'],['down','↓↑'],['off','Off']]),seg('','tetra',[[false,'Triads'],[true,'Tetrachords']])];
     const keys=['mode','oct','dir','chords','tetra'];
+    // a piece: its own options in place of the E shape's — the bars to play, and a bar's other fingering
+    if(PIECE){ segs.forEach(sg=>{ sg.parentNode.style.display='none'; });
+      { const css=document.createElement('style'); css.textContent='body.piecePage select.cuModeSel, body.piecePage .cuModes{ display:none !important } body.piecePage #frameLbl .rollIn{ visibility:hidden }'; document.head.appendChild(css); }
+      segs.push(seg('Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections||{}).map(k=>[k,k])))); keys.push('sec');
+      if(PIECE.alt){ segs.push(seg(PIECE.altLabel||'Fingering','fing',Object.keys(PIECE.alt).map(k=>[k,k]))); keys.push('fing'); } }
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
     function relabel(){ const bs=[...segs[0].querySelectorAll('button')], ord=bankOrder(); bs.sort((a,b)=>ord.indexOf(JSON.parse(a.dataset.v))-ord.indexOf(JSON.parse(b.dataset.v))).forEach(b=>segs[0].appendChild(b));
@@ -4236,10 +4261,10 @@ function customTool(){
     /* G(X) OFF: no solfège anywhere on the page — no drum, no syllables in the TAB or on the chord, the mode bank by its
        letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
        two). The letters fade in as the field fades out. */
-    document.body.classList.add('csmPage'); boardLetters=true;
+    document.body.classList.add('csmPage'); if(PIECE) document.body.classList.add('piecePage'); boardLetters=true;
     { const hb=document.getElementById('hold'); if(hb){ hb.title='Hold: repeat this mode (off: on to the next mode each pass)';
-        hb.addEventListener('click',e=>{ e.stopImmediatePropagation(); HOLD=!HOLD; PEEK=null; try{ localStorage.setItem('eshape-hold',HOLD?'on':'off'); }catch(err){} if(!T.on) refresh(); },true);
-        (function hs(){ hb.style.display=''; hb.setAttribute('aria-pressed',HOLD); hb.classList.toggle('on',HOLD); requestAnimationFrame(hs); })(); } }
+        hb.addEventListener('click',e=>{ e.stopImmediatePropagation(); HOLD=!HOLD; PEEK=null; try{ localStorage.setItem(SK('eshape-hold'),HOLD?'on':'off'); }catch(err){} if(!T.on) refresh(); },true);
+        (function hs(){ hb.style.display=PIECE?'none':''; hb.setAttribute('aria-pressed',HOLD); hb.classList.toggle('on',HOLD); requestAnimationFrame(hs); })(); } }
     /* THE DE-EMPHASIZED: everything off the diatonic seven (the antis' lobes and letters on the Ring, the plot's anti letters
        and curve) and the clock's counts nothing falls on, in a darker grey — still faintly readable, plainly set back */
     { let dk=''; (function dim(){ const bg=bgColour(), ink=inkColour(), k=bg.join()+'|'+ink.join(); if(k!==dk){ dk=k; const D=mixRGB(bg,ink,0.3);
@@ -4265,7 +4290,7 @@ function customTool(){
     /* G(X) OFF, THE MODE BY NAME: the bank of root letters gives way to a list of the church modes — Ionian, Dorian … —
        each with its root */
     { const sel=document.createElement('select'); sel.className='cuModeSel'; sel.setAttribute('aria-label','Mode'); segs[0].parentNode.appendChild(sel);
-      sel.addEventListener('change',()=>{ const v=sel.value; if(!CHURCH[v]) return; OPT.mode=v; OPT.anti=false; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); });
+      sel.addEventListener('change',()=>{ const v=sel.value; if(!CHURCH[v]) return; OPT.mode=v; OPT.anti=false; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); });
       // (while the pattern is dragged, the names as they will be: the key it has come to, the root keeping its letter)
       let sk=''; (function sync(){ const K=(KEY+SCKEY())%12, k=K+'|'+OPT.mode+'|'+OPT.anti; if(k!==sk){ sk=k; sel.innerHTML=''; const KN=keyNames(K);
           ['Do','Re','Mi','Fa','Sol','La','Ti'].forEach(md=>{ const o=document.createElement('option'); o.value=md; o.textContent=KN[md]+' '+CHURCH[md]; sel.appendChild(o); });
@@ -4423,13 +4448,13 @@ function customTool(){
       // the root keeps its letter: it takes whatever function the new orientation gives it (an anti's, its tritone partner's
       // frames), as the constellation does when it is dropped there — only the mode bank's own buttons choose a mode
       applyKey(); };
-    function applyKey(){ const r=curL().root; KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){}
-      { const rel=((r-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} }
+    function applyKey(){ const r=curL().root; KEY=PHI.doPc; keyWant=null; if(PIECE){ relabel(); mark(); regen(); return; } try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){}
+      { const rel=((r-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} }
       relabel(); mark(); regen(); }
     // the pattern let go (g(x) off): the key moves at once to where it settled
     // (the old world has no antis: the mode goes with the key — Ionian stays Ionian, its root carried along)
     function dropPattern(){ const d=SCKEY(); SCDRAG=0; if(!d) return; const K=((walkDo()+d)%12+12)%12; PHI.doPc=K; KEY=K; keyWant=null; OPT.anti=false;
-      try{ localStorage.setItem('eshape-key',String(KEY)); localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} relabel(); mark(); regen(); }
+      try{ localStorage.setItem(SK('eshape-key'),String(KEY)); localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} relabel(); mark(); regen(); }
     { let dr=null; const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
       ringSvg.addEventListener('pointerdown',e=>{ if(FIELD.lit>0.5) return; const p=angOf(e); if(p.d>=0.72) return;
         dr={last:p.a,id:e.pointerId}; SCDRAG=0; try{ ringSvg.setPointerCapture(e.pointerId); }catch(err){} e.preventDefault(); },true);
@@ -4476,8 +4501,8 @@ function customTool(){
     { let lastOff=LET.off, at=0; (function follow12(){ const now=performance.now();
         if(LET.off!==lastOff){ lastOff=LET.off; at=now; }
         else if(at&&now-at>300){ at=0; const pc=((-LET.off)%12+12)%12;
-          if(pc!==curL().root){ const rel=((pc-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0;
-            try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); } }
+          if(pc!==curL().root&&!PIECE){ const rel=((pc-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0;
+            try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); } }
         requestAnimationFrame(follow12); })(); }
     window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); if(k==='fb') api.copy('handTog',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
       if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
@@ -4554,7 +4579,7 @@ function customTool(){
        and the constellation drags smoothly to any of the twelve places; let go and it settles onto the nearest fret, the
        hand following to set up the shape there. A root the ring gives a diatonic valence takes that mode (as the mode bank
        would), its root at 12 o'clock; an anti's root goes to 12 o'clock too, its shape and frames its tritone partner's. */
-    CONST=(()=>{ const NSV='http://www.w3.org/2000/svg', g=document.createElementNS(NSV,'g'); g.setAttribute('class','csmRoots');
+    if(!PIECE) CONST=(()=>{ const NSV='http://www.w3.org/2000/svg', g=document.createElementNS(NSV,'g'); g.setAttribute('class','csmRoots');
       const PTS=[[LOWE,0],[0,0],[Math.max(0,NSTR-3),2]];                   // [string, frets above the root]: low E, high e, D
       const hits=document.createElementNS(NSV,'g'); hits.setAttribute('class','csmRootHits');
       const dots=PTS.map(([s,o])=>{ const c=document.createElementNS(NSV,'circle'); c.setAttribute('r','10'); c.setAttribute('cy',FB.strY[s]); g.appendChild(c);
@@ -4583,7 +4608,7 @@ function customTool(){
       // let go on fret f: the mode whose root the ring puts there, or an anti's
       function land(f){ const rel=((pcOf(LOWE,f)-KEY)%12+12)%12, i=MAJ.indexOf(rel), mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)], anti=i<0;
         if(mode===OPT.mode&&anti===OPT.anti) return;
-        OPT.mode=mode; OPT.anti=anti; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }
+        OPT.mode=mode; OPT.anti=anti; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); }
       hits.addEventListener('pointerdown',e=>{ const x=svgX(e); if(x===null) return; e.preventDefault(); e.stopPropagation();
         const c=e.target.closest('circle'), d=dots.find(q=>q.h===c)||dots[0]; snap=null;
         drag={id:e.pointerId,off:vAt(x)-(u+d.o)}; hits.classList.add('drag'); document.body.classList.add('csmDrag'); try{ hits.setPointerCapture(e.pointerId); }catch(err){} });
