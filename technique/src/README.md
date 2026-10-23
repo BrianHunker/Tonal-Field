@@ -1,6 +1,6 @@
 # Drill page sources
 
-The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html`, `hand-lab.html`, `chords.html`, `wish-you-were-here.html`, `custom.html`, `the-e-shape.html`, `vivaldi-concerto.html`) are built from these files.
+The technique drill pages (`structures.html`, `frame-walk.html`, `semimodes.html`, `hand-lab.html`, `chords.html`, `wish-you-were-here.html`, `custom.html`, `the-e-shape.html`, `vivaldi-concerto.html`, `sol-fa.html`) are built from these files.
 
 - `chain-drills.html`: the base tool; `st/build.py` copies line ranges from it (`/*@COPY:a-b*/`).
 - `st/st_a.js` … `st_g.js`, `st_shape.js`, `st_lbl.js`, `st_page.html`: Harmonic Structures.

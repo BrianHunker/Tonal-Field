@@ -215,7 +215,7 @@ function customTool(){
       if(nw.length>1) strumAt.add(F.t);
       nw.forEach((e,i)=>{ const off=i*spread;
         plan.push({string:e.s,fret:e.f,pitch:e.f,push:0,finger:e.f>0?(FG.fing[e.id]||0):0,frame:k,pick:true,glide:false,pre:false,kind:'pick',hi:false,
-          vel:Math.pow(0.96,i)*(up?0.75:1),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off,ballRoot:nw.length>1&&chordAt(e.t)?chordAt(e.t).root:undefined});
+          vel:Math.pow(0.96,i)*weightOf(F.t,up,nw.length),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off,ballRoot:nw.length>1&&chordAt(e.t)?chordAt(e.t).root:undefined});
         fig.push({s:e.t/TPQ+off}); }); });
     // where each tone's string is next struck: room to still it at its end, or not
     plan.forEach(p=>{ const later=plan.filter(q=>q.string===p.string&&q.t>p.t).map(q=>q.t), first=Math.min(...plan.filter(q=>q.string===p.string).map(q=>q.t));
@@ -227,6 +227,14 @@ function customTool(){
       lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[Math.min(1,plan.length-1)].string,f:plan[Math.min(1,plan.length-1)].fret,g:plan[Math.min(1,plan.length-1)].finger}};
     C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB,lift};
     return C; }
+  /* A STRUM'S WEIGHT (a piece that asks: BOOK.piece.weights — as on Wish You Were Here): the bar's downbeat the heaviest;
+     every other downstroke a middle weight; an upstroke the lightest, unless nothing is struck on the beat it leads into
+     (the stroke carried over that beat lifts to the middle weight). Otherwise a downstroke full, an upstroke a little less. */
+  function weightOf(t,up,n){ if(!(PIECE&&PIECE.weights&&n>1)) return up?0.75:1;
+    const B=barT(M.meter), P_=pulseT(M.meter);
+    if(!up) return Math.abs(t%B)<1e-6?1:0.72;
+    const nb=Math.ceil((t+1e-6)/P_)*P_, struck=M.ev.some(e=>Math.abs(e.t-nb)<1e-6);
+    return Math.abs(nb-t-P_/4)<1e-6&&!struck?0.72:0.5; }
   const gcd=(a,b)=>{ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||TPQ; };
   function useC(){ if(!C||C.empty){ DRILL=null; FIG=[{s:0,d:4}]; LOOP=total()/TPQ; return; }
     FIG=C.fig; LOOP=C.loop; STROKES=C.strokes; BAR_START=i=>!!FIG[i]&&Math.abs((FIG[i].s*TPQ)%barT(M.meter))<1e-6; DRILL=C.D; }
@@ -246,6 +254,8 @@ function customTool(){
      that moment to the next, on the Ring (its mode cone), the TAB (its light fading across the span) and the fretboard. */
   let MODES=[];
   function modeEvents(){ const out=[], ons=[...new Set(M.ev.map(e=>e.t))].sort((a,b)=>a-b);
+    if(PIECE&&PIECE.symModes){ M.ch.forEach((c,i)=>{ const nx=M.ch[i+1], span=M.ev.filter(e=>e.t>=c.t&&(!nx||e.t<nx.t)), r=c.root;
+        const at=lowest(span.filter(e=>pcOf(e.s,e.f)===r))||lowest(span); if(at) out.push({t:c.t,root:r,at,id:'m'+c.t}); }); return out; }
     ons.forEach(t=>{ const g=M.ev.filter(e=>e.t===t);
       if(g.length>1){ const c=chordAt(t); if(!c) return; const r=c.root, at=lowest(g.filter(e=>pcOf(e.s,e.f)===r))||lowest(g); out.push({t,root:r,at,id:'m'+t}); }
       else if(g[0].d>TPQ) out.push({t,root:pcOf(g[0].s,g[0].f),at:g[0],id:'m'+t}); });
@@ -936,13 +946,13 @@ function customTool(){
     const bars=PIECE.bars.map((b,i)=>PIECE.alt&&PIECE.alt[OPT.fing]&&PIECE.alt[OPT.fing][i+1]||b);
     const save=M; M=m; let r; try{ r=parse(bars.join(' | ')); } finally{ M=save; }
     if(r.errs.length) console.warn(PIECE.title+':',r.errs);
-    const B=barT(m.meter), sec=(PIECE.sections||{})[OPT.sec], a=sec?(sec[0]-1)*B:0, b=sec?sec[1]*B:Infinity;
+    const B=barT(m.meter), sec=(PIECE.sections||{})[OPT.sec], a=sec?(sec[0]-1)*B:0, b=sec&&sec[1]?sec[1]*B:Infinity;
     m.ev=r.out.ev.filter(e=>e.t>=a&&e.t<b).map(e=>Object.assign({},e,{t:e.t-a,d:Math.min(e.d,b-e.t)}));
     const before=r.out.ch.filter(c=>c.t<=a).pop();
     m.ch=r.out.ch.filter(c=>c.t>a&&c.t<b).map(c=>Object.assign({},c,{t:c.t-a})); if(before) m.ch.unshift(Object.assign({},before,{t:0}));
     // the opening chord carries its root's function in the orientation in force (D_Do in D): the Ring set by it, the rest bare
     if(m.ch[0]&&m.ch[0].t===0&&!m.ch[0].syl) m.ch[0]=Object.assign({},m.ch[0],{syl:SOLN[((m.ch[0].root-KEY-2)%12+12)%12]});
-    m.bars=sec?sec[1]-sec[0]+1:r.out.bars; m.key=KEY; return m; }
+    m.bars=sec?(sec[1]||r.out.bars)-sec[0]+1:r.out.bars; m.key=KEY; return m; }
   // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
   // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
   if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
@@ -957,7 +967,7 @@ function customTool(){
     // a piece: its own options in place of the E shape's — the bars to play, and a bar's other fingering
     if(PIECE){ segs.forEach(sg=>{ sg.parentNode.style.display='none'; });
       { const css=document.createElement('style'); css.textContent='body.piecePage select.cuModeSel, body.piecePage .cuModes{ display:none !important } body.piecePage #frameLbl .rollIn{ visibility:hidden }'; document.head.appendChild(css); }
-      segs.push(seg('Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections||{}).map(k=>[k,k])))); keys.push('sec');
+      segs.push(seg(PIECE.secLabel||'Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections||{}).map(k=>[k,k])))); keys.push('sec');
       if(PIECE.alt){ segs.push(seg(PIECE.altLabel||'Fingering','fing',Object.keys(PIECE.alt).map(k=>[k,k]))); keys.push('fing'); } }
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body

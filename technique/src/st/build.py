@@ -173,3 +173,21 @@ book('vivaldi-concerto','Drill Exercise 10/21/26','Vivaldi Concerto','Chord',"""
     'A s 5:0=e+3:6@2=q+2:5@1=q+1:5@1 1:7@4 4:7@3=e+1:5@1 1:7@4 5:0=e+3:6@2=q+2:5@1=q+1:5@1 1:7@4 4:7@3=e+1:5@1 1:7@4 e 5:0=q+4:7@3+3:6@2+2:5@1+1:5@1 s 1:4@1 2:7@4 2:5@2 2:3@2 2:2@1 2:0',
     'A s. 5:0=e+3:2@2=q+2:2@1 x 1:0 s. 5:0=e+1:5@4 x 2:2@1 E e 6:0+3:1@1+2:0 6:0+1:4@4 A h 5:0+4:2@1+3:2@1+2:2@1+1:5@4']}, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='vivaldi-gx')
+
+# Sol-Fa: E_Sol and D_Fa (A as Do) side by side — open E5 and D5 rung root, fifth, octave; the open E and Dsus2 strummed
+# in sixteenths (One & uh Two & uh e uh 4 e & uh), the strokes' strings and weights as on Wish You Were Here; then each
+# mode walked in eighths through the A shape's central octave, its mode lit throughout, up, down or up and back
+book('sol-fa','Drill Exercise 10/23/26','Sol-Fa','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
+  piece:{id:'sol-fa', title:'Sol-Fa', key:0, bpm:80, weights:true, symModes:true, secLabel:'Part',
+   sections:{'Arpeggios':[1,4],'Strums':[5,8],'Walks':[9,null]}, altLabel:'Walk', alt:{'Up':{}, 'Down':{9:'E_Sol e 3:9@4 3:7@2 3:6@1 4:9@4 4:7@2 4:6@1 5:9@4 5:7@2', 10:'D_Fa e 3:7@4 3:6@3 3:4@1 4:7@4 4:6@3 4:4@1 5:7@4 5:5@2'}, 'Up · Down':{9:'E_Sol e 5:7@2 5:9@4 4:6@1 4:7@2 4:9@4 3:6@1 3:7@2 3:9@4 | E_Sol e 3:9@4 3:7@2 3:6@1 4:9@4 4:7@2 4:6@1 5:9@4 5:7@2', 10:'D_Fa e 5:5@2 5:7@4 4:4@1 4:6@3 4:7@4 3:4@1 3:6@3 3:7@4 | D_Fa e 3:7@4 3:6@3 3:4@1 4:7@4 4:6@3 4:4@1 5:7@4 5:5@2'}}, bars:[
+    'E5_Sol e 6:0=w 5:2@2=h.~e 4:2@3=h.',
+    'D5_Fa e 4:0=w 3:2@1=h.~e 2:3@3=h.',
+    'E5_Sol e 6:0=w 5:2@2=h.~e 4:2@3=h.',
+    'D5_Fa e 4:0=w 3:2@1=h.~e 2:3@3=h.',
+    'E_Sol s 6:0=w+5:2@2=w r 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=q 4:2@3=e+3:1@1=e+2:0=e r 4:2@3=q.+3:1@1=q.+2:0=s 2:0=e+1:0=e r 2:0=e+1:0=e r 2:0=s+1:0=e 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=e 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=s',
+    'Dsus2_Fa s 4:0=w+3:2@1=e r 3:2@1=e+2:3@3=s 2:3@3=s+1:0=q 3:2@1=e+2:3@3=e r 3:2@1=q.+2:3@3=s 2:3@3=e+1:0=e r 2:3@3=e+1:0=e r 2:3@3=s+1:0=e 3:2@1=e+2:3@3=s 2:3@3=s+1:0=e 3:2@1=e+2:3@3=s 2:3@3=s+1:0=s',
+    'E_Sol s 6:0=w+5:2@2=w r 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=q 4:2@3=e+3:1@1=e+2:0=e r 4:2@3=q.+3:1@1=q.+2:0=s 2:0=e+1:0=e r 2:0=e+1:0=e r 2:0=s+1:0=e 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=e 4:2@3=e+3:1@1=e+2:0=s 2:0=s+1:0=s',
+    'Dsus2_Fa s 4:0=w+3:2@1=e r 3:2@1=e+2:3@3=s 2:3@3=s+1:0=q 3:2@1=e+2:3@3=e r 3:2@1=q.+2:3@3=s 2:3@3=e+1:0=e r 2:3@3=e+1:0=e r 2:3@3=s+1:0=e 3:2@1=e+2:3@3=s 2:3@3=s+1:0=e 3:2@1=e+2:3@3=s 2:3@3=s+1:0=s',
+    'E_Sol e 5:7@2 5:9@4 4:6@1 4:7@2 4:9@4 3:6@1 3:7@2 3:9@4',
+    'D_Fa e 5:5@2 5:7@4 4:4@1 4:6@3 4:7@4 3:4@1 3:6@3 3:7@4']}, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='solfa-gx')
