@@ -687,7 +687,7 @@ const follow=x=>{ x=Math.max(0,Math.min(1,x)); return (1-Math.exp(-7*x))/(1-Math
 // the colour a tone blooms to: yellow with g(x) off; with it on, the field's colour at the tone's pitch (Ti or Do)
 function toneRGB(s,tt){ const b=(tt+1e-3-s.loopStart)/T.beat, ph=((b%LOOP)+LOOP)%LOOP;
   let idx=0; const FG=s.fig||FIG; for(let i=1;i<FG.length;i++){ if(FG[i].s<=ph) idx=i; else break; }
-  const e=s.plan[b<0?0:idx]; return toneColour(e.root!==undefined?e.root:pcOf(e.string,e.pitch)); }   // a chord's stroke: its root's colour
+  const e=s.plan[b<0?0:idx]; return toneColour(e.root!==undefined?e.root:e.ballRoot!==undefined?e.ballRoot:pcOf(e.string,e.pitch)); }   // a chord's stroke: its root's colour
 function placePick(st,sy,t,amp=0,ampRGB=null){                         // amp: the sounding tone's level (0–1); the pick's colour decays with it
   let pose=POSE.rest, bloom=0, held=null, aDown=0, aUp=0, lift=0, toneAt=null;     // toneAt: the time of the stroke whose tone colours the pick
   if(st&&!st.done){
@@ -787,7 +787,9 @@ const gOf=x=>Math.cos(x)*Math.cos(6*x)+Math.sin(x)*Math.sin(6*x)/6;   // = (7/12
 const GOf=(x,u)=>(7/12)*Math.cos(5*x+u*Math.PI/6)+(5/12)*Math.cos(7*x-u*Math.PI/6);   // the morph; G(x,0) = g(x), G(x,1) = g(x + 5π/6)
 const FIELD={on:false,lit:0,re:5,reC:11,target:5,u:0,m:null,mx:-1,reA:5,reCA:11};   // re: Re's seat on screen (chromatic); reC: on the chain; mx: a morph's progress (−1 none) from the orientation at reA / reCA
 const SOLF_DIA=SOLF.map(([n],i)=>n.startsWith('~')?[112,112,112]:SOLF_RGB[i]);   // Diatonic mode: the antis grey
-const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=k-i, TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
+// a tone's colour holds out to its quarter-tone marks either side, turning over to its neighbour's only in a narrow band there
+const QT=f=>Math.max(0,Math.min(1,(f-0.5)/0.12+0.5));
+const relRGB=k=>{ k=((k%12)+12)%12; const i=Math.floor(k), f=QT(k-i), TB_=diatonic?SOLF_DIA:SOLF_RGB, a=TB_[i], b=TB_[(i+1)%12]; return a.map((v,j)=>v+(b[j]-v)*f); };
 const mixRGB=(a,b,x)=>a.map((v,i)=>v+(b[i]-v)*x);
 const morphRGB=(k,u)=>{ const fl=Math.floor(u), f=u-fl, a=relRGB(k+5*fl); return f<1e-6?a:mixRGB(a,relRGB(k+5*(fl+1)),f); };   // each tick, every place's colour steps one station
 const valRGB=pc=>{ const a=relRGB(pc+LET.offA-FIELD.re); return FIELD.mx<0?a:mixRGB(relRGB(pc+LET.offA-FIELD.reA),a,FIELD.mx); };   // mid-morph: the two orientations' colours, blended                       // the field's colour at a pitch (continuous: a glide passes through)
@@ -800,7 +802,7 @@ el('circle',{cx:RG.c,cy:RG.c,r:VAL.R0,fill:'none',class:'faintS','stroke-width':
   for(let k=0;k<12;k++) valDots.push(el('circle',{r:2.4,class:'valDot'},valG));
 }
 // draw the curve for dial u (in Do:Re's frame, Re at 12; the group is turned to the drill)
-const chainRGB=x=>{ const i=Math.floor(x), f=x-i, a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };   // the field's colour round the chain (Re's seat 0)
+const chainRGB=x=>{ const i=Math.floor(x), f=QT(x-i), a=relRGB(7*i); return f<1e-6?a:mixRGB(a,relRGB(7*(i+1)),f); };   // the field's colour round the chain (Re's seat 0)
 /* THE MORPH: every point of the circle goes straight from its old value to its new one, all at the same rate; the colours
    blend the same way. A tritone (π) morph is the fold, g → −g, so half way through the circle lies flat. */
 const fieldW=(x,chain)=>chain?Math.cos(x*Math.PI/6):gOf(x*Math.PI/6);
@@ -875,7 +877,7 @@ function placeField(){
   TRIO.forEach((k,i)=>{ const sa=bR+k, sc=bC+7*k, pc=ordSeat(sa,sc), of=ordFade(sa,sc), v=fieldAt(chainL?sc-FIELD.reC:sa-FIELD.re,chainL)*of, r=VAL.R0+VAL.K*v*(FLAT_OFF?FIELD.lit:1)-16, a=pc*Math.PI/6, t=valLbls[i], name=SOLF[k][0];
     if(t.textContent!==name) t.textContent=name; t.style.fill=rgbS(relRGB(k));
     t.setAttribute('x',(RG.c+r*Math.sin(a)).toFixed(1)); t.setAttribute('y',(RG.c-r*Math.cos(a)).toFixed(1)); t.setAttribute('opacity',(FIELD.lit*fade*of).toFixed(3)); });
-  rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
+  rLbls.forEach((g,pc)=>{ for(const t of g.children) t.style.fill=FIELD.lit>0.001?rgbS(diatonic&&sylOf(pc)===null?mixRGB(inkColour(),SOLF_DIA[1],FIELD.lit):mixRGB(inkColour(),valRGB(pc),FIELD.lit*(g.classList.contains('pair')?1:0.6))):''; });
 }
 const wedge=el('path',{d:'',class:'wedge'},ringSvg);                 // the drill's own whole step, drawn as its arc of the circle; no words
 const hand=el('line',{x1:RG.c,y1:RG.c,x2:RG.c,y2:RG.c-RG.R,class:'hand',visibility:'hidden'},ringSvg);
@@ -952,6 +954,9 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{ if(e.key==='ArrowUp') ARROW.up=false; if(e.key==='ArrowDown') ARROW.down=false; if(solHeld===e.key.toLowerCase()) solHeld=null; });
 window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; });
+// RING_TURNS_WHOLE (a page may set it): the letters dragged round carry the field with them — the whole Ring turns, the key
+// kept, and what comes to 12 o'clock is what is chosen (else, g(x) on, the letters turn against the field: a new orientation)
+var RING_TURNS_WHOLE=false;
 { let drag=null;
   const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
   ringSvg.addEventListener('pointerdown',e=>{ const p=angOf(e); if(!FIELD.on&&p.d<0.72) return;   // g(x) off: the letters still turn (only the field inside waits for it)
@@ -973,7 +978,7 @@ window.addEventListener('blur',()=>{ solHeld=null; ARROW.up=ARROW.down=false; })
     let da=angOf(e).a-drag.a; da=((da+6)%12+12)%12-6;
     if(RING.m>=0.5) da=((7*Math.round(da))%12+12)%12, da=da>6?da-12:da;   // on the chain one seat is −5 semitones
     const want=drag.off+Math.round(da), step=want-LET.off; if(!step) return;
-    LET.off=want; if(FIELD.on) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });   // g(x) off: only the clock face turns, the orientation kept
+    LET.off=want; if(FIELD.on&&!RING_TURNS_WHOLE) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });   // g(x) off: only the clock face turns, the orientation kept
   const end=()=>{
     if(DRAGF){ const n=Math.round(DRAGF.x);                                // let go: the field settles on the nearest seat, and that is φ
       FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x;
@@ -1021,7 +1026,7 @@ function layoutTab(bars){
   for(let b=0;b<4*bars;b++){ const xb=TB.x0+TB.cw/2+b*2*TB.cw; el('line',{x1:xb-5,y1:TB.floor+1.5,x2:xb+5,y2:TB.floor+1.5,class:'faintS','stroke-width':2,'stroke-linecap':'round'},gridG); }
 }
 function followHead(x){ if(!tabPanel.classList.contains('wide')) return;
-  const k=tab.clientWidth/(TB.s1+14), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
+  const k=tab.clientWidth/((tab.viewBox&&tab.viewBox.baseVal&&tab.viewBox.baseVal.width)||(TB.s1+14)), want=Math.max(0,x*k-0.3*tabPanel.clientWidth), d=want-tabPanel.scrollLeft;
   tabPanel.scrollLeft+=Math.abs(d)>0.4*tabPanel.clientWidth?d*0.16:d; }   // at the repeat it sweeps back to the start rather than jumping
 layoutTab(2);
 // the blooms (g(x) on): each TAB number has its own, centred on it, in its own field colour — lit while its tone sounds, as
@@ -1039,13 +1044,13 @@ function paintTabField(st,live,p,amp){
   if(bloomG.nextSibling) tab.appendChild(bloomG);
   bloomG.style.mixBlendMode=dark?'screen':'multiply';                   // light added on dark, a tint on light
   const gain=dark?0.9:0.55, plan=curPlan(), cur=(live&&L>0.001)?st.idx:-1;
-  tabNotes.forEach((o,i)=>{
+  tabNotes.forEach((o,i)=>{ if(!plan||!plan[i]) return;   // (a TAB drawn for another plan than the one playing: a new pass's, a bar before it is drawn)
     noteLv[i]=(TAB_LIT?cur>=0&&TAB_LIT.has(i):i===cur)?Math.max(amp,noteLv[i]*Math.exp(-dt/NOTE_REL)):noteLv[i]*Math.exp(-dt/NOTE_REL); if(noteLv[i]<0.003) noteLv[i]=0;
     const w=L*noteLv[i], c=valRGB(pcOf(plan[i].string,plan[i].pitch));
     noteBlooms[i].setAttribute('fill',rgbS(c)); noteBlooms[i].setAttribute('opacity',(w*gain).toFixed(3));
     const col=w>0.003?rgbS(mixRGB(ink,c,Math.min(1,1.4*w))):''; o.num.style.fill=col; (o.extra||[]).forEach(e=>e.style.fill=col); });   // a prebend's size mark takes the colour too
   const bw=(live&&L>0.001)?L*amp:0;
-  if(bw>0.003){ const e0=st.s.plan[st.idx], c=valRGB(e0.root!==undefined?e0.root:pcOf(e0.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
+  if(bw>0.003){ const e0=st.s.plan[st.idx], c=valRGB(e0.ballRoot!==undefined?e0.ballRoot:e0.root!==undefined?e0.root:pcOf(e0.string,p)); ball.style.fill=rgbS(mixRGB(ink,c,bw));
     ballBloom.setAttribute('cx',ball.getAttribute('cx')); ballBloom.setAttribute('cy',ball.getAttribute('cy')); ballBloom.setAttribute('fill',rgbS(c)); ballBloom.setAttribute('opacity',(bw*gain).toFixed(3)); }
   else{ ball.style.fill=''; ballBloom.setAttribute('opacity',0); }
 }
@@ -1421,6 +1426,27 @@ function holdChanged(){
 
 /* ---------- what the screen shows at audio time t ---------- */
 function segAt(t){ let s=T.segs[0]; for(const x of T.segs){ if(x.countStart<=t) s=x; else break; } return s; }
+// the strums of a segment (several strings struck at once, a beat time each): the run they make on the eighths, a down on each
+// downbeat, an up on each off-beat — null if they are not laid so (or there are none)
+function pendOf(s){
+  if(s._pendP===s.plan) return s._pend; s._pendP=s.plan; s._pend=null; const pl=s.plan, F=s.fig; if(!pl||!F||pl.length!==F.length) return null;
+  // the runs of strums: a tone picked alone between two strums ends the run (the pick goes to its string, not across them all)
+  const runs=[]; let cur=[];
+  for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
+    let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++;
+    if(n>1) cur.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); else if(cur.length){ runs.push(cur); cur=[]; } }
+  if(cur.length) runs.push(cur);
+  const out=[]; runs.forEach(st=>{ const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp)), hit=new Set();
+    for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return; hit.add(Math.round(j)); }
+    out.push({b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}); });
+  s._pend=out.length?out:null; return s._pend; }
+function pendY(s,ph){ const R=pendOf(s); if(!R) return null; const P=R.find(r=>ph>=r.b0&&ph<r.b1); if(!P) return null;
+  const j=Math.floor((ph-P.b0)/0.5+1e-9), u=ph-P.b0-j*0.5, down=j%2===0, lo=FB.strY[NSTR-1], hi=FB.strY[0], a=down?lo:hi, b=down?hi:lo;
+  // ghost: a stroke that strikes nothing (eased in and out at its ends, 0–1)
+  const gh=P.hit.has(j)?0:Math.max(0,Math.min(1,u/0.08,(0.5-u)/0.08)); PEND_GHOST=gh;
+  if(u<P.sd) return a+(b-a)*(u/P.sd);
+  const v=(u-P.sd)/(0.5-P.sd), over=0.6*Math.abs(FB.strY[1]-FB.strY[0]); return b+Math.sign(b-a)*over*Math.sin(Math.PI*v); }
+let PEND_GHOST=0;
 function stateAt(t){
   const s=segAt(t), b=(t-s.loopStart)/T.beat;
   if(b<0){ const k=Math.floor(b); return {s,count:true,idx:-1,beatIdx:((k%LOOP)+LOOP)%LOOP,beatT:s.loopStart+k*T.beat}; }
@@ -1464,7 +1490,8 @@ const BEND_PX=16;
 function ampOf(snap){ if(!snap||!snap.hist) return 0; const H=snap.hist, P=Math.ceil(ctx.sampleRate/snap.f); let pk=0; for(let i=Math.max(0,H.length-P);i<H.length;i++){ const v=Math.abs(H[i]); if(v>pk) pk=v; } return pk; }
 let inkCache=null, inkTheme=null;
 function inkColour(){ const th=document.documentElement.getAttribute('data-theme'); if(!inkCache||th!==inkTheme){ inkTheme=th; inkCache=(getComputedStyle(document.body).color.match(/\d+/g)||[200,200,200]).slice(0,3).map(Number); } return inkCache; } let lastStr=-1;
-let frameHook=null, paintOnly=null;                                     // paintOnly: a page may paint only some strings
+let frameHook=null, paintOnly=null, boardLetters=false, boardCells=false;   // boardCells: a page paints the fret spaces itself (the strings lit only where a tone rings)   // boardLetters: g(x) off, the board carries its letters instead of grey paint
+// paintOnly: a page may paint only some strings
                                                    // a page's own display, run each frame after the board
 let fieldClock=0, pickSy=null, MORPH=null; const ampHold={v:0,t:0}, boost={v:0,key:null}, BOOST=0.3, BOOST_T=0.8;
 const shortTo=(a,b)=>((b-a+6)%12+12)%12-6;
@@ -1533,13 +1560,21 @@ const CONE=(()=>{
   function make(){ const g=el('g',{mask:'url(#'+id+'m)',opacity:0},coneL), p=el('path',{d:beam,filter:'url(#'+id+'b)'},g);
     const s=el('circle',{cx:C,cy:C-RL,r:14,filter:'url(#'+id+'s)',opacity:0},spotL); return {g,p,s,o:0,pc:null}; }
   const degOf=pc=>{ const [x,y]=pt(RL,pc); return Math.atan2(x-C,C-y)*180/Math.PI; };
-  function draw(k,gain,spotGain){ const dark=bgColour()[0]<128, rgb=rgbS(toneColour(Math.round(k.pc)%12)), tr='rotate('+degOf(k.pc).toFixed(2)+' '+C+' '+C+')';
+  function draw(k,gain,spotGain){ const dark=bgColour()[0]<128, rgb=rgbS(toneColour(Math.round(k.pc)%12)), tr='rotate('+(degOf(k.pc)+(k.rot||0)).toFixed(2)+' '+C+' '+C+')';
     coneL.style.mixBlendMode=spotL.style.mixBlendMode=dark?'screen':'multiply';
     k.g.setAttribute('transform',tr); k.s.setAttribute('transform',tr); k.p.setAttribute('fill',rgb); k.s.setAttribute('fill',rgb);
     k.g.setAttribute('opacity',(gain*k.o).toFixed(3)); k.s.setAttribute('opacity',(spotGain*k.o).toFixed(3)); }
   const free=[]; const take=()=>free.pop()||make(), drop=k=>{ k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); free.push(k); };
   let cur=null, curKey=null, curT=0; const gone=[];
   const modes=[make(),make()]; let mi=0, modeKey=null;
+  // g(x) off: the letter a grey spotlight lands on is shown in black over it (a copy of the letter, faded in with the light)
+  const inkL=el('g',{'pointer-events':'none'}), inks=rLbls.map(g=>{ const c=g.cloneNode(true); c.removeAttribute('class'); for(const t of c.children){ t.removeAttribute('class'); t.setAttribute('class','rl'); t.style.fill='#000'; t.style.fontWeight='700'; } c.setAttribute('opacity',0); inkL.appendChild(c); return c; });
+  ringSvg.appendChild(inkL); const litAt=new Array(12).fill(0);
+  const mark=(k,spotGain)=>{ if(k.pc===null) return; const pc=((Math.round(k.pc)%12)+12)%12; litAt[pc]=Math.max(litAt[pc],spotGain*k.o); };
+  /* THE SCALE'S LIGHTS (a page may ask, g(x) off): a dim grey spotlight standing on each of the mode's seven letters all the
+     time, brightening while its tone sounds and easing back as it ends — in place of the tone's and the mode's own cones */
+  const SC=[]; let scSet=null, scOn=null, scGain=0, scRot=0;
+  const scale=(set,on,gain,shift)=>{ scSet=set; scOn=on; scGain=gain; scRot=30*(shift||0); if(gain>0.001&&!SC.length) for(let pc=0;pc<12;pc++){ const k=make(); k.pc=pc; k.o=0; k.lv=0; SC.push(k); } };
   let clock=0;
   function step(live,pcF,amp,key,chord,modePc){
     const now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
@@ -1548,12 +1583,17 @@ const CONE=(()=>{
       if(key!==curKey){ const strum=chord&&cur&&now-curT<0.09; if(cur){ cur.tau=strum?0.9:0.13; gone.push(cur); } cur=take(); cur.o=0; curKey=key; curT=now; }
       cur.pc=pcF; const want=0.3+0.7*amp; cur.o+=(want-cur.o)*Math.min(1,reduce?1:dt/0.035); }
     else if(cur){ cur.tau=0.2; gone.push(cur); cur=null; curKey=null; }
-    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62,0.95); }
-    if(cur) draw(cur,0.62,0.95);
+    const ng=1-scGain;                                                  // (the scale's lights, where they stand, in their place)
+    for(let i=gone.length-1;i>=0;i--){ const k=gone[i]; k.o*=Math.exp(-dt/k.tau); if(k.o<0.01){ drop(k); gone.splice(i,1); } else draw(k,0.62*ng,0.95*ng); }
+    if(cur) draw(cur,0.62*ng,0.95*ng);
     // the mode
     if(modePc!==modeKey){ if(modePc!==null){ mi=1-mi; modes[mi].pc=modePc; } modeKey=modePc; }
-    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4,0.7); }); }
-  return {step, get mode(){ return modeKey!==null; }};
+    modes.forEach((k,i)=>{ const on=i===mi&&modeKey!==null; k.o+=((on?1:0)-k.o)*Math.min(1,reduce?1:dt/0.25); if(k.o<0.003&&!on) k.o=0; if(k.pc===null) return; draw(k,0.4*ng,0.7*ng); });
+    SC.forEach(k=>{ const on=!!scOn&&scOn.has(k.pc), inS=!!scSet&&scSet.has(k.pc); if(on) k.lv=1; else k.lv*=Math.exp(-dt/0.35);
+      const want=inS?scGain*(0.24+0.76*k.lv):0; k.rot=scRot; k.o+=(want-k.o)*Math.min(1,reduce?1:dt/0.08); if(k.o<0.003&&!want){ k.o=0; k.g.setAttribute('opacity',0); k.s.setAttribute('opacity',0); return; } draw(k,0.62,0.95); });
+    litAt.fill(0); gone.forEach(k=>mark(k,0.95*ng)); if(cur) mark(cur,0.95*ng); modes.forEach(k=>mark(k,0.7*ng)); if(Math.abs(scRot)<0.3) SC.forEach(k=>{ const pc=k.pc; litAt[pc]=Math.max(litAt[pc],0.95*k.lv*scGain*(scSet&&scSet.has(pc)?1:0)); });
+    inks.forEach((c,pc)=>{ c.setAttribute('transform',rLbls[pc].getAttribute('transform')||''); c.setAttribute('opacity',Math.min(1,litAt[pc]/0.55).toFixed(3)); }); }   // (in colour or grey, the light is bright: a dark letter reads on it)
+  return {step, scale, get mode(){ return modeKey!==null; }};
 })();
 hand.style.display='none';                                              // the cone takes the pointer's place
 function frame(){
@@ -1600,9 +1640,23 @@ function frame(){
   if(live&&(mode!=='pick'||s.D.ham||s.D.pull)){ const key=st.onset.toFixed(4); if(key!==boost.key){ if(boost.key!==null&&!s.plan[st.idx].pick) boost.v=Math.min(1,boost.v+BOOST); boost.key=key; } }
   else { boost.key=null; boost.v=0; }
   boost.v*=Math.exp(-adt/BOOST_T); const amp=Math.min(1,ampHold.v+boost.v);
-  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null, ts=FB.strY[(sa&&sa.idx>=0)?sa.s.plan[sa.idx].string:strI];
+  // STRUMMING, the hand a pendulum: through a run of strums the pick swings down on every eighth's downbeat and up on every
+  // off-beat, struck or not — a missed stroke (a down on 3 between two ups) still traced, passing over the strings — so
+  // consecutive strokes in one direction read, and are, one continuous motion. Each swing crosses the strings at the strum's
+  // own speed (each string as it sounds), then carries on out past the last and turns back for the next.
+  PEND_GHOST=0; const pend=live&&!reduce?pendY(s,st.ph):null;
+  if(pend!==null) pickSy=pend; else
+  // where the pick heads: the tone a little ahead — but a strum is swept, string by string, from its first: coming up on one, the
+  // pick goes to the string it starts on (looking ahead it would see only the strum's far end, and skip the strings before);
+  // in it, to the string after the one just struck
+  { const sa=(t!==null&&st&&!st.done)?stateAt(t+catchT()+0.14):null; let si=sa&&sa.idx>=0?sa.idx:-1;
+    if(si>=0){ const pl=sa.s.plan, q=pl[si]; if(q.t!==undefined){ let f0=si; while(f0>0&&pl[f0-1].t===q.t&&pl[f0-1].frame===q.frame&&pl[f0-1].pick) f0--;
+      if(f0<si){ const sn=stateAt(t+catchT()); si=(sn&&sn.s===sa.s&&sn.idx>=f0&&sn.idx<=si)?Math.min(si,sn.idx+1):f0; } } }
+    const ts=FB.strY[si>=0?sa.s.plan[si].string:strI];
     pickSy=(pickSy===null||reduce)?ts:pickSy+(ts-pickSy)*Math.min(1,fdt/0.05); }
-  const held=placePick(st,pickSy,t,amp,live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
+  // (a chord strummed: the pick its root's colour, as the ball; a ghost stroke, grey)
+  const held=placePick(st,pickSy,t,amp*(1-PEND_GHOST),live?toneColour(plan[st.idx].root!==undefined?plan[st.idx].root:plan[st.idx].ballRoot!==undefined?plan[st.idx].ballRoot:pcOf(strI,p)):null);   // a song's pick: its bar's root colour
+  if(PEND_GHOST>0){ const m=/(\d+),\s*(\d+),\s*(\d+)/.exec(pickBody.style.fill||''), r=pickRest(); if(m) pickBody.style.fill='rgb('+[1,2,3].map((k,i)=>Math.round(+m[k]+(r[i]-m[k])*PEND_GHOST)).join(',')+')'; }   // (the ghost grey through its stroke: no bloom into the next until it is nearly there)
   const fxV=live?((mode==='bend'&&p>s.D.lo.f+1e-3)?tipX(s.D.lo.f):(plan[st.idx].fret===0&&mode!=='slide'?FB.nut:tipXf(p))):0;
   stepSyl(st,live,plan,fxV,sy+bendDy,amp); if(frameHook) frameHook(st,live,plan,fdt);
   const vibOn=live&&held===null&&drawVib(sstr&&sstr.snap,fxV,sy+bendDy,BRIDGE_X,sy,t);
@@ -1622,7 +1676,7 @@ function frame(){
   if(live){
     ringLine.setAttribute('x1',fxV); ringLine.setAttribute('y1',sy+bendDy); ringLine.setAttribute('y2',sy); ringLine.setAttribute('visibility',vibOn?'hidden':'visible');
     tabNotes.forEach((o,i)=>{ const on=i===st.idx; o.bar.classList.toggle('on',on); o.num.classList.toggle('on',on); });
-    const x=xBeat(st.ph); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
+    const J0=st.s.jumpGap?st.s.jumpGap():0, x=xBeat(st.ph+(J0&&st.ph>LOOP-1?(st.ph-(LOOP-1))*J0:0)); head.setAttribute('x1',x); head.setAttribute('x2',x); followHead(x); head.setAttribute('visibility','visible');
     countLbl.setAttribute('visibility','hidden');
     { const r=plan[st.idx].root; if(r!==undefined) setHand(r,r); else setHand(pcOf(strI,p),pcOf(strI,pitchOf(s,st.idx))); }   // a song's ring shows its bar's root, not each tone
     { const r=plan[st.idx].root, mr=typeof CHORDS!=='undefined'&&CHORDS&&CHORDS.rootNow?CHORDS.rootNow():null;
@@ -1659,8 +1713,8 @@ function paintBoard(H,shift,dt){
   CELLS.forEach((c,i)=>{
     c.lv=1;                                                           // the whole board at the lit level
     const pc=pcOf(c.s,c.f), anti=sylOf(pc)===null, show=L>0.001&&!(diatonic&&anti)&&(!paintOnly||paintOnly.has(c.s));
-    if(show){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
-    else if(c.lv>0.003){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
+    if(show&&(!boardCells||INST.has(i))){ const col=rgbS(valRGB(pc)); c.paint.setAttribute('stroke',col); c.paint.setAttribute('opacity',(L*(0.28+0.72*c.lv)).toFixed(3)); }
+    else if(c.lv>0.003&&!boardLetters){ c.paint.setAttribute('stroke',ink); c.paint.setAttribute('opacity',((1-L)*0.8*c.lv).toFixed(3)); }
     else c.paint.setAttribute('opacity',0);
     const g=L>0.001&&INST.has(i)?L*0.55:0;
     if(g){ c.glow.setAttribute('stroke',rgbS(valRGB(pc))); }
@@ -1686,14 +1740,19 @@ const SURF=(()=>{
   let cur=null, home=null, kind=null, lastHx=null;
   const BAR=76;                                                  // the room the button bar takes at the foot
   const zbar=document.createElement('div'); zbar.className='zoomBar'; layer.appendChild(zbar);
-  let prox=[], foot=null;                                        // [page button, its copy]; the Ring's own controls, moved in
+  let prox=[], foot=null, moved=[];                                        // [page button, its copy]; the Ring's own controls, moved in
+  const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
+    c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
   function buildBar(){
-    zbar.innerHTML=''; prox=[];
+    zbar.innerHTML=''; prox=[]; zbar.classList.remove('stack');
+    // a page may lay out the bar itself (ZOOM_BAR(kind, {copy, move, row})): copies of its buttons, its own controls moved in
+    if(typeof ZOOM_BAR==='function'){ const api={row:()=>{ const r=document.createElement('div'); r.className='zoomRow'; zbar.appendChild(r); zbar.classList.add('stack'); return r; },
+        copy:(id,into)=>{ const o=document.getElementById(id); if(o) copy(o,into||zbar); },
+        move:(el,into)=>{ if(!el) return; moved.push({el,parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')}); (into||zbar).appendChild(el); }};
+      if(ZOOM_BAR(kind,api)){ sync(); return; } zbar.innerHTML=''; prox=[]; }
     if(kind==='ring'){ const f=document.querySelector('.ringFoot'); if(f){ foot={el:f,parent:f.parentNode,next:f.nextSibling,style:f.getAttribute('style')}; f.style.width='auto'; f.style.display='flex'; zbar.appendChild(f); } return; }
     const k=kind==='rot'?'fb':kind;
     const shown=id=>{ const o=document.getElementById(id); return o&&getComputedStyle(o).display!=='none'&&!o.hidden?o:null; };
-    const copy=(o,into)=>{ const c=o.cloneNode(true); c.removeAttribute('id'); c.removeAttribute('aria-controls');
-      c.addEventListener('click',e=>{ e.stopPropagation(); o.click(); }); into.appendChild(c); prox.push([o,c]); };
     ['play','hold'].forEach(id=>{ const o=shown(id); if(o) copy(o,zbar); });
     const pv=shown('prev'), nx=shown('next'); if(pv||nx){ const pair=document.createElement('div'); pair.className='pillPair'; if(pv) copy(pv,pair); if(nx) copy(nx,pair); zbar.appendChild(pair); }
     document.querySelectorAll('[data-zoom]').forEach(o=>{ const z=o.getAttribute('data-zoom'); if(z&&!z.split(' ').includes(k)) return; if(getComputedStyle(o).display!=='none') copy(o,zbar); });
@@ -1702,10 +1761,11 @@ const SURF=(()=>{
       const ap=o.getAttribute('aria-pressed'); if(ap!==null&&c.getAttribute('aria-pressed')!==ap) c.setAttribute('aria-pressed',ap); } }
   const vbOf=svg=>{ const v=svg.viewBox.baseVal; return {x:v.x,y:v.y,w:v.width,h:v.height}; };
   function size(){
-    if(!cur) return; const W=innerWidth, H=innerHeight-BAR;
+    if(!cur) return; const BAR=Math.max(76,(zbar.offsetHeight||0)+24), TOP=document.body.classList.contains('zoomHeadBig')?118:document.body.classList.contains('zoomHead')?64:0, W=innerWidth, H=innerHeight-BAR-TOP; layer.style.paddingTop=TOP+'px'; layer.style.paddingBottom=BAR+'px';   // (a page's own head over the zoomed view: room for it)
     if(kind==='rot'){ FBROT.fit(H*0.96,W*0.96); return; }
-    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=Math.max(W,h*v.w/v.h); cur.style.width=w+'px'; cur.style.height=(w*v.h/v.w)+'px'; cur.style.maxWidth='none'; }
+    if(kind==='fb'){ const v=vbOf(cur), h=H*0.94, w=h*v.w/v.h; cur.style.width=w+'px'; cur.style.height=h+'px'; cur.style.maxWidth='none'; cur.style.margin=w<W?'0 auto':''; cur.style.display='block'; }   // (fitted by height, the hand's headroom and all: wider than the screen, it scrolls along with the hand)
     else if(kind==='ring'||kind==='clock'){ const s=Math.min(W,H)*(kind==='clock'?0.86:0.94); cur.style.width=s+'px'; cur.style.height=s+'px'; cur.style.maxWidth='none'; cur.style.maxHeight='none'; }
+    else if(kind==='plot'){ const svg=cur.querySelector('svg'), v=vbOf(svg), k=Math.min(W*0.94/v.w,H*0.86/v.h); svg.style.width=(v.w*k)+'px'; svg.style.height=(v.h*k)+'px'; svg.style.maxWidth='none'; svg.style.flex='none'; }   // a wide surface: fitted whole
     else if(kind==='pat'){ const svg=cur.querySelector('svg'), v=vbOf(svg), w=Math.min(W*0.94,H*0.62*v.w/v.h);
       cur.style.width=w+'px'; cur.style.maxWidth='none'; svg.style.width=w+'px'; svg.style.height=(w*v.h/v.w)+'px'; svg.style.maxWidth='none'; }
     else { const svg=cur.querySelector('svg'), v=vbOf(svg); let h=H*0.7, w=h*v.w/v.h; if(w<W*0.96){ w=W*0.96; h=w*v.h/v.w; }
@@ -1716,11 +1776,13 @@ const SURF=(()=>{
     if(kind!=='fb') return; const v=vbOf(cur), hx=handX(), px=(hx-v.x)/v.w*cur.getBoundingClientRect().width;
     layer.scrollTo({left:Math.max(0,px-innerWidth/2),behavior:smooth&&!reduce?'smooth':'auto'}); lastHx=hx; }
   const turned=()=>typeof FBROT!=='undefined'&&FBROT&&FBROT.on;
-  function open(el,k){
+  let opened=null;
+  function open(el,k){ opened={el,k,w:innerWidth,h:innerHeight};
     if(k==='fb'&&turned()){ el=el.parentNode; k='rot'; }
     cur=el; kind=k; home={parent:el.parentNode,next:el.nextSibling,style:el.getAttribute('style')};
-    const svg=k==='tab'||k==='pat'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
-    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); layer.style.paddingBottom=BAR+'px'; buildBar(); layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
+    if(k==='fb'&&el.dataset.zoomVb){ home.vb=el.getAttribute('viewBox'); el.setAttribute('viewBox',el.dataset.zoomVb); }   // (a page that grew the board's headroom for its own furniture: the board's own, zoomed)
+    const svg=k==='tab'||k==='pat'||k==='plot'?el.querySelector('svg'):null; home.svgStyle=svg?svg.getAttribute('style'):null;
+    layer.classList.toggle('fit',k!=='fb'&&k!=='tab'); buildBar(); layer.style.paddingBottom=Math.max(BAR,zbar.offsetHeight+24)+'px'; layer.hidden=false; layer.appendChild(el); document.body.classList.add('zoomed');
     size(); follow(false); if(k==='ring'){ rebind(); RINGSEL=true; markRingSel(); } }
   // the Ring's lobes are shaded by gradients in its own <defs>; moved across the page, a browser can keep a stale hold on
   // them and paint the lobes without their shading — so each move points the lobes at their gradients afresh
@@ -1728,25 +1790,36 @@ const SURF=(()=>{
   function close(){
     if(!cur) return; const el=cur;
     if(home.style===null) el.removeAttribute('style'); else el.setAttribute('style',home.style);
-    if(kind==='tab'||kind==='pat'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
+    if(home.vb) el.setAttribute('viewBox',home.vb);
+    if(kind==='tab'||kind==='pat'||kind==='plot'){ const svg=el.querySelector('svg'); if(svg){ if(home.svgStyle===null) svg.removeAttribute('style'); else svg.setAttribute('style',home.svgStyle); } }
     if(kind==='tab'&&typeof layoutTab==='function'&&DRILL) layoutTab(DRILL.bars||2);
+    for(let i=moved.length-1;i>=0;i--){ const m=moved[i]; if(m.style===null) m.el.removeAttribute('style'); else m.el.setAttribute('style',m.style); m.parent.insertBefore(m.el,m.next); } moved=[];
     if(foot){ const f=foot.el; if(foot.style===null) f.removeAttribute('style'); else f.setAttribute('style',foot.style); foot.parent.insertBefore(f,foot.next); foot=null; }
     const k=kind; home.parent.insertBefore(el,home.next); layer.hidden=true; document.body.classList.remove('zoomed'); cur=null; kind=null;
     if(k==='rot') FBROT.fit(); if(k==='ring') rebind(); }
   function toggle(el,k){ if(cur) close(); else open(el,k); }
   // a double tap: two taps close together in time and place (a mouse double-click counts the same)
+  let tapT=-1e9;
   function onDouble(el,k){ let t0=0, x0=0, y0=0;
+    // (a touch screen: the surface takes its own double tap — touch-action keeps the browser from reading it as its own zoom —
+    // and hears it first, before anything on it that would keep the tap to itself)
+    el.style.touchAction=el.style.touchAction||'manipulation';
     el.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse') return; const now=performance.now();
-      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); toggle(el,k); return; } t0=now; x0=e.clientX; y0=e.clientY; });
-    el.addEventListener('dblclick',e=>{ e.preventDefault(); toggle(el,k); }); }
+      if(now-t0<380&&Math.hypot(e.clientX-x0,e.clientY-y0)<36){ t0=0; e.preventDefault(); tapT=now; toggle(el,k); return; } t0=now; x0=e.clientX; y0=e.clientY; },true);
+    el.addEventListener('dblclick',e=>{ e.preventDefault(); if(performance.now()-tapT<700) return; toggle(el,k); }); }   // (a touch browser that also sends a dblclick for the double tap: taken once)
   const tabPanel=document.getElementById('tabPanel'), ringEl=document.getElementById('ring'), fbEl=document.getElementById('fb');
   if(tabPanel) onDouble(tabPanel,'tab'); if(ringEl) onDouble(ringEl,'ring'); if(fbEl) onDouble(fbEl,'fb');
   addEventListener('keydown',e=>{ if(e.key==='Escape'&&cur){ e.preventDefault(); e.stopPropagation(); close(); } },true);   // before anything else takes the key
   // a double click (or double tap) anywhere in the zoomed view returns it — on the surface itself its own toggle does
-  layer.addEventListener('dblclick',e=>{ if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
+  layer.addEventListener('dblclick',e=>{ if(performance.now()-tapT<700) return; if(cur&&!cur.contains(e.target)){ e.preventDefault(); close(); } });
   { let t0=0, x0=0, y0=0; layer.addEventListener('pointerup',e=>{ if(e.pointerType==='mouse'||!cur||cur.contains(e.target)||(e.target.closest&&e.target.closest('button'))) return; const now=performance.now();
-      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
-  addEventListener('resize',()=>{ size(); follow(false); });
+      if(now-t0<320&&Math.hypot(e.clientX-x0,e.clientY-y0)<30){ t0=0; e.preventDefault(); tapT=now; close(); return; } t0=now; x0=e.clientX; y0=e.clientY; }); }
+  // the screen turned (or resized) while zoomed: sized at once, then — once the browser has settled its new size (a phone
+  // reports it late) — put back and brought up afresh, so the page lays itself out for the new shape and the zoomed view is
+  // made from that (its bar, its proportions) rather than stretched from the old
+  let rt=0; const turned2=()=>{ if(!cur) return; size(); follow(false); clearTimeout(rt); rt=setTimeout(()=>{ if(!cur||!opened) return; const o=opened; if(o.w===innerWidth&&o.h===innerHeight) return;   // (a page's own nudge, not the screen: nothing to rebuild)
+       close(); setTimeout(()=>{ if(!cur) open(o.el,o.k); },350); },300); };
+  addEventListener('resize',turned2); addEventListener('orientationchange',turned2);
   // following the hand: when it moves to a new place (more than a fret's worth), the view glides to it
   let tabW=0;
   (function watch(){ if(cur) sync();
@@ -2182,12 +2255,14 @@ function makeHand(G){
   const tucker=k=>{ const T=TUCK[k], a=TG.f[k], b=TG.f[k+1]; if(!T||!(a.press&&a.cell&&b.press&&b.cell)||Math.abs(a.cell[1]-b.cell[1])>0.5||a.s===b.s) return null;
     const w=a.s<b.s?0:1; return T.segs[w].size?{who:w,segs:T.segs[w],pull:T.pull}:null; };
   // how firmly finger k keeps to its wire: more when it is one of a tucking pair
-  const tuckPull=k=>{ let w=PULL; for(const j of [k-1,k]){ if(j<0||j>2) continue; const t=tucker(j); if(t) w=Math.max(w,t.pull); } return w; };
+  // (a finger tucked under its neighbour's arch keeps the pair's own pull, however firmly the others are drawn to their wires:
+  // pulled harder it would crumple there)
+  const tuckPull=k=>{ let w=PULL; for(const j of [k-1,k]){ if(j<0||j>2) continue; const t=tucker(j); if(t&&j+t.who===k) return t.pull; if(t) w=Math.max(w,t.pull); } return w; };
   // what the hand is asked: for each finger {p:[x,y,z] (its pad's place), s (its string), press, cell:[x0,wire] (its fret's
   // cell, the wire at the far end), barre:{x,w,y0,y1}?}; ring: for each string, where its sounding length starts (its
   // stopping fret's wire, 0 open) or null when it is not to ring; and the thumb's place
   // BARPULL: beside a barre each pressing finger turns at its knuckle to bring its tip up to its wire (Brian, Oct 2026)
-  const BARPULL=1.1, ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
+  let BARPULL=1.1, TIPGAP=1; const ARCH=[0,3,0,0], ARCHW=[1,1,2.2,1];   // (mm toward the index; how firmly)
   let TG=null, RINGW=1, PULL=0.25, YAW=+0.3, TURNW=10;   // YAW: the share of the forearm's swing the hand takes (Brian's photos, Oct 2026: open position barely slanted, the fingers near square to the strings)
   // a ringing string is a band: the string and the room it swings in, from the board up to 4 mm. A bone of half-width r (its
   // flesh an oval, THK as thick as it is wide) centred at P reaches sideways into that band by this much (0 when it passes
@@ -2206,7 +2281,7 @@ function makeHand(G){
       else if(g.press&&g.cell){ const C=g.cell, x=Fk.pad[0], tip=Math.max(fl[1][0][0]+fl[1][1],fl[2][0][0]+fl[2][1]);   // pressing: anywhere in its fret's cell sounds the note, nearer the wire is cleaner
         // (the nearness is the tip's: a finger does not get there by hooking its end joint forward); a finger a neighbour
         // tucks under has nothing in its way, so it keeps to its wire as a finger alone would
-        put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(tip-(C[1]-1))*(TG.f[0].barre?Math.max(BARPULL,tuckPull(k)):tuckPull(k))); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
+        put(x<C[0]?(C[0]-x)*1.4:0); put(Math.max(0,front-(C[1]+0.5))*4+(tip-(C[1]-TIPGAP))*(TG.f[0].barre?Math.max(BARPULL,tuckPull(k)):tuckPull(k))); put(Math.abs(Fk.pad[1]-g.p[1])>1.2?(Fk.pad[1]-g.p[1]-Math.sign(Fk.pad[1]-g.p[1])*1.2)*1.4:0); put((Fk.pad[2]-g.p[2])*1.4); for(let j=0;j<4;j++) put(0); }
       else { const w=g.press?1.4:0.2; put((Fk.pad[0]-g.p[0])*w); put((Fk.pad[1]-g.p[1])*w); put((Fk.pad[2]-g.p[2])*w); for(let j=0;j<5;j++) put(0); }
       // the bones keep out of the neck (the pressing pad only touches it)
       for(let s=0;s<3;s++) for(const tt of [0.15,0.6,1]){ const pt=lerp(Fk.j[s],Fk.j[s+1],tt), need=RAD[k][s]*THK*(s===2&&(g.press||g.barre)?0.9:1);
@@ -2337,7 +2412,7 @@ function makeHand(G){
       if(!g.barre&&TG.ring) for(const ds of [-1,1]){ const s2=g.s+ds, st=s2>=0&&s2<G.nstr?TG.ring[s2]:null; if(st===null||st===undefined) continue;
         for(const [P,r] of fl){ if(P[0]+r<st) continue; const c=Math.abs(P[1]-G.strY(s2,P[0]))-band(P,r); clr=clr===null?c:Math.min(clr,c); } }
       return {over:wire===null?null:front-wire, clr}; }); }
-  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
+  return {setSlant:(y,w)=>{ YAW=y; if(w) TURNW=w; }, slantAt, TIPK, quick, setPull:v=>{PULL=v;}, setBarPull:v=>{BARPULL=v;}, setTipGap:v=>{TIPGAP=v;}, audit, poseAt:qq=>fk(qq), solve, solveFresh, errs, pose:()=>fk(q), reset:()=>{ q=null; }, get q(){ return q&&q.slice(); }, set q(v){ q=v&&v.slice(); }, neckSD, RAD, TRAD, LEN, D2R};
 }
 
 /* ---------- a student's drill book: pages of walks ----------
@@ -2419,7 +2494,8 @@ function pagePhi(pg){ const a=pg.anchor||{s:pg.string,f:pg.fret,deg:pg.deg}, was
   if(phiReady&&was!==PHI.doPc){ let d=((PHI.doPc-was)%12+12)%12; if(d>6) d-=12; GHOST.doPc=was;
     if(Math.abs(d)>1&&!reduce&&FIELD.lit>0.001) MORPH={t0:performance.now(),dur:MORPH_MS,reA:FIELD.re,reCA:FIELD.reC}; else MORPH=null; }
   phiReady=true;
-  let off=-((PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
+  // (pg.topPc: a pitch class itself at 12 o'clock — an anti as readily as a diatonic tone)
+  let off=-((pg.topPc!==undefined?pg.topPc:PHI.doPc+SYLPC[W_DEG[pg.top||'re']])%12); if(off<-6) off+=12; LET.off=off; MODE.key=''; paintOnly=pg.paint?new Set(pg.paint):null; }
 function loadPage(i){
   PAGE=SI=((i%PAGES.length)+PAGES.length)%PAGES.length; const pg=effPage(PAGES[PAGE]);
   pagePhi(pg); RING.goal=0;                          // stopped: the order of the page's first half
@@ -2626,10 +2702,11 @@ const ROLL=BOOK.roll?(()=>{
   const SEMI={Do:0,Re:2,Mi:4,Fa:5,Sol:7,La:9,Ti:11}, N=FR.length, colOf=(F,i)=>F[1]?F[1][i]:1+(SEMI[F[0][i]]-SEMI[F[0][0]]+12)%12;
   const box=document.createElement('div'); box.className='roll'; const inner=document.createElement('div'); inner.className='rollIn'; box.appendChild(inner);
   frameLbl.replaceWith(box); box.id='frameLbl';
-  const rows=[]; let R=N+Math.floor(N/2), built='';                        // R: the row in the middle (the frames, three times over)
-  const build=()=>{ const key=FIELD.on+'|'+diatonic; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
+  const rows=[]; let R=N+Math.floor(N/2), built='', XF=null, xfKey='';      // R: the row in the middle (the frames, three times over)
+  // XF: the names the frames are shown by (a name → [shown name, semitones above Do]) — the frames' own names when null
+  const build=()=>{ const key=FIELD.on+'|'+diatonic+'|'+xfKey; if(key===built) return; built=key; inner.innerHTML=''; rows.length=0;
     for(let r=0;r<3*N;r++){ const k=N-1-(r%N), F=FR[k], d=document.createElement('div'); d.className='rollRow';
-      d.innerHTML=F[0].map((n,i)=>'<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(SEMI[n]-2)):'')+'">'+n+'</span>').join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
+      d.innerHTML=F[0].map((n,i)=>{ const [nm,sm]=XF?XF(n):[n,SEMI[n]]; return '<span style="grid-column:'+colOf(F,i)+';color:'+(FIELD.on?rgbS(relRGB(sm-2)):'')+'">'+nm+'</span>'; }).join('');   // its column: semitones above the frame's lowest tone (or as the page places it)
       inner.appendChild(d); rows.push(d); } };
   const show=(anim)=>{ inner.style.transition=anim?'':'none'; inner.style.transform='translateY(calc(var(--rh) * '+(1-R)+'))';
     rows.forEach((d,r)=>d.classList.toggle('cur',r===R)); if(!anim){ void inner.offsetHeight; inner.style.transition=''; } };
@@ -2637,7 +2714,7 @@ const ROLL=BOOK.roll?(()=>{
   build(); show(false);
   // a frame's columns set afresh (where the walk plays it): true if they changed
   const cols=(k,c)=>{ const was=FR[k][1]; if(was&&c&&was.join()===c.join()) return false; FR[k]=[FR[k][0],c]; built=''; return true; };
-  return {cols, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
+  return {cols, names(f,key){ if(key===xfKey) return; XF=f; xfKey=key||''; built=''; build(); show(false); }, set(k){ build(); const cur=N-1-(R%N+N)%N; let d=((k-cur)%N+N)%N; if(d>N/2) d-=N; if(!d){ show(false); return; } R-=d; show(true); }, build, row:()=>rows[R], rebuild:()=>{ built=''; }};
 })():null;
 function rollTo(F){ const low=sylName(pcOf(F.string,F.tones[0].fret)), k=['Ti','Mi','La','Re','Sol','Do','Fa'].indexOf(low); ROLL.build(); if(k>=0) ROLL.set(k); }
 
@@ -2924,8 +3001,8 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // a gradient's stops rebuilt: [offset, colour, opacity]
   function setStops(g,list){ while(g.firstChild) g.removeChild(g.firstChild); list.forEach(([o,c,a])=>mk('stop',{offset:Math.max(0,Math.min(1,o)).toFixed(4),'stop-color':c,'stop-opacity':a},g)); }
   // the barring finger: along it from its tip to its knuckle, a band of each sounding string's colour where it crosses it
-  function barreTint(G,F,bands,ink){
-    const A=proj(F.end), B=proj(F.mcp), dy=B.y-A.y||1, w=rgbS(ink), T0=tone[0], hw=0.35*U/Math.abs(dy);
+  function barreTint(G,F,bands,ink,k){
+    const A=proj(F.end), B=proj(F.mcp), dy=B.y-A.y||1, w=rgbS(ink), T0=tone[k||0], hw=0.35*U/Math.abs(dy);
     G.g.setAttribute('x1',f(A.x)); G.g.setAttribute('y1',f(A.y)); G.g.setAttribute('x2',f(B.x)); G.g.setAttribute('y2',f(B.y));
     for(const k of ['x1','y1','x2','y2']) G.fg.setAttribute(k,G.g.getAttribute(k));
     const st=[[0,w,1]], fs=[[0,w,0]];
@@ -2940,19 +3017,19 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   // which strings are sounding, and from where: a stopped string from its stopping fret's wire, an open one from the nut
   function ringing(fs,live,now){
     const ring=Array(NSTR).fill(null), stop=(s,x)=>{ if(s>=0&&s<NSTR) ring[s]=Math.max(ring[s]===null?0:ring[s],x); };
-    fs.forEach((g,i)=>{ if(g.barre) for(let s=0;s<=g.lowS;s++) stop(s,g.barre.w); else if(g.press) stop(g.s,g.cell[1]); });
+    fs.forEach((g,i)=>{ if(g.barre) for(let s=g.hiS||0;s<=g.lowS;s++) stop(s,g.barre.w); else if(g.press) stop(g.s,g.cell[1]); });
     openStr.forEach(s=>{ if(ring[s]===null) ring[s]=0; });
     if(live&&now&&now.finger===0&&ring[now.string]===null) ring[now.string]=0;
     return ring; }
   function ask(dt,live,now){
-    const bar=P.find(q=>q.g===1&&q.barre), hov=(HOVER_GAP-FR*PRESS_H)/(K*U)*gapAt(150);
+    const barOf=i=>P.find(q=>q.g===i+1&&q.barre), hov=(HOVER_GAP-FR*PRESS_H)/(K*U)*gapAt(150);
     const fs=fingers.map((F,i)=>{
       const down=F.isDown!==undefined?F.isDown:F.c.classList.contains('down');
       lift[i]+=((down?0:1)-lift[i])*Math.min(1,(dt||0.016)/0.07);
       const X=Xof(F.x), g=gapAt(X), Z=0.5+lift[i]*hov*gapAt(X)/gapAt(150), Y=(F.y+FR*PRESS_H-FB.strY[0])*g/U+K*Z;
       // the dot sits two thirds of the way along its fret's cell: the cell's length, and the wire at its far end
       const XR=realX(F.x), fgR=(LMM-XR)*0.0561/(1-0.66*0.0561), wire=Xof(boardX(XR+0.34*fgR)), fg=wire-Xof(boardX(XR-0.66*fgR)), s=HAND.f[i+1]?HAND.f[i+1].string:0;
-      if(i===0&&bar&&down) return {s:bar.s, lowS:bar.s, barre:{w:wire,y0:0,y1:bar.s*g+1.5}};
+      const bar=barOf(i); if(bar&&down){ const hi=bar.hi||0; return {s:bar.s, lowS:bar.s, hiS:hi, barre:{w:wire,y0:hi?hi*g-1.5:0,y1:bar.s*g+1.5}}; }
       return down?{s,p:[X,Y,Z],press:true,cell:[wire-fg+2.5,wire],line:F.y+FR*PRESS_H}:{s,p:[X,Y,Z],press:false}; });   // line: the string it presses, on the board (where its dot is pressed flat)
     const xs2=fs.map(g=>g.barre?g.barre.w:g.p[0]), tx=(xs2[0]+xs2[1])/2, yf=NECK.yFar(tx), yn=NECK.yNear(tx), hw=(yn-yf)/2, yc=(yn+yf)/2, ty=yc+0.15*hw;
     return {f:fs, ring:ringing(fs,live,now), th:[tx,ty,-NECK.depth(tx)*Math.sqrt(1-Math.pow((ty-yc)/hw,2))], thw:0.6}; }
@@ -3024,17 +3101,18 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
     if(now&&!CHORDS){ if(FIELD.on&&now.finger>=1&&now.fret>=1){ lit[now.finger-1]=true; at[now.finger-1]={s:now.string,f:now.fret}; } }
     else if(!T.on||CHORDS) P.forEach(q=>{ if(!FIELD.on||!q.g||!(q.f>=1)) return; if(P.some(o=>o!==q&&o.g&&o.s===q.s&&o.f>q.f)) return; lit[q.g-1]=true; at[q.g-1]={s:q.s,f:q.f}; });
     // a barre sounds every string it holds where nothing stops that string higher: its finger takes each one's colour there
-    const bar=((!now&&!T.on)||CHORDS)&&FIELD.on?P.find(q=>q.g===1&&q.barre):null, bands=[];
-    if(bar) for(let s2=0;s2<=bar.s;s2++){ if(P.some(o=>o!==bar&&o.g&&o.s===s2&&o.f>bar.f)) continue; bands.push({s:s2,col:valRGB(pcOf(s2,bar.f))}); }
+    const BANDS=[0,1,2,3].map(i=>{ const bar=((!now&&!T.on)||CHORDS)&&FIELD.on?P.find(q=>q.g===i+1&&q.barre):null, bands=[];
+      if(bar) for(let s2=bar.hi||0;s2<=bar.s;s2++){ if(P.some(o=>o!==bar&&o.g&&o.s===s2&&o.f>bar.f)) continue; bands.push({s:s2,col:valRGB(pcOf(s2,bar.f))}); }
+      return bands; });
     for(let i=0;i<4;i++){ const G=tg[i];
       if(lit[i]) toneCol[i]=valRGB(pcOf(at[i].s,at[i].f));
-      if(i===0&&bands.length){ lit[0]=true; toneCol[0]=bands[0].col; }
+      const bands=BANDS[i]; if(bands.length){ lit[i]=true; toneCol[i]=bands[0].col; }
       tone[i]+=((lit[i]?1:0)-tone[i])*Math.min(1,(dt||0.016)/(lit[i]?0.05:0.25));
       const mine=slots.filter(q=>q.k===i);
       if(tone[i]<0.01||!toneCol[i]){ mine.forEach(q=>{ q.halo.style.opacity=0; q.line.style.stroke=''; q.nail.style.stroke=''; q.tint.style.display='none'; }); continue; }
       mine.forEach(q=>{ q.halo.style.opacity=(0.6*tone[i]*alpha[i]).toFixed(3); });   // a dark edge under a lit finger's coloured line: it reads on a board lit its own colour
       const col=rgbS(mixRGB(ink,toneCol[i],tone[i])), w=rgbS(ink), tip=proj(S.F[i].pad), kn=proj(S.F[i].pip);
-      if(i===0&&bands.length){ barreTint(G,S.F[0],bands,ink); mine.forEach(q=>{ q.line.style.stroke='url(#'+gid+'t0)'; q.nail.style.stroke=col; q.tint.style.display=''; }); continue; }
+      if(bands.length){ barreTint(G,S.F[i],bands,ink,i); mine.forEach(q=>{ q.line.style.stroke='url(#'+gid+'t'+i+')'; q.nail.style.stroke=col; q.tint.style.display=''; }); continue; }
       plainStops(G);
       G.g.setAttribute('x1',f(tip.x)); G.g.setAttribute('y1',f(tip.y)); G.g.setAttribute('x2',f(kn.x)); G.g.setAttribute('y2',f(kn.y));
       G.a.setAttribute('stop-color',col); G.b.setAttribute('stop-color',col); G.c.setAttribute('stop-color',w); G.d.setAttribute('stop-color',w);
@@ -3149,7 +3227,7 @@ const HANDLAB=(BOOK.handLab||BOOK.hand)?(()=>{
   btn.addEventListener('click',()=>{ document.body.classList.toggle('handOn'); sync(); });
   document.body.classList.add('handOn'); sync();
   document.getElementById('pageCt').after(btn);
-  return {draw, marks, reach, grips:GRIPS, grip, learn, toGrip:k=>{ wantGrip=LEARNED[k]?k:null; }, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
+  return {hm:HM, draw, marks, reach, grips:GRIPS, grip, learn, toGrip:k=>{ wantGrip=LEARNED[k]?k:null; }, resettle:()=>{ resettle=true; }, setOpen:a=>{ openStr.clear(); a.forEach(x=>openStr.add(x)); }};
 })():null;
 { const prev=frameHook; frameHook=(st,live,plan,dt)=>{ if(prev) prev(st,live,plan,dt); if(HANDLAB) HANDLAB.draw(dt,st,live,plan); }; }
 
@@ -3222,6 +3300,10 @@ if(typeof module!=='undefined') module.exports={chordShapes};
    eighth 12, sixteenth 6, thirty-second 3; dotted ×3/2; triplets ×2/3. */
 function customTool(){
   const PRE=BOOK.preset||null;                                         // a page that is one exercise, generated (its options in place of the editor)
+  /* A PIECE on the E Shape's page (BOOK.piece): a passage written out in this page's text, bar by bar, played as written on
+     the same page — the Ring, the clock, the curve, the board's letters, the clef — in place of the generated E shape. Its
+     options are its own (which bars; a bar's other fingering); no mode bank, no root constellation, no next mode. */
+  const PIECE=BOOK.piece||null, SK=k=>PIECE?'piece-'+PIECE.id+'-'+k:k;
   const TPQ=24, $q=id=>document.getElementById(id);
   const METERS=[[2,4],[3,4],[4,4],[5,4],[6,8],[9,8],[12,8]];
   const barT=m=>m[0]*4*TPQ/m[1];
@@ -3336,9 +3418,11 @@ function customTool(){
   const GRIPMAP={}; if(NSTR===6&&HANDLAB.grips) HANDLAB.grips.forEach(([,list])=>list.forEach(([,fr,fi])=>{ GRIPMAP[fr]=fi; }));
   function validHand(L,opens,strict){
     const by={}; L.forEach(x=>{ (by[x.g]=by[x.g]||[]).push(x); });
-    for(const g in by) if(by[g].length>1){ if(+g!==1) return false; if(by[g].some(x=>x.f!==by[g][0].f)) return false; }
+    for(const g in by) if(by[g].length>1){ if(+g!==1&&!L.given) return false; if(by[g].some(x=>x.f!==by[g][0].f)) return false; }
+    for(const g in by) if(by[g].length>1){ const a=by[g], bar={g:+g,f:a[0].f,low:Math.max(...a.map(x=>x.s)),hi:+g===1?0:Math.min(...a.map(x=>x.s))};
+      if(L.some(x=>x.g!==bar.g&&x.s>=bar.hi&&x.s<=bar.low&&x.f<=bar.f)) return false; if(opens.some(s=>s>=bar.hi&&s<=bar.low)) return false; }
+    if(L.given) return true;                                           // a grip fingered as asked: the hand's reach is the player's word
     const bar=by[1]&&by[1].length>1?{f:by[1][0].f,low:Math.max(...by[1].map(x=>x.s))}:null;
-    if(bar){ if(L.some(x=>x.g!==1&&x.s<=bar.low&&x.f<=bar.f)) return false; if(opens.some(s=>s<=bar.low)) return false; }
     if(!strict) return true;
     const reps=Object.keys(by).map(g=>({g:+g,f:by[g][0].f,s:bar&&+g===1?-1:by[g][0].s}));
     for(let i=0;i<reps.length;i++) for(let j=i+1;j<reps.length;j++) if(!fingersFit(reps[i].g,reps[i].f,reps[i].s,reps[j].g,reps[j].f,reps[j].s)) return false;
@@ -3377,9 +3461,11 @@ function customTool(){
             if(under.length+held.filter(h=>h.e.f===fb&&h.g===1).length>=2&&(!usedG.has(1)||heldBar||held.some(h=>h.g===1&&h.e.f===fb))){
               const free2=[2,3,4].filter(g=>!usedG.has(g));
               if(rest.length<=free2.length) perms(free2,rest.length).forEach(p=>opts.push(under.map(e=>({e,g:1})).concat(rest.map((e,i)=>({e,g:p[i]}))))); } }
+          // a grip whose every new tone names its finger: that fingering, barres (any finger's) and all
+          if(fretNew.length&&fretNew.every(e=>e.g)&&fretNew.every(e=>!usedG.has(e.g)||held.some(h=>h.g===e.g&&h.e.f===e.f))) opts.push(Object.assign(fretNew.map(e=>({e,g:e.g})),{given:true}));
           for(const o of opts){
             if(o.some(x=>{ const fx=fixedOf(x.e); return fx&&fx!==x.g; })) continue;
-            const L=held.map(h=>({g:h.g,s:h.e.s,f:h.e.f,id:h.e.id})).concat(o.map(x=>({g:x.g,s:x.e.s,f:x.e.f,id:x.e.id})));
+            const L=held.map(h=>({g:h.g,s:h.e.s,f:h.e.f,id:h.e.id})).concat(o.map(x=>({g:x.g,s:x.e.s,f:x.e.f,id:x.e.id}))); if(o.given) L.given=true;
             if(!validHand(L,opens,strict)) continue;
             const bar=L.filter(x=>x.g===1).length>1, {c,mean}=costOf(L,S.mean,bar&&!heldBar,prevAt);
             const a=new Map(); L.forEach(x=>a.set(x.id,x.g));
@@ -3405,8 +3491,10 @@ function customTool(){
     let lastH=null;
     FG.frames.forEach((F,k)=>{
       const S=FG.path[k], L=S?S.L:[];
-      const bar=L.filter(x=>x.g===1).length>1?{f:L.find(x=>x.g===1).f,low:Math.max(...L.filter(x=>x.g===1).map(x=>x.s))}:null;
-      const pl=L.filter(x=>!(bar&&x.g===1)).map(x=>({g:x.g,s:x.s,f:x.f})); if(bar) pl.push({g:1,s:bar.low,f:bar.f,barre:true});
+      // a finger on more than one string lies across them as a barre: the index from the high e side down to its lowest
+      // string, any other finger across just the strings it holds (a half barre: hi..s)
+      const bars=[1,2,3,4].map(g=>{ const a=L.filter(x=>x.g===g); return a.length>1?{g,f:a[0].f,low:Math.max(...a.map(x=>x.s)),hi:g===1?0:Math.min(...a.map(x=>x.s))}:null; }).filter(Boolean);
+      const pl=L.filter(x=>!bars.some(b=>b.g===x.g)).map(x=>({g:x.g,s:x.s,f:x.f})); bars.forEach(b=>pl.push({g:b.g,s:b.low,hi:b.hi,f:b.f,barre:true}));
       const H=pl.length?handFor(pl):(lastH?cloneHand(lastH):handFor([],Math.max(1,(evs.find(e=>e.f>0)||{f:1}).f-1),NSTR-1));
       if(pl.length) lastH=H; hands.push(H); pls.push(pl); sets.push(new Set(L.map(x=>x.g)));
       opens.push(F.snd.filter(e=>e.f===0).map(e=>e.s));
@@ -3417,7 +3505,7 @@ function customTool(){
       if(nw.length>1) strumAt.add(F.t);
       nw.forEach((e,i)=>{ const off=i*spread;
         plan.push({string:e.s,fret:e.f,pitch:e.f,push:0,finger:e.f>0?(FG.fing[e.id]||0):0,frame:k,pick:true,glide:false,pre:false,kind:'pick',hi:false,
-          vel:Math.pow(0.96,i)*(up?0.75:1),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off});
+          vel:Math.pow(0.96,i)*weightOf(F.t,up,nw.length),up,line:nw.length===1,ev:e.id,t:e.t,len:e.d,off:e.d/TPQ-off,ballRoot:nw.length>1&&chordAt(e.t)?chordAt(e.t).root:undefined});
         fig.push({s:e.t/TPQ+off}); }); });
     // where each tone's string is next struck: room to still it at its end, or not
     plan.forEach(p=>{ const later=plan.filter(q=>q.string===p.string&&q.t>p.t).map(q=>q.t), first=Math.min(...plan.filter(q=>q.string===p.string).map(q=>q.t));
@@ -3429,6 +3517,14 @@ function customTool(){
       lo:{s:plan[0].string,f:plan[0].fret,g:plan[0].finger},hi:{s:plan[Math.min(1,plan.length-1)].string,f:plan[Math.min(1,plan.length-1)].fret,g:plan[Math.min(1,plan.length-1)].finger}};
     C={D,fig,hands,sets,opens,pls,frames:FG.frames,fing:FG.fing,warn:FG.warn,strokes,strumAt,loop:LOOPB,lift};
     return C; }
+  /* A STRUM'S WEIGHT (a piece that asks: BOOK.piece.weights — as on Wish You Were Here): the bar's downbeat the heaviest;
+     every other downstroke a middle weight; an upstroke the lightest, unless nothing is struck on the beat it leads into
+     (the stroke carried over that beat lifts to the middle weight). Otherwise a downstroke full, an upstroke a little less. */
+  function weightOf(t,up,n){ if(!(PIECE&&PIECE.weights&&n>1)) return up?0.75:1;
+    const B=barT(M.meter), P_=pulseT(M.meter);
+    if(!up) return Math.abs(t%B)<1e-6?1:0.72;
+    const nb=Math.ceil((t+1e-6)/P_)*P_, struck=M.ev.some(e=>Math.abs(e.t-nb)<1e-6);
+    return Math.abs(nb-t-P_/4)<1e-6&&!struck?0.72:0.5; }
   const gcd=(a,b)=>{ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||TPQ; };
   function useC(){ if(!C||C.empty){ DRILL=null; FIG=[{s:0,d:4}]; LOOP=total()/TPQ; return; }
     FIG=C.fig; LOOP=C.loop; STROKES=C.strokes; BAR_START=i=>!!FIG[i]&&Math.abs((FIG[i].s*TPQ)%barT(M.meter))<1e-6; DRILL=C.D; }
@@ -3442,12 +3538,14 @@ function customTool(){
   const doAt=t=>{ const withF=M.ch.filter(c=>c.syl); if(!withF.length) return null; let c=null; for(const x of withF){ if(x.t<=t+1e-6) c=x; } c=c||withF[withF.length-1];
     return ((c.root-fromDo(c.syl))%12+12)%12; };
   function orient(doPc,force){ if(doPc===null||doPc===PHI.doPc&&!force) return; let s0=0, f0=99; for(let s=0;s<NSTR;s++) for(let f=0;f<12;f++) if(pcOf(s,f)===doPc&&f<f0){ s0=s; f0=f; }
-    pagePhi({anchor:{s:s0,f:f0,deg:'do'},top:PRE?(PRE==='csm'?OPT.mode.toLowerCase():'do'):'re'}); }   // (an exercise page: its mode's root at 12 o'clock)
+    pagePhi(PRE==='csm'?{anchor:{s:s0,f:f0,deg:'do'},topPc:curL().root}:{anchor:{s:s0,f:f0,deg:'do'},top:PRE?'do':'re'}); }   // (an exercise page: its mode's root at 12 o'clock — an anti's too)
   /* THE MODE FOLLOWS THE LINE (an exercise page): a tone held — longer than a beat, alone — is heard as the mode's root
      (Fa, Sol or Do held in the walks, each its own mode); a strummed chord restores its own root's mode. In force from
      that moment to the next, on the Ring (its mode cone), the TAB (its light fading across the span) and the fretboard. */
   let MODES=[];
   function modeEvents(){ const out=[], ons=[...new Set(M.ev.map(e=>e.t))].sort((a,b)=>a-b);
+    if(PIECE&&PIECE.symModes){ M.ch.forEach((c,i)=>{ const nx=M.ch[i+1], span=M.ev.filter(e=>e.t>=c.t&&(!nx||e.t<nx.t)), r=c.root;
+        const at=lowest(span.filter(e=>pcOf(e.s,e.f)===r))||lowest(span); if(at) out.push({t:c.t,root:r,at,id:'m'+c.t}); }); return out; }
     ons.forEach(t=>{ const g=M.ev.filter(e=>e.t===t);
       if(g.length>1){ const c=chordAt(t); if(!c) return; const r=c.root, at=lowest(g.filter(e=>pcOf(e.s,e.f)===r))||lowest(g); out.push({t,root:r,at,id:'m'+t}); }
       else if(g[0].d>TPQ) out.push({t,root:pcOf(g[0].s,g[0].f),at:g[0],id:'m'+t}); });
@@ -3470,7 +3568,8 @@ function customTool(){
     const steps=M.ev.map(e=>e.t).concat(M.ev.map(e=>e.t+e.d),M.ch.map(c=>c.t),[TT]); let ms=pal.dur();
     const ts=[...new Set(steps)].sort((a,b)=>a-b); for(let i=1;i<ts.length;i++) ms=Math.min(ms,ts[i]-ts[i-1]); minStep=ms;
     TB.cw=Math.max(PRE?36:23.5,(886-TB.x0)/(2*Q),13*TPQ/(2*ms)); TB.s1=TB.x1=TB.x0+2*Q*TB.cw; TB.boff=0;   // (an exercise page: room for its strums to read)
-    const W=Math.max(900,Math.round(TB.s1+14)); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
+    // (an exercise page: the first bars again after the repeat, and room past them for the view to follow the ball)
+    const W=Math.max(900,Math.round(TB.s1+14+(PRE?GHOST_GAP+2*TB.cw*Math.min(M.bars,GHOST_BARS)*B/TPQ+360:0))); tab.setAttribute('viewBox','0 -34 '+W+' 272'); tab.style.width=(100*W/900).toFixed(2)+'%'; tab.style.maxWidth=W>900?'none':'';
     tabPanel.classList.toggle('wide',W>900); if(W<=900) tabPanel.scrollLeft=0;
     rows.forEach(r=>r.setAttribute('x2',TB.s1));
     while(gridG.firstChild) gridG.removeChild(gridG.firstChild);
@@ -3486,7 +3585,7 @@ function customTool(){
   const valueOf=len=>{ for(const [v,n] of NAMED) if(v<=len) return {v,n,base:n[0],dot:n.includes('.'),trip:n.includes('3')}; return {v:len,n:'x',base:'x',dot:false,trip:false}; };
   const BEAMS={w:0,h:0,q:0,e:1,s:2,x:3};
   function tabDraw(D){
-    lay(); durBars=[]; chordArt=[]; while(bgG.firstChild) bgG.firstChild.remove(); while(durG.firstChild) durG.firstChild.remove();
+    lay(); durBars=[]; chordArt=[]; strumArt=[]; while(bgG.firstChild) bgG.firstChild.remove(); while(durG.firstChild) durG.firstChild.remove();
     const plan=D?D.plan:[];
     // the numbers on their lines (a strum's numbers stacked, as written), each with its length drawn along its string
     plan.forEach((n,i)=>{ const x=xT(n.t), y=TB.rowY[n.string], txt=String(n.fret), o=numberAt(x,y,txt); tabNotes[i]=o;
@@ -3495,7 +3594,12 @@ function customTool(){
       durBars.push(x1>x0+1?el('line',{x1:x0,y1:y,x2:x1,y2:y,class:'cuDur'},durG):null); });
     { const by={}; plan.forEach((n,i)=>{ (by[n.t]=by[n.t]||[]).push(n); });
       Object.values(by).forEach(g=>{ if(g.length<2) return; const x=xT(g[0].t)+13, ya=TB.rowY[g[0].string], yz=TB.rowY[g[g.length-1].string], dir=yz<ya?-1:1;
-        el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,class:'inkS','stroke-width':1.1},noteG); arrowHead(x,yz,dir); }); }
+        // (each strum's arrow its own group, to flex and take its root's colour as it is struck)
+        const ag=el('g',{style:'color:var(--ink)'},noteG); el('line',{x1:x,y1:ya,x2:x,y2:yz-dir*6,stroke:'currentColor','stroke-width':1.1},ag);
+        el('path',{d:'M'+(x-3.5)+' '+(yz-dir*6)+' L'+x+' '+yz+' L'+(x+3.5)+' '+(yz-dir*6)+' Z',fill:'currentColor'},ag);
+        // over it, in the names' lane, its stroke: a bold D (down) or U (up)
+        const ly=(TB.floor+TB.rowY[0])/2+4, lab=el('text',{x:xT(g[0].t),y:ly,class:'cuDU',fill:'currentColor'},ag.parentNode); lab.textContent=g[0].up?'U':'D'; lab.style.color='var(--ink)';
+        strumArt.push({lab,ly,lx:xT(g[0].t),g:ag,t:g[0].t,x,ym:(ya+yz)/2,root:g[0].ballRoot!==undefined?g[0].ballRoot:(chordAt(g[0].t)||{}).root,fx:0,lv:0}); }); }
     // rhythm below the staff: a stem for each moment struck, beamed by the beat, flagged alone; a dot, a triplet's 3
     const P_=pulseT(M.meter), groups=[...new Set(plan.map(n=>n.t))].sort((a,b)=>a-b).map(t=>{ const len=Math.max(...plan.filter(n=>n.t===t).map(n=>n.len)); return {t,x:xT(t),V:valueOf(len)}; });
     const stemL=26, stemS=13, foot=stemTop+stemL;
@@ -3531,8 +3635,41 @@ function customTool(){
       L.textContent=c.name; chordArt.push({c,s0,r,L,S}); });
     sylArt=[]; if(PRE){ const y=((TB.floor+TB.rowY[0])/2+4).toFixed(1);
       plan.forEach(n=>{ if(plan.some(q=>q!==n&&q.t===n.t)) return; const t=el('text',{x:xT(n.t),y,class:'sylTab cuSylFix'},noteG); sylArt.push({t,n}); }); }
-    placeCursor(); paintChords(); }
-  let sylArt=[], modeArt=[];
+    if(PRE) ghostBar(); placeCursor(); paintChords(); }
+  /* AFTER THE REPEAT SIGN (an exercise page): the first bar again — a live copy of it, lit as it is lit — so at the repeat the
+     ball bounces over the sign and lands in it, and the TAB goes on from there with nothing jumping back: once the ball
+     passes into the second bar, the view is moved back by the loop's length at once, and what is on screen is the same. */
+  const GHOST_GAP=48, GHOST_BARS=3; let ghostG=null;   // (the first bars, enough for the view to keep the ball where it follows it)
+  let GHOST_BUSY=false;
+  function ghostBar(){ if(GHOST_BUSY) return; if(ghostG) ghostG.remove(); const B=barT(M.meter), G=Math.min(M.bars,GHOST_BARS), xb=TB.x0+2*TB.cw*G*B/TPQ, dx=TB.s1+GHOST_GAP-TB.x0;
+    // the next pass a different mode: its TAB drawn (as it will be), copied as it stands, and this one's drawn back
+    const nx=PRE&&typeof peekNext==='function'?peekNext():null; let frozen=null;
+    if(nx&&!nx.same){ const sv={M,C,D:DRILL}, clear=()=>{ while(noteG.firstChild) noteG.firstChild.remove(); tabNotes.length=0; }; GHOST_BUSY=true;
+      try{ M=nx.M; C=nx.C; clear(); tabDraw(nx.C.D); frozen=[bgG,durG,noteG,gridG].map(g=>g.cloneNode(true));
+        // the copy's own ids (its gradients), so neither TAB borrows the other's colours
+        frozen.forEach(g=>{ g.querySelectorAll('[id]').forEach(e=>{ const o=e.id, n=o+'_gh'; e.id=n; g.querySelectorAll('[fill="url(#'+o+')"]').forEach(r=>r.setAttribute('fill','url(#'+n+')')); }); }); }
+      finally{ M=sv.M; C=sv.C; clear(); tabDraw(sv.D); GHOST_BUSY=false; } }
+    [[bgG,'cuBgG'],[durG,'cuDurG'],[noteG,'cuNoteG'],[gridG,'cuGridG']].forEach(([g,id])=>{ if(!g.id) g.id=id; });
+    ghostG=el('g',{transform:'translate('+dx.toFixed(2)+' 0)','pointer-events':'none'},tab);
+    const cp=el('clipPath',{id:'cuGhostClip'},ghostG); el('rect',{x:TB.x0+1,y:-40,width:xb-TB.x0-3,height:320},cp);
+    TB.rowY.forEach(y=>el('line',{x1:TB.x0-4,y1:y,x2:xb,y2:y,class:'inkS','stroke-width':1,opacity:0.55},ghostG));
+    for(let b=1;b<=G;b++){ const x=TB.x0+2*TB.cw*b*B/TPQ; el('line',{x1:x,y1:TB.rowY[0],x2:x,y2:TB.rowY[NSTR-1],class:'inkS','stroke-width':1},ghostG); }
+    const cg=el('g',{'clip-path':'url(#cuGhostClip)'},ghostG);
+    if(frozen) frozen.forEach(g=>{ g.removeAttribute('id'); cg.appendChild(g); });
+    else [bgG,durG,noteG,gridG].forEach(g=>{ const u=el('use',{},cg); u.setAttribute('href','#'+g.id); }); }
+  let sylArt=[], modeArt=[], strumArt=[];
+  /* WHAT IS STRUCK THIS FRAME (playing): the pitch classes and the moments — the curve's letters, the TAB's names and its strum
+     arrows flex as they are struck, every strum of a held chord again */
+  let STRIKE=new Set(), STRIKET=new Set(), prevTk=null, flexClock=0;
+  function strikes(playing,counting,tk){ STRIKE=new Set(); STRIKET=new Set();
+    if(!playing){ prevTk=null; return; } if(counting){ prevTk=-1; return; }
+    if(prevTk!==null){ const a=prevTk, inW=t=>a<=tk?(t>a&&t<=tk):(t>a||t<=tk); M.ev.forEach(e=>{ if(inW(e.t)){ STRIKE.add(pcOf(e.s,e.f)); STRIKET.add(e.t); } }); }
+    prevTk=tk; }
+  function flexTab(){ const now=performance.now()/1000, dt=Math.min(0.1,flexClock?now-flexClock:0.016); flexClock=now; const L=FIELD.lit, ink=inkColour();
+    sylArt.forEach(a=>{ if(STRIKET.has(a.n.t)) a.fx=1; a.fx=(a.fx||0)*Math.exp(-dt/0.22); svgScale(a.t,1+0.45*a.fx,+a.t.getAttribute('x'),+a.t.getAttribute('y')-5); });
+    strumArt.forEach(a=>{ if(STRIKET.has(a.t)){ a.fx=1; a.lv=1; } a.fx*=Math.exp(-dt/0.2); a.lv*=Math.exp(-dt/0.6); svgScale(a.g,1+0.35*a.fx,a.x,a.ym);
+      let c=ink; if(a.root!==undefined&&L>0.001&&a.lv>0.003){ const d0=doAt(a.t), dp=d0===null?PHI.doPc:d0; c=mixRGB(ink,relRGB(((a.root-(dp+2))%12+12)%12),L*a.lv); }
+      const cs=rgbS(c); if(a.cs!==cs){ a.cs=cs; a.g.style.color=cs; a.lab.style.color=cs; } svgScale(a.lab,1+0.5*a.fx,a.lx,a.ly-5); }); }
   // the chord symbols' colours: their root's function under the orientation in force where they stand (g(x) on)
   function paintChords(cur){ const L=FIELD.lit, ink=inkColour();
     modeArt.forEach(a=>{ const d0=doAt(a.m.t), dp=d0===null?PHI.doPc:d0, col=relRGB(((a.m.root-(dp+2))%12+12)%12), on=a.ms.includes(curMode), cs=rgbS(col);
@@ -3581,6 +3718,7 @@ function customTool(){
    +'.cuKey{ font-size:13px; color:var(--mid) } .cuKey summary{ cursor:pointer; font-size:12px; letter-spacing:.08em; text-transform:uppercase; font-weight:600 } .cuKey p{ margin:6px 0 } .cuKey b{ color:var(--ink); font-family:ui-monospace,Menlo,monospace; font-weight:600 }'
    +'#tab .cuCursor{ fill:var(--ink); fill-opacity:.07; stroke:var(--ink); stroke-width:1.2; stroke-dasharray:3 2 } #tab .cuCaret{ fill:var(--mid) }'
    +'#tab .cuDur{ stroke-linecap:round; stroke:var(--ink) }'
+   +'#tab .cuDU{ font-family:var(--sans); font-weight:800; font-size:13px; text-anchor:middle }'
    +'#tab .cuChord{ font-size:17px; font-weight:700; fill:var(--ink) } #tab .cuSyl{ font-family:var(--serif); font-style:italic; font-weight:500 }'
    +'#tab .cuFing{ font-size:9.5px; font-weight:700; fill:var(--mid); text-anchor:middle } #tab .cuFlag{ fill:none; stroke:var(--ink); stroke-width:1.5 } #tab .cuTrip{ font-size:11px; font-style:italic; fill:var(--ink); text-anchor:middle }'
    +'.cuClear{ position:absolute; top:0; right:0; z-index:2; font-size:12px; padding:4px 12px }'+'.roll.big{ --rh:62px } .roll.big .rollRow{ font-size:calc(var(--rh) * .8) } .roll.big .rollRow span{ transition:opacity .25s, text-shadow .25s } .roll.big .rollRow.cur span.unlit{ opacity:.42 } .roll.big .rollRow.cur span.lit{ opacity:1; text-shadow:0 0 18px currentColor }'+'#tab .cuBarNo{ font-size:10px; fill:var(--mid) } #tab:focus{ outline:none } #tabPanel{ cursor:text }';
@@ -3716,12 +3854,15 @@ function customTool(){
     tab.focus(); },true);
 
   /* ---------- running ---------- */
-  function segment(){
+  function segment(Cx,passN,model){ Cx=Cx||C; passN=passN||0;
     const B=barT(M.meter);
     const lead=Math.min(0.09,0.35*(minStep/TPQ)*60/drill.bpm);
-    return {D:C.D,grid:strokeGrid(),liftAt:st=>st.idx>=0&&st.ph*TPQ>=C.lift[st.s.plan[st.idx].frame]-1e-6,pass:0,plan:C.D.plan,fig:C.fig,hand:cloneHand(C.hands[0]),hands:C.hands,chords:C.sets,chord:C.sets[0],si:0,custom:false,mode:'pick',strs:{},plant:true,xt:0,lead,
-      place(s,t){ s.count=B/TPQ; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=Infinity; s.end=Infinity; },
-      showBar(s){ T.shown=s; }}; }
+    return {D:Cx.D,grid:model?model.grid:strokeGrid(),liftAt:st=>st.idx>=0&&st.ph*TPQ>=Cx.lift[st.s.plan[st.idx].frame]-1e-6,pass:0,passN,model,plan:Cx.D.plan,fig:Cx.fig,hand:cloneHand(Cx.hands[0]),hands:Cx.hands,chords:Cx.sets,chord:Cx.sets[0],si:0,custom:false,mode:'pick',strs:PRE?PASS_STRS:{},plant:true,xt:0,lead,keep:PRE,
+      // an exercise page plays one pass a segment (its next comes in on the bar line, no count, Hold or the next mode);
+      // the editor's drill loops on and on
+      place(s,t){ s.count=passN?0:B/TPQ; s.countStart=t; s.loopStart=t+s.count*T.beat; s.loops=PRE?1:Infinity; s.end=PRE?s.loopStart+LOOP*T.beat:Infinity; },
+      showBar(s){ T.shown=s; if(PRE&&s.model&&s.model.M!==M) passTo(s.model); },
+      ...(PRE?{jumpGap:()=>GHOST_GAP/(2*TB.cw), loopsBack:()=>false}:{})}; }
   // THE PICK'S STROKES: each beat cut as finely as what is played in it needs (eighths, triplets, sixteenths …), the pick
   // alternating through the cuts from a downstroke on the beat — a tone struck where it falls, the rest silent passes
   function strokeGrid(){
@@ -3735,7 +3876,7 @@ function customTool(){
     ensureCtx().then(()=>{
       if(T.on) stopAll();
       T.beat=60/drill.bpm; setPulse(); compile(); useC(); if(!DRILL) return;
-      const s=segment(); placeSeg(s,ctx.currentTime+0.1);
+      PEEK=null; for(const k in PASS_STRS) delete PASS_STRS[k]; const s=segment(); placeSeg(s,ctx.currentTime+0.1);
       T.segs=[s]; T.si=0; T.nextI=0; T.nextCycle=0; T.nextBeat=-s.count/PULSE.u; T.live=[]; T.shown=null; T.on=true;
       tick(); T.timer=setInterval(tick,25);
       playBtn.textContent='Stop'; playBtn.classList.add('on'); placeCursor(); }); }
@@ -3753,13 +3894,19 @@ function customTool(){
     if(playing){ tk=st.count?0:st.ph*TPQ; }
     else if(T.on) return;
     else tk=cur.t;
+    if(PRE){ const B=barT(M.meter), cyc=playing&&!st.count?(st.s.passN||0):0, want=cyc>=1&&tk<B-1e-6?LOOP+GHOST_GAP/(2*TB.cw):0;
+      if(want!==(TB.boff||0)){ const was=TB.boff||0; TB.boff=want;
+        if(was>0&&want===0){ if(pendingTab){ pendingTab=false; refresh(); TB.boff=0; }   /* a new pass's TAB, drawn now the ball is past its copy */ const dxU=was*2*TB.cw, vb=tab.viewBox.baseVal.width||1;   // on into the second bar: the view back by the loop's length
+          if(tabPanel.classList.contains('wide')) tabPanel.scrollLeft-=dxU*tab.getBoundingClientRect().width/vb;
+          if(typeof SURF!=='undefined'&&SURF&&SURF.shiftTab) SURF.shiftTab(-dxU); } } }
     // the orientation in force, and the chord
     // a chord symbol's orientation is applied as its span is entered; between, the ring is the listener's to turn
     const dp=doAt(Math.min(tk,total()-1e-3)); if(dp!==null&&dp!==lastDo){ lastDo=dp; orient(dp); }
     curChord=M.ch.length?chordAt(tk):null;
     // what is sounding: lit on the board and in the TAB
-    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f));
-    if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
+    strikes(playing,!!(playing&&st.count),tk);
+    const snd=playing&&st.count?[]:soundingAt(tk); INST=new Set(snd.map(e=>e.s*(FMAX+1)+e.f)); soundNow=playing?new Set(snd.map(e=>pcOf(e.s,e.f))):new Set();
+    if(playing){ const ids=new Set(snd.map(e=>e.id)); TAB_LIT=new Set(); if(!pendingTab) C.D.plan.forEach((n,i)=>{ if(ids.has(n.ev)) TAB_LIT.add(i); }); } else TAB_LIT=null;
     // the mode's light, from the chord's root: where the root sounds lowest now, else lowest in the chord's span, else
     // the root nearest the hand
     rootHeld=null; curMode=MODES.length?modeAt(tk):null;
@@ -3780,11 +3927,13 @@ function customTool(){
     else if(C&&C.empty&&shownK!==-1){ shownK=-1; P=[]; HANDLAB.setOpen([]); }
     // the lengths along the strings, in their tones' colours while they sound
     const L=FIELD.lit, ink=inkColour();
-    if(C&&!C.empty) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
+    if(C&&!C.empty&&!pendingTab) C.D.plan.forEach((n,i)=>{ const b=durBars[i]; if(!b) return; const on=snd.some(e=>e.id===n.ev), pc=pcOf(n.string,n.pitch), col=L>0.001?mixRGB(ink,valRGB(pc),L):ink;
       b.style.stroke=rgbS(col); b.style.opacity=on?(0.85).toFixed(2):(L>0.001?0.32:0.28).toFixed(2); b.style.strokeWidth=on?3:2; });
-    paintChords(curChord);
+    paintChords(curChord); if(PRE) flexTab();
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
-    if(CLOCK) CLOCK.step(tk,playing); }
+    if(PRE==='csm'&&CONE.scale) CONE.scale(scaleSet(),soundNow,1-FIELD.lit,SCDRAG-Math.round(SCDRAG));
+    if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count);
+    if(TRI_CHART) TRI_CHART(playing&&st.count?0:tk); }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
   // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
@@ -3795,62 +3944,123 @@ function customTool(){
     const row0=ROLL.row(), key=rollKey+'|'+[...on].sort().join(','); if(key===litKey&&row0===litRow) return; litKey=key; litRow=row0;
     document.querySelectorAll('#frameLbl .rollRow span').forEach(sp=>{ sp.classList.remove('lit','unlit'); });
     const row=ROLL.row(); if(!row) return; row.querySelectorAll('span:not(.us)').forEach(sp=>{ sp.classList.add(on.has(sp.textContent)?'lit':'unlit'); }); }
-  function solLaCols(e){ const dp=PHI.doPc, on=M.ev.filter(x=>x.s===e.s&&x.fr==='Sol'&&x.g), at={};
-    on.forEach(x=>{ const k=((pcOf(x.s,x.f)-dp)%12+12)%12; if(k===7) at.Sol=x.g; if(k===9) at.La=x.g; });
-    if(at.Sol===undefined&&at.La!==undefined) at.Sol=at.La-2; if(at.La===undefined&&at.Sol!==undefined) at.La=at.Sol+2;
-    return at.Sol>=1&&at.La<=4&&at.La>at.Sol?[at.Sol,at.La]:null; }
+  /* THE DRUM'S COLUMNS, set whole when a mode is chosen: each frame's names stand over the frets the walk plays them at in
+     this mode's position (a column a fret, the hand's first at the left), so that read down the drum the frames stack as the
+     strings do — the dominant chain, a fret a column — with the one deviation the board itself has: across the G and B
+     strings' major third the frame above falls a fret further on. Known from the layout before a note is played. */
+  let drumKey='';
+  function drumCols(){ const L=curL(), dp=walkDo(), all=L.lower.concat(L.upper), p=L.p, by={};
+    for(let st=NSTR;st>=1;st--){ const on=all.filter(n=>n.str===st); if(!on.length) continue; const fr=on[0].fr, k=DRUM.indexOf(fr); if(k<0||by[fr]) continue;
+      // a frame tone not played on this string stands where the string would have it, the fret nearest the hand's (in open
+      // position that may be the fret before the nut: Ti, in the G string's frame, is played on the D)
+      by[fr]=FRAMES[k][1].map(n=>{ const pc=(dp+SYLPC[SYL.indexOf(n)])%12, mine=on.find(x=>pcOf(st-1,x.f)===pc); if(mine) return mine.f;
+        let best=null; for(let f=p-1;f<=p+4;f++) if(((pcOf(st-1,0)+f)%12+12)%12===pc){ const d=f<p?p-f:f>p+3?f-p-3:0; if(!best||d<best.d) best={f,d}; } return best?best.f:null; }); }
+    const fs=Object.values(by).flat().filter(f=>f!==null), base=fs.length?Math.min(...fs):0;
+    return DRUM.map(fr=>by[fr]&&by[fr].every(f=>f!==null)?by[fr].map(f=>f-base+1):null); }
   function rollStep(tk){
+    const dk=OPT.mode+'|'+OPT.anti+'|'+KEY; if(dk!==drumKey){ drumKey=dk; if(ROLL.cols) drumCols().forEach((c,k)=>{ if(c) ROLL.cols(k,c); }); ROLL.rebuild(); rollKey=''; }
     const singles=M.ev.filter(e=>!M.ev.some(q=>q!==e&&q.t===e.t)).sort((a,b)=>a.t-b.t); if(!singles.length) return;
     const e=singles.find(x=>x.t<=tk+1e-6&&tk<x.t+x.d)||singles.find(x=>x.t>tk)||singles[0], fr=e.fr||FRAME_OF[e.s];
-    // Sol_La placed where the walk plays it: in position its two tones fall a fret further on across the G–B string's
-    // major third than on any other string — under the fingers that play them
-    const solCols=fr==='Sol'?solLaCols(e):null;
-    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+(solCols?solCols.join():''); if(key===rollKey) return; rollKey=key;
-    const k=DRUM.indexOf(fr); if(solCols&&ROLL.cols) ROLL.cols(k,solCols); ROLL.rebuild(); ROLL.set(k);
+    const key=fr+'|'+FIELD.on+'|'+diatonic+'|'+drumKey; if(key===rollKey) return; rollKey=key;
+    ROLL.rebuild(); ROLL.set(DRUM.indexOf(fr));
   }
-  /* THE RHYTHM CLOCK (an exercise page): the bar round a clock, its sixteen sixteenths, the beats at 12, 3, 6 and 9; each
-     tone struck in the bar a dot where it falls — a downstroke filled, an upstroke a ring, a strum larger — joined in turn.
-     A hand sweeps round with the bar; each dot flares in its tone's colour as it is struck (a strum, its chord's root) and
-     fades. Behind it all, a light in the colour of the mode in force. Between the TAB and the fretboard, over the nut. */
+  /* THE RHYTHM CLOCK (an exercise page): the bar round a clock the ring's own size, its sixteen sixteenths named round the
+     rim (1 e & a 2 e & a …) in grey, each lighting in its tone's colour as it is struck. Each tone struck in the bar a dot
+     where it falls — a downstroke filled, an upstroke a ring, a strum larger — joined in turn. A hand sweeps round with the
+     bar, and the ring is lit like a radar's sweep: a tone lights the ring the instant it sounds, right under the hand, and
+     the light trails the hand as it advances, fading smoothly with time — nothing ahead of the hand but the last turn's
+     faded trail. One arc per tone sounding (not per string), nested by the tones' place in the mode's hierarchy — R 5 3 7
+     9 13 11 — the highest of them on the ring itself, each next one a step inside it. Stopped, the bar's colours rest dim.
+     Behind it all, a light in the colour of the mode in force. Between the TAB and the fretboard, over the nut. */
   const CLOCK=PRE?(()=>{
-    const NSV='http://www.w3.org/2000/svg', S=170, C=S/2, R=58, sv=document.createElementNS(NSV,'svg'), A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); (par||sv).appendChild(e); return e; };
+    const NSV='http://www.w3.org/2000/svg', S=240, C=S/2, R=84, sv=document.createElementNS(NSV,'svg'), A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); (par||sv).appendChild(e); return e; };
     sv.setAttribute('viewBox','0 0 '+S+' '+S); sv.setAttribute('class','cuClock'); sv.setAttribute('aria-hidden','true');
-    const gid='ck'+Math.random().toString(36).slice(2,6), defs=A('defs',{}), gr=A('radialGradient',{id:gid},defs);
-    const g0=A('stop',{offset:0,'stop-opacity':0.55},gr), g1=A('stop',{offset:0.62,'stop-opacity':0.22},gr); A('stop',{offset:1,'stop-opacity':0},gr);
-    const back=A('circle',{cx:C,cy:C,r:R+24,fill:'url(#'+gid+')',opacity:0});
-    const at=(i,r)=>{ const a=-Math.PI/2+i*Math.PI/8; return [C+r*Math.cos(a),C+r*Math.sin(a)]; };
+    const ang=i=>-Math.PI/2+i*Math.PI/8, at=(i,r)=>{ const a=ang(i); return [C+r*Math.cos(a),C+r*Math.sin(a)]; };
     A('circle',{cx:C,cy:C,r:R,class:'ckl',fill:'none'});
-    for(let i=0;i<16;i++){ const [x0,y0]=at(i,R-(i%4?3:7)), [x1,y1]=at(i,R+(i%4?3:7)); A('line',{x1:x0,y1:y0,x2:x1,y2:y1,class:'ckl'}); }
-    ['1','2','3','4'].forEach((t,b)=>{ const [x,y]=at(4*b,R+19); const e=A('text',{x,y:y+5,class:'ckn'}); e.textContent=t; });
-    const neck=A('polygon',{points:'',class:'ckneck'}), dotsG=A('g',{}), hand=A('line',{x1:C,y1:C,x2:C,y2:C-R+10,class:'ckhand'}); A('circle',{cx:C,cy:C,r:3,class:'ckhub'});
-    const host=document.querySelector('.wrap'); host.appendChild(sv);
-    const css=document.createElement('style'); css.textContent='.cuClock{ position:absolute; z-index:3; pointer-events:none; color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.7 } .cuClock .ckn{ fill:currentColor; font-size:14px; font-weight:800; text-anchor:middle } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.4 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor } .cuClock .ckdot{ transform-box:fill-box; transform-origin:center }';
+    for(let i=0;i<16;i++){ const [x0,y0]=at(i,R-(i%4?4:8)), [x1,y1]=at(i,R+(i%4?4:8)); A('line',{x1:x0,y1:y0,x2:x1,y2:y1,class:'ckl'}); }
+    // the sixteen names, the beats bold and further out
+    const SUBN=['','e','&','a'], lbls=[];
+    for(let i=0;i<16;i++){ const beat=i%4===0, [x,y]=at(i,R+(beat?22:19)), e=A('text',{x:x.toFixed(1),y:(y+(beat?5.5:4.5)).toFixed(1),class:beat?'ckn':'cks'}); e.textContent=beat?String(i/4+1):SUBN[i%4]; lbls.push({e,lv:0,pc:null}); }
+    const neck=A('polygon',{points:'',class:'ckneck'}), dotsG=A('g',{}), hand=A('line',{x1:C,y1:C,x2:C,y2:C-R+14,class:'ckhand'}); A('circle',{cx:C,cy:C,r:3.5,class:'ckhub'});
+    // the light (the mode's glow and the sweep's trail) on a canvas just under the clock's lines
+    const cv=document.createElement('canvas'); cv.className='cuClockCv'; cv.setAttribute('aria-hidden','true'); const cx=cv.getContext('2d');
+    // both in one box: placed over the nut, and what a double click brings up to fill the screen (playback carries on)
+    const box=document.createElement('div'); box.className='cuClockBox'; box.appendChild(cv); box.appendChild(sv);
+    const host=document.querySelector('.wrap'); host.appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'clock');
+    const css=document.createElement('style'); css.textContent='.cuClockBox{ position:relative; z-index:6; -webkit-user-select:none; user-select:none } .wrap > .cuClockBox{ position:absolute } .zoomLayer > .cuClockBox{ top:auto !important; left:auto !important } .cuClockBox > canvas, .cuClockBox > svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none } .cuClock{ color:var(--ink) } .cuClock .ckl{ stroke:currentColor; stroke-width:1.2; opacity:.55 } .cuClock .ckn{ fill:var(--mid); font-size:16px; font-weight:800; text-anchor:middle } .cuClock .cks{ fill:var(--mid); font-size:12.5px; font-weight:600; text-anchor:middle } .cuClock .ckIdle{ fill:var(--dim,var(--mid)) } .cuClock .ckneck{ fill:none; stroke:currentColor; stroke-width:1; opacity:.28 } .cuClock .ckhand{ stroke:currentColor; stroke-width:2.5; stroke-linecap:round } .cuClock .ckhub{ fill:currentColor }';
     document.head.appendChild(css);
-    // over the nut, in the room between the TAB and the strings
-    const place=()=>{ const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
-      p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM, sz=Math.max(90,Math.min(210,bot-top-30));
-      sv.style.width=sv.style.height=sz.toFixed(0)+'px'; sv.style.top=(top+(bot-top-sz)/2).toFixed(0)+'px';
-      const hs=handSpan(), nutL=(q.x-W.left)/ZOOM-sz/2, away=!!hs&&hs[0]<FB.nut;   // the hand over the nut: the clock to the far end
-      sv.style.left=(away?Math.max(0,W.width/ZOOM-sz-8):Math.max(0,nutL)).toFixed(0)+'px'; };
-    afterFit.push(place); addEventListener('resize',place); new ResizeObserver(place).observe(fb.parentElement); setTimeout(place,0); setTimeout(place,600);
-    let barShown=-1, dots=[], clock=0, lastSix=-1, modeCol=null;
-    function build(b){ barShown=b; while(dotsG.firstChild) dotsG.firstChild.remove(); dots=[]; const B=barT(M.meter), b0=b*B, GR=strokeGrid();
+    // the ring's size; over the nut, in the room between the TAB and the strings (sitting down on the strings' side when the
+    // room is short)
+    let px=0;
+    /* ON A PHONE (narrow): no room to lay the clock and the curve over the board's headroom — the clock sits beside the Ring
+       in the Ring's box (the two side by side, the Ring's buttons under both), the curve full width under them, the drum
+       in the flow above the board, and the board without the headroom they would have used */
+    const NARROW=matchMedia('(max-width:640px)');
+    const place=()=>{ if(window.__csmVb) window.__csmVb(); if(box.closest('.zoomLayer')) return; const rb=document.querySelector('.ringBox');
+      document.body.classList.toggle('csmNarrow',NARROW.matches);
+      if(NARROW.matches&&rb){ if(box.parentNode!==rb) rb.insertBefore(box,rb.firstChild); box.style.top=box.style.left=box.style.width=box.style.height=''; if(STRIP) STRIP.place(0,0,0,0,true); return; }
+      if(box.parentNode!==host) host.appendChild(box); const st=document.querySelector('.stage'), m=fb.getScreenCTM(); if(!st||!m) return; const W=host.getBoundingClientRect(), p=fb.createSVGPoint();
+      p.x=FB.nut; p.y=FB.top; const q=p.matrixTransform(m), top=(st.getBoundingClientRect().bottom-W.top)/ZOOM, bot=(q.y-W.top)/ZOOM;
+      const rw=ringSvg.getBoundingClientRect().width/ZOOM, sz=Math.round(1.3*Math.max(120,rw||200)), room=bot-top;   // a third larger than the ring
+      // at the page's left edge, just under the TAB (the board kept far enough down for the hand to pass beneath it)
+      // up under the TAB itself (the Ring and its buttons are to the right), so the open-position hand passes below it
+      const tb=tabPanel.getBoundingClientRect(), tabBot=(tb.bottom-W.top)/ZOOM, T=Math.min(sz<=room-16?top+8:bot-sz-6,tabBot+10);
+      box.style.width=box.style.height=sz.toFixed(0)+'px'; box.style.top=T.toFixed(0)+'px'; box.style.left='0px';
+      if(STRIP) STRIP.place(sz,T,W.width/ZOOM,top); };
+    afterFit.push(place); addEventListener('resize',place); NARROW.addEventListener('change',place); new ResizeObserver(place).observe(fb.parentElement); new ResizeObserver(place).observe(ringSvg); setTimeout(place,0); setTimeout(place,600);
+    // a tone's place in the mode's hierarchy, from the root in force: its step up the mode's scale (the walk's seven tones),
+    // read R 5 3 7 9 13 11 (steps 0 4 2 6 1 5 3); a tone outside the scale after them all
+    const HIER=[0,4,2,6,1,5,3];
+    const rankOf=(pc,root,scale)=>{ const st=scale.map(p=>((p-root)%12+12)%12).sort((a,b)=>a-b).indexOf(((pc-root)%12+12)%12); return st<0?7+(((pc-root)%12+12)%12):HIER.indexOf(st); };
+    // a bar sampled finely round the circle: at each of NS places, the tones sounding there, in rank order
+    const NS=384, slotCache=new Map();
+    function slotsFor(b){ const B=barT(M.meter), key=b+'|'+B+'|'+M.ev.length+'|'+M.ev.map(e=>e.t+'.'+e.d+'.'+e.s+'.'+e.f).join(','); if(slotCache.has(key)) return slotCache.get(key);
+      if(slotCache.size>8) slotCache.clear();
+      const b0=b*B, scale=[...new Set(M.ev.map(e=>pcOf(e.s,e.f)))], out=[];
+      for(let j=0;j<NS;j++){ const t=b0+(j+0.5)*B/NS, pcs=[...new Set(M.ev.filter(e=>e.t<=t&&t<e.t+e.d).map(e=>pcOf(e.s,e.f)))];
+        const md=modeAt(t), root=md?md.root:((chordAt(t)||{}).root??pcs[0]); out.push(pcs.sort((a,c)=>rankOf(a,root,scale)-rankOf(c,root,scale))); }
+      slotCache.set(key,out); return out; }
+    let barShown=-1, dots=[], clock=0, lastSix=-1, shownKey='';
+    function build(b){ barShown=b; while(dotsG.firstChild) dotsG.firstChild.remove(); dots=[];
+      const B=barT(M.meter), b0=b*B, D=B/16, GR=strokeGrid();
       const ons=[...new Set(M.ev.filter(e=>e.t>=b0&&e.t<b0+B).map(e=>e.t))].sort((a,b)=>a-b);
-      ons.forEach(t=>{ const i=Math.round((t-b0)/(B/16)), g=M.ev.filter(e=>e.t===t), up=!!(GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6)||{}).up, big=g.length>1, [x,y]=at(i,R);
-        const pc=big?((chordAt(t)||{}).root):pcOf(g[0].s,g[0].f), r=big?(up?5.5:7.5):5, gg=A('g',{class:'ckdot'},dotsG);
-        const c=A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.4:0},gg); dots.push({i,t,pc,g:gg,c,lv:0}); });
+      lbls.forEach(l=>{ l.pc=null; l.lv=0; l.e.classList.add('ckIdle'); });
+      ons.forEach(t=>{ const i=Math.round((t-b0)/D), g=M.ev.filter(e=>e.t===t), up=!!(GR.find(q=>Math.abs(q.b*TPQ-t)<1e-6)||{}).up, big=g.length>1, [x,y]=at(i,R);
+        const pc=big?((chordAt(t)||{}).root):pcOf(g[0].s,g[0].f), r=big?(up?6.5:8.5):6, gg=A('g',{class:'ckdot'},dotsG);
+        A('circle',{cx:x,cy:y,r,fill:up?'var(--bg)':'currentColor',stroke:'currentColor','stroke-width':up?2.6:0},gg); dots.push({i,t,pc,g:gg,lv:0,x,y});
+        if(lbls[i]){ lbls[i].e.classList.remove('ckIdle'); lbls[i].pc=pc; lbls[i].dur=Math.max(...g.map(e=>e.d))/TPQ*60/drill.bpm; } });
       neck.setAttribute('points',dots.length>1?dots.map(d=>at(d.i,R).map(v=>v.toFixed(1)).join(',')).join(' '):''); }
-    return {place, step(tk,playing){ const B=barT(M.meter), TT=total(), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
-        const b=Math.floor(((tk%TT)+TT)%TT/B); if(b!==barShown) build(b);
-        const ph=(((tk%B)+B)%B)/B, six=Math.floor(ph*16+1e-6), L=FIELD.lit, ink=inkColour(), bg=bgColour();
-        const a=ph*2*Math.PI; hand.setAttribute('x2',(C+(R-10)*Math.sin(a)).toFixed(1)); hand.setAttribute('y2',(C-(R-10)*Math.cos(a)).toFixed(1));
-        if(playing&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); } lastSix=playing?six:-1;
-        dots.forEach(d=>{ d.lv*=Math.exp(-dt/0.35); const c=L>0.001?mixRGB(ink,valRGB(d.pc),L):ink, dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
-          d.g.style.color=col; d.g.style.transform='scale('+(1+0.4*d.lv).toFixed(3)+')'; });
-        // the light behind: the mode in force (g(x) on)
-        const mc=curMode?valRGB(curMode.root):(curChord?valRGB(curChord.root):null), k=mc?rgbS(mc):null;
-        if(k!==modeCol){ modeCol=k; if(k){ g0.setAttribute('stop-color',k); g1.setAttribute('stop-color',k); } }
-        back.setAttribute('opacity',(mc&&L>0.001?L:0).toFixed(3)); }};
+    const TRAIL=1.1, FLOOR=0.06, REST=0.42;                              // the trail's fade (s), what a full turn leaves, stopped
+    return {place, step(tk,playing,counting){ const B=barT(M.meter), TT=total(), NB=Math.max(1,Math.round(TT/B)), now=performance.now()/1000, dt=Math.min(0.1,clock?now-clock:0.016); clock=now;
+        const tw=((tk%TT)+TT)%TT, b=Math.floor(tw/B), key=b+'|'+M.ev.length+'|'+(M.ev[0]&&M.ev[0].id); if(b!==barShown||key!==shownKey){ shownKey=key; build(b); }
+        const ph=(tw-b*B)/B, six=Math.floor(ph*16+1e-6), L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5);
+        const a=ph*2*Math.PI; hand.setAttribute('x2',(C+(R-14)*Math.sin(a)).toFixed(1)); hand.setAttribute('y2',(C-(R-14)*Math.cos(a)).toFixed(1));
+        if(playing&&!counting&&six!==lastSix){ dots.forEach(d=>{ if(d.i===six) d.lv=1; }); if(lbls[six]&&lbls[six].pc!=null){ lbls[six].lv=1; lbls[six].fx=1; } } lastSix=playing&&!counting?six:-1;
+        const colOf=pc=>L>0.001?mixRGB(ink,valRGB(pc),L):ink, k6=Math.exp(-dt/0.35);
+        dots.forEach(d=>{ d.lv*=k6; const c=colOf(d.pc), dim=mixRGB(bg,c,0.55), col=rgbS(mixRGB(dim,c,Math.max(d.lv,playing?0:0.6)));
+          d.g.style.color=col; svgScale(d.g,1+0.4*d.lv,d.x,d.y); });
+        lbls.forEach(l=>{ l.fx=(l.fx||0)*Math.exp(-dt/Math.max(0.1,0.4*(l.dur||0.4)));   // (a half note stays flexed longer than an eighth)
+           svgScale(l.e,l.fx>0.005?1+0.7*l.fx:1,+l.e.getAttribute('x'),+l.e.getAttribute('y')-5); l.lv*=Math.exp(-dt/0.6); l.e.style.fill=l.pc==null||l.lv<0.01?'':rgbS(mixRGB(mid,colOf(l.pc),Math.min(1,l.lv*1.15))); });
+        // the canvas, at the box's size on screen (zoomed or not): the mode's glow, then the sweep
+        { const n=Math.round(Math.min(2400,box.getBoundingClientRect().width*Math.min(2,window.devicePixelRatio||1))); if(n>0&&n!==px){ px=n; cv.width=cv.height=n; } }
+        if(!px) return; const sc=px/S; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,px,px); cx.setTransform(sc,0,0,sc,0,0);
+        // the page's own ground behind the clock, so whatever passes under it (the hand's knuckles in low positions) sits back
+        { const bgc=bg.join(','), gd=cx.createRadialGradient(C,C,R+22,C,C,C); gd.addColorStop(0,'rgba('+bgc+',0.92)'); gd.addColorStop(1,'rgba('+bgc+',0)');
+          cx.fillStyle='rgba('+bgc+',0.92)'; cx.beginPath(); cx.arc(C,C,R+22,0,2*Math.PI); cx.fill(); cx.fillStyle=gd; cx.beginPath(); cx.arc(C,C,C,0,2*Math.PI); cx.fill(); }
+        const mc=curMode?valRGB(curMode.root):(curChord?valRGB(curChord.root):null);
+        if(mc&&L>0.001){ const gg=cx.createRadialGradient(C,C,0,C,C,R+30), c=mc.join(',');
+          gg.addColorStop(0,'rgba('+c+','+(0.55*L).toFixed(3)+')'); gg.addColorStop(0.62,'rgba('+c+','+(0.22*L).toFixed(3)+')'); gg.addColorStop(1,'rgba('+c+',0)');
+          cx.fillStyle=gg; cx.beginPath(); cx.arc(C,C,R+30,0,2*Math.PI); cx.fill(); }
+        // each sliver of the ring: behind the hand, this bar's tones lit by how long ago the hand passed; ahead of it, the last
+        // bar's, a full turn older (stopped: this bar, resting dim)
+        const cur=slotsFor(b), prev=playing?slotsFor((b-1+NB)%NB):cur, secBar=B/TPQ*60/drill.bpm, jh=ph*NS, cols=new Map();
+        cx.lineCap='butt';
+        for(let j=0;j<NS;j++){ const behind=j+0.5<=jh, sl=playing?(behind?cur[j]:prev[j]):cur[j]; if(!sl||!sl.length) continue;
+          let lv=REST; if(playing){ const age=((jh-(j+0.5))/NS+(behind?0:1))*secBar; lv=FLOOR+(1-FLOOR)*Math.exp(-age/TRAIL); }
+          const a0=-Math.PI/2+j*2*Math.PI/NS, a1=a0+2*Math.PI/NS+0.004;
+          sl.forEach((pc,k)=>{ let c=cols.get(pc); if(!c){ c=colOf(pc); cols.set(pc,c); }
+            cx.strokeStyle=rgbS(mixRGB(bg,c,lv)); cx.lineWidth=Math.max(2.6,6.5-0.8*k); cx.beginPath(); cx.arc(C,C,R-k*7.5,a0,a1); cx.stroke(); }); }
+      }};
   })():null;
   const lowest=a=>a.slice().sort((x,y)=>(openMidi(x.s)+x.f)-(openMidi(y.s)+y.f))[0];
 
@@ -3864,6 +4074,7 @@ function customTool(){
     pagePhi({anchor:{s:s0,f:f0,deg:'re'},top:PRE?'do':'re'}); RING.goal=RING.m=RING.t=0;
     normalize(); syncCtl(); markPal(); textEl.value=serialize(); setPulse(); compile(); useC();
     const d0=doAt(0); if(d0!==null&&d0!==PHI.doPc){ orient(d0); MORPH=null; FIELD.mx=-1; } lastDo=d0===null?undefined:d0;
+    if(PRE==='csm'){ drumNames(); orient(PHI.doPc,true); MORPH=null; FIELD.mx=-1; if(CONST) CONST.mount(); }   // the mode's root (an anti's too) at 12 o'clock; the root constellation over the board
     refresh(); if(!DRILL) tabDraw(null); showMsg(); stepNow(true); }
   /* ---------- THE E SHAPE (BOOK.preset 'csm'): a mode's chord, barred in the E shape on its root on the low E, strummed for
      two bars (D · D U · U D, the hand letting go on the & of 4), set against that mode's semimode walk of an octave, played in
@@ -3875,11 +4086,42 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
-  let keyWatch=null, modePaint=null;
-  const OPT={mode:'Do',oct:'lower',dir:'updown',chords:true};
-  try{ Object.assign(OPT,JSON.parse(localStorage.getItem('csm-opts')||'{}')); }catch(err){}
+  let TRI_CHART=null;
+  let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set();
+  /* HOLD (the toolbar's Hold, off by default): on, each pass is this mode again; off, the exercise moves on to the next
+     diatonic mode at each pass's end — the next button along the mode bank, which follows the Ring's order: 1, up the
+     scale (La Ti Do Re Mi Fa Sol …); 5, down the dominant chain (Ti Mi La Re Sol Do Fa, then Ti again — Brian, Oct 2026). The next pass comes in on the bar
+     line, with no count; what is shown changes with it (its TAB once the ball has passed the copy of its first bars). */
+  let HOLD=false, PEEK=null, pendingTab=false; const PASS_STRS={};   // (the passes share their strings: what rings carries over the bar line) try{ HOLD=localStorage.getItem(SK('eshape-hold'))==='on'; }catch(err){}
+  const CHAIN7=['Ti','Mi','La','Re','Sol','Do','Fa'];
+  // the bank's order: the roots up the low E from the nut (1), or down the dominant chain from Ti (5)
+  const bankOrder=()=>RING.goal===1?CHAIN7.slice():MODE7.map(m=>m[0]).sort((a,b)=>layout(KEY,a).rf-layout(KEY,b).rf);
+  function nextOpt(){ const o=Object.assign({},OPT); if(HOLD||PIECE) return o;
+    const ord=bankOrder(); let i;
+    if(!OPT.anti) i=ord.indexOf(OPT.mode);
+    else { const r=curL().root, step=RING.goal===1?5:1; let pc=r; for(let k=0;k<12;k++){ pc=(pc+step)%12; const rel=((pc-KEY)%12+12)%12; if(MAJ.includes(rel)){ o.mode=SYL[MAJ.indexOf(rel)]; o.anti=false; return o; } } i=0; }
+    o.mode=ord[(i+1)%ord.length]; o.anti=false; return o; }
+  // the next pass, made once (the copy after the repeat shows it; the segment plays it)
+  function peekNext(){ const o=nextOpt(), k=JSON.stringify(o)+'|'+KEY+'|'+M.bars+'|'+M.ev.length+'|'+(M.ev[0]&&M.ev[0].id);
+    if(PEEK&&PEEK.key===k) return PEEK;
+    if(o.mode===OPT.mode&&o.anti===OPT.anti){ PEEK={key:k,same:true,opt:o,M,C}; return PEEK; }
+    const sv={M,C,O:Object.assign({},OPT)}; Object.assign(OPT,o);
+    try{ M=presetModel(); normalize(); compile(); PEEK={key:k,same:false,opt:o,M,C,grid:strokeGrid()}; }
+    finally{ M=sv.M; C=sv.C; Object.assign(OPT,sv.O); }
+    return PEEK; }
+  function nextPass(after){ const last=T.segs[T.segs.length-1], nx=peekNext(), n=(last&&last.passN||0)+1;
+    const s=segment(nx.same?C:nx.C,n,nx.same?null:nx); if(nx.same){ s.model=null; } return s; }
+  // a pass of another mode begins: it becomes what is shown (the TAB a bar later)
+  function passTo(m){ Object.assign(OPT,m.opt); try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){}
+    M=m.M; C=m.C; PEEK=null; useC(); MODES=modeEvents(); lastDo=undefined; shownK=-2; pendingTab=true;
+    drumNames(); orient(KEY,true); if(typeof markModes==='function') markModes(); }
+  let markModes=null; const BOARD_DROP=250;   // board units the fretboard sits lower on the E Shape, under the clock
+  const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:'strum',tetra:false};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
+  try{ Object.assign(OPT,JSON.parse(localStorage.getItem(SK('csm-opts'))||'{}')); }catch(err){}
+  if(PIECE){ OPT.mode='Do'; OPT.anti=false; OPT.chords='off'; if(!OPT.sec) OPT.sec='all'; (PIECE.opts||[]).forEach(o=>{ if(!o.items.some(([v])=>v===OPT[o.key])) OPT[o.key]=o.def; }); if(!OPT.fing) OPT.fing=PIECE.alt?Object.keys(PIECE.alt)[0]:''; }
+  if(OPT.chords===true) OPT.chords='strum'; else if(OPT.chords===false) OPT.chords='off';   // (an earlier visit's On | Off)
   let KEY=10;                                                            // Do's pitch (from A): G
-  try{ const k=+localStorage.getItem('eshape-key'); if(localStorage.getItem('eshape-key')!==null&&k>=0&&k<12) KEY=k; }catch(err){}
+  if(PIECE) KEY=PIECE.key; if(!PIECE||PIECE.free) try{ const k=+localStorage.getItem(SK('eshape-key')); if(localStorage.getItem(SK('eshape-key'))!==null&&k>=0&&k<12) KEY=k; }catch(err){}
   const MODE7=[['Do',0,'maj'],['Re',2,'min'],['Mi',4,'min'],['Fa',5,'maj'],['Sol',7,'maj'],['La',9,'min'],['Ti',11,'dim']];
   const MAJ=[0,2,4,5,7,9,11], FRAMES=[['Ti',['Ti','Do','Re']],['Mi',['Mi','Fa','Sol']],['La',['La','Ti','Do']],['Re',['Re','Mi','Fa']],['Sol',['Sol','La']]];
   const flatKey=k=>[1,4,6,8,11].includes(k), pcName=(pc,k)=>(flatKey(k)?LETTER_B:LETTER)[((pc%12)+12)%12];
@@ -3891,7 +4133,10 @@ function customTool(){
     const base=om(LOWE)+rf, out=[]; let s=LOWE, prev=null;
     for(let i=0;i<15;i++){ const m=base+12*Math.floor((MAJ.indexOf(semi)+i)/7)+MAJ[(MAJ.indexOf(semi)+i)%7]-semi, here=m-om(s);
       // a half step stays on its string where the hand can reach it (a fret on with the fourth finger)
-      if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
+      // in open position the next string takes a tone the moment it can sound it (its open string or above): each string its
+      // own frame, up the strings as the frames go (E_La: La on the E, Re on the A, Sol La Ti on the D, Do Re on the G …)
+      if(open&&i>0&&s>0){ if(m-om(s-1)>=0) s--; }
+      else if(i>0&&here>hi&&s>0){ const nxt=m-om(s-1), half=m-prev===1&&here<=hi+1; if(!half&&(nxt>=lo-1||here>hi+1)) s--; }
       prev=m;
       const f=m-om(s);
       // reached past the hand's frets (a half step kept on its string): the hand moves up to take it under the fourth finger,
@@ -3906,9 +4151,34 @@ function customTool(){
       const at=[p,p+1].map(f=>{ const k=((pcOf(st-1,f)-key)%12+12)%12; return MAJ.includes(k)?SYL[MAJ.indexOf(k)]:null; }).find(x=>x);
       let best=null, bs=-1; FRAMES.forEach(([h,set])=>{ const sc=sy.filter(x=>set.includes(x)).length+(h===at?0.5:0); if(sc>bs){ bs=sc; best=h; } });
       on.forEach(n=>{ n.fr=best; }); }
+    /* THE HAND SHIFTS FOR A FRAME: a three-tone frame (Ti's diminished, Mi's, La's and Re's minor) is played with its own three
+       fingers — 1 2 4 (a half step, then a whole) or 1 3 4 (a whole, then a half) — its first tone under the first finger. Where
+       a string's frame starts a fret off the hand's place, the hand moves that fret for the string (and stays there for the
+       next) rather than slide a finger or swap one mid-frame. Sol's two tones are taken where the hand is. (In open position
+       the open strings hold it: nothing moves.) */
+    if(p0>0){ let run=p0; for(let st=NSTR;st>=1;st--){ const on=out.filter(n=>n.str===st&&n.f>0); if(!on.length) continue; const fr=on[0].fr;
+        if(fr&&fr!=='Sol'){ const hp=(key+SYLPC[SYL.indexOf(fr)])%12, f0=Math.min(...on.map(n=>n.f)); for(let f=f0;f>=Math.max(1,f0-3);f--) if(pcOf(st-1,f)===hp){ run=f; break; } }
+        on.forEach(n=>{ n.g=Math.max(1,Math.min(4,n.f-run+1)); }); } }
     return {syl,q,root,rf,p:p0,lower:out.slice(0,8),upper:out.slice(7,15)}; }
+  /* AN ANTI'S E SHAPE: an anti root plays its tritone partner's frames — the whole set laid out as if Do stood a tritone away
+     (the orientation itself unmoved: the walk's tones keep their own valences, ~ names and all, on the ring and in the TAB) */
+  const svgScale=(el,k,cx,cy)=>{ if(Math.abs(k-1)<0.002){ el.removeAttribute('transform'); return; } el.setAttribute('transform','translate('+cx.toFixed(1)+' '+cy.toFixed(1)+') scale('+k.toFixed(3)+') translate('+(-cx).toFixed(1)+' '+(-cy).toFixed(1)+')'); };
+  const walkDo=()=>OPT.anti?(KEY+6)%12:KEY, curL=()=>layout(walkDo(),OPT.mode);
+  // g(x) off: the seven the walk plays (the mode's own pitches), and the modes by their church names
+  const scaleSet=()=>{ const d=(walkDo()+SCKEY())%12, out=new Set(); MAJ.forEach(x=>out.add((d+x)%12)); return out; };
+  /* G(X) OFF, THE PATTERN DRAGGED: the seven turned by hand round the Ring (inside its letters) or along the plot's bands —
+     SCDRAG the seats it has gone (clockwise, fractional, as the hand has it); SCKEY() the semitones that puts the key on, as
+     far as it has come to a seat (on the chain a seat is a fifth). Let go, it settles on the nearest seat: that is the key. */
+  let SCDRAG=0; const SCKEY=()=>{ const n=Math.round(SCDRAG); return ((RING.m>=0.5?7*n:n)%12+12)%12; };
+  // the key's seven spelled as a key signature spells them: a letter each, in order from the tonic's (F♯ major's seventh E♯)
+  const keyNames=K=>{ const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, L7='CDEFGAB', AC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'}, t=pcName(K,K), l0=L7.indexOf(t[0]), out={};
+    MAJ.forEach((x,i)=>{ const Lt=L7[(l0+i)%7], pc=(K+x)%12; let a=((pc-NAT[Lt])%12+12)%12; if(a>6) a-=12; out[SYL[i]]=Lt+(AC[String(a)]||''); }); return out; };
+  const CHURCH={Do:'Ionian',Re:'Dorian',Mi:'Phrygian',Fa:'Lydian',Sol:'Mixolydian',La:'Aeolian',Ti:'Locrian'};
+  // a name in the frames (the partner's) as the field hears it: a tritone on — Do → ~Do … and Fa ↔ Ti
+  const antiName=n=>{ const sm=(SYLPC[SYL.indexOf(n)]+6)%12, i=SYLPC.indexOf(sm); return [i>=0?SYL[i]:'~'+SYL[SYLPC.indexOf((sm+6)%12)],sm]; };
+  const drumNames=()=>{ if(typeof ROLL!=='undefined'&&ROLL&&ROLL.names) ROLL.names(OPT.anti?antiName:null,OPT.anti?'anti':''); };
   // where the hand is along the board (board units, from its knuckles' side to the far finger), for what sits above it
-  function handSpan(){ if(PRE!=='csm') return null; const L=layout(KEY,OPT.mode), a=L.p<=1?FB.x0-90:cellL(L.p)-50, b=cellR(Math.min(FMAX,L.p+4))+10; return [a,b]; }
+  function handSpan(){ if(PRE!=='csm') return null; const L=curL(), a=L.p<=1?FB.x0-90:cellL(L.p)-50, b=cellR(Math.min(FMAX,L.p+4))+10; return [a,b]; }
   const toScreenX=x=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=x; p.y=FB.top; return p.matrixTransform(m).x; };
   // the E-shape grip on the root's fret: {string:[fret, finger]} and the strings a strum takes (down, up)
   function grip(L){ const r=L.rf, o=r===0;
@@ -3916,9 +4186,26 @@ function customTool(){
     const G=o?{6:[0,0],5:[2,2],4:[2,3],3:L.q==='maj'?[1,1]:[0,0],2:[0,0],1:[0,0]}:{6:[r,1],5:[r+2,3],4:[r+2,4],3:L.q==='maj'?[r+1,2]:[r,1],2:[r,1],1:[r,1]};
     return {G, DN:[6,5,4,3,2,1], UP:[1,2,3]}; }
   const modeName=(mode,key)=>{ const L=layout(key,mode); return pcName(L.root,key)+'_'+mode; };
-  function presetModel(){
+  /* THE CHORD'S TONES from its root, in the mode: third, fifth and seventh (steps 2, 4 and 6 up its scale), in semitones */
+  function chordIv(){ const m=MAJ.indexOf(MODE7.find(x=>x[0]===OPT.mode)[1]), iv=k=>((MAJ[(m+k)%7]-MAJ[m])%12+12)%12; return {i3:iv(2),i5:iv(4),i7:iv(6)}; }
+  /* THE TETRACHORD's grip: the root on the low E; the A string silent; the seventh on the D string, the third on the G, the
+     fifth on the B; the high e silent — each the fret nearest the root's (maj7 3x443x, 7 3x343x, m7 3x333x, m7♭5 3x332x
+     from a root at the 3rd); fingered by the hand */
+  function grip4(L){ const {i3,i5,i7}=chordIv(), near=d=>((d+6)%12+12)%12-6; let r=L.rf;
+    const off={4:near(i7-10),3:near(i3-15),2:near(i5-19)}; if(r+Math.min(0,...Object.values(off))<0) r+=12;
+    const G={6:[r,null]}; for(const k in off) G[k]=[r+off[k],null];
+    const q=i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7');
+    // as Brian fingers them (Oct 2026): m7 — 2 on the root, 3 laid across the D, G and B; 7 — the index barred across the
+    // low E, D and B, 3 on the fifth an octave down on the A, 2 on the third on the G (the others the hand's own)
+    if(q==='m7'&&r>0){ G[6][1]=2; G[4][1]=G[3][1]=G[2][1]=3; }
+    if(q==='7'){ G[5]=[r+2,null]; if(r>0){ G[6][1]=G[4][1]=G[2][1]=1; G[5][1]=3; G[3][1]=2; } else { G[5][1]=2; G[3][1]=1; }
+      return {G, DN:[6,5,4,3,2], UP:[2,3,4]}; }
+    return {G, DN:[6,4,3,2], UP:[2,3,4]}; }
+  const chordSuffix=L=>{ if(!OPT.tetra) return L.q==='min'?'m':L.q==='dim'?'°':''; const {i3,i5,i7}=chordIv();
+    return i3===4?(i7===11?'maj7':'7'):(i5===6?'m7♭5':'m7'); };
+  function presetModel(){ if(PIECE) return pieceModel();
     const m=fresh(); m.title='The E Shape'; m.bpm=drill.bpm; const ev=[], BAR=96; let t=0;
-    const L=layout(KEY,OPT.mode), Gp=grip(L);
+    const L=curL(), Gp=OPT.tetra?grip4(L):grip(L);
     const add=(t0,d,str,f,g,fr)=>{ const e={t:t0,d,s:str-1,f}; if(g&&f>0) e.g=g; if(fr) e.fr=fr; ev.push(e); };
     function chords(){ const hits=[]; for(let b=0;b<2;b++) [[0,Gp.DN],[24,Gp.DN],[36,Gp.UP],[60,Gp.UP],[72,Gp.DN]].forEach(([x,ss])=>hits.push([t+b*BAR+x,ss]));
       const end=t+BAR+84;                                                // the & of 4: the barre let go
@@ -3930,62 +4217,514 @@ function customTool(){
     function walk(octs){ const up=[[0,1,2,3],[4,5,6,7]], dn=[[7,6,5,4],[3,2,1,0]], ups=[], dns=[];
       octs.forEach(o=>up.forEach(ix=>ups.push([o,ix]))); octs.slice().reverse().forEach(o=>dn.forEach(ix=>dns.push([o,ix])));
       (OPT.dir==='updown'?ups.concat(dns):dns.concat(ups)).forEach(([o,ix])=>{ [[0,12],[12,12],[24,12],[36,60]].forEach(([x,d],j)=>{ const n=L[o][ix[j]]; add(t+x,d,n.str,n.f,n.g,n.fr); }); t+=BAR; }); }
-    if(OPT.chords) chords(); walk(OPT.oct==='both'?['lower','upper']:[OPT.oct]);
-    const nm=pcName(L.root,KEY)+(L.q==='min'?'m':L.q==='dim'?'°':'');
-    m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,L.syl),{t:0})]; m.key=KEY; return m; }
+    /* THE CHORD ARPEGGIATED: its tones (root, third, fifth — and with Tetrachords the seventh) in eighths, then its root an
+       octave on, held, a bar each octave, the way the walk goes; played where the walk plays them, in position. Up then
+       down (↑↓) or down then up (↓↑), over the octaves chosen. */
+    function arps(octs,first){ const ALL=L.lower.concat(L.upper.slice(1)), set=OPT.tetra?[0,2,4,6]:[0,2,4], base={lower:0,upper:7}, ups=[], dns=[];
+      octs.forEach(o=>{ const b=base[o]; ups.push(set.map(i=>b+i).concat([b+7])); });
+      octs.slice().reverse().forEach(o=>{ const b=base[o]; dns.push([b+7].concat(set.slice(1).reverse().map(i=>b+i)).concat([b])); });
+      (first==='up'?ups.concat(dns):dns.concat(ups)).forEach(ix=>{ const n0=ix.length-1; ix.forEach((k,j)=>{ const n=ALL[k], x=12*j, d=j<n0?12:BAR-12*n0; add(t+x,d,n.str,n.f,n.g,n.fr); }); t+=BAR; }); }
+    // the walk off with the chords off as well: the chords strummed (an exercise has something to play)
+    const CH=OPT.chords==='off'&&OPT.dir==='off'?'strum':OPT.chords, octs=OPT.oct==='both'?['lower','upper']:[OPT.oct];
+    if(CH==='strum') chords(); else if(CH==='up'||CH==='down') arps(octs,CH);
+    if(OPT.dir!=='off') walk(octs);
+    const nm=pcName(L.root,KEY)+chordSuffix(L);
+    m.ev=ev; m.bars=t/BAR; m.ch=[Object.assign(chordOf(nm,(OPT.anti?'~':'')+L.syl),{t:0})]; m.key=KEY; return m; }
+  /* THE PIECE: its bars (with the fingering chosen for a bar that has another), read as the Custom page reads a drill; the
+     bars chosen played alone, from their own start — the chord in force there written at it */
+  let pieceBpm=PIECE?PIECE.bpm:0;
+  function pieceModel(){
+    const m=fresh(); m.title=PIECE.title; m.bpm=pieceBpm||drill.bpm; pieceBpm=0;
+    const bars=(PIECE.gen?GEN[PIECE.gen]():PIECE.bars).map((b,i)=>PIECE.alt&&PIECE.alt[OPT.fing]&&PIECE.alt[OPT.fing][i+1]||b);
+    const save=M; M=m; let r; try{ r=parse(bars.join(' | ')); } finally{ M=save; }
+    if(r.errs.length) console.warn(PIECE.title+':',r.errs);
+    const B=barT(m.meter), sec=(PIECE.sections||{})[OPT.sec], a=sec?(sec[0]-1)*B:0, b=sec&&sec[1]?sec[1]*B:Infinity;
+    m.ev=r.out.ev.filter(e=>e.t>=a&&e.t<b).map(e=>Object.assign({},e,{t:e.t-a,d:Math.min(e.d,b-e.t)}));
+    const before=r.out.ch.filter(c=>c.t<=a).pop();
+    m.ch=r.out.ch.filter(c=>c.t>a&&c.t<b).map(c=>Object.assign({},c,{t:c.t-a})); if(before) m.ch.unshift(Object.assign({},before,{t:0}));
+    // the opening chord carries its root's function in the orientation in force (D_Do in D): the Ring set by it, the rest bare
+    if(m.ch[0]&&m.ch[0].t===0&&!m.ch[0].syl) m.ch[0]=Object.assign({},m.ch[0],{syl:SOLN[((m.ch[0].root-KEY-2)%12+12)%12]});
+    m.bars=sec?(sec[1]||r.out.bars)-sec[0]+1:r.out.bars; m.key=KEY; return m; }
+  /* TRIADS (BOOK.piece.gen 'triads'): close triads on three neighbouring strings, made afresh in the orientation in force
+     and the options chosen — one triad (one mode) a bar, each bar struck, then broken, then struck: a strum on 1, the
+     triad broken in eighths on 2 & 3 & (low, middle, high, middle), a strum on 4; each string rings until it is struck again.
+       Inversions   one triad's three inversions up the neck, and back down to the middle one
+       Chord Scale  the seven triads in one inversion up the neck (from Do where the octave fits, else from the triad
+                    nearest the nut), and the first an octave on where it fits
+       All Majors   Domisol in the inversion chosen, with Falado and Soltire wherever the least voice leading takes them:
+                    I IV I V
+       All Minors   Ladomi likewise, with Refala and Misolti: vi ii vi iii */
+  const TRI_SYL=['Domisol','Refala','Misolti','Falado','Soltire','Ladomi','Tirefa'], TRI_Q=['','m','m','','','m','°'];
+  // a degree's letter by its step from Do's (in F♯, Ti is E♯, never F)
+  const NAT={A:0,B:2,C:3,D:5,E:7,F:8,G:10}, LT='ABCDEFG';
+  const degName=d=>{ const l=LT[(LT.indexOf(pcName(KEY,KEY)[0])+d)%7], x=((KEY+MAJ[d]-NAT[l])%12+12)%12; return l+(x===1?'♯':x===11?'♭':x===2?'𝄪':x===10?'𝄫':''); };
+  const GROUPS={1:[2,1,0],2:[3,2,1],3:[4,3,2],4:[5,4,3]};                 // a string group's strings, low to high
+  const om=s=>Math.round(openMidi(s));
+  function triVoicings(deg,inv,grp){ const S=GROUPS[grp], tones=[0,2,4].map(k=>(KEY+MAJ[(deg+k)%7])%12), out=[];
+    const ord=[tones[inv],tones[(inv+1)%3],tones[(inv+2)%3]];
+    for(let f0=0;f0<=FMAX;f0++){ if(pcOf(S[0],f0)!==ord[0]) continue; const fr=[f0], ps=[om(S[0])+f0]; let ok=true;
+      for(let j=1;j<3;j++){ let f=-1; for(let x=0;x<=FMAX;x++) if(pcOf(S[j],x)===ord[j]&&om(S[j])+x>ps[j-1]){ f=x; break; }
+        if(f<0||om(S[j])+f-ps[j-1]>6){ ok=false; break; } fr.push(f); ps.push(om(S[j])+f); }
+      const fd=fr.filter(f=>f>0); if(ok&&(!fd.length||Math.max(...fd)-Math.min(...fd)<=4)) out.push({deg,inv,fr,ps}); }
+    return out; }
+  const allInv=(deg,grp)=>[0,1,2].flatMap(i=>triVoicings(deg,i,grp)).sort((a,b)=>a.ps[0]-b.ps[0]);
+  const vlCost=(a,b)=>a.ps.reduce((c,p,j)=>c+Math.abs(p-b.ps[j]),0);
+  function triBar(V){ const S=GROUPS[OPT.grp], t=j=>(S[j]+1)+':'+V.fr[j];
+    const name=degName(V.deg)+TRI_Q[V.deg]+'_'+SYL[V.deg];
+    return name+' q '+t(0)+'=q+'+t(1)+'=q.+'+t(2)+'=h e '+t(0)+'=h '+t(1)+'=q '+t(2)+'=q '+t(1)+'=e q '+t(0)+'+'+t(1)+'+'+t(2); }
+  function triadSeq(){ const g=OPT.grp, inv=OPT.inv;
+    if(OPT.drill==='inv'){ const L=allInv(OPT.tri,g); if(L.length<3) return L; let k=L.findIndex((v,i)=>v.inv===0&&i+2<L.length); if(k<0) k=0; return [L[k],L[k+1],L[k+2],L[k+1]]; }
+    if(OPT.drill==='scale'){ const climb=(d0,v0)=>{ const out=[v0]; for(let n=1;n<=7;n++){ const d=(d0+n)%7, nx=triVoicings(d,inv,g).find(v=>v.ps[0]>out[out.length-1].ps[0]); if(!nx) break; out.push(nx); } return out; };
+      const fromDo=triVoicings(0,inv,g).map(v=>climb(0,v)).find(c=>c.length===8); if(fromDo) return fromDo;
+      const low=[0,1,2,3,4,5,6].flatMap(d=>triVoicings(d,inv,g)).sort((a,b)=>a.ps[0]-b.ps[0])[0]; return low?climb(low.deg,low):[]; }
+    const [c,n1,n2]=OPT.drill==='maj'?[0,3,4]:[5,1,2];
+    for(const C of triVoicings(c,inv,g)){ const near=d=>allInv(d,g).map(v=>({v,k:vlCost(C,v)})).sort((a,b)=>a.k-b.k)[0];
+      const a=near(n1), b=near(n2); if(a&&b&&a.k<=4&&b.k<=4) return [C,a.v,C,b.v]; }
+    return triVoicings(c,inv,g).slice(0,1); }
+  let TRI_LAST=[];
+  const GEN={triads:()=>(TRI_LAST=triadSeq()).map(triBar)};
+  // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
+  // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
+  if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
   if(PRE){ Array.from(panel.children).forEach(c=>{ c.style.display='none'; });
     const row=document.createElement('div'); row.className='cuRow cuOpts';
     const seg=(lbl,key,items)=>{ const w=document.createElement('span'); w.className='cuLbl'; w.textContent=lbl+' ';
       const sg=document.createElement('span'); sg.className='cseg'; items.forEach(([v,n])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.v=JSON.stringify(v);
-        b.addEventListener('click',()=>{ OPT[key]=v; try{ localStorage.setItem('csm-opts',JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
+        b.addEventListener('click',()=>{ OPT[key]=v; if(key==='mode') OPT.anti=false; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); }); sg.appendChild(b); });
       w.appendChild(sg); row.appendChild(w); return sg; };
-    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Walk','dir',[['updown','Up · Down'],['downup','Down · Up']]),seg('Chords','chords',[[true,'On'],[false,'Off']])];
-    const keys=['mode','oct','dir','chords'];
+    const segs=[seg('Mode','mode',MODE7.map(([m])=>[m,m])),seg('Octave','oct',[['lower','Lower'],['upper','Upper'],['both','Both']]),seg('Scale','dir',[['updown','Up · Down'],['downup','Down · Up'],['off','Off']]),seg('Chords','chords',[['strum','Strum'],['up','↑↓'],['down','↓↑'],['off','Off']]),seg('','tetra',[[false,'Triads'],[true,'Tetrachords']])];
+    const keys=['mode','oct','dir','chords','tetra'];
+    // a piece: its own options in place of the E shape's — the bars to play, and a bar's other fingering
+    if(PIECE){ segs.forEach(sg=>{ sg.parentNode.style.display='none'; });
+      { const css=document.createElement('style'); css.textContent='body.piecePage select.cuModeSel, body.piecePage .cuModes{ display:none !important } body.piecePage #frameLbl .rollIn{ visibility:hidden }'; document.head.appendChild(css); }
+      if(PIECE.sections){ segs.push(seg(PIECE.secLabel||'Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections).map(k=>[k,k])))); keys.push('sec'); }
+      /* the piece's own options: each shown only for the choices it serves (o.when: {key:[values]}); a triad named by its
+         solfège with g(x) on, by its letters with g(x) off (o.names:'triad') */
+      (PIECE.opts||[]).forEach(o=>{ const sg=seg(o.label,o.key,o.items); segs.push(sg); keys.push(o.key);
+        let lk=''; (function upd(){ const show=!o.when||Object.keys(o.when).every(k=>o.when[k].includes(OPT[k])); sg.parentNode.style.display=show?'':'none';
+          if(o.names==='triad'){ const k=FIELD.on+'|'+KEY; if(k!==lk){ lk=k; sg.querySelectorAll('button').forEach(b=>{ const i=JSON.parse(b.dataset.v);
+              b.textContent=FIELD.on?TRI_SYL[i]:degName(i)+TRI_Q[i]; }); } }
+          requestAnimationFrame(upd); })(); });
+      if(PIECE.alt){ segs.push(seg(PIECE.altLabel||'Fingering','fing',Object.keys(PIECE.alt).map(k=>[k,k]))); keys.push('fing'); } }
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
-    function relabel(){ const bs=[...segs[0].querySelectorAll('button')]; bs.sort((a,b)=>layout(KEY,JSON.parse(a.dataset.v)).rf-layout(KEY,JSON.parse(b.dataset.v)).rf).forEach(b=>segs[0].appendChild(b));
+    function relabel(){ const bs=[...segs[0].querySelectorAll('button')], ord=bankOrder(); bs.sort((a,b)=>ord.indexOf(JSON.parse(a.dataset.v))-ord.indexOf(JSON.parse(b.dataset.v))).forEach(b=>segs[0].appendChild(b));
       segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), nm=modeName(md,KEY), i=nm.indexOf('_');
       b.innerHTML=nm.slice(0,i)+'<span class="cuSub">_'+md+'</span>'; b.title=nm; }); }
     // the bank in colour: each mode its root's colour (g(x) on), the one chosen lit in it
     let paintKey='';
-    function paintModes(){ const key=FIELD.on+'|'+FIELD.lit.toFixed(2)+'|'+OPT.mode+'|'+KEY; if(key===paintKey) return; paintKey=key;
+    let orderWas=RING.goal;
+    function paintModes(){ if(RING.goal!==orderWas){ orderWas=RING.goal; relabel(); PEEK=null; if(!T.on) refresh(); } const key=FIELD.on+'|'+FIELD.lit.toFixed(2)+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+RING.goal; if(key===paintKey) return; paintKey=key;
       const ink=inkColour(), bg=bgColour(), L=FIELD.on?FIELD.lit:0;
-      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), semi=MODE7.find(x=>x[0]===md)[1], c=mixRGB(ink,relRGB((semi+10)%12),L), on=md===OPT.mode;
-        b.style.color=on?rgbS(L>0.5?bg:ink):rgbS(c); b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
+      segs[0].querySelectorAll('button').forEach(b=>{ const md=JSON.parse(b.dataset.v), semi=MODE7.find(x=>x[0]===md)[1], c=mixRGB(ink,relRGB((semi+10)%12),L), on=md===OPT.mode&&!OPT.anti;
+        b.title=L>0.001?modeName(md,KEY):pcName(layout(KEY,md).root,KEY);
+        b.style.color=L>0.001?(on?rgbS(L>0.5?bg:ink):rgbS(c)):''; b.style.background=on?(L>0.001?rgbS(c):''):''; b.style.borderColor=on&&L>0.001?rgbS(c):''; b.style.boxShadow=on&&L>0.001?'0 0 14px '+rgbS(c):''; }); }
     relabel(); segs[0].classList.add('cuModes'); modePaint=paintModes;
+    /* G(X) OFF: no solfège anywhere on the page — no drum, no syllables in the TAB or on the chord, the mode bank by its
+       letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
+       two). The letters fade in as the field fades out. */
+    document.body.classList.add('csmPage'); if(PIECE) document.body.classList.add('piecePage'); if(PIECE&&PIECE.noDU) document.body.classList.add('noDU'); boardLetters=true;
+    { const hb=document.getElementById('hold'); if(hb){ hb.title='Hold: repeat this mode (off: on to the next mode each pass)';
+        hb.addEventListener('click',e=>{ e.stopImmediatePropagation(); HOLD=!HOLD; PEEK=null; try{ localStorage.setItem(SK('eshape-hold'),HOLD?'on':'off'); }catch(err){} if(!T.on) refresh(); },true);
+        (function hs(){ hb.style.display=PIECE?'none':''; hb.setAttribute('aria-pressed',HOLD); hb.classList.toggle('on',HOLD); requestAnimationFrame(hs); })(); } }
+    /* THE DE-EMPHASIZED: everything off the diatonic seven (the antis' lobes and letters on the Ring, the plot's anti letters
+       and curve) and the clock's counts nothing falls on, in a darker grey — still faintly readable, plainly set back */
+    { let dk=''; (function dim(){ const bg=bgColour(), ink=inkColour(), k=bg.join()+'|'+ink.join(); if(k!==dk){ dk=k; const D=mixRGB(bg,ink,0.3);
+        SOLF.forEach(([n],i)=>{ if(n.startsWith('~')) SOLF_DIA[i]=D; }); document.documentElement.style.setProperty('--dim',rgbS(D)); if(typeof ringRebind==='function') ringRebind(); }
+      requestAnimationFrame(dim); })(); }
+    { const NB=matchMedia('(max-width:640px)'), vb=()=>{ if(fb.closest('.zoomLayer')) return; const d=NB.matches?0:BOARD_DROP; fb.setAttribute('viewBox','-10 -'+(100+d)+' 1000 '+(380+d)); }; vb(); NB.addEventListener('change',vb); window.__csmVb=vb; } fb.dataset.zoomVb='-10 -100 1000 380';   // (zoomed, the board with only the hand's own headroom)   // (the hand's headroom grown by BOARD_DROP; below, just the thumb and the dots)
+    { const css=document.createElement('style'); css.textContent='body.csmPage:not(.gxOn) .cuSylFix, body.csmPage:not(.gxOn) .cuChord .cuSyl, body.csmPage:not(.gxOn) .cuModes .cuSub{ display:none !important } @keyframes gxWipe{ 0%{ transform:translateX(-140%) rotate(0deg) } 11%,100%{ transform:translateX(140%) } } @keyframes gxRim{ 0%,1%{ color:var(--mid); border-color:var(--mid); box-shadow:none } 5%{ color:var(--gxg); border-color:var(--gxg); box-shadow:0 0 14px -2px var(--gxg) } 14%,100%{ color:var(--mid); border-color:var(--mid); box-shadow:none } } body.csmPage #gx, body.csmPage .gxCopy{ position:relative; overflow:hidden; isolation:isolate } body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) .gxCopy{ animation:gxRim 5s ease-out infinite } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ content:""; position:absolute; inset:-2px; z-index:-1; pointer-events:none; background:linear-gradient(120deg, transparent 32%, var(--gxg) 50%, transparent 68%); opacity:.9; transform:translateX(-140%); animation:gxWipe 5s cubic-bezier(.45,0,.25,1) infinite } @media (prefers-reduced-motion: reduce){ body.csmPage:not(.gxOn) #gx, body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy, body.csmPage:not(.gxOn) .gxCopy::after{ animation:none } body.csmPage:not(.gxOn) #gx::after, body.csmPage:not(.gxOn) .gxCopy::after{ display:none } } .fbLetters text{ fill:var(--ink); stroke:var(--bg); stroke-width:3px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; dominant-baseline:central; font-weight:600 }'; document.head.appendChild(css); }
+    const lettersG=el('g',{class:'fbLetters','pointer-events':'none',opacity:0},null); fb.insertBefore(lettersG,paintG.nextSibling);
+    for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const pc=pcOf(st,f), a=LETTER[pc], b=LETTER_B[pc], t=el('text',{x:tipX(f).toFixed(1),y:FB.strY[st],'font-size':a===b?11:8.5},lettersG); t.textContent=a===b?a:a+'/'+b; }
+    (function letters(){ lettersG.setAttribute('opacity',(0.85*(1-FIELD.lit)).toFixed(3)); requestAnimationFrame(letters); })();
+    /* THE FRET SPACES PAINTED (not the strings): g(x) off, every fret holding one of the mode's seven in one even grey, under
+       its letter; turning g(x) on fades those same spaces into the field's colours (an anti's left dark under Diatonic) — the
+       strings themselves lit only where a tone rings, and where they vibrate */
+    boardCells=true;
+    { const hiG=el('g',{class:'fbScale','pointer-events':'none'},null); fb.insertBefore(hiG,lettersG); const gap=FB.strY[1]-FB.strY[0], hh=Math.abs(gap)*0.78;
+      const rs=[]; for(let st=0;st<NSTR;st++) for(let f=0;f<=FMAX;f++){ const x0=f===0?FB.x0:cellL(f), x1=f===0?FB.nut:cellR(f);
+        rs.push({pc:pcOf(st,f),r:el('rect',{x:(x0+1.5).toFixed(1),y:(FB.strY[st]-hh/2).toFixed(1),width:Math.max(1,x1-x0-3).toFixed(1),height:hh.toFixed(1),rx:3,opacity:0},hiG)}); }
+      let hk=''; (function hi(){ const set=scaleSet(), L=FIELD.lit, ink=inkColour(), k=[...set].join()+'|'+L.toFixed(3)+'|'+ink.join()+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reC.toFixed(3)+'|'+FIELD.mx.toFixed(3)+'|'+RING.m.toFixed(3)+'|'+diatonic+'|'+PHI.doPc;
+        if(k!==hk){ hk=k; const cols={}; for(let pc=0;pc<12;pc++) cols[pc]=L>0.001?valRGB(pc):ink;
+          rs.forEach(q=>{ const show=!(diatonic&&sylOf(q.pc)===null), op=(set.has(q.pc)?0.13:0)*(1-L)+(show?0.4:0)*L;
+            q.r.setAttribute('fill',rgbS(mixRGB(ink,cols[q.pc],L))); q.r.setAttribute('opacity',op.toFixed(3)); }); }
+        requestAnimationFrame(hi); })(); }
+    /* G(X) OFF, THE MODE BY NAME: the bank of root letters gives way to a list of the church modes — Ionian, Dorian … —
+       each with its root */
+    { const sel=document.createElement('select'); sel.className='cuModeSel'; sel.setAttribute('aria-label','Mode'); segs[0].parentNode.appendChild(sel);
+      sel.addEventListener('change',()=>{ const v=sel.value; if(!CHURCH[v]) return; OPT.mode=v; OPT.anti=false; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); });
+      // (while the pattern is dragged, the names as they will be: the key it has come to, the root keeping its letter)
+      let sk=''; (function sync(){ const K=(KEY+SCKEY())%12, k=K+'|'+OPT.mode+'|'+OPT.anti; if(k!==sk){ sk=k; sel.innerHTML=''; const KN=keyNames(K);
+          ['Do','Re','Mi','Fa','Sol','La','Ti'].forEach(md=>{ const o=document.createElement('option'); o.value=md; o.textContent=KN[md]+' '+CHURCH[md]; sel.appendChild(o); });
+          if(OPT.anti&&!SCKEY()){ const o=document.createElement('option'); o.value='~'; o.textContent=pcName(curL().root,KEY)+' '+CHURCH[OPT.mode]; sel.appendChild(o); sel.value='~'; } else sel.value=OPT.mode; }
+        requestAnimationFrame(sync); })();
+      const css=document.createElement('style'); css.textContent='body.csmPage .cuPanel select.cuModeSel, body.csmPage select.cuModeSel{ display:none; font:inherit; font-size:14px; font-weight:600; text-transform:none; letter-spacing:0; color:var(--ink); background-color:var(--bg); border:1.5px solid var(--mid); border-radius:999px; padding:5px 30px 5px 14px; -webkit-appearance:none; appearance:none; cursor:pointer; background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%); background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%; background-size:5px 5px,5px 5px; background-repeat:no-repeat } body.csmPage:not(.gxOn) select.cuModeSel{ display:inline-block } body.csmPage:not(.gxOn) .cuModes{ display:none !important }';
+      document.head.appendChild(css); }
+    /* THE CURVE: g(x) drawn as a line over the circle laid flat — x from 0 (Re, where g is 1) round to 2π — the twelve
+       chromatic letters at their places along it (π/6 apart, from Re), each in its colour under the field: the seven
+       diatonic tones in theirs, the five antis greatly dimmed under Diatonic, in their own (anti) colours without it, every
+       one lighting up while it sounds, a bead on the curve at its value. The radians marked 0, π/2, π, 3π/2. A live g(x)
+       button at its left reads "g(x) =": it is what raises the curve (and the valences) from the flat line. Level with
+       the rhythm clock's centre; a double click brings it up to fill the screen. Letters spelled from the mode: the
+       diatonic ones in order from the root's letter, an anti as the diatonic tone above it lowered (or below it raised,
+       where that would take a double flat). */
+    STRIP=(()=>{ const NSV='http://www.w3.org/2000/svg', VW=640, VH=232, X0=28, X1=VW-18, MID=104, AMP=74, LY=212, RY=MID+19;   // (the radians just under their ticks on the hinge)
+      const A=(t,a,par)=>{ const e=document.createElementNS(NSV,t); for(const k in a) e.setAttribute(k,a[k]); par.appendChild(e); return e; };
+      const box=document.createElement('div'); box.className='csmPlotBox';
+      const gxc=document.createElement('button'); gxc.type='button'; gxc.className='gx gxCopy'; gxc.title='g(x): the tonal field — what raises the curve'; gxc.innerHTML='g(x)';
+      gxc.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); gxc.addEventListener('dblclick',e=>e.stopPropagation());
+      const eq=document.createElement('span'); eq.className='csmEq'; eq.textContent='=';
+      const lead=document.createElement('div'); lead.className='csmLead'; lead.appendChild(gxc); lead.appendChild(eq); box.appendChild(lead);
+      const sv=document.createElementNS(NSV,'svg'); sv.setAttribute('viewBox','0 0 '+VW+' '+VH); sv.setAttribute('class','csmPlot'); sv.setAttribute('preserveAspectRatio','xMinYMid meet'); sv.setAttribute('aria-label','g(x) over the circle, with the twelve chromatic letters'); box.appendChild(sv);
+      document.querySelector('.wrap').appendChild(box); if(typeof SURF!=='undefined'&&SURF) SURF.attach(box,'plot');
+      const xOf=k=>X0+(X1-X0)*k/12, yOf=g=>MID-AMP*g;
+      const gid='gp'+Math.random().toString(36).slice(2,6), defs=A('defs',{},sv), grad=A('linearGradient',{id:gid,gradientUnits:'userSpaceOnUse',x1:X0,y1:0,x2:X1,y2:0},defs);
+      const NST=480, stops=Array.from({length:NST+1},(_,i)=>A('stop',{offset:(i/NST).toFixed(4)},grad));
+      // the frame: the hinge (g = 0), the reach (±1) faint, a tick at each seat, the radians under the letters
+      A('line',{x1:X0,y1:MID,x2:X1,y2:MID,class:'gpHinge'},sv); [1,-1].forEach(g=>A('line',{x1:X0,y1:yOf(g),x2:X1,y2:yOf(g),class:'gpReach'},sv));
+      for(let k=0;k<=12;k++) A('line',{x1:xOf(k),y1:MID-4,x2:xOf(k),y2:MID+4,class:'gpTick'},sv);
+      [['0',0],['π/2',3],['π',6],['3π/2',9],['2π',12]].forEach(([t,k])=>{ const e=A('text',{x:xOf(k),y:RY,class:'gpRad'},sv); e.textContent=t; });
+      // what sounds, under the curve: a tone off the axis fills its own lobe (between the zero crossings either side of it),
+      // fading to clear at the hinge; a tone on the axis (no area) a thin dashed line through it
+      const cp=A('clipPath',{id:gid+'c'},defs); A('rect',{x:X0,y:-20,width:X1-X0,height:VH+40},cp);
+      // g(x) off: a dim grey band rising from each of the mode's seven letters, brightening while it sounds
+      const bandGr=A('linearGradient',{id:gid+'band',x1:0,y1:0,x2:0,y2:1},defs); [[0,0],[0.45,0.35],[1,1]].forEach(([o,a])=>A('stop',{offset:o,'stop-color':'#fff','stop-opacity':a},bandGr));
+      const bandG=A('g',{'clip-path':'url(#'+gid+'c)','pointer-events':'none'},sv);
+      const areaG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
+      const curve=A('path',{d:'',class:'gpCurve',stroke:'url(#'+gid+')'},sv), beadG=A('g',{'clip-path':'url(#'+gid+'c)'},sv);
+      // the twelve letters, each at its seat from Re as the Ring's letters stand (sliding as they turn), twice over so the one
+      // at the seam shows at both ends; drag them along and the Ring's letters turn with them, settling on a seat
+      const letG=A('g',{class:'gpLetters'},sv); A('rect',{x:X0-20,y:LY-22,width:X1-X0+40,height:46,fill:'transparent',class:'gpGrab'},letG);
+      const cells=Array.from({length:12},(_,pc)=>{ const fg=A('linearGradient',{id:gid+'f'+pc,gradientUnits:'userSpaceOnUse',x1:0,y1:0,x2:0,y2:MID},defs), s0=A('stop',{offset:0,'stop-opacity':0.85},fg), s1=A('stop',{offset:1,'stop-opacity':0},fg);
+        return {pc,ts:[0,1].map(()=>A('text',{x:0,y:LY,class:'gpLet'},letG)),bs:[0,1].map(()=>A('circle',{cx:0,cy:MID,r:7,opacity:0},beadG)),
+          area:A('path',{d:'',fill:'url(#'+gid+'f'+pc+')',opacity:0},areaG),band:[0,1].map(()=>A('rect',{x:0,y:4,width:(X1-X0)/12,height:LY+10-4,fill:'url(#'+gid+'band)',opacity:0},bandG)),dash:[0,1].map(()=>A('line',{x1:0,y1:yOf(1),x2:0,y2:yOf(-1),class:'gpAxis',opacity:0},areaG)),fg,s0,s1,lv:0,flex:0}; });
+      const css=document.createElement('style'); css.textContent='.csmPlotBox{ position:absolute; z-index:4; display:flex; align-items:center; gap:10px; -webkit-user-select:none; user-select:none } .zoomLayer > .csmPlotBox{ top:auto !important; left:auto !important; width:auto !important; height:auto !important } .zoomLayer > .csmPlotBox .csmLead{ display:none } .csmLead{ display:flex; align-items:center; gap:8px; flex:none } .csmEq{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--mid) } .gxCopy{ width:40px; height:40px; font-size:15px } .csmPlot{ flex:1 1 auto; min-width:0; height:100%; overflow:visible } .gpHinge{ stroke:var(--mid); stroke-width:1; opacity:.55 } .gpReach{ stroke:var(--mid); stroke-width:1; stroke-dasharray:2 5; opacity:.3 } .gpTick{ stroke:var(--mid); stroke-width:1; opacity:.5 } .gpRad{ fill:var(--mid); font-family:var(--serif); font-style:italic; font-size:14px; text-anchor:middle } .gpCurve{ fill:none; stroke-width:3.2; stroke-linejoin:round; stroke-linecap:round } .gpLet{ font-family:var(--sans); font-weight:800; font-size:21px; text-anchor:middle; dominant-baseline:central; pointer-events:none } .gpGrab{ cursor:ew-resize } body.gxOn .gpField{ cursor:grab } .gpAxis{ stroke-width:1.6; stroke-dasharray:3 4 }';
+      document.head.appendChild(css);
+      const NAT={C:3,D:5,E:7,F:8,G:10,A:0,B:2}, LET7=['C','D','E','F','G','A','B'], ACC={'-2':'𝄫','-1':'♭','0':'','1':'♯','2':'𝄪'};
+      const accOf=(pc,L)=>{ let a=((pc-NAT[L])%12+12)%12; if(a>6) a-=12; return a; };
+      function spell(L){ const r=L.root, nm=pcName(r,walkDo()), l0=LET7.indexOf(nm[0]), scale=[...new Set(L.lower.map(n=>pcOf(n.str-1,n.f)))].sort((a,b)=>((a-r)%12+12)%12-((b-r)%12+12)%12), out={};
+        scale.forEach((pc,i)=>{ const Lt=LET7[(l0+i)%7]; out[pc]=[Lt,accOf(pc,Lt)]; });
+        for(let k=0;k<12;k++){ const pc=(r+k)%12; if(out[pc]) continue; const up=out[(pc+1)%12], dn=out[(pc+11)%12];
+          out[pc]=up&&up[1]-1>=-1?[up[0],up[1]-1]:dn?[dn[0],dn[1]+1]:[up[0],up[1]-1]; }
+        const name={}; for(const pc in out) name[pc]=out[pc][0]+(ACC[String(out[pc][1])]||''); return name; }
+      let key='', shapeKey='', dia=new Set();
+      function build(){ const L=curL(), k=L.root+'|'+OPT.mode+'|'+OPT.anti+'|'+KEY+'|'+PHI.doPc; if(k===key) return; key=k;
+        // the field's own seven (not the walk's: an anti's E shape walks its tritone partner's scale), spelled from them
+        const nm=spell(OPT.anti?layout(KEY,'Do'):L); dia=new Set(); for(let pc=0;pc<12;pc++) if(MAJ.includes(((pc-PHI.doPc)%12+12)%12)) dia.add(pc);
+        cells.forEach(c=>{ c.dia=dia.has(c.pc); c.ts.forEach(t=>{ t.textContent=nm[c.pc]; t.setAttribute('font-size',nm[c.pc].length>1?18:21); }); }); }
+      // a drag along the letters turns the Ring's letters seat by seat (with g(x) on, the orientation with them), as a drag
+      // round the Ring's own letters does
+      { let drag=null; const seatW=()=>{ const m=sv.getScreenCTM(); return m?(X1-X0)/12*m.a:1; };
+        const grab=letG.querySelector('.gpGrab');
+        grab.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); if(T.on&&typeof ringStops==='function'&&ringStops()) stopAll(); drag={x:e.clientX,off:LET.off,was:PHI.doPc,id:e.pointerId}; try{ grab.setPointerCapture(e.pointerId); }catch(err){} });
+        grab.addEventListener('pointermove',e=>{ if(!drag) return; let da=Math.round((e.clientX-drag.x)/seatW()); if(RING.m>=0.5){ da=((7*da)%12+12)%12; if(da>6) da-=12; }
+          const want=drag.off+da, step=want-LET.off; if(!step) return;
+          LET.off=want; if(FIELD.on&&!RING_TURNS_WHOLE) PHI.doPc=((PHI.doPc-step)%12+12)%12; ringMoved(); });
+        const end=()=>{ if(drag&&drag.was!==PHI.doPc) GHOST.doPc=drag.was; drag=null; };
+        grab.addEventListener('pointerup',end); grab.addEventListener('pointercancel',end); grab.addEventListener('dblclick',e=>e.stopPropagation()); }
+      { const fg=A('rect',{x:X0,y:2,width:X1-X0,height:LY-26,fill:'transparent',class:'gpField'},sv); sv.insertBefore(fg,letG); let fd=null;
+        const seatW=()=>{ const m=sv.getScreenCTM(); return m?(X1-X0)/12*m.a:1; };
+        fg.addEventListener('pointerdown',e=>{ e.stopPropagation(); if(FIELD.lit<0.5){ fd={off:true,x:e.clientX,id:e.pointerId}; SCDRAG=0; try{ fg.setPointerCapture(e.pointerId); }catch(err){} return; } fd={x:e.clientX,id:e.pointerId,was:PHI.doPc}; });
+        fg.addEventListener('pointermove',e=>{ if(!fd) return; const acc=(e.clientX-fd.x)/seatW(); if(fd.off){ SCDRAG=acc; return; }
+          if(!DRAGF){ if(Math.abs(acc)<0.35) return; if(typeof ringStops==='function'&&ringStops()) stopForEdit(); try{ fg.setPointerCapture(fd.id); }catch(err){}
+            MORPH=null; FIELD.mx=-1; const re=PHI.doPc+2+LET.off; DRAGF={re,reC:fifth(re),x:0,chain:RING.m>=0.5}; }
+          DRAGF.x=acc; });
+        const end=()=>{ if(fd&&fd.off){ fd=null; dropPattern(); return; } if(DRAGF&&fd){ const n=Math.round(DRAGF.x);   // let go: the field settles on the nearest seat, and that is φ
+            FIELD.re=DRAGF.re+(DRAGF.chain?7:1)*DRAGF.x; FIELD.reC=DRAGF.reC+(DRAGF.chain?1:7)*DRAGF.x;
+            PHI.doPc=((PHI.doPc+(DRAGF.chain?7*n:n))%12+12)%12; DRAGF=null; dragFEnd=performance.now(); fieldMoved(); }
+          if(fd&&fd.was!==PHI.doPc) GHOST.doPc=fd.was; fd=null; };
+        fg.addEventListener('pointerup',end); fg.addEventListener('pointercancel',end); }
+      /* ON A TOUCH SCREEN: one finger scrolls the page past the curve; two fingers swiped along it slide its letters (on
+         the letters) or its field / pattern (above them), handed on as the one-finger drag they already know */
+      { const tp=new Map(); let sw=null, synth=false;
+        const fire=(el,type,x,y,id)=>{ synth=true; try{ el.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:id,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1})); } finally{ synth=false; } };
+        const mid=()=>{ const v=[...tp.values()]; return {x:(v[0].x+v[1].x)/2,y:(v[0].y+v[1].y)/2}; };
+        sv.style.touchAction='pan-y';
+        sv.addEventListener('pointerdown',e=>{ if(synth||e.pointerType!=='touch') return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+          if(tp.size===2&&!sw){ const m=mid(), hit=document.elementFromPoint(m.x,m.y), el=hit&&hit.closest?hit.closest('.gpGrab, .gpField'):null; if(!el) return;
+            sw={el,id:e.pointerId,y:m.y}; try{ el.setPointerCapture(e.pointerId); }catch(err){} fire(el,'pointerdown',m.x,m.y,e.pointerId); } },true);
+        sv.addEventListener('pointermove',e=>{ if(synth||e.pointerType!=='touch'||!tp.has(e.pointerId)) return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+          if(sw&&tp.size>=2){ const m=mid(); fire(sw.el,'pointermove',m.x,sw.y,sw.id); } },true);
+        const up=e=>{ if(synth||e.pointerType!=='touch') return; const m=tp.size>=2?mid():null; tp.delete(e.pointerId); if(sw&&tp.size<2){ fire(sw.el,'pointerup',m?m.x:e.clientX,sw.y,sw.id); sw=null; } };
+        sv.addEventListener('pointerup',up,true); sv.addEventListener('pointercancel',up,true); }
+      // as tall as the room to the page's right edge allows (its proportions kept), the g(x) button level with its hinge; the
+      // hinge stays at the clock's centre unless that would lift it into the TAB
+      function place(sz,top,W,stageBot,narrow){ if(box.closest('.zoomLayer')) return;
+        if(narrow){ const st=document.querySelector('.stage'); if(st&&box.previousElementSibling!==st) st.after(box); box.style.left=box.style.top=''; box.style.width='';
+          const lw=lead.offsetWidth+10, w=box.getBoundingClientRect().width/ZOOM, h=Math.max(90,(w-lw)*VH/VW); box.style.height=h.toFixed(0)+'px'; lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; return; }
+        if(box.parentNode!==document.querySelector('.wrap')) document.querySelector('.wrap').appendChild(box);
+        const left=sz+24, w=Math.max(260,W-left), lw=lead.offsetWidth+10, h=Math.max(120,(w-lw)*VH/VW), cy=top+sz/2, t=Math.max(stageBot+4,cy-h*MID/VH);   // (clear of the Ring's buttons above it)
+        box.style.left=left.toFixed(0)+'px'; box.style.width=w.toFixed(0)+'px'; box.style.height=h.toFixed(0)+'px'; box.style.top=t.toFixed(0)+'px';
+        lead.style.marginTop=(2*(h*MID/VH)-h).toFixed(1)+'px'; }
+      let clock=0;
+      (function frame(now){ const dt=Math.min(0.1,clock?(now-clock)/1000:0.016); clock=now; build();
+        const L=FIELD.lit, ink=inkColour(), bg=bgColour(), mid=mixRGB(bg,ink,0.5), gry=mixRGB(bg,ink,0.55);
+        // the curve, its height and colour with g(x)'s light (flat and grey without it); mid-morph, the field as the ring has it
+        // the order, as the Ring has it (1: chromatic, 5: the dominant chain, where g is the carrier's pure cosine), mid-change
+        // the two curves blended and the letters swapping places as the Ring's do
+        const w=RING.m, fv=s=>(1-w)*fieldAt(s-FIELD.re,false)+w*fieldAt(s-FIELD.reC,true), fc=s=>w<=0?fieldRGB(s-FIELD.re,false):w>=1?fieldRGB(s-FIELD.reC,true):mixRGB(fieldRGB(s-FIELD.re,false),fieldRGB(s-FIELD.reC,true),w);   // (x: seats from 12 o'clock)
+        const sk=L.toFixed(3)+'|'+FIELD.mx.toFixed(4)+'|'+FIELD.re.toFixed(3)+'|'+FIELD.reA.toFixed(3)+'|'+FIELD.reC.toFixed(3)+'|'+w.toFixed(4)+'|'+diatonic+'|'+bg.join();
+        if(sk!==shapeKey){ shapeKey=sk; let d=''; for(let i=0;i<=240;i++){ const k=12*i/240; d+=(i?'L':'M')+xOf(k).toFixed(1)+' '+yOf(L*fv(k)).toFixed(2); } curve.setAttribute('d',d);
+          stops.forEach((s,i)=>{ const c=fc(12*i/NST); s.setAttribute('stop-color',rgbS(mixRGB(gry,c,L))); }); }
+        const gA=s=>L*fv(s), md=v=>((v%12)+12)%12, wrap=v=>{ v=md(v+6)-6; return v; };
+        const SS=scaleSet(), inkS=rgbS(ink); if(bandGr.dataset.c!==inkS){ bandGr.dataset.c=inkS; bandGr.querySelectorAll('stop').forEach(st=>st.setAttribute('stop-color',inkS)); }
+        cells.forEach(c=>{ const on=soundNow.has(c.pc); if((on&&c.lv<0.5)||STRIKE.has(c.pc)) c.flex=1; if(on) c.lv=1; else c.lv*=Math.exp(-dt/0.35); c.flex*=Math.exp(-dt/0.22);
+          // g(x) off, nothing is preferred: every letter at the same light, lit alike when it sounds
+          // an anti under Diatonic in grey (lit toward white as it sounds); without Diatonic in its own anti colour
+          const ad=!c.dia&&diatonic, raw=ad?SOLF_DIA[1]:SOLF_RGB[((c.pc-(PHI.doPc+2))%12+12)%12], col=mixRGB(ink,raw,L), b0=c.dia?0.62:(ad?1:0.72), base=0.62+(b0-0.62)*L;
+          const v=base+(1-base)*c.lv, show=ad&&L>0.001?mixRGB(mixRGB(bg,col,v),ink,0.7*c.lv*L):mixRGB(bg,col,v), cs=rgbS(col), vis=1;
+          // its seat from Re as the Ring's letters stand now (eased as they turn): in the chromatic order and on the chain; mid-
+          // change, a seat the two orders share (to within a seat's drift) glides, one they don't swaps at halfway, faded
+          const pa=md(c.pc+LET.offA), pb=md(7*c.pc+LET.offC), sw=Math.abs(wrap(pb-pa))>3;   // (its seat from 12 o'clock, as the Ring shows it)
+          const p=w<=0?pa:w>=1?pb:sw?(w<0.5?pa:pb):md(pa+wrap(pb-pa)*w), fade=w>0&&w<1&&sw?Math.abs(1-2*w):1, g=gA(p), axis=Math.abs(g)<0.06*Math.max(L,0.001)||L<0.05;
+          [p,p-12<-0.45?p+12:p-12].forEach((q,j)=>{ const t=c.ts[j], b=c.bs[j], edge=Math.max(0,Math.min(1,(q+0.45)/0.3,(12.45-q)/0.3));
+            t.setAttribute('x',xOf(q).toFixed(1)); t.style.opacity=(edge*fade).toFixed(3); t.style.fill=rgbS(show);
+            svgScale(t,1+0.12*c.lv+0.25*c.flex,xOf(q),LY); t.style.filter=c.lv>0.02&&edge>0?'drop-shadow(0 0 '+(7*c.lv).toFixed(1)+'px '+cs+')':'';
+            b.setAttribute('cx',xOf(q).toFixed(1)); b.setAttribute('cy',yOf(g).toFixed(2)); b.setAttribute('fill',cs); b.setAttribute('opacity',(c.lv*vis).toFixed(3)); b.setAttribute('r',(5+3*c.lv).toFixed(2));
+            const bd=c.band[j], sw2=(X1-X0)/12, fr=SCDRAG-Math.round(SCDRAG); bd.setAttribute('x',(xOf(q+fr)-sw2*0.42).toFixed(1)); bd.setAttribute('width',(sw2*0.84).toFixed(1));
+            bd.setAttribute('opacity',(SS.has(c.pc)?(1-L)*(0.1+0.32*c.lv)*edge*fade:0).toFixed(3));
+            const dl=c.dash[j]; dl.setAttribute('x1',xOf(q).toFixed(1)); dl.setAttribute('x2',xOf(q).toFixed(1)); dl.style.stroke=cs; dl.setAttribute('opacity',(0.9*c.lv*vis).toFixed(3)); });
+          // its lobe, filled while it sounds: from the zero crossing before it to the one after, faded to clear at the hinge
+          if(c.lv>0.01&&!axis){ const sg=Math.sign(g); let a=p, z=p; for(let n=0;n<80&&Math.sign(gA(a-0.05))===sg;n++) a-=0.05; for(let n=0;n<80&&Math.sign(gA(z+0.05))===sg;n++) z+=0.05;
+            // on the chain (the carrier's cosine, one lobe for all) each tone lights only its own π/6 slice
+            if(w>0){ a+=(Math.max(a,p-0.5)-a)*w; z+=(Math.min(z,p+0.5)-z)*w; }
+            let d=''; [0,12,-12].forEach(o=>{ if(z+o<-0.5||a+o>12.5) return; d+='M'+xOf(a+o).toFixed(1)+' '+MID; for(let s=a;s<z;s+=0.05) d+=' L'+xOf(s+o).toFixed(1)+' '+yOf(gA(s)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+yOf(gA(z)).toFixed(2); d+=' L'+xOf(z+o).toFixed(1)+' '+MID+' Z'; });
+            c.area.setAttribute('d',d); c.fg.setAttribute('y1',yOf(g>0?1:-1)*1+0); c.fg.setAttribute('y1',yOf(sg*Math.max(Math.abs(g),0.2)).toFixed(1)); c.fg.setAttribute('y2',MID);
+            c.s0.setAttribute('stop-color',cs); c.s1.setAttribute('stop-color',cs); c.area.setAttribute('opacity',(c.lv*vis).toFixed(3)); }
+          else c.area.setAttribute('opacity',0); });
+        gxc.setAttribute('aria-pressed',FIELD.on);
+        requestAnimationFrame(frame); })(0);
+      return {place}; })();
+    /* FULL SCREEN, the Ring or the curve: a live g(x) button and its equation over it */
+    { const head=document.createElement('div'); head.className='zoomGxHead'; const eqn=document.getElementById('eqn'), eqc=eqn?eqn.cloneNode(true):null;
+      if(eqc){ eqc.removeAttribute('id'); head.appendChild(eqc); }
+      const b=document.createElement('button'); b.type='button'; b.className='gx gxCopy'; b.textContent='g(x)'; b.addEventListener('click',e=>{ e.stopPropagation(); document.getElementById('gx').click(); }); b.addEventListener('dblclick',e=>e.stopPropagation()); head.appendChild(b);
+      const css=document.createElement('style'); css.textContent='.zoomGxHead{ position:fixed; top:14px; left:0; right:0; z-index:61; display:none; align-items:center; justify-content:center; gap:14px; pointer-events:none } .zoomGxHead > *{ pointer-events:auto } body.zoomed .zoomGxHead.show{ display:flex } .zoomGxHead.big{ top:22px; gap:20px } .zoomGxHead.big .eqn{ font-size:clamp(18px,2.3vw,34px) } .zoomGxHead.big .gx{ width:62px; height:62px; font-size:24px }'; document.head.appendChild(css);
+      document.body.appendChild(head);
+      (function sync(){ const k=typeof SURF!=='undefined'&&SURF?SURF.kind:null, sh=!!k, big=k==='plot'; head.classList.toggle('show',sh); head.classList.toggle('big',big); if(document.body.classList.contains('zoomHead')!==sh||document.body.classList.contains('zoomHeadBig')!==big){ document.body.classList.toggle('zoomHead',sh); document.body.classList.toggle('zoomHeadBig',big); dispatchEvent(new Event('resize')); } if(eqc&&eqn) eqc.className=eqn.className; b.setAttribute('aria-pressed',FIELD.on); requestAnimationFrame(sync); })(); }
     { const css=document.createElement('style'); css.textContent='.cuModes button{ font-variant-numeric:tabular-nums } .cuModes .cuSub{ font-family:var(--serif); font-style:italic; font-weight:500; opacity:.8 } .cuOpts{ flex-wrap:wrap; row-gap:10px }'; document.head.appendChild(css); }
     // THE RING TURNED (g(x) on: the orientation moved): once it has come to rest, the whole set is built afresh there
     let keyWant=null, keyAt=0;
     keyWatch=()=>{ if(PHI.doPc===KEY){ keyWant=null; return; } const now=performance.now();
       if(PHI.doPc!==keyWant){ keyWant=PHI.doPc; keyAt=now; return; } if(now-keyAt<350) return;
-      KEY=PHI.doPc; keyWant=null; try{ localStorage.setItem('eshape-key',String(KEY)); }catch(err){} relabel(); regen(); };
-    function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])))); }
-    function regen(){ const was=T.on; orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
+      // the root keeps its letter: it takes whatever function the new orientation gives it (an anti's, its tritone partner's
+      // frames), as the constellation does when it is dropped there — only the mode bank's own buttons choose a mode
+      applyKey(); };
+    function applyKey(){ const r=curL().root; KEY=PHI.doPc; keyWant=null; if(PIECE){ if(PIECE.free) try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){} relabel(); mark(); regen(); return; } try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){}
+      { const rel=((r-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} }
+      relabel(); mark(); regen(); }
+    // the pattern let go (g(x) off): the key moves at once to where it settled
+    // (the old world has no antis: the mode goes with the key — Ionian stays Ionian, its root carried along)
+    function dropPattern(){ const d=SCKEY(); SCDRAG=0; if(!d) return; const K=((walkDo()+d)%12+12)%12; PHI.doPc=K; KEY=K; keyWant=null; OPT.anti=false;
+      try{ localStorage.setItem(SK('eshape-key'),String(KEY)); localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} relabel(); mark(); regen(); }
+    { let dr=null; const angOf=e=>{ const r=ringSvg.getBoundingClientRect(), x=e.clientX-(r.left+r.width/2), y=e.clientY-(r.top+r.height/2); return {a:Math.atan2(x,-y)*6/Math.PI, d:Math.hypot(x,y)/(r.width/2)}; };
+      ringSvg.addEventListener('pointerdown',e=>{ if(FIELD.lit>0.5) return; const p=angOf(e); if(p.d>=0.72) return;
+        dr={last:p.a,id:e.pointerId}; SCDRAG=0; try{ ringSvg.setPointerCapture(e.pointerId); }catch(err){} e.preventDefault(); },true);
+      ringSvg.addEventListener('pointermove',e=>{ if(!dr) return; const a=angOf(e).a; SCDRAG+=((a-dr.last+6)%12+12)%12-6; dr.last=a; });
+      const end=()=>{ if(!dr) return; dr=null; dropPattern(); }; ringSvg.addEventListener('pointerup',end); ringSvg.addEventListener('pointercancel',end); }
+    window.__scDrop=dropPattern; window.__scDrag=v=>{ SCDRAG=v; };
+    function mark(){ segs.forEach((sg,i)=>sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===JSON.stringify(OPT[keys[i]])&&!(i===0&&OPT.anti)))); paintKey=''; }
+    markModes=mark;
+    function regen(){ const was=T.on; drumNames(); orient(KEY,true); if(was) stopAll(); M=presetModel(); normalize(); textEl.value=serialize(); syncCtl(); rebuild(); if(was) run(); afterFit.forEach(f=>{ try{ f(); }catch(err){} }); }
     panel.appendChild(row); mark(); tabPanel.style.cursor='default';
+    /* ZOOMED, ANY SURFACE: at its foot the tool's own controls — Play and Hold, the Ring's Diatonic, 1|5 (and Ghost), and the
+       whole row of options below the board, moved down while it is zoomed and back after (no Prev | Next: the E Shape has
+       none) */
+    { const css=document.createElement('style'); css.textContent='body.csmNarrow .ringBox{ display:grid; grid-template-columns:1fr 1fr; column-gap:14px; row-gap:8px; align-items:center; justify-items:center } body.csmNarrow .ringBox > .cuClockBox{ position:relative !important; width:82% !important; height:auto !important; aspect-ratio:1; margin:9% } body.csmNarrow .ringBox > svg#ring{ width:100%; max-width:none } body.csmNarrow .ringBox > .ringFoot{ grid-column:1 / span 2 } body.csmNarrow .csmPlotBox{ position:relative !important; margin:14px 0 4px } body.csmNarrow .eqn{ display:flex; flex-wrap:wrap; justify-content:flex-end; column-gap:.35em } body.csmNarrow #frameLbl{ display:block } body.csmNarrow .cuModes button{ font-size:12.5px; padding:5px 6px } body.csmNarrow .cuOpts .cseg button{ padding:5px 10px } body.csmNarrow .cuOpts .cuLbl{ display:inline-flex; flex-wrap:wrap; align-items:center; column-gap:8px; row-gap:6px; max-width:100% }'; document.head.appendChild(css); }
+    /* DOTS | HANDS: under the nut, where the hand it changes is */
+    { const ht=document.getElementById('handTog'), wrap=document.querySelector('.wrap'); if(ht&&wrap){ wrap.style.position='relative'; wrap.appendChild(ht); ht.classList.add('csmHandTog');
+        const css=document.createElement('style'); css.textContent='.wrap > .csmHandTog{ position:absolute; z-index:5; margin:0 }'; document.head.appendChild(css);
+        let pk=''; (function hp(){ if(ht.parentNode===wrap){ const m=fb.getScreenCTM(); if(m){ const p=fb.createSVGPoint(); p.x=FB.nut; p.y=FB.bot; const q=p.matrixTransform(m), W=wrap.getBoundingClientRect(), w=ht.offsetWidth;
+              const x=(q.x-W.left)/ZOOM-w/2, y=(q.y-W.top)/ZOOM+8, k=x.toFixed(1)+'|'+y.toFixed(1); if(k!==pk){ pk=k; ht.style.left=Math.max(0,x).toFixed(1)+'px'; ht.style.top=y.toFixed(1)+'px'; } } }
+          requestAnimationFrame(hp); })(); } }
+    /* THE RING ON A TOUCH SCREEN, A DIAL: one finger only scrolls the page past it (taps and double taps still its own); two
+       fingers turned on it turn it, as a dial is turned — the twist of the line between them, carried round the ring from
+       where they came down (between them: inside the letters, the field — g(x) off, the pattern; on the letters, the
+       letters — where the fingers are), handed to the Ring as the one-finger drag it already knows */
+    { let tp=new Map(), dial=null, synth=false;
+      const C0=()=>{ const r=ringSvg.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,R:r.width/2}; };
+      const ang=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+      const fire=(type,x,y,id)=>{ synth=true; try{ ringSvg.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,pointerId:id,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1})); } finally{ synth=false; } };
+      const at=()=>{ const c=C0(), a=dial.a0+dial.tw; return [c.x+dial.r*c.R*Math.sin(a), c.y-dial.r*c.R*Math.cos(a)]; };
+      ringSvg.style.touchAction='pan-y';
+      ringSvg.addEventListener('pointerdown',e=>{ if(synth||e.pointerType!=='touch') return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+        if(tp.size===2&&!dial){ const [p,q]=[...tp.values()], c=C0(), rp=Math.hypot(p.x-c.x,p.y-c.y)/c.R, rq=Math.hypot(q.x-c.x,q.y-c.y)/c.R;
+          // (on the letters or inside them: where the fingers themselves are, the turn carried from the first one's place)
+          dial={id:e.pointerId,v0:ang(p,q),tw:0,a0:Math.atan2(p.x-c.x,-(p.y-c.y)),r:Math.max(0.15,Math.min(0.95,(rp+rq)/2))};
+          try{ ringSvg.setPointerCapture(e.pointerId); }catch(err){} const [x,y]=at(); fire('pointerdown',x,y,e.pointerId); } },true);
+      ringSvg.addEventListener('pointermove',e=>{ if(synth||e.pointerType!=='touch'||!tp.has(e.pointerId)) return; tp.set(e.pointerId,{x:e.clientX,y:e.clientY}); e.stopImmediatePropagation();
+        if(dial&&tp.size>=2){ const [p,q]=[...tp.values()]; const v=ang(p,q); let d=v-dial.v0; d=Math.atan2(Math.sin(d),Math.cos(d)); dial.v0=v; dial.tw+=d; const [x,y]=at(); fire('pointermove',x,y,dial.id); } },true);
+      const up=e=>{ if(synth||e.pointerType!=='touch') return; tp.delete(e.pointerId); if(dial&&tp.size<2){ const [x,y]=at(); fire('pointerup',x,y,dial.id); dial=null; } };
+      ringSvg.addEventListener('pointerup',up,true); ringSvg.addEventListener('pointercancel',up,true); }
+    /* THE RING TURNED BY ITS LETTERS: letters and valences go round together (the key kept), and the tone that comes to 12
+       o'clock, once the Ring is let go, is the mode — its root, in its function (an anti's, its tritone partner's frames),
+       as if chosen from the mode bank */
+    RING_TURNS_WHOLE=true;
+    { let lastOff=LET.off, at=0; (function follow12(){ const now=performance.now();
+        if(LET.off!==lastOff){ lastOff=LET.off; at=now; }
+        else if(at&&now-at>300){ at=0; const pc=((-LET.off)%12+12)%12;
+          if(pc!==curL().root&&!PIECE){ const rel=((pc-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0;
+            try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); } }
+        requestAnimationFrame(follow12); })(); }
+    window.ZOOM_BAR=(k,api)=>{ const r1=api.row(); api.copy('play',r1); api.copy('hold',r1); if(k==='fb') api.copy('handTog',r1); const f=document.querySelector('.ringFoot'); if(f){ api.move(f,r1); f.style.width='auto'; f.style.display='flex'; }
+      if(innerWidth>=640&&innerHeight>=640) api.move(row,api.row()); return true; };   // (a phone's screen: the buttons alone — the options row would leave no room for what is zoomed)
+    { const css=document.createElement('style'); css.textContent='.zoomBar.stack{ flex-direction:column; align-items:center; gap:8px; border-radius:22px; padding:10px 16px; white-space:normal; max-width:calc(100vw - 24px) } .zoomBar .zoomRow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center } .zoomBar .cuOpts{ margin:0; justify-content:center }'; document.head.appendChild(css); }
     // the drum, just above the fretboard
     // the drum, large, over the right of the hand's headroom, its lowest row just above the strings (on a phone, in the
     // flow above the fretboard)
+    /* G(X) OFF, IN THE DRUM'S PLACE: a treble clef and the key signature of what is played — the old world's way of
+       knowing where it is, by a memorized notational artifact. (Bravura's outlines, by way of VexFlow; a staff space is 360.) */
+    { const fl=document.getElementById('frameLbl'); if(fl){ const NS='http://www.w3.org/2000/svg', SP=360;
+      const GL={"gClef":"M541 -598C539 -615 541 -616 550 -625C706 -770 824 -953 824 -1174C824 -1299 789 -1423 730 -1509C708 -1541 671 -1581 655 -1581C635 -1581 590 -1544 562 -1512C455 -1394 420 -1214 420 -1064C420 -981 431 -887 441 -828C444 -811 445 -808 428 -793C220 -622 0 -416 0 -125C0 125 171 363 524 363C557 363 595 360 624 354C639 351 642 350 645 367C662 464 684 589 684 657C684 870 540 896 455 896C377 896 340 873 340 854C340 844 353 840 386 829C431 816 482 778 482 694C482 615 432 547 344 547C248 547 190 624 190 713C190 806 246 948 464 948C560 948 747 904 747 660C747 577 721 441 706 351C703 334 704 336 724 327C870 269 966 147 966 -16C966 -200 831 -363 619 -363C582 -363 582 -363 577 -389ZM677 -1358C724 -1358 763 -1319 763 -1240C763 -1080 626 -950 513 -851C503 -842 497 -844 494 -863C488 -900 485 -949 485 -995C485 -1220 589 -1358 677 -1358ZM520 -377C524 -350 524 -351 498 -343C372 -300 289 -186 289 -63C289 66 357 158 455 192C467 196 484 200 494 200C505 200 511 193 511 184C511 174 500 170 490 166C429 140 386 78 386 12C386 -71 442 -132 530 -157C553 -163 556 -161 559 -145L631 284C634 300 632 300 611 304C588 308 559 311 530 311C278 311 115 171 115 -29C115 -114 130 -228 249 -363C336 -459 402 -513 469 -567C484 -579 487 -577 490 -562ZM619 -148C616 -166 618 -170 635 -168C752 -158 848 -60 848 66C848 157 793 230 713 271C696 279 693 279 690 262Z","accidentalSharp":"M341 -170C351 -174 359 -186 359 -194L359 -297C359 -304 354 -308 348 -308C346 -308 344 -308 341 -307C341 -307 312 -295 305 -294C295 -294 285 -301 285 -312L285 -488C285 -497 276 -504 265 -504C251 -504 242 -497 242 -488L242 -301C240 -287 236 -268 223 -259C206 -249 157 -229 132 -223C120 -223 115 -240 115 -252L115 -425C115 -433 105 -441 95 -441C81 -441 72 -433 72 -425L72 -230C72 -210 63 -196 55 -192C46 -187 17 -176 17 -176C7 -173 0 -161 0 -153L0 -50C0 -42 4 -37 13 -37L16 -39C17 -39 39 -48 50 -53L52 -55C63 -55 72 -40 72 -29L72 114C72 130 65 143 56 147C48 150 17 163 17 163C7 166 0 177 0 186L0 288C0 297 4 301 13 301L16 300C17 300 37 291 50 287C52 285 53 285 55 285C65 285 72 301 72 308L72 485C72 494 81 501 91 501C105 501 115 494 115 485L115 285C115 266 122 256 130 253L217 217C217 217 219 217 219 217L222 216C235 216 242 233 242 242L242 422C242 431 251 438 261 438C276 438 285 431 285 422L285 217C285 206 291 189 301 184C311 180 341 168 341 168C351 164 359 153 359 144L359 42C359 35 354 30 348 30C346 30 344 30 341 32L304 46C295 46 285 37 285 20L285 -114C285 -124 292 -151 304 -156ZM242 65C233 94 166 122 132 122C124 122 117 120 115 115C112 109 111 78 111 43C111 -1 112 -52 115 -63C118 -88 184 -118 220 -118C230 -118 239 -115 242 -109C245 -102 248 -66 248 -27C248 12 245 52 242 65Z","accidentalFlat":"M17 245C22 251 26 252 30 252C35 252 39 249 39 249C82 225 117 186 153 161C281 72 325 -16 325 -82C325 -164 262 -216 196 -220C171 -220 137 -209 117 -196C108 -189 92 -176 85 -176C82 -176 81 -176 78 -177C68 -181 62 -192 62 -202C63 -233 72 -579 72 -608C72 -624 59 -632 45 -632C24 -632 1 -618 0 -592C0 -592 6 230 17 245ZM68 117C68 117 63 30 63 -27C63 -50 65 -68 66 -73C76 -102 134 -144 167 -144C209 -144 226 -96 226 -60C226 17 160 95 98 134C92 137 88 138 84 138C71 138 68 124 68 117Z"};
+      const sv=document.createElementNS(NS,'svg'); sv.setAttribute('class','csmClef'); sv.setAttribute('viewBox',(-0.3*SP)+' '+(-4.7*SP)+' '+(12.2*SP)+' '+(7.6*SP)); sv.setAttribute('preserveAspectRatio','xMidYMid meet'); sv.setAttribute('role','img'); fl.appendChild(sv);
+      const mk=(t,a)=>{ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); sv.appendChild(e); return e; };
+      const lines=[-1,0,1,2,3].map(k=>mk('line',{x1:-0.2*SP,x2:11.8*SP,y1:-k*SP,y2:-k*SP,class:'clefLine'}));   // the five lines (the G line at 0)
+      mk('path',{d:GL.gClef,transform:'translate('+(0.1*SP)+' 0)',class:'clefInk'}); const accG=mk('g',{});
+      // the signature: sharps F C G D A E B, flats B E A D G C F, on their places from the bottom line (E4 = 0, a step a half space)
+      const SH=[8,5,9,6,3,7,4], FL=[4,7,3,6,2,5,1]; let ks='';
+      (function sig(){ fl.classList.toggle('clefOn',FIELD.lit<0.5); sv.style.opacity=(1-FIELD.lit).toFixed(3);
+        const d=((walkDo()+SCKEY())%12-3+12)%12; let n=[0,1,2,3,4,5,6].find(k=>(7*k)%12===d), b=[0,1,2,3,4,5,6].find(k=>(5*k)%12===d);
+        if(n!==undefined&&b!==undefined&&n&&b) (pcName((d+3)%12,(d+3)%12).includes('♭')?n=undefined:b=undefined); const sharp=n!==undefined, cnt=sharp?n:b, k=d+'|'+cnt+'|'+sharp;
+        if(k!==ks){ ks=k; accG.innerHTML=''; for(let i=0;i<cnt;i++){ const st=(sharp?SH:FL)[i], y=SP-st*SP/2, e=document.createElementNS(NS,'path'); e.setAttribute('d',sharp?GL.accidentalSharp:GL.accidentalFlat); e.setAttribute('class','clefInk'); e.setAttribute('transform','translate('+((3.3+i*(sharp?1.15:1.0))*SP).toFixed(0)+' '+y+')'); accG.appendChild(e); }
+          lines.forEach(l=>l.setAttribute('x2',(Math.max(5.2,3.3+cnt*(sharp?1.15:1.0)+0.8)*SP).toFixed(0)));
+          sv.setAttribute('aria-label','Key signature: '+(cnt?cnt+' '+(sharp?'sharp':'flat')+(cnt>1?'s':''):'no sharps or flats')); }
+        requestAnimationFrame(sig); })();
+      const css=document.createElement('style'); css.textContent='.csmClef{ position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none } #frameLbl.clefOn .csmClef{ display:block } #frameLbl.clefOn .rollIn{ visibility:hidden } #frameLbl.clefOn{ -webkit-mask-image:none !important; mask-image:none !important } #frameLbl{ position:relative } .csmClef .clefLine{ stroke:var(--mid); stroke-width:26 } .csmClef .clefInk{ fill:var(--ink); opacity:.85 }';
+      document.head.appendChild(css); } }
+    /* TRIADS, IN THE DRUM'S PLACE (g(x) on): the triad playing, at a glance — its name in its root's colour, the grip on a
+       small grid (its three strings, the highest on top; across, the frets it spans, at least three, ending at its highest), each tone by its
+       solfège in its colour, the root capitalized; under it the inversion. A tone glows as it sounds. g(x) off, the clef. */
+    if(PIECE&&PIECE.gen==='triads'){ const fl=document.createElement('div'); fl.className='triBox'; { const wrap=document.querySelector('.wrap'); wrap.style.position='relative'; fb.parentElement.parentNode.insertBefore(fl,fb.parentElement);
+        const cl=document.querySelector('#frameLbl .csmClef'); if(cl) fl.appendChild(cl); }   /* (g(x) off, the clef here in its place) */ if(fl){ const NS='http://www.w3.org/2000/svg';
+      const sv=document.createElementNS(NS,'svg'); sv.setAttribute('class','triChart'); sv.setAttribute('viewBox','0 0 300 330'); sv.setAttribute('preserveAspectRatio','xMidYMid meet'); fl.appendChild(sv);
+      /* its place: in the headroom between the curve and the board, as tall as that room allows, centred in the wider of
+         the two spaces either side of the hand (sliding as the hand moves); on a phone, in the flow above the board */
+      const narrow=matchMedia('(max-width:640px)'); let pk='';
+      (function place(){ requestAnimationFrame(place); const wrap=fl.parentNode, Z=typeof ZOOM!=='undefined'?ZOOM:1;
+        const wide=FIELD.lit<0.5;   // (the clef wider than the chart)
+        if(narrow.matches){ fl.style.cssText='position:relative; width:'+(wide?300:200)+'px; height:'+(wide?190:220)+'px; margin:6px auto'; pk=''; return; }
+        const m=fb.getScreenCTM(); if(!m) return; const pt=fb.createSVGPoint(); pt.x=0; pt.y=FB.top; const by=pt.matrixTransform(m).y, W=wrap.getBoundingClientRect();
+        const pb=document.querySelector('.csmPlotBox'), ty=pb?pb.getBoundingClientRect().bottom+10:by-260, hf=fb.querySelectorAll('.hlHand')[1], hr=hf?hf.getBoundingClientRect():null;
+        const H=Math.max(110,Math.min(250,by-ty-6)), Wd=H*(wide?1.6:300/330);
+        let hl=W.left+W.width/2, hh=hl; if(hr&&hr.width>0){ hl=hr.left; hh=hr.right; }
+        const gl=[W.left,hl-16], gr=[hh+16,W.right], g=(gr[1]-gr[0])>(gl[1]-gl[0])?gr:gl, x=Math.max(g[0],Math.min(g[1]-Wd,(g[0]+g[1]-Wd)/2));
+        const k=[Math.round(x),Math.round(by),Math.round(H)].join(); if(k===pk) return; pk=k;
+        fl.style.cssText='position:absolute; z-index:3; pointer-events:none; transition:left .45s; width:'+(Wd/Z).toFixed(1)+'px; height:'+(H/Z).toFixed(1)+'px; left:'+((x-W.left)/Z).toFixed(1)+'px; top:'+((by-H-16-W.top)/Z).toFixed(1)+'px'; })();
+      const mk=(t,a,p)=>{ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); (p||sv).appendChild(e); return e; };
+      const title=mk('text',{x:150,y:52,class:'triTitle'}), grid=mk('g',{}), tones=mk('g',{}), foot=mk('text',{x:150,y:318,class:'triFoot'});
+      const INV=['Root Position','1st Inversion','2nd Inversion'], CW=62, RH=62, GY=78;
+      let key='', cells=[];
+      TRI_CHART=tk=>{ const L=FIELD.lit; sv.style.opacity=L.toFixed(3); sv.style.display=L<0.01?'none':'';
+        if(!TRI_LAST.length) return; const V=TRI_LAST[Math.floor(Math.max(0,tk)/barT(M.meter))%TRI_LAST.length], S=GROUPS[OPT.grp];
+        const k=V.deg+'|'+V.inv+'|'+V.fr.join(',')+'|'+OPT.grp+'|'+KEY;
+        if(k!==key){ key=k; const rc=rgbS(valRGB((KEY+MAJ[V.deg])%12)), n=Math.max(3,Math.max(...V.fr)-Math.min(...V.fr)+1), f0=Math.max(...V.fr)-n+1, w=n*CW, x0=150-w/2;
+          title.textContent=SYL[V.deg]+' Triad'; title.setAttribute('fill',rc); foot.textContent=INV[V.inv]; foot.setAttribute('fill',rc);
+          grid.innerHTML=''; tones.innerHTML=''; cells=[];
+          for(let r=0;r<3;r++) for(let c=0;c<n;c++) mk('rect',{x:x0+c*CW,y:GY+r*RH,width:CW,height:RH,class:'triCell'},grid);
+          [0,1,2].forEach(j=>{ const pc=pcOf(S[j],V.fr[j]), rel=((pc-KEY)%12+12)%12, d=MAJ.indexOf(rel), nm=SYL[d], root=d===V.deg;
+            const t=mk('text',{x:x0+(V.fr[j]-f0+0.5)*CW,y:GY+(2-j+0.5)*RH,class:'triTone',fill:rgbS(valRGB(pc))},tones); t.textContent=root?nm:nm.toLowerCase();
+            cells.push({t,s:S[j],f:V.fr[j],c:rgbS(valRGB(pc))}); }); }
+        cells.forEach(o=>{ const on=T.on&&INST.has(o.s*(FMAX+1)+o.f); o.t.style.filter=on?'drop-shadow(0 0 7px '+o.c+')':''; o.t.style.opacity=on||!T.on?1:0.78; }); };
+      const css=document.createElement('style'); css.textContent='.triChart{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none }  .triChart text{ text-anchor:middle; dominant-baseline:central; font-family:var(--sans,system-ui,sans-serif); font-weight:700 } .triTitle{ font-size:40px } .triFoot{ font-size:24px } .triTone{ font-size:30px } .triCell{ fill:none; stroke:var(--mid); stroke-opacity:.55; stroke-width:2 } body.noDU .cuDU{ display:none } body.triPage #frameLbl{ display:none !important } body.triPage .triBox .csmClef{ display:block }';
+      document.head.appendChild(css); document.body.classList.add('triPage'); TRI_CHART(0); } }
     const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
-      const place=()=>{ if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px 0 6px 4px'; return; }
+      const place=()=>{ if(!box.offsetParent||box.closest('.zoomLayer')) return;   // hidden (g(x) off): placed when it shows again
+        if(narrow.matches){ box.style.position=''; box.style.left=box.style.top=''; box.style.margin='10px auto 6px'; const W0=(box.parentNode.getBoundingClientRect().width||340)/ZOOM; box.style.setProperty('--rh',Math.max(18,Math.min(44,(W0-16)/7.3)).toFixed(1)+'px'); return; }
         const m=fb.getScreenCTM(); if(!m) return; const p=fb.createSVGPoint(); p.x=0; p.y=FB.top; const by=p.matrixTransform(m).y, W=wrap.getBoundingClientRect();
-        p.y=fb.viewBox.baseVal.y; const ty=p.matrixTransform(m).y, rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));
+        p.y=fb.viewBox.baseVal.y; const pb=document.querySelector('.csmPlotBox'), pr=pb&&pb.parentNode===wrap?pb.getBoundingClientRect():null, ty=Math.max(p.matrixTransform(m).y,pr?pr.bottom+10*ZOOM:-1e9), rh=Math.max(18,Math.min(62,((by-ty)/ZOOM-18)/3));   // (below the curve, above the board)
         box.style.setProperty('--rh',rh.toFixed(1)+'px'); box.style.fontSize='';
         box.style.position='absolute'; box.style.margin='0'; box.style.zIndex='3'; box.style.pointerEvents='none';
-        const bw=box.offsetWidth, hs=handSpan(); let left=0.5*W.width/ZOOM;
-        if(hs){ const OP=(box.offsetParent||wrap).getBoundingClientRect(), hl=toScreenX(hs[0]), hr=toScreenX(hs[1]), ck=document.querySelector('.cuClock'), cb=ck?ck.getBoundingClientRect():null, B=bw*ZOOM;
-          // (screen px) between the hand and the clock, or the clock and the page's edge
-          const lo=(cb&&cb.left<hl?cb.right:W.left)+12, hi=(cb&&cb.left>hr?cb.left:W.right)-12, roomR=hi-hr, roomL=hl-lo, mid=W.left+0.5*W.width;
-          const x=roomR>=roomL?Math.max(hr+12,Math.min(hi-B,mid)):Math.max(lo,Math.min(hl-12-B,mid)); left=(x-OP.left)/ZOOM; }
+        const hs=handSpan(); let left=0.5*W.width/ZOOM;
+        if(hs){ const OP=(box.offsetParent||wrap).getBoundingClientRect(), ck=document.querySelector('.cuClock'), cr=ck?ck.getBoundingClientRect():null;
+          // the hand: where its grip is going (handSpan) and where it is drawn now, both (screen px)
+          let hl=toScreenX(hs[0]), hr=toScreenX(hs[1]); const hf=fb.querySelectorAll('.hlHand')[1]; if(hf){ const r=hf.getBoundingClientRect(); if(r.width>0){ hl=Math.min(hl,r.left); hr=Math.max(hr,r.right); } }
+          const hi=W.right-12, roomR=hi-(hr+12);
+          // the largest the drum can be and still sit beside the hand: right of it up to the page's edge, or left of it down to
+          // the clock where the clock reaches down beside it (else the page's edge); a smaller drum sits lower, so the clock
+          // may no longer be in its way
+          let x=null;
+          for(let r=rh;r>=14;r*=0.92){ box.style.setProperty('--rh',r.toFixed(1)+'px'); const B=box.offsetWidth*ZOOM, topY=by-(box.offsetHeight+14)*ZOOM;
+            const cb=cr&&cr.bottom>topY&&cr.left<hl?cr:null, lo=(cb?Math.max(cb.right,W.left):W.left)+12, roomL=(hl-12)-lo, mid=W.left+0.5*W.width-B/2;
+            if(roomR>=B){ x=Math.max(hr+12,Math.min(hi-B,mid)); break; }
+            if(roomL>=B){ x=Math.max(lo,Math.min(hl-12-B,mid)); break; } }
+          // no size fits beside it: the smallest, kept inside the page on the roomier side
+          if(x===null){ const B=box.offsetWidth*ZOOM; x=roomR>=(hl-W.left)?hi-B:W.left+12; }
+          left=(Math.max(W.left,Math.min(W.right-box.offsetWidth*ZOOM,x))-OP.left)/ZOOM; }
         box.style.left=left.toFixed(1)+'px'; box.style.top=((by-W.top)/ZOOM-box.offsetHeight-14).toFixed(1)+'px'; };
-      afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600); } }
+      afterFit.push(place); addEventListener('resize',place); narrow.addEventListener('change',place); new ResizeObserver(place).observe(fp); setTimeout(place,0); setTimeout(place,600);
+      box.style.transition='left .45s ease, top .3s ease';
+      /* THE BOARD ZOOMED: the drum (or, g(x) off, the clef) comes along, in the same proportion to the board as on the page and
+         in the same place beside the hand — measured on the page in the board's own units (its row height, its offset from the
+         hand, its gap above the strings) and drawn from them on the zoomed board, following the hand there; the zoomed board
+         given headroom enough to hold it. Back to its place after. */
+      { let zh=null, PR=null; (function zd(){ const L=document.querySelector('.zoomLayer'), on=typeof SURF!=='undefined'&&SURF&&SURF.kind==='fb'&&L&&!L.hidden&&L.contains(fb);
+          const r=fb.getBoundingClientRect(), v=fb.viewBox.baseVal, k=r.height/v.height, hs=handSpan(), h0=hs?hs[0]:0;
+          if(!on&&!zh&&box.offsetParent&&r.height>0){ const b=box.getBoundingClientRect(); if(b.height>0){
+              PR={u:b.height/3/k, dx:(b.left-r.left)/k+v.x-h0, gap:FB.top-((b.bottom-r.top)/k+v.y)};
+              const vy=Math.min(-100,Math.floor(FB.top-PR.gap-3*PR.u-12)); fb.dataset.zoomVb='-10 '+vy+' 1000 '+(280-vy); } }
+          if(on&&PR){ if(!zh){ zh={parent:box.parentNode,next:box.nextSibling,style:box.getAttribute('style')}; L.appendChild(box); }
+            const rh=PR.u*k, left=r.left+(h0+PR.dx-v.x)*k, top=r.top+(FB.top-PR.gap-v.y)*k-3*rh;
+            box.style.cssText='position:fixed; margin:0; z-index:62; pointer-events:none; transition:none; left:'+left.toFixed(1)+'px; top:'+top.toFixed(1)+'px; --rh:'+rh.toFixed(2)+'px'; }
+          else if(!on&&zh){ zh.parent.insertBefore(box,zh.next); if(zh.style===null) box.removeAttribute('style'); else box.setAttribute('style',zh.style); zh=null; place(); }
+          requestAnimationFrame(zd); })(); }
+      // the hand moving on (a pass into the next mode, a mode chosen, the constellation dragged) or the drum's names changing:
+      // placed afresh, and again once the hand has settled where it went
+      { let wk='', again=null; setInterval(()=>{ const hs=handSpan(), k=(hs?hs.join():'')+'|'+box.offsetWidth+'|'+box.offsetHeight; if(k===wk) return; wk=k; place(); clearTimeout(again); again=setTimeout(place,900); },200); }
+      let gxWas=document.body.classList.contains('gxOn'); new MutationObserver(()=>{ const on=document.body.classList.contains('gxOn'); if(on===gxWas) return; gxWas=on; if(on){ place(); requestAnimationFrame(place); setTimeout(place,120); } }).observe(document.body,{attributes:true,attributeFilter:['class']}); }
+    /* THE ROOT CONSTELLATION: the E shape's root and its octaves — on the low E, the high e (the same fret) and the D string
+       (two frets on) — three rings sliding along the board together, in the colour of the root's valence. Grab any of them
+       and the constellation drags smoothly to any of the twelve places; let go and it settles onto the nearest fret, the
+       hand following to set up the shape there. A root the ring gives a diatonic valence takes that mode (as the mode bank
+       would), its root at 12 o'clock; an anti's root goes to 12 o'clock too, its shape and frames its tritone partner's. */
+    if(!PIECE) CONST=(()=>{ const NSV='http://www.w3.org/2000/svg', g=document.createElementNS(NSV,'g'); g.setAttribute('class','csmRoots');
+      const PTS=[[LOWE,0],[0,0],[Math.max(0,NSTR-3),2]];                   // [string, frets above the root]: low E, high e, D
+      const hits=document.createElementNS(NSV,'g'); hits.setAttribute('class','csmRootHits');
+      const dots=PTS.map(([s,o])=>{ const c=document.createElementNS(NSV,'circle'); c.setAttribute('r','10'); c.setAttribute('cy',FB.strY[s]); g.appendChild(c);
+        const h=document.createElementNS(NSV,'circle'); h.setAttribute('r','12'); h.setAttribute('cy',FB.strY[s]); hits.appendChild(h); return {s,o,c,h}; });
+      const css=document.createElement('style'); css.textContent='.csmRoots circle{ fill-opacity:.16; stroke-width:3; pointer-events:none } .csmRootHits circle{ fill:transparent; stroke:none; cursor:grab; pointer-events:all; touch-action:none } .csmRootHits.drag circle{ cursor:grabbing } body.csmDrag, body.csmDrag *{ cursor:grabbing !important; -webkit-user-select:none; user-select:none }';
+      document.head.appendChild(css);
+      const UMAX=11;                                                       // the root's twelve places along the low E: open to the 11th
+      // a fret position (fractional) to the board, where a fingertip stops it — just behind its fret wire — and back
+      const ringX=n=>cellR(n)-Math.min(20,0.5*(cellR(n)-cellL(n)));      // a ring's edge about 10 units off its fret's wire
+      const xAt=v=>{ v=Math.max(0,Math.min(FMAX,v)); const n=Math.min(FMAX-1,Math.floor(v)), a=ringX(n), b=ringX(n+1); return a+(v-n)*(b-a); };
+      const vAt=x=>{ if(x<=ringX(0)) return 0; for(let n=0;n<FMAX;n++){ const a=ringX(n), b=ringX(n+1); if(x<b) return n+(x-a)/(b-a); } return FMAX; };
+      const svgX=e=>{ const m=fb.getScreenCTM(); if(!m) return null; const p=fb.createSVGPoint(); p.x=e.clientX; p.y=e.clientY; return p.matrixTransform(m.inverse()).x; };
+      let u=null, drag=null, snap=null, lastT=0, colKey='';
+      const target=()=>curL().rf;
+      function paint(){ const L=FIELD.lit, ink=inkColour(), pc=drag?pcOf(LOWE,Math.round(u)):curL().root, col=L>0.001?mixRGB(ink,valRGB(pc),L):ink, k=rgbS(col);
+        if(k!==colKey){ colKey=k; dots.forEach(d=>{ d.c.setAttribute('stroke',k); d.c.setAttribute('fill',k); }); }
+        dots.forEach(d=>{ const x=xAt(u+d.o).toFixed(2); d.c.setAttribute('cx',x); d.h.setAttribute('cx',x); }); }
+      function frame(now){ const dt=Math.min(0.1,lastT?(now-lastT)/1000:0.016); lastT=now;
+        // the rings under the fingers (just beneath the hand's front layer); their grips over everything
+        const front=fb.querySelectorAll('.hlHand')[1]||null; if(front&&g.nextSibling!==front) fb.insertBefore(g,front); else if(!front&&g.parentNode!==fb) fb.appendChild(g);
+        if(hits!==fb.lastChild) fb.appendChild(hits);
+        if(u===null) u=target();
+        if(snap){ const k=Math.min(1,(now-snap.t0)/snap.ms), e=k*k*(3-2*k); u=snap.a+(snap.b-snap.a)*e; if(k>=1){ u=snap.b; const f=snap.b; snap=null; land(f); } }
+        else if(!drag){ const tg=target(); u+=(tg-u)*(1-Math.exp(-dt/0.12)); if(Math.abs(tg-u)<1e-3) u=tg; }
+        paint(); requestAnimationFrame(frame); }
+      // let go on fret f: the mode whose root the ring puts there, or an anti's
+      function land(f){ const rel=((pcOf(LOWE,f)-KEY)%12+12)%12, i=MAJ.indexOf(rel), mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)], anti=i<0;
+        if(mode===OPT.mode&&anti===OPT.anti) return;
+        OPT.mode=mode; OPT.anti=anti; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} mark(); regen(); }
+      hits.addEventListener('pointerdown',e=>{ const x=svgX(e); if(x===null) return; e.preventDefault(); e.stopPropagation();
+        const c=e.target.closest('circle'), d=dots.find(q=>q.h===c)||dots[0]; snap=null;
+        drag={id:e.pointerId,off:vAt(x)-(u+d.o)}; hits.classList.add('drag'); document.body.classList.add('csmDrag'); try{ hits.setPointerCapture(e.pointerId); }catch(err){} });
+      hits.addEventListener('pointermove',e=>{ if(!drag) return; const x=svgX(e); if(x===null) return; u=Math.max(0,Math.min(UMAX,vAt(x)-drag.off)); });
+      const end=e=>{ if(!drag) return; drag=null; hits.classList.remove('drag'); document.body.classList.remove('csmDrag'); try{ hits.releasePointerCapture(e.pointerId); }catch(err){}
+        const b=Math.max(0,Math.min(UMAX,Math.round(u))); snap={a:u,b,t0:performance.now(),ms:110+140*Math.abs(b-u)}; };
+      hits.addEventListener('pointerup',end); hits.addEventListener('pointercancel',end);
+      hits.addEventListener('click',e=>e.stopPropagation());
+      let mounted=false;
+      return {mount(){ if(mounted) return; mounted=true; fb.appendChild(g); fb.appendChild(hits); requestAnimationFrame(frame); }}; })();
+  }
   // the drill a first visit opens on: two bars, a chord and its relative (the orientation the same, the mode moving)
   function example(){ const m=fresh(); m.title='Custom'; const save=M; M=m;
     const {out}=parse('C_Do e 5:3 4:2 3:0 2:1 q 5:3+4:2+3:0+2:1+1:0 r | Am e 5:0 4:2 3:2 2:1 q 5:0+4:2+3:2+2:1+1:0 r'); m.ev=out.ev; m.ch=out.ch; m.bars=out.bars; M=save; return m; }
-  return {show, run, tab:tabDraw, step, nextSeg:null,
+  return {show, run, tab:tabDraw, step, nextSeg:PRE?(after=>nextPass(after)):null,
     cells:()=>null, rootNow:()=>curMode?curMode.root:(curChord?curChord.root:null), bass:()=>rootHeld,
     // for testing
-    _:{parse,serialize,model:()=>M,compile:()=>compile(),cur,pal,
+    _:{parse,serialize,model:()=>M,compile:()=>compile(),cur,pal,tri:{triVoicings,allInv,KEY:()=>KEY,FMAX},
       load(t,meter){ if(meter) M.meter=meter; const {out,errs}=parse(t); M.ev=out.ev; M.ch=out.ch; M.bars=out.bars; normalize(); textEl.value=serialize(); rebuild();
         return {errs,warn:C.warn||[],fing:M.ev.map(e=>(e.s+1)+':'+e.f+'>'+(C.fing?C.fing[e.id]:'-')).join(' '),pls:(C.pls||[]).map(pl=>pl.map(q=>q.g+'@'+(q.s+1)+':'+q.f+(q.barre?'B':'')).join(' '))}; }}}; }
 

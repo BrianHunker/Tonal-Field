@@ -130,12 +130,17 @@ function segAt(t){ let s=T.segs[0]; for(const x of T.segs){ if(x.countStart<=t) 
 // downbeat, an up on each off-beat — null if they are not laid so (or there are none)
 function pendOf(s){
   if(s._pendP===s.plan) return s._pend; s._pendP=s.plan; s._pend=null; const pl=s.plan, F=s.fig; if(!pl||!F||pl.length!==F.length) return null;
-  const st=[]; for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
-    let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++; if(n>1) st.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); }
-  if(!st.length) return null; const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp));
-  const hit=new Set(); for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return null; hit.add(Math.round(j)); }
-  s._pend={b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}; return s._pend; }
-function pendY(s,ph){ const P=pendOf(s); if(!P||ph<P.b0||ph>=P.b1) return null;
+  // the runs of strums: a tone picked alone between two strums ends the run (the pick goes to its string, not across them all)
+  const runs=[]; let cur=[];
+  for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
+    let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++;
+    if(n>1) cur.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); else if(cur.length){ runs.push(cur); cur=[]; } }
+  if(cur.length) runs.push(cur);
+  const out=[]; runs.forEach(st=>{ const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp)), hit=new Set();
+    for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return; hit.add(Math.round(j)); }
+    out.push({b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}); });
+  s._pend=out.length?out:null; return s._pend; }
+function pendY(s,ph){ const R=pendOf(s); if(!R) return null; const P=R.find(r=>ph>=r.b0&&ph<r.b1); if(!P) return null;
   const j=Math.floor((ph-P.b0)/0.5+1e-9), u=ph-P.b0-j*0.5, down=j%2===0, lo=FB.strY[NSTR-1], hi=FB.strY[0], a=down?lo:hi, b=down?hi:lo;
   // ghost: a stroke that strikes nothing (eased in and out at its ends, 0–1)
   const gh=P.hit.has(j)?0:Math.max(0,Math.min(1,u/0.08,(0.5-u)/0.08)); PEND_GHOST=gh;

@@ -1430,12 +1430,17 @@ function segAt(t){ let s=T.segs[0]; for(const x of T.segs){ if(x.countStart<=t) 
 // downbeat, an up on each off-beat — null if they are not laid so (or there are none)
 function pendOf(s){
   if(s._pendP===s.plan) return s._pend; s._pendP=s.plan; s._pend=null; const pl=s.plan, F=s.fig; if(!pl||!F||pl.length!==F.length) return null;
-  const st=[]; for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
-    let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++; if(n>1) st.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); }
-  if(!st.length) return null; const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp));
-  const hit=new Set(); for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return null; hit.add(Math.round(j)); }
-  s._pend={b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}; return s._pend; }
-function pendY(s,ph){ const P=pendOf(s); if(!P||ph<P.b0||ph>=P.b1) return null;
+  // the runs of strums: a tone picked alone between two strums ends the run (the pick goes to its string, not across them all)
+  const runs=[]; let cur=[];
+  for(let i=0;i<pl.length;i++){ const q=pl[i]; if(q.t===undefined||!q.pick) continue; if(i>0&&pl[i-1].t===q.t&&pl[i-1].frame===q.frame) continue;
+    let n=1; while(i+n<pl.length&&pl[i+n].t===q.t&&pl[i+n].frame===q.frame) n++;
+    if(n>1) cur.push({b:F[i].s,up:!!q.up,sp:(F[i+n-1].s-F[i].s)/(n-1)}); else if(cur.length){ runs.push(cur); cur=[]; } }
+  if(cur.length) runs.push(cur);
+  const out=[]; runs.forEach(st=>{ const b0=st[0].b, sp=Math.max(...st.map(x=>x.sp)), hit=new Set();
+    for(const x of st){ const j=(x.b-b0)/0.5; if(Math.abs(j-Math.round(j))>1e-3||(Math.round(j)%2===1)!==x.up) return; hit.add(Math.round(j)); }
+    out.push({b0,b1:st[st.length-1].b+0.5,sd:Math.min(0.3,sp*(NSTR-1)),hit}); });
+  s._pend=out.length?out:null; return s._pend; }
+function pendY(s,ph){ const R=pendOf(s); if(!R) return null; const P=R.find(r=>ph>=r.b0&&ph<r.b1); if(!P) return null;
   const j=Math.floor((ph-P.b0)/0.5+1e-9), u=ph-P.b0-j*0.5, down=j%2===0, lo=FB.strY[NSTR-1], hi=FB.strY[0], a=down?lo:hi, b=down?hi:lo;
   // ghost: a stroke that strikes nothing (eased in and out at its ends, 0–1)
   const gh=P.hit.has(j)?0:Math.max(0,Math.min(1,u/0.08,(0.5-u)/0.08)); PEND_GHOST=gh;
@@ -3927,7 +3932,8 @@ function customTool(){
     paintChords(curChord); if(PRE) flexTab();
     if(PRE&&typeof ROLL!=='undefined'&&ROLL){ rollStep(tk); rollLight(snd,tk); }
     if(PRE==='csm'&&CONE.scale) CONE.scale(scaleSet(),soundNow,1-FIELD.lit,SCDRAG-Math.round(SCDRAG));
-    if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count); }
+    if(CLOCK) CLOCK.step(tk,playing,playing&&!!st.count);
+    if(TRI_CHART) TRI_CHART(playing&&st.count?0:tk); }
   // THE DRUM (an exercise page): the frame the walk is in — the one sounding, or the next to come — rolled into the middle.
   // A string's frame by where the hand sits in position: 6th Ti, 5th Mi, 4th La, 3rd Re, 2nd Sol_La (two tones: the walk
   // shifts on to TiDo_Re going up, Re_MiFa going down), 1st Ti.
@@ -4080,6 +4086,7 @@ function customTool(){
      a string while its next tone lies in the hand's four frets, crossing to the next string when it does not (reaching a
      fret back with the first finger, or on with the fourth, where it must). Options: the mode; the lower octave, the upper
      or both; up then down or down then up; the chords in or out. ---------- */
+  let TRI_CHART=null;
   let keyWatch=null, modePaint=null, CONST=null, STRIP=null, soundNow=new Set();
   /* HOLD (the toolbar's Hold, off by default): on, each pass is this mode again; off, the exercise moves on to the next
      diatonic mode at each pass's end — the next button along the mode bank, which follows the Ring's order: 1, up the
@@ -4274,7 +4281,8 @@ function customTool(){
     for(const C of triVoicings(c,inv,g)){ const near=d=>allInv(d,g).map(v=>({v,k:vlCost(C,v)})).sort((a,b)=>a.k-b.k)[0];
       const a=near(n1), b=near(n2); if(a&&b&&a.k<=4&&b.k<=4) return [C,a.v,C,b.v]; }
     return triVoicings(c,inv,g).slice(0,1); }
-  const GEN={triads:()=>triadSeq().map(triBar)};
+  let TRI_LAST=[];
+  const GEN={triads:()=>(TRI_LAST=triadSeq()).map(triBar)};
   // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
   // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
   if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
@@ -4315,7 +4323,7 @@ function customTool(){
     /* G(X) OFF: no solfège anywhere on the page — no drum, no syllables in the TAB or on the chord, the mode bank by its
        letters alone — and the fretboard, in place of its grey paint, carries every fret's letter (both names where a tone has
        two). The letters fade in as the field fades out. */
-    document.body.classList.add('csmPage'); if(PIECE) document.body.classList.add('piecePage'); boardLetters=true;
+    document.body.classList.add('csmPage'); if(PIECE) document.body.classList.add('piecePage'); if(PIECE&&PIECE.noDU) document.body.classList.add('noDU'); boardLetters=true;
     { const hb=document.getElementById('hold'); if(hb){ hb.title='Hold: repeat this mode (off: on to the next mode each pass)';
         hb.addEventListener('click',e=>{ e.stopImmediatePropagation(); HOLD=!HOLD; PEEK=null; try{ localStorage.setItem(SK('eshape-hold'),HOLD?'on':'off'); }catch(err){} if(!T.on) refresh(); },true);
         (function hs(){ hb.style.display=PIECE?'none':''; hb.setAttribute('aria-pressed',HOLD); hb.classList.toggle('on',HOLD); requestAnimationFrame(hs); })(); } }
@@ -4583,6 +4591,42 @@ function customTool(){
         requestAnimationFrame(sig); })();
       const css=document.createElement('style'); css.textContent='.csmClef{ position:absolute; inset:0; width:100%; height:100%; display:none; pointer-events:none } #frameLbl.clefOn .csmClef{ display:block } #frameLbl.clefOn .rollIn{ visibility:hidden } #frameLbl.clefOn{ -webkit-mask-image:none !important; mask-image:none !important } #frameLbl{ position:relative } .csmClef .clefLine{ stroke:var(--mid); stroke-width:26 } .csmClef .clefInk{ fill:var(--ink); opacity:.85 }';
       document.head.appendChild(css); } }
+    /* TRIADS, IN THE DRUM'S PLACE (g(x) on): the triad playing, at a glance — its name in its root's colour, the grip on a
+       small grid (its three strings, the highest on top; across, the frets it spans, at least three, ending at its highest), each tone by its
+       solfège in its colour, the root capitalized; under it the inversion. A tone glows as it sounds. g(x) off, the clef. */
+    if(PIECE&&PIECE.gen==='triads'){ const fl=document.createElement('div'); fl.className='triBox'; { const wrap=document.querySelector('.wrap'); wrap.style.position='relative'; fb.parentElement.parentNode.insertBefore(fl,fb.parentElement);
+        const cl=document.querySelector('#frameLbl .csmClef'); if(cl) fl.appendChild(cl); }   /* (g(x) off, the clef here in its place) */ if(fl){ const NS='http://www.w3.org/2000/svg';
+      const sv=document.createElementNS(NS,'svg'); sv.setAttribute('class','triChart'); sv.setAttribute('viewBox','0 0 300 330'); sv.setAttribute('preserveAspectRatio','xMidYMid meet'); fl.appendChild(sv);
+      /* its place: in the headroom between the curve and the board, as tall as that room allows, centred in the wider of
+         the two spaces either side of the hand (sliding as the hand moves); on a phone, in the flow above the board */
+      const narrow=matchMedia('(max-width:640px)'); let pk='';
+      (function place(){ requestAnimationFrame(place); const wrap=fl.parentNode, Z=typeof ZOOM!=='undefined'?ZOOM:1;
+        const wide=FIELD.lit<0.5;   // (the clef wider than the chart)
+        if(narrow.matches){ fl.style.cssText='position:relative; width:'+(wide?300:200)+'px; height:'+(wide?190:220)+'px; margin:6px auto'; pk=''; return; }
+        const m=fb.getScreenCTM(); if(!m) return; const pt=fb.createSVGPoint(); pt.x=0; pt.y=FB.top; const by=pt.matrixTransform(m).y, W=wrap.getBoundingClientRect();
+        const pb=document.querySelector('.csmPlotBox'), ty=pb?pb.getBoundingClientRect().bottom+10:by-260, hf=fb.querySelectorAll('.hlHand')[1], hr=hf?hf.getBoundingClientRect():null;
+        const H=Math.max(110,Math.min(250,by-ty-6)), Wd=H*(wide?1.6:300/330);
+        let hl=W.left+W.width/2, hh=hl; if(hr&&hr.width>0){ hl=hr.left; hh=hr.right; }
+        const gl=[W.left,hl-16], gr=[hh+16,W.right], g=(gr[1]-gr[0])>(gl[1]-gl[0])?gr:gl, x=Math.max(g[0],Math.min(g[1]-Wd,(g[0]+g[1]-Wd)/2));
+        const k=[Math.round(x),Math.round(by),Math.round(H)].join(); if(k===pk) return; pk=k;
+        fl.style.cssText='position:absolute; z-index:3; pointer-events:none; transition:left .45s; width:'+(Wd/Z).toFixed(1)+'px; height:'+(H/Z).toFixed(1)+'px; left:'+((x-W.left)/Z).toFixed(1)+'px; top:'+((by-H-16-W.top)/Z).toFixed(1)+'px'; })();
+      const mk=(t,a,p)=>{ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); (p||sv).appendChild(e); return e; };
+      const title=mk('text',{x:150,y:52,class:'triTitle'}), grid=mk('g',{}), tones=mk('g',{}), foot=mk('text',{x:150,y:318,class:'triFoot'});
+      const INV=['Root Position','1st Inversion','2nd Inversion'], CW=62, RH=62, GY=78;
+      let key='', cells=[];
+      TRI_CHART=tk=>{ const L=FIELD.lit; sv.style.opacity=L.toFixed(3); sv.style.display=L<0.01?'none':'';
+        if(!TRI_LAST.length) return; const V=TRI_LAST[Math.floor(Math.max(0,tk)/barT(M.meter))%TRI_LAST.length], S=GROUPS[OPT.grp];
+        const k=V.deg+'|'+V.inv+'|'+V.fr.join(',')+'|'+OPT.grp+'|'+KEY;
+        if(k!==key){ key=k; const rc=rgbS(valRGB((KEY+MAJ[V.deg])%12)), n=Math.max(3,Math.max(...V.fr)-Math.min(...V.fr)+1), f0=Math.max(...V.fr)-n+1, w=n*CW, x0=150-w/2;
+          title.textContent=SYL[V.deg]+' Triad'; title.setAttribute('fill',rc); foot.textContent=INV[V.inv]; foot.setAttribute('fill',rc);
+          grid.innerHTML=''; tones.innerHTML=''; cells=[];
+          for(let r=0;r<3;r++) for(let c=0;c<n;c++) mk('rect',{x:x0+c*CW,y:GY+r*RH,width:CW,height:RH,class:'triCell'},grid);
+          [0,1,2].forEach(j=>{ const pc=pcOf(S[j],V.fr[j]), rel=((pc-KEY)%12+12)%12, d=MAJ.indexOf(rel), nm=SYL[d], root=d===V.deg;
+            const t=mk('text',{x:x0+(V.fr[j]-f0+0.5)*CW,y:GY+(2-j+0.5)*RH,class:'triTone',fill:rgbS(valRGB(pc))},tones); t.textContent=root?nm:nm.toLowerCase();
+            cells.push({t,s:S[j],f:V.fr[j],c:rgbS(valRGB(pc))}); }); }
+        cells.forEach(o=>{ const on=T.on&&INST.has(o.s*(FMAX+1)+o.f); o.t.style.filter=on?'drop-shadow(0 0 7px '+o.c+')':''; o.t.style.opacity=on||!T.on?1:0.78; }); };
+      const css=document.createElement('style'); css.textContent='.triChart{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none }  .triChart text{ text-anchor:middle; dominant-baseline:central; font-family:var(--sans,system-ui,sans-serif); font-weight:700 } .triTitle{ font-size:40px } .triFoot{ font-size:24px } .triTone{ font-size:30px } .triCell{ fill:none; stroke:var(--mid); stroke-opacity:.55; stroke-width:2 } body.noDU .cuDU{ display:none } body.triPage #frameLbl{ display:none !important } body.triPage .triBox .csmClef{ display:block }';
+      document.head.appendChild(css); document.body.classList.add('triPage'); TRI_CHART(0); } }
     const box=document.getElementById('frameLbl'); if(box&&box.classList.contains('roll')){ const fp=fb.parentElement, wrap=document.querySelector('.wrap'); box.classList.add('big'); fp.parentNode.insertBefore(box,fp);
       wrap.style.position='relative'; const narrow=matchMedia('(max-width:640px)');
       const place=()=>{ if(!box.offsetParent||box.closest('.zoomLayer')) return;   // hidden (g(x) off): placed when it shows again

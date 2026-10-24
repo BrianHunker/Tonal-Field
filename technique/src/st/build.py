@@ -198,7 +198,7 @@ book('sol-fa','Drill Exercise 10/23/26','Sol-Fa','Chord',"""{handLab:true, custo
 # a string group, then one of four drills (one triad's inversions; the chord scale in one inversion; Domisol with Falado
 # and Soltire; Ladomi with Refala and Misolti); each bar one triad, struck, broken, struck
 book('triads','Drill Exercise 10/24/26','Triads','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
-  piece:{id:'triads', title:'Triads', key:3, free:true, gen:'triads', bpm:70, weights:true, symModes:true, bars:[], opts:[
+  piece:{id:'triads', title:'Triads', key:3, free:true, gen:'triads', noDU:true, bpm:70, weights:true, symModes:true, bars:[], opts:[
     {label:'Strings', key:'grp', def:2, items:[[1,'1 eBG'],[2,'2 BGD'],[3,'3 GDA'],[4,'4 DAE']]},
     {label:'Drill', key:'drill', def:'inv', items:[['inv','Inversions'],['scale','Chord Scale'],['maj','All Majors'],['min','All Minors']]},
     {label:'Triad', key:'tri', def:0, names:'triad', when:{drill:['inv']}, items:[[0,'Domisol'],[1,'Refala'],[2,'Misolti'],[3,'Falado'],[4,'Soltire'],[5,'Ladomi'],[6,'Tirefa']]},
