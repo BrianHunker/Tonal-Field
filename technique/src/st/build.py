@@ -193,3 +193,14 @@ book('sol-fa','Drill Exercise 10/23/26','Sol-Fa','Chord',"""{handLab:true, custo
     'E_Sol e 5:7@2 5:9@4 4:6@1 4:7@2 4:9@4 3:6@1 3:7@2 3:9@4',
     'D_Fa e 5:5@2 5:7@4 4:4@1 4:6@3 4:7@4 3:4@1 3:6@3 3:7@4']}, pages:[
   {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='solfa-gx')
+
+# Triads: close triads on three neighbouring strings, made afresh in any orientation the Ring or the curve is turned to —
+# a string group, then one of four drills (one triad's inversions; the chord scale in one inversion; Domisol with Falado
+# and Soltire; Ladomi with Refala and Misolti); each bar one triad, struck, broken, struck
+book('triads','Drill Exercise 10/24/26','Triads','Chord',"""{handLab:true, custom:true, preset:'csm', roll:true, loops:1,
+  piece:{id:'triads', title:'Triads', key:3, free:true, gen:'triads', bpm:70, weights:true, symModes:true, bars:[], opts:[
+    {label:'Strings', key:'grp', def:2, items:[[1,'1 eBG'],[2,'2 BGD'],[3,'3 GDA'],[4,'4 DAE']]},
+    {label:'Drill', key:'drill', def:'inv', items:[['inv','Inversions'],['scale','Chord Scale'],['maj','All Majors'],['min','All Minors']]},
+    {label:'Triad', key:'tri', def:0, names:'triad', when:{drill:['inv']}, items:[[0,'Domisol'],[1,'Refala'],[2,'Misolti'],[3,'Falado'],[4,'Soltire'],[5,'Ladomi'],[6,'Tirefa']]},
+    {label:'Inversion', key:'inv', def:0, when:{drill:['scale','maj','min']}, items:[[0,'Root'],[1,'1st'],[2,'2nd']]}]}, pages:[
+  {string:NSTR-1, fret:4,  deg:'ti',  dir:'up',   links:5}]}""",fmax=14,gx='triads-gx')

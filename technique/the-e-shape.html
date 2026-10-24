@@ -4111,10 +4111,10 @@ function customTool(){
   let markModes=null; const BOARD_DROP=250;   // board units the fretboard sits lower on the E Shape, under the clock
   const OPT={mode:'Do',anti:false,oct:'lower',dir:'updown',chords:'strum',tetra:false};   // anti: the root the anti of OPT.mode (its tritone partner), the frames OPT.mode's
   try{ Object.assign(OPT,JSON.parse(localStorage.getItem(SK('csm-opts'))||'{}')); }catch(err){}
-  if(PIECE){ OPT.mode='Do'; OPT.anti=false; OPT.chords='off'; if(!OPT.sec) OPT.sec='all'; if(!OPT.fing) OPT.fing=PIECE.alt?Object.keys(PIECE.alt)[0]:''; }
+  if(PIECE){ OPT.mode='Do'; OPT.anti=false; OPT.chords='off'; if(!OPT.sec) OPT.sec='all'; (PIECE.opts||[]).forEach(o=>{ if(!o.items.some(([v])=>v===OPT[o.key])) OPT[o.key]=o.def; }); if(!OPT.fing) OPT.fing=PIECE.alt?Object.keys(PIECE.alt)[0]:''; }
   if(OPT.chords===true) OPT.chords='strum'; else if(OPT.chords===false) OPT.chords='off';   // (an earlier visit's On | Off)
   let KEY=10;                                                            // Do's pitch (from A): G
-  if(PIECE) KEY=PIECE.key; else try{ const k=+localStorage.getItem(SK('eshape-key')); if(localStorage.getItem(SK('eshape-key'))!==null&&k>=0&&k<12) KEY=k; }catch(err){}
+  if(PIECE) KEY=PIECE.key; if(!PIECE||PIECE.free) try{ const k=+localStorage.getItem(SK('eshape-key')); if(localStorage.getItem(SK('eshape-key'))!==null&&k>=0&&k<12) KEY=k; }catch(err){}
   const MODE7=[['Do',0,'maj'],['Re',2,'min'],['Mi',4,'min'],['Fa',5,'maj'],['Sol',7,'maj'],['La',9,'min'],['Ti',11,'dim']];
   const MAJ=[0,2,4,5,7,9,11], FRAMES=[['Ti',['Ti','Do','Re']],['Mi',['Mi','Fa','Sol']],['La',['La','Ti','Do']],['Re',['Re','Mi','Fa']],['Sol',['Sol','La']]];
   const flatKey=k=>[1,4,6,8,11].includes(k), pcName=(pc,k)=>(flatKey(k)?LETTER_B:LETTER)[((pc%12)+12)%12];
@@ -4228,7 +4228,7 @@ function customTool(){
   let pieceBpm=PIECE?PIECE.bpm:0;
   function pieceModel(){
     const m=fresh(); m.title=PIECE.title; m.bpm=pieceBpm||drill.bpm; pieceBpm=0;
-    const bars=PIECE.bars.map((b,i)=>PIECE.alt&&PIECE.alt[OPT.fing]&&PIECE.alt[OPT.fing][i+1]||b);
+    const bars=(PIECE.gen?GEN[PIECE.gen]():PIECE.bars).map((b,i)=>PIECE.alt&&PIECE.alt[OPT.fing]&&PIECE.alt[OPT.fing][i+1]||b);
     const save=M; M=m; let r; try{ r=parse(bars.join(' | ')); } finally{ M=save; }
     if(r.errs.length) console.warn(PIECE.title+':',r.errs);
     const B=barT(m.meter), sec=(PIECE.sections||{})[OPT.sec], a=sec?(sec[0]-1)*B:0, b=sec&&sec[1]?sec[1]*B:Infinity;
@@ -4238,6 +4238,43 @@ function customTool(){
     // the opening chord carries its root's function in the orientation in force (D_Do in D): the Ring set by it, the rest bare
     if(m.ch[0]&&m.ch[0].t===0&&!m.ch[0].syl) m.ch[0]=Object.assign({},m.ch[0],{syl:SOLN[((m.ch[0].root-KEY-2)%12+12)%12]});
     m.bars=sec?(sec[1]||r.out.bars)-sec[0]+1:r.out.bars; m.key=KEY; return m; }
+  /* TRIADS (BOOK.piece.gen 'triads'): close triads on three neighbouring strings, made afresh in the orientation in force
+     and the options chosen — one triad (one mode) a bar, each bar struck, then broken, then struck: a strum on 1, the
+     triad broken in eighths on 2 & 3 & (low, middle, high, middle), a strum on 4; each string rings until it is struck again.
+       Inversions   one triad's three inversions up the neck, and back down to the middle one
+       Chord Scale  the seven triads in one inversion up the neck (from Do where the octave fits, else from the triad
+                    nearest the nut), and the first an octave on where it fits
+       All Majors   Domisol in the inversion chosen, with Falado and Soltire wherever the least voice leading takes them:
+                    I IV I V
+       All Minors   Ladomi likewise, with Refala and Misolti: vi ii vi iii */
+  const TRI_SYL=['Domisol','Refala','Misolti','Falado','Soltire','Ladomi','Tirefa'], TRI_Q=['','m','m','','','m','°'];
+  // a degree's letter by its step from Do's (in F♯, Ti is E♯, never F)
+  const NAT={A:0,B:2,C:3,D:5,E:7,F:8,G:10}, LT='ABCDEFG';
+  const degName=d=>{ const l=LT[(LT.indexOf(pcName(KEY,KEY)[0])+d)%7], x=((KEY+MAJ[d]-NAT[l])%12+12)%12; return l+(x===1?'♯':x===11?'♭':x===2?'𝄪':x===10?'𝄫':''); };
+  const GROUPS={1:[2,1,0],2:[3,2,1],3:[4,3,2],4:[5,4,3]};                 // a string group's strings, low to high
+  const om=s=>Math.round(openMidi(s));
+  function triVoicings(deg,inv,grp){ const S=GROUPS[grp], tones=[0,2,4].map(k=>(KEY+MAJ[(deg+k)%7])%12), out=[];
+    const ord=[tones[inv],tones[(inv+1)%3],tones[(inv+2)%3]];
+    for(let f0=0;f0<=FMAX;f0++){ if(pcOf(S[0],f0)!==ord[0]) continue; const fr=[f0], ps=[om(S[0])+f0]; let ok=true;
+      for(let j=1;j<3;j++){ let f=-1; for(let x=0;x<=FMAX;x++) if(pcOf(S[j],x)===ord[j]&&om(S[j])+x>ps[j-1]){ f=x; break; }
+        if(f<0||om(S[j])+f-ps[j-1]>6){ ok=false; break; } fr.push(f); ps.push(om(S[j])+f); }
+      const fd=fr.filter(f=>f>0); if(ok&&(!fd.length||Math.max(...fd)-Math.min(...fd)<=4)) out.push({deg,inv,fr,ps}); }
+    return out; }
+  const allInv=(deg,grp)=>[0,1,2].flatMap(i=>triVoicings(deg,i,grp)).sort((a,b)=>a.ps[0]-b.ps[0]);
+  const vlCost=(a,b)=>a.ps.reduce((c,p,j)=>c+Math.abs(p-b.ps[j]),0);
+  function triBar(V){ const S=GROUPS[OPT.grp], t=j=>(S[j]+1)+':'+V.fr[j];
+    const name=degName(V.deg)+TRI_Q[V.deg]+'_'+SYL[V.deg];
+    return name+' q '+t(0)+'=q+'+t(1)+'=q.+'+t(2)+'=h e '+t(0)+'=h '+t(1)+'=q '+t(2)+'=q '+t(1)+'=e q '+t(0)+'+'+t(1)+'+'+t(2); }
+  function triadSeq(){ const g=OPT.grp, inv=OPT.inv;
+    if(OPT.drill==='inv'){ const L=allInv(OPT.tri,g); if(L.length<3) return L; let k=L.findIndex((v,i)=>v.inv===0&&i+2<L.length); if(k<0) k=0; return [L[k],L[k+1],L[k+2],L[k+1]]; }
+    if(OPT.drill==='scale'){ const climb=(d0,v0)=>{ const out=[v0]; for(let n=1;n<=7;n++){ const d=(d0+n)%7, nx=triVoicings(d,inv,g).find(v=>v.ps[0]>out[out.length-1].ps[0]); if(!nx) break; out.push(nx); } return out; };
+      const fromDo=triVoicings(0,inv,g).map(v=>climb(0,v)).find(c=>c.length===8); if(fromDo) return fromDo;
+      const low=[0,1,2,3,4,5,6].flatMap(d=>triVoicings(d,inv,g)).sort((a,b)=>a.ps[0]-b.ps[0])[0]; return low?climb(low.deg,low):[]; }
+    const [c,n1,n2]=OPT.drill==='maj'?[0,3,4]:[5,1,2];
+    for(const C of triVoicings(c,inv,g)){ const near=d=>allInv(d,g).map(v=>({v,k:vlCost(C,v)})).sort((a,b)=>a.k-b.k)[0];
+      const a=near(n1), b=near(n2); if(a&&b&&a.k<=4&&b.k<=4) return [C,a.v,C,b.v]; }
+    return triVoicings(c,inv,g).slice(0,1); }
+  const GEN={triads:()=>triadSeq().map(triBar)};
   // THE E SHAPE's hand: every pressing tip drawn firmly up to its fret wire (aimed 2.5 mm behind it), a barre's partners too —
   // except a finger tucked under its neighbour's arch, which keeps the pair's own pull (Brian, Oct 2026)
   if(PRE==='csm'&&HANDLAB.hm){ HANDLAB.hm.setPull(4); HANDLAB.hm.setBarPull(4); HANDLAB.hm.setTipGap(2.5); }
@@ -4252,7 +4289,14 @@ function customTool(){
     // a piece: its own options in place of the E shape's — the bars to play, and a bar's other fingering
     if(PIECE){ segs.forEach(sg=>{ sg.parentNode.style.display='none'; });
       { const css=document.createElement('style'); css.textContent='body.piecePage select.cuModeSel, body.piecePage .cuModes{ display:none !important } body.piecePage #frameLbl .rollIn{ visibility:hidden }'; document.head.appendChild(css); }
-      segs.push(seg(PIECE.secLabel||'Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections||{}).map(k=>[k,k])))); keys.push('sec');
+      if(PIECE.sections){ segs.push(seg(PIECE.secLabel||'Bars','sec',[['all','All']].concat(Object.keys(PIECE.sections).map(k=>[k,k])))); keys.push('sec'); }
+      /* the piece's own options: each shown only for the choices it serves (o.when: {key:[values]}); a triad named by its
+         solfège with g(x) on, by its letters with g(x) off (o.names:'triad') */
+      (PIECE.opts||[]).forEach(o=>{ const sg=seg(o.label,o.key,o.items); segs.push(sg); keys.push(o.key);
+        let lk=''; (function upd(){ const show=!o.when||Object.keys(o.when).every(k=>o.when[k].includes(OPT[k])); sg.parentNode.style.display=show?'':'none';
+          if(o.names==='triad'){ const k=FIELD.on+'|'+KEY; if(k!==lk){ lk=k; sg.querySelectorAll('button').forEach(b=>{ const i=JSON.parse(b.dataset.v);
+              b.textContent=FIELD.on?TRI_SYL[i]:degName(i)+TRI_Q[i]; }); } }
+          requestAnimationFrame(upd); })(); });
       if(PIECE.alt){ segs.push(seg(PIECE.altLabel||'Fingering','fing',Object.keys(PIECE.alt).map(k=>[k,k]))); keys.push('fing'); } }
     // the bank of modes named in the orientation in force: G_Do, A_Re … (or, the ring turned, G♯_Do, A♯_Re …)
     // the bank in the order the roots lie along the low E, nut to body
@@ -4458,7 +4502,7 @@ function customTool(){
       // the root keeps its letter: it takes whatever function the new orientation gives it (an anti's, its tritone partner's
       // frames), as the constellation does when it is dropped there — only the mode bank's own buttons choose a mode
       applyKey(); };
-    function applyKey(){ const r=curL().root; KEY=PHI.doPc; keyWant=null; if(PIECE){ relabel(); mark(); regen(); return; } try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){}
+    function applyKey(){ const r=curL().root; KEY=PHI.doPc; keyWant=null; if(PIECE){ if(PIECE.free) try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){} relabel(); mark(); regen(); return; } try{ localStorage.setItem(SK('eshape-key'),String(KEY)); }catch(err){}
       { const rel=((r-KEY)%12+12)%12, i=MAJ.indexOf(rel); OPT.mode=i>=0?SYL[i]:SYL[MAJ.indexOf((rel+6)%12)]; OPT.anti=i<0; try{ localStorage.setItem(SK('csm-opts'),JSON.stringify(OPT)); }catch(err){} }
       relabel(); mark(); regen(); }
     // the pattern let go (g(x) off): the key moves at once to where it settled
@@ -4636,7 +4680,7 @@ function customTool(){
   return {show, run, tab:tabDraw, step, nextSeg:PRE?(after=>nextPass(after)):null,
     cells:()=>null, rootNow:()=>curMode?curMode.root:(curChord?curChord.root:null), bass:()=>rootHeld,
     // for testing
-    _:{parse,serialize,model:()=>M,compile:()=>compile(),cur,pal,
+    _:{parse,serialize,model:()=>M,compile:()=>compile(),cur,pal,tri:{triVoicings,allInv,KEY:()=>KEY,FMAX},
       load(t,meter){ if(meter) M.meter=meter; const {out,errs}=parse(t); M.ev=out.ev; M.ch=out.ch; M.bars=out.bars; normalize(); textEl.value=serialize(); rebuild();
         return {errs,warn:C.warn||[],fing:M.ev.map(e=>(e.s+1)+':'+e.f+'>'+(C.fing?C.fing[e.id]:'-')).join(' '),pls:(C.pls||[]).map(pl=>pl.map(q=>q.g+'@'+(q.s+1)+':'+q.f+(q.barre?'B':'')).join(' '))}; }}}; }
 
