@@ -7,6 +7,7 @@ Each lesson is one self-contained page that plays and animates a progression.
 
 - `index.html` — the page visitors see first: the ring, then Brian's Tonality Toolbox (one box per instrument; the `BOXES` list draws its trays and tool compartments), then Music, a collapsed alphabetical list of every song. The lessons themselves are the `LESSONS` list near the bottom of the file; each is one entry (title, instrument, kind, tools, file, view names, a sentence or two). An `exercise` is listed inside each tool it names, one link per view; a `music` piece is listed under Music, and in the panel of each tool it names.
 - `lessons/` — one HTML file per lesson. Each is a complete copy of the tool, saved with that lesson's views, so it keeps working exactly as it was made even as the tool moves on.
+- `tools/` — standalone tools linked from the header of `index.html` (for example `tools/cranium.html`, the ring over the cranial floor and both ears).
 - `.nojekyll` — tells GitHub Pages to serve the files exactly as they are.
 
 ## Adding a lesson
