@@ -11931,7 +11931,7 @@ function cranDraw(force){
   if(!cranCv||!cv)return;
   var st=cv.parentElement, fr=document.getElementById('foldRow');
   var w=st.clientWidth, h=(fr&&fr.parentElement===st)?fr.offsetTop-4:st.clientHeight;
-  var k=[w,h,cv.offsetLeft,cv.offsetTop,W,C,RING_UP,dpr,(typeof RFIT!=='undefined'?RFIT:1),cranReady,CR.top,CR.oRing,CR.oBone,CR.oAud,CR.sc,CR.dx,CR.dy,CR.rot,windK.toFixed(3)].join('|');
+  var k=[w,h,cv.offsetLeft,cv.offsetTop,W,C,RING_UP,dpr,(typeof RFIT!=='undefined'?RFIT:1),cranReady,CR.top,CR.oRing,CR.oBone,CR.oAud,CR.sc,CR.dx,CR.dy,CR.rot].join('|');
   if(!force&&k===cranKey)return; cranKey=k;
   cranCv.style.left='0px'; cranCv.style.top='0px';
   cranCv.style.width=w+'px'; cranCv.style.height=h+'px';
@@ -11946,9 +11946,8 @@ function cranDraw(force){
   cranCtx.imageSmoothingQuality='high';
   cranCtx.setTransform(dpr,0,0,dpr,0,0); cranCtx.translate(cx,cy); cranCtx.rotate(CR.rot*Math.PI/180);   /* turns about the ring's centre */
   cranCtx.scale(s,s); cranCtx.translate(-CRAN_IMG.mid,-CRAN_IMG.gy);
-  var wk=Math.max(0,Math.min(1,(windK-0.2)/0.6)); wk=wk*wk*(3-2*wk);   /* v4: the skull belongs to the ring — it fades as the ring unrolls into the line */
-  if(CR.oBone*wk>0){ cranCtx.globalAlpha=CR.oBone*wk; cranCtx.drawImage(cranBone,0,0); }
-  if(CR.oAud*wk>0){ cranCtx.globalAlpha=CR.oAud*wk; cranCtx.drawImage(cranAud,0,0); }
+  if(CR.oBone>0){ cranCtx.globalAlpha=CR.oBone; cranCtx.drawImage(cranBone,0,0); }
+  if(CR.oAud>0){ cranCtx.globalAlpha=CR.oAud; cranCtx.drawImage(cranAud,0,0); }
   cranCtx.globalAlpha=1; cranCtx.setTransform(1,0,0,1,0,0);
 }
 /* v4: the line flips itself — at the far Line end of the ring/line slider the display takes its half-turn
