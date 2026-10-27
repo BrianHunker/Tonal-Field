@@ -165,6 +165,7 @@ function fnColorAt(s){ s = mod(s,12); var i = Math.floor(s), f = s-i; return mix
 /* ---------------- parser ---------------- */
 var parser = TF.createParser();
 window.tfParser = parser;   /* for inspection from the console */
+window.tfAudio = function(){ ensureAudio(); return { ac: ac, analyser: analyser }; };
 var view = {
   dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
   reNow: null,          /* current displayed orientation (may be fractional while rotating) */
