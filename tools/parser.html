@@ -95,6 +95,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
+  <label title="struck or plucked (piano, picked guitar): a tone begins only at an onset, so strings ringing together can never make one. sung or slid (voice, slide, bowed): a tone also begins wherever the pitch glides somewhere new and stays">source <select id="sourceSel"><option value="struck">struck / plucked</option><option value="sung">sung / slid</option></select></label>
   <label title="a silence at least this long ends a phrase — long enough to let staccato through. The orientation a phrase leaves is what the next phrase arrives in">phrase gap <input type="range" id="gapMs" min="150" max="1500" step="10" value="400"><output id="gapV">400 ms</output></label>
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
@@ -416,16 +417,31 @@ function addLog(e){
   logEl.insertBefore(line, logEl.firstChild);
 }
 
-/* ---------------- listening: pitch, tuning grid, held / trajectory ---------------- */
-var ac = null, analyser = null, micStream = null, micSrc = null, buf = null;
+/* ---------------- listening: onsets, pitch, tuning grid ----------------
+   Two ways a tone begins:
+   - an ONSET (a strike, a pluck, a sung consonant): the spectrum jumps. The new tone's pitch is read
+     from what the onset ADDED — the spectrum now minus the spectrum just before — so strings still
+     ringing under the pedal do not pull the reading. Each onset is one tone, counted at once.
+   - a GLIDE with no onset (voice, slide): the time-domain pitch (YIN) settles somewhere new and stays.
+   A wobble inside a ringing mixture is neither, and makes no tone. */
+var ac = null, analyser = null, specAn = null, longAn = null, lbuf = null, micStream = null, micSrc = null, buf = null, fbuf = null;
 var live = { on: false, midi: null, rms: 0 };
 var startT = null;
-var opts = { heldMs: 240, gate: 0.012, gapMs: 400 };
+var opts = { heldMs: 240, gate: 0.012, gapMs: 400, source: 'struck' };
+var SPEC = { binHz: 0, lo: 0, hi: 0, hist: [], flux: [], lastOnset: -1, pending: null };
 function ensureAudio(){
   if (ac) return ac;
   ac = new (window.AudioContext||window.webkitAudioContext)();
   analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+  specAn = ac.createAnalyser(); specAn.fftSize = 4096; specAn.smoothingTimeConstant = 0;
+  analyser.connect(specAn);
+  longAn = ac.createAnalyser(); longAn.fftSize = 8192; longAn.smoothingTimeConstant = 0; analyser.connect(longAn);
+  lbuf = new Float32Array(longAn.frequencyBinCount);
+  SPEC.lBin = ac.sampleRate / longAn.fftSize; SPEC.llo = Math.max(1, Math.floor(55/SPEC.lBin)); SPEC.lhi = Math.min(lbuf.length-1, Math.ceil(5000/SPEC.lBin));
   buf = new Float32Array(analyser.fftSize);
+  fbuf = new Float32Array(specAn.frequencyBinCount);
+  SPEC.binHz = ac.sampleRate / specAn.fftSize;
+  SPEC.lo = Math.max(1, Math.floor(55/SPEC.binHz)); SPEC.hi = Math.min(fbuf.length-1, Math.ceil(5000/SPEC.binHz));
   return ac;
 }
 /* YIN fundamental estimate */
@@ -442,25 +458,72 @@ function yin(x, sr){
   var den = (b0 + b2 - 2*cm[best]), shift = den ? (b0-b2)/(2*den) : 0;
   return { f: sr/(best+shift), clarity: 1-cm[best] };
 }
-/* tuning grid: read from the playing itself (circular mean of held tones' fractional pitch) */
+/* pitch of a (difference) magnitude spectrum by weighted harmonic sum, 10 cents resolution */
+function specPitch(D, binHz, lo, hi){
+  binHz = binHz || SPEC.binHz; lo = lo || SPEC.lo; hi = hi || SPEC.hi;
+  function at(f){ var x = f/binHz, i = Math.floor(x); if (i < 1 || i+1 >= D.length) return 0; return Math.max(D[i], D[i+1]); }
+  var best = -1, bm = null, tot = 0;
+  for (var i = lo; i <= hi; i++) tot += D[i];
+  if (tot <= 0) return null;
+  for (var m = 36; m <= 96; m += 0.1){
+    var f = 440*Math.pow(2,(m-69)/12), sal = 0;
+    for (var k = 1; k <= 10; k++){ var fk = k*f; if (fk > 5000) break; sal += at(fk)/k; }
+    if (sal > best){ best = sal; bm = m; }
+  }
+  if (bm === null) return null;
+  /* refine: each partial's own peak, interpolated, read back to the fundamental and averaged */
+  var f0 = 440*Math.pow(2,(bm-69)/12), sw = 0, sf = 0;
+  for (var h = 1; h <= 6; h++){
+    var c = Math.round(h*f0/binHz), pk = -1, pv = 0;
+    for (var j = c-1; j <= c+1; j++) if (j > 0 && j+1 < D.length && D[j] > pv && D[j] >= D[j-1] && D[j] >= D[j+1]){ pv = D[j]; pk = j; }
+    if (pk < 1 || pv <= 0) continue;
+    var a1 = D[pk-1], b1 = D[pk], c1 = D[pk+1], den = a1 - 2*b1 + c1;
+    var off = den ? 0.5*(a1 - c1)/den : 0; if (Math.abs(off) > 1) off = 0;
+    var fk = (pk + off)*binHz/h;
+    if (Math.abs(12*Math.log2(fk/f0)) < 0.6){ sw += pv/h; sf += (pv/h)*Math.log2(fk); }
+  }
+  var mr = sw > 0 ? 69 + 12*(sf/sw - Math.log2(440)) : bm;
+  return { m: mr, strength: best/tot };
+}
+/* tuning grid: read from the playing itself (circular mean of tones' fractional pitch) */
 var tune = { sx: 0, sy: 0, n: 0 };
 function tuneOffset(){ if (!tune.n) return 0; var a = Math.atan2(tune.sy, tune.sx); return a/TP; }
 function addTune(m){ var fr = m - Math.round(m), a = fr*TP; tune.sx += Math.cos(a); tune.sy += Math.sin(a); tune.n++; }
 
-var cur = null;   /* the tone being heard: {t0, pitches[], held, ev, seg} */
-var cand = null;  /* a possible new tone: {m, n} */
+var cur = null;   /* the tone being heard */
+var cand = null;  /* a glide that may be settling on a new pitch */
 var lastVoiced = 0, phraseOpen = false, phraseEnds = [];
 function median(a){ var b = a.slice().sort(function(x,y){return x-y;}); return b[b.length>>1]; }
-function startTone(m, t){
-  cur = { t0: t, pitches: [m], held: false, reported: false, idx: null, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
+function startTone(m, t, kind){
+  cur = { t0: t, pitches: [m], kind: kind, held: false, reported: false, idx: null, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
   segs.push(cur.seg); if (segs.length > 400) segs.shift();
   if (startT === null) startT = t;
 }
 function endTone(t){
   if (!cur) return;
   cur.seg.t1 = t;
-  if (!cur.reported) segs.splice(segs.indexOf(cur.seg),1);   /* too brief to be a tone: a slide's path */
+  if (!cur.reported) segs.splice(segs.indexOf(cur.seg),1);
   cur = null;
+}
+function report(){
+  var m0 = cur.kind === 'onset' ? cur.pitches[0] : median(cur.pitches);
+  cur.reported = true;
+  cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false); phraseOpen = true;
+  cur.idx = parser.events.length - 1;
+  cur.seg.ev = cur.ev; cur.seg.midi = m0;
+  afterParse();
+}
+function partialLevel(m){            /* the level of a pitch's first two partials in the current spectrum */
+  var mag = SPEC.lastMag; if (!mag) return 0;
+  var f = 440*Math.pow(2,(m-69)/12), v = 0;
+  for (var h = 1; h <= 2; h++){ var c = Math.round(h*f/SPEC.binHz); for (var j = c-1; j <= c+1; j++) if (j > 0 && j < mag.length) v = Math.max(v, mag[j]); }
+  return v;
+}
+function onsetTone(m, t){            /* a struck / plucked / articulated tone: counted at once */
+  endTone(t);
+  startTone(m, t, 'onset');
+  cur.own = partialLevel(m);
+  report();
 }
 function frame(m, t){
   if (m === null){
@@ -469,36 +532,31 @@ function frame(m, t){
     cand = null; return;
   }
   lastVoiced = t;
-  if (!cur){ startTone(m, t); return; }
+  if (SPEC.pending) return;          /* an onset is being read: it will start the tone */
+  if (!cur){ if (opts.source === 'struck') return; startTone(m, t, 'glide'); cand = null; return; }
   var med = median(cur.pitches.slice(-12));
-  /* re-articulation: the level dips and comes back on the same pitch */
-  cur.peak = Math.max(cur.peak||0, live.rms);
-  if (live.rms < cur.peak*0.6) cur.dip = true;
-  else if (cur.dip && live.rms > cur.peak*0.8 && Math.abs(m - med) < 0.5){ endTone(t); startTone(m, t); return; }
   if (Math.abs(m - med) < 0.5){
-    cur.pitches.push(m); cand = null;
-    cur.seg.midi = median(cur.pitches.slice(-24));
-    /* every tone counts from the moment it is a tone — a fraction of a beat is enough */
-    if (!cur.reported && cur.pitches.length >= 3){
-      var m0 = median(cur.pitches);
-      if (!tune.n) addTune(m0);
-      cur.reported = true;
-      cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false); phraseOpen = true;
-      cur.idx = parser.events.length - 1;
-      cur.seg.ev = cur.ev;
-      afterParse();
-    }
-    /* sounding on past the arrival threshold: an arrival (matters only for settling a tie) */
+    if (cur.kind === 'glide' || cur.pitches.length < 40) cur.pitches.push(m);
+    if (cur.kind === 'onset' && cur.pitches.length === 12) addTune(median(cur.pitches.slice(4)));   /* steady part of a struck tone */
+    cand = null;
+    if (!cur.reported && cur.pitches.length >= 4) report();
     if (cur.reported && !cur.held && (t - cur.t0)*1000 >= opts.heldMs){
       cur.held = true; cur.seg.held = true;
-      addTune(median(cur.pitches));
+      if (cur.kind === 'glide') addTune(median(cur.pitches));
       parser.arrive(cur.idx);
       afterParse();
     }
   } else {
+    /* a glide to a new pitch must hold there; under a struck tone (ringing mixtures) it must hold longer */
     if (cand && Math.abs(m - cand.m) < 0.5){ cand.n++; cand.m = (cand.m*(cand.n-1)+m)/cand.n; }
     else cand = { m: m, n: 1, t: t };
-    if (cand.n >= 2){ endTone(cand.t); startTone(cand.m, cand.t); cand = null; }
+    var need = 4;
+    if (opts.source === 'struck'){ cand = null; return; }   /* struck or plucked: only an onset begins a tone */
+    if (cand.n >= need){
+      /* a struck tone that is still sounding has not glided anywhere: the new reading is the ringing mixture */
+      if (cur.kind === 'onset' && partialLevel(median(cur.pitches.slice(0,3))) > 0.3*(cur.own||0)){ cand = null; return; }
+      endTone(cand.t); startTone(cand.m, cand.t, 'glide'); cur.pitches = [cand.m, cand.m, cand.m]; cand = null;
+    }
   }
 }
 function afterParse(){ updateLevel(); refreshReadouts(); view.dirty = true; }
@@ -508,11 +566,67 @@ function listenFrame(){
   analyser.getFloatTimeDomainData(buf);
   var s = 0; for (var i=0;i<buf.length;i++) s += buf[i]*buf[i];
   var rms = Math.sqrt(s/buf.length); live.rms = rms;
-  var t = ac.currentTime, m = null;
+  var t = ac.currentTime, m = null, clar = 0;
   if (rms > opts.gate){
     var r = yin(buf, ac.sampleRate);
-    if (r && r.clarity > 0.8 && r.f > 50 && r.f < 1600) m = 69 + 12*Math.log2(r.f/440);
+    if (r && r.clarity > 0.85 && r.f > 50 && r.f < 1600){ m = 69 + 12*Math.log2(r.f/440); clar = r.clarity; }
   }
+  /* the spectrum: linear magnitudes, and the flux (what rose since the last frame) */
+  specAn.getFloatFrequencyData(fbuf);
+  var mag = new Float32Array(fbuf.length);
+  for (var k = SPEC.lo; k <= SPEC.hi; k++) mag[k] = Math.pow(10, fbuf[k]/20);
+  var prev = SPEC.hist.length ? SPEC.hist[SPEC.hist.length-1] : null, flux = 0;
+  if (prev) for (var k2 = SPEC.lo; k2 <= SPEC.hi; k2++){ var dd = Math.log1p(1000*mag[k2]) - Math.log1p(1000*prev[k2]); if (dd > 0) flux += dd; }
+  SPEC.hist.push(mag); if (SPEC.hist.length > 8) SPEC.hist.shift();
+  longAn.getFloatFrequencyData(lbuf);
+  var lmag = new Float32Array(lbuf.length); for (var q = SPEC.llo; q <= SPEC.lhi; q++) lmag[q] = Math.pow(10, lbuf[q]/20);
+  SPEC.lhist = (SPEC.lhist||[]).concat([lmag]).slice(-8);
+  var fl = SPEC.flux.slice(-60).slice().sort(function(a,b){return a-b;}), fmed = fl.length ? fl[fl.length>>1] : 0;
+  SPEC.lastMag = mag;
+  SPEC.flux.push(flux); if (SPEC.flux.length > 60) SPEC.flux.shift();
+  if (window.tfFlux) window.tfFlux.push([t, flux, Math.max(5, 1.8*fmed), rms]);
+  /* an onset: a clear jump in the spectrum, well above its recent level */
+  SPEC.rmsH = (SPEC.rmsH||[]).concat([rms]).slice(-4);
+  var rising = SPEC.rmsH.length < 4 || rms > 1.05*Math.min.apply(null, SPEC.rmsH.slice(0,3));   /* a strike raises the level; a release does not */
+  if (!SPEC.pending && rising && rms > opts.gate && flux > Math.max(5, 1.8*fmed) && t - SPEC.lastOnset > 0.07 && SPEC.hist.length >= 3){
+    SPEC.lastOnset = t;
+    SPEC.pending = { t: t, base: SPEC.hist[SPEC.hist.length-3], lbase: SPEC.lhist[Math.max(0, SPEC.lhist.length-2)], frames: 0 };
+  }
+  if (SPEC.pending){
+    SPEC.pending.frames++;
+    if (SPEC.pending.frames >= 3){   /* ~50 ms in: the window now holds the new tone */
+      var base = SPEC.pending.base, D = new Float32Array(mag.length);
+      for (var k3 = SPEC.lo; k3 <= SPEC.hi; k3++) D[k3] = Math.max(0, mag[k3] - Math.max(base[k3-1]||0, base[k3], base[k3+1]||0));
+      var sp = specPitch(D), tOn = SPEC.pending.t, lbase = SPEC.pending.lbase;
+      if (window.tfOnsetLog) window.tfOnsetLog.push({ t: tOn, sp: sp, yin: m });
+      SPEC.pending = null;
+      var mOn = null;
+      if (sp && sp.strength > 0.08) mOn = sp.m;
+      else if (m !== null) mOn = m;      /* a soft onset: fall back to the time-domain reading */
+      if (mOn !== null){
+        /* refine with the time-domain pitch when it agrees with the onset to within a quarter tone */
+        if (m !== null && Math.abs(m - mOn) < 0.5) mOn = m;
+        lastVoiced = t; onsetTone(mOn, tOn);
+        SPEC.verify = { idx: cur.idx, lbase: lbase, frames: 3, m: mOn };   /* listen again once the long window holds the tone */
+      }
+    }
+  }
+  /* a second, closer listen to a struck tone that sounds on (~200 ms in), through the long window, whose
+     finer bins separate neighbouring semitones that the short window blurs */
+  if (SPEC.verify && !SPEC.pending){
+    if (++SPEC.verify.frames >= 10){
+      var vb = SPEC.verify.lbase, Dv = new Float32Array(lmag.length);
+      for (var k4 = SPEC.llo; k4 <= SPEC.lhi; k4++) Dv[k4] = Math.max(0, lmag[k4] - Math.max(vb[k4-1]||0, vb[k4], vb[k4+1]||0));
+      var sv = specPitch(Dv, SPEC.lBin, SPEC.llo, SPEC.lhi);
+      if (sv && sv.strength > 0.12 && cur && cur.idx === SPEC.verify.idx){
+        var mv = (m !== null && Math.abs(m - sv.m) < 0.5) ? m : sv.m;
+        parser.retune(SPEC.verify.idx, Math.round(mv - tuneOffset()));
+        cur.seg.midi = mv; cur.pitches[0] = mv;
+        afterParse();
+      }
+      SPEC.verify = null;
+    }
+  } else if (SPEC.pending) SPEC.verify = null;
   live.midi = m;
   frame(m, t);
 }
@@ -547,7 +661,7 @@ micBtn.addEventListener('click', function(){
   }).catch(function(err){ subEl.textContent = 'The microphone could not be opened: '+err.message; });
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
-  parser.reset(); segs = []; cur = null; cand = null; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  parser.reset(); segs = []; cur = null; cand = null; startT = null; phraseOpen = false; phraseEnds = []; SPEC.hist = []; SPEC.flux = []; SPEC.pending = null; SPEC.verify = null; tune = { sx:0, sy:0, n:0 };
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
 });
@@ -577,6 +691,8 @@ dialSel.addEventListener('change', function(){ setDial(+this.value, true); });
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
+document.getElementById('sourceSel').addEventListener('change', function(){ opts.source = this.value; });
+window.tfSetSource = function(v){ opts.source = v; document.getElementById('sourceSel').value = v; };
 bindRange('gapMs','gapV', function(v){return v+' ms';}, function(v){ opts.gapMs = v; });
 bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
 bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; });
