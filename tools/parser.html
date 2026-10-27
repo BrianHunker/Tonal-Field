@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<!-- Tonal Field — Parser — v1 -->
+<!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tonal Field — Parser</title>
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/gg-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../icons/gg-192.png">
+<link rel="apple-touch-icon" href="../icons/gg-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Monaco, monospace;
+  --font-serif: 'IBM Plex Serif', Georgia, serif;
+  --bg: #232323; --panel: #2a2a2a; --line: #3a3a3a; --well: #0d0d0d;
+  --ink: #d8d8d4; --dim: #8a8a86; --gold: #d8c878;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 13px; }
+.header { position: relative; width: 100%; padding: 9px 22px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.header h1 { font-family: var(--font-serif); font-size: 17px; font-weight: 500; font-style: italic; color: #e8e6dc; }
+.header h1 a { color: inherit; text-decoration: none; }
+.header h1 span { font-size: 11px; font-weight: 400; font-style: normal; color: #777; margin-left: 6px; font-family: var(--font-sans); }
+.header .tagline { font-size: 11px; color: var(--dim); }
+.site-link { position: absolute; left: 50%; transform: translateX(-50%); font-family: var(--font-serif); font-size: 21px;
+  font-style: italic; color: #b9b7ad; text-decoration: none; white-space: nowrap; }
+.site-link:hover { color: var(--gold); }
+@media (max-width: 1100px){ .site-link { position: static; transform: none; font-size: 15px; } }
+.attribution { font-family: var(--font-mono); font-size: 10px; color: #888; padding-left: 12px; border-left: 1px solid #333; margin-left: auto; }
+
+.toolbar { width: 100%; padding: 8px 22px; border-bottom: 1px solid var(--line); background: #1e1e1e;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+button { font: inherit; color: var(--ink); background: #333; border: 1px solid #484848; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+button:hover { border-color: var(--gold); }
+button.on { background: #4a3d16; border-color: var(--gold); color: #f3e3a6; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+label { color: var(--dim); font-size: 11px; display: inline-flex; align-items: center; gap: 6px; }
+label output { font-family: var(--font-mono); color: var(--ink); min-width: 3.4em; }
+input[type=range] { width: 90px; accent-color: var(--gold); }
+input[type=text], select { font: inherit; font-family: var(--font-mono); font-size: 12px; background: #151515; color: var(--ink);
+  border: 1px solid #444; border-radius: 4px; padding: 5px 8px; }
+#phrase { width: 300px; }
+.sep { width: 1px; height: 22px; background: #3a3a3a; }
+
+main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 1fr); gap: 18px; padding: 18px 22px; align-items: start; }
+@media (max-width: 900px){ main { grid-template-columns: 1fr; padding: 12px 16px; } #phrase { width: 100%; } }
+.ringbox { position: relative; width: 100%; aspect-ratio: 1; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
+.ringbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+.card h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-bottom: 8px; }
+#state { font-family: var(--font-serif); font-size: 19px; color: #ece8dc; line-height: 1.35; }
+#stateSub { color: var(--dim); margin-top: 4px; font-size: 12px; }
+#hearing { font-family: var(--font-mono); font-size: 18px; font-weight: 600; line-height: 1.7; word-spacing: 0.25em; min-height: 1.7em; overflow-wrap: anywhere; }
+#hearing .p { font-weight: 400; opacity: 0.72; font-size: 15px; }
+#hearing .u { color: #6d6d69; }
+.strip { position: relative; width: 100%; height: 190px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
+.strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
+#log .k { color: var(--gold); }
+.meter { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); }
+.meter b { color: var(--ink); font-weight: 500; }
+.note { color: var(--dim); font-size: 12px; line-height: 1.55; }
+.note b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v1</span></h1>
+  <span class="tagline">listening for the field</span>
+  <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
+  <div class="attribution">&copy; Brian Hunker</div>
+</div>
+
+<div class="toolbar">
+  <button id="micBtn" title="listen to the microphone or any audio input">listen</button>
+  <button id="resetBtn" title="clear the field back to a plain gray ring">reset</button>
+  <span class="sep"></span>
+  <select id="preset" title="degenerate test input: a tempered phrase played through the same listening path as the microphone">
+    <option value="">test phrase…</option>
+  </select>
+  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (~ = trajectory, /n = beats)" aria-label="test phrase">
+  <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
+  <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
+  <span class="sep"></span>
+  <label title="a tone counts as HELD (a target, weighed by the field) once it has sounded this long; shorter tones are trajectory — labeled, not weighed">held <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
+  <label title="irreducible 1 — the window: how far back held tones are drawn on when the field has to turn">window <input type="range" id="winS" min="2" max="20" step="1" value="6"><output id="winV">6 s</output></label>
+  <label title="irreducible 2 — the exchange rate: how many held tones the current field cannot place before it turns">exchange <input type="range" id="xch" min="1" max="4" step="1" value="1"><output id="xchV">1</output></label>
+  <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
+  <button id="lettersBtn" title="show the tuning grid's letter names around the ring">letters</button>
+</div>
+
+<main>
+  <div>
+    <div class="ringbox"><canvas id="fieldCv"></canvas><canvas id="topCv"></canvas></div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <div id="state">Plain ring — nothing heard yet.</div>
+      <div id="stateSub">Press listen, then play or sing a short phrase.</div>
+    </div>
+    <div class="card">
+      <h2>Hearing</h2>
+      <div id="hearing"></div>
+    </div>
+    <div class="strip"><canvas id="stripCv"></canvas></div>
+    <div class="card">
+      <div class="meter">
+        <span>pitch <b id="mPitch">—</b></span>
+        <span>tuning grid <b id="mTune">—</b></span>
+        <span>level <b id="mLevel">—</b></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>What happened</h2>
+      <div id="log"></div>
+    </div>
+    <div class="card note">
+      <b>How it reads.</b> Held tones are weighed; trajectory tones are labeled but not weighed. The field forms as the
+      max-min reading of the held tones and only sharpens as they accumulate. When two hearings tie, the ring shows the
+      provisional one and draws the other as a dashed ghost; a held arrival that crosses the two tones binding the tie
+      settles it, and the earlier tones are relabeled — a resolution, not a modulation. The field holds through silence and
+      turns only when a held tone cannot be placed in its positive half: it <b>rotates</b> for a one-semitone shift and
+      <b>morphs</b> for anything larger. Tuning is read from the playing itself, so any instrument in tune with itself works.
+    </div>
+  </div>
+</main>
+
+<script src="parser-core.js"></script>
+<script>
+(function(){
+'use strict';
+var TF = window.TFParser;
+var TP = 2*Math.PI, ST = Math.PI/6;
+/* exact colour code — index = semitones above Re */
+var FN = TF.FN;
+var FNCOL = ['#FF8800','#4B0082','#2255FF','#FFD700','#005500','#EE0000','#AA5500','#732699','#001188','#FF00FF','#22BB22','#880000'];
+var GRAY = [150,150,146];
+var LET = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+function hex(h){ return [parseInt(h.substr(1,2),16),parseInt(h.substr(3,2),16),parseInt(h.substr(5,2),16)]; }
+var FNRGB = FNCOL.map(hex);
+function mix(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function rgba(c,a){ return 'rgba('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+','+a.toFixed(3)+')'; }
+function mod(n,m){ return ((n%m)+m)%m; }
+/* the continuous field: g(x) = (7/12)cos5x + (5/12)cos7x, x in radians from Re */
+function g(x){ return (7/12)*Math.cos(5*x) + (5/12)*Math.cos(7*x); }
+/* colour at a continuous position s semitones above Re: blend of the two neighbouring functions */
+function fnColorAt(s){ s = mod(s,12); var i = Math.floor(s), f = s-i; return mix(FNRGB[i], FNRGB[(i+1)%12], f); }
+
+/* ---------------- parser ---------------- */
+var parser = TF.createParser({ windowSec: 6, exchange: 1 });
+window.tfParser = parser;   /* for inspection from the console */
+var view = {
+  topPc: null,          /* pitch class drawn at the top: Re, until the field first turns; then fixed until reset */
+  frozen: false,        /* after the first turn the pitch frame holds, so every later change is seen */
+  reNow: null,          /* current displayed orientation (may be fractional while rotating) */
+  morph: null,          /* {a, b, t0, dur} crossfade between two orientations */
+  rot: null,            /* {a, b, t0, dur} turn of a fractional re */
+  level: 0, levelTarget: 0,
+  ghost: null,          /* the other reading of an open tie */
+  dirty: true
+};
+parser.on(function(e){
+  if (e.to === null || e.to === undefined) { view.dirty = true; return; }
+  var turning0 = (e.kind === 'rotate' || e.kind === 'morph');
+  if (!view.frozen && !turning0){          /* until the field first turns, Re stays at the top */
+    view.topPc = e.to; view.reNow = e.to; view.morph = null; view.rot = null;
+    addLog(e); view.dirty = true; return;
+  }
+  view.frozen = true;                      /* from the first turn on, the pitch frame holds so turns are seen */
+  var from = view.reNow;
+  if (from === null) { view.reNow = e.to; view.dirty = true; return; }
+  var target = e.to;
+  var shift = Math.min(mod(target-Math.round(from),12), mod(Math.round(from)-target,12));
+  var turning = (e.kind === 'rotate' || e.kind === 'morph');
+  var dur = turning ? 600 : 360;
+  if (shift === 0) { view.reNow = target; }
+  else if (shift <= 1) {                    /* a one-semitone shift turns the field */
+    var a = Math.round(from), d = mod(target-a,12); if (d > 6) d -= 12;
+    view.rot = { a: a, b: a+d, t0: performance.now(), dur: dur }; view.morph = null;
+  } else {                                  /* anything larger morphs in place */
+    view.morph = { a: Math.round(from), b: target, t0: performance.now(), dur: dur }; view.rot = null;
+  }
+  view.reNow = target;
+  addLog(e);
+  view.dirty = true;
+});
+function updateLevel(){
+  var n = parser.collection.length, b = parser.basis;
+  var L = n===0 ? 0 : n===1 ? 0.32 : n===2 ? 0.6 : n===3 ? 0.84 : 1;
+  if (b === 'tie-open') L = Math.min(L, 0.62);
+  if (b === 'open') L = 0.18;
+  view.levelTarget = L;
+  view.ghost = (b === 'tie-open' && parser.tie) ? (parser.tie.cands[0] === parser.re ? parser.tie.cands[1] : parser.tie.cands[0]) : null;
+}
+
+/* ---------------- canvases ---------------- */
+var fieldCv = document.getElementById('fieldCv'), topCv = document.getElementById('topCv'), stripCv = document.getElementById('stripCv');
+var fctx = fieldCv.getContext('2d'), tctx = topCv.getContext('2d'), sctx = stripCv.getContext('2d');
+var W=0, dpr=1, SW=0, SH=0;
+function size(){
+  dpr = Math.min(2, window.devicePixelRatio||1);
+  W = fieldCv.clientWidth;
+  [fieldCv, topCv].forEach(function(c){ c.width = Math.round(W*dpr); c.height = Math.round(W*dpr); });
+  SW = stripCv.clientWidth; SH = stripCv.clientHeight;
+  stripCv.width = Math.round(SW*dpr); stripCv.height = Math.round(SH*dpr);
+  view.dirty = true;
+}
+window.addEventListener('resize', size);
+var showLetters = false;
+
+/* screen angle of a pitch position (semitones, continuous): clockwise, topPc at the top */
+function ang(s){ return -Math.PI/2 + (s - (view.topPc===null?0:view.topPc))*ST; }
+function geom(){ var C = W/2; return { C: C, R0: W*0.30, A: W*0.13 }; }
+function PX(a,r,C){ return C + r*Math.cos(a); }
+function PY(a,r,C){ return C + r*Math.sin(a); }
+
+/* the field at pitch position s under the current display state, plus its colour */
+function sample(s, now){
+  var L = view.level, v, col;
+  if (view.reNow === null) return { v: 0, col: GRAY };
+  if (view.morph) {
+    var m = Math.min(1,(now-view.morph.t0)/view.morph.dur); m = m*m*(3-2*m);
+    var va = g((s-view.morph.a)*ST), vb = g((s-view.morph.b)*ST);
+    v = va*(1-m)+vb*m;
+    col = mix(fnColorAt(s-view.morph.a), fnColorAt(s-view.morph.b), m);
+  } else {
+    var re = view.reNow;
+    if (view.rot) { var r = Math.min(1,(now-view.rot.t0)/view.rot.dur); r = r*r*(3-2*r); re = view.rot.a + (view.rot.b-view.rot.a)*r; }
+    v = g((s-re)*ST); col = fnColorAt(s-re);
+  }
+  return { v: v*L, col: mix(GRAY, col, L) };
+}
+
+function drawField(now){
+  var G = geom(), C = G.C, R0 = G.R0, A = G.A;
+  fctx.setTransform(dpr,0,0,dpr,0,0);
+  fctx.clearRect(0,0,W,W);
+  fctx.lineCap = 'round';
+  /* faint guides at the field's reach */
+  fctx.strokeStyle = 'rgba(200,200,195,0.10)'; fctx.lineWidth = 1; fctx.setLineDash([2,5]);
+  [R0+A, R0-A].forEach(function(r){ fctx.beginPath(); fctx.arc(C,C,r,0,TP); fctx.stroke(); });
+  fctx.setLineDash([]);
+  /* the field: radial strokes from the base circle out to g, each fading in from the base */
+  var N = 480;
+  for (var i=0;i<N;i++){
+    var s = 12*i/N, sp = sample(s, now), a = ang(s);
+    var al = 0.35 + 0.65*Math.abs(sp.v);
+    var x1 = PX(a,R0,C), y1 = PY(a,R0,C), x2 = PX(a,R0+A*sp.v,C), y2 = PY(a,R0+A*sp.v,C);
+    if (Math.abs(sp.v) < 1e-3) continue;
+    var gr = fctx.createLinearGradient(x1,y1,x2,y2);
+    gr.addColorStop(0, rgba(sp.col,0)); gr.addColorStop(1, rgba(sp.col, al*Math.max(0.25,view.level)));
+    fctx.strokeStyle = gr; fctx.lineWidth = W*0.0085;
+    fctx.beginPath(); fctx.moveTo(x1,y1); fctx.lineTo(x2,y2); fctx.stroke();
+  }
+  /* the envelope */
+  fctx.lineWidth = 1.6;
+  var prev = null;
+  for (var j=0;j<=900;j++){
+    var s2 = 12*j/900, sp2 = sample(s2, now), a2 = ang(s2), r2 = R0 + A*sp2.v;
+    var px = PX(a2,r2,C), py = PY(a2,r2,C);
+    if (prev){ fctx.strokeStyle = rgba(sp2.col, 0.9); fctx.beginPath(); fctx.moveTo(prev[0],prev[1]); fctx.lineTo(px,py); fctx.stroke(); }
+    prev = [px,py];
+  }
+  /* the other reading of an open tie, as a dashed ghost */
+  if (view.ghost !== null && !view.morph && !view.rot){
+    fctx.setLineDash([4,5]); fctx.lineWidth = 1.3; fctx.strokeStyle = 'rgba(210,210,205,0.38)';
+    fctx.beginPath();
+    for (var k=0;k<=600;k++){
+      var s3 = 12*k/600, a3 = ang(s3), r3 = R0 + A*view.level*g((s3-view.ghost)*ST);
+      if (k) fctx.lineTo(PX(a3,r3,C),PY(a3,r3,C)); else fctx.moveTo(PX(a3,r3,C),PY(a3,r3,C));
+    }
+    fctx.stroke(); fctx.setLineDash([]);
+  }
+  /* the base circle and its ticks */
+  fctx.strokeStyle = 'rgba(200,200,195,0.32)'; fctx.lineWidth = 1;
+  fctx.beginPath(); fctx.arc(C,C,R0,0,TP); fctx.stroke();
+  for (var t=0;t<12;t++){
+    var at = ang(t);
+    fctx.strokeStyle = 'rgba(200,200,195,0.40)';
+    fctx.beginPath(); fctx.moveTo(PX(at,R0-W*0.012,C),PY(at,R0-W*0.012,C)); fctx.lineTo(PX(at,R0+W*0.012,C),PY(at,R0+W*0.012,C)); fctx.stroke();
+  }
+  /* function names: pentatonic and hinges outside their peaks, antis inside */
+  if (view.reNow !== null && view.level > 0.05 && !view.morph && !view.rot){
+    fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
+    for (var p=0;p<12;p++){
+      var off = mod(p - view.reNow, 12), name = FN[off], anti = name.charAt(0) === '~';
+      var v0 = g(off*ST)*view.level, a0 = ang(p);
+      var rr = anti ? R0 - A*0.55 - W*0.03 : R0 + A*Math.max(v0,0) + W*0.05;
+      fctx.font = (anti?'600 ':'700 ') + Math.round(W*(anti?0.031:0.037)) + 'px "IBM Plex Mono", monospace';
+      fctx.fillStyle = rgba(mix(GRAY, FNRGB[off], view.level), (anti?0.75:1)*Math.min(1,view.level*1.4));
+      fctx.fillText(name, PX(a0,rr,C), PY(a0,rr,C));
+    }
+  }
+  if (showLetters && view.topPc !== null){
+    fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
+    fctx.font = Math.round(W*0.03) + 'px "IBM Plex Mono", monospace'; fctx.fillStyle = 'rgba(170,170,165,0.55)';
+    for (var q=0;q<12;q++){ var aq = ang(q - tuneOffset()); fctx.fillText(LET[q], PX(aq,W*0.475,C), PY(aq,W*0.475,C)); }
+  }
+}
+
+/* live probe: the sounding pitch riding the field */
+function drawTop(){
+  var G = geom(), C = G.C, R0 = G.R0, A = G.A;
+  tctx.setTransform(dpr,0,0,dpr,0,0);
+  tctx.clearRect(0,0,W,W);
+  tctx.fillStyle = 'rgba(200,200,195,0.35)'; tctx.beginPath(); tctx.arc(C,C,W*0.004,0,TP); tctx.fill();
+  if (live.midi === null) return;
+  var s = live.midi - tuneOffset();                   /* position on the tuning grid, continuous */
+  var sp = sample(s, performance.now()), a = ang(s), r = R0 + A*sp.v;
+  var col = view.reNow === null ? [220,220,215] : sp.col;
+  tctx.strokeStyle = rgba(col, 0.85); tctx.lineWidth = 2; tctx.setLineDash([5,4]);
+  tctx.beginPath(); tctx.moveTo(PX(a,R0-A-W*0.02,C),PY(a,R0-A-W*0.02,C)); tctx.lineTo(PX(a,R0+A+W*0.02,C),PY(a,R0+A+W*0.02,C)); tctx.stroke();
+  tctx.setLineDash([]);
+  tctx.save(); tctx.shadowColor = rgba(col,0.95); tctx.shadowBlur = W*0.03;
+  tctx.fillStyle = rgba(col,1); tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.fill(); tctx.restore();
+  tctx.lineWidth = 1.4; tctx.strokeStyle = 'rgba(235,235,230,0.6)'; tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.stroke();
+}
+
+/* ---------------- the strip: what was heard, metered by time ---------------- */
+var segs = [];          /* {t0, t1, midi, ev (parser event, relabeled in place), held} */
+var STRIP_SEC = 12;
+function drawStrip(now){
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+  sctx.clearRect(0,0,SW,SH);
+  var tNow = ac ? ac.currentTime : now/1000, t0 = tNow - STRIP_SEC;
+  var vis = segs.filter(function(s){ return (s.t1===null?tNow:s.t1) >= t0; });
+  var lo = Infinity, hi = -Infinity;
+  vis.forEach(function(s){ lo = Math.min(lo, s.midi); hi = Math.max(hi, s.midi); });
+  if (live.midi !== null){ lo = Math.min(lo, live.midi); hi = Math.max(hi, live.midi); }
+  if (!isFinite(lo)) { lo = 55; hi = 72; }
+  var mid = (lo+hi)/2, span = Math.max(14, hi-lo+5);
+  function Y(m){ return SH*0.5 - (m-mid)/span*SH; }
+  function X(t){ return (t - t0)/STRIP_SEC*SW; }
+  sctx.strokeStyle = 'rgba(255,255,255,0.05)'; sctx.lineWidth = 1;
+  for (var m = Math.floor(mid-span/2); m <= mid+span/2; m++){ sctx.beginPath(); sctx.moveTo(0,Y(m)); sctx.lineTo(SW,Y(m)); sctx.stroke(); }
+  sctx.textBaseline = 'bottom';
+  vis.forEach(function(s){
+    var x1 = X(s.t0), x2 = X(s.t1===null?tNow:s.t1), y = Y(s.midi);
+    var ev = s.ev, col = (ev && ev.fn) ? FNRGB[FN.indexOf(ev.fn)] : [120,120,116];
+    sctx.strokeStyle = rgba(col, ev ? (ev.held ? 1 : 0.65) : 0.5);
+    sctx.lineWidth = ev && ev.held ? 6 : 3;
+    sctx.lineCap = 'round';
+    sctx.beginPath(); sctx.moveTo(x1,y); sctx.lineTo(Math.max(x1+1,x2),y); sctx.stroke();
+    if (ev && ev.fn && ev.held){
+      sctx.font = '600 11px "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col,1);
+      sctx.fillText(ev.fn, x1, y-6);
+    }
+  });
+  if (live.midi !== null){
+    sctx.fillStyle = 'rgba(235,235,230,0.9)'; sctx.beginPath(); sctx.arc(SW-3, Y(live.midi), 3, 0, TP); sctx.fill();
+  }
+}
+
+/* ---------------- readouts ---------------- */
+var stateEl = document.getElementById('state'), subEl = document.getElementById('stateSub'), hearEl = document.getElementById('hearing'), logEl = document.getElementById('log');
+var LETTER = function(pc){ return LET[mod(pc,12)]; };
+function axisName(re){ return LETTER(re+3)+'·'+LETTER(re+9); }
+function refreshReadouts(){
+  var b = parser.basis, re = parser.re;
+  var s, sub;
+  if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
+  else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
+  else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
+  else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a held tone cannot be placed.'; }
+  else { s = parser.collection.length >= 3 ? 'Settled.' : 'Forming.'; sub = parser.collection.length >= 3 ? 'Holding until a held tone cannot be placed.' : 'The field sharpens as held tones accumulate.'; }
+  stateEl.textContent = s; subEl.textContent = sub;
+  var evs = parser.events.slice(-16);
+  hearEl.innerHTML = evs.map(function(e){
+    if (!e.fn) return '<span class="u">·</span>';
+    var c = FNCOL[FN.indexOf(e.fn)]; if (e.fn.charAt(0)==='~') c = '#a8a8a2';
+    return '<span class="'+(e.held?'':'p')+'" style="color:'+c+'">'+e.fn+'</span>';
+  }).join(' ');
+}
+var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
+var lastLogRe = null;
+function addLog(e){
+  var line = document.createElement('div');
+  var t = (e.t - (startT===null?e.t:startT)).toFixed(1);
+  var what = '';
+  if (e.to !== null && e.to !== undefined){
+    if (lastLogRe !== null && lastLogRe !== e.to){
+      var d = mod(e.to - lastLogRe, 12); if (d > 6) d -= 12;
+      what = ' — Do moves '+(d>0?'+':'')+d+' st';
+    }
+    if (showLetters) what += ' · axis '+axisName(e.to);
+    lastLogRe = e.to;
+  }
+  line.innerHTML = '<span class="k">'+t+'s '+(KIND[e.kind]||e.kind)+'</span>'+what+(e.note && e.kind!=='rotate' && e.kind!=='morph' ?' ('+e.note+')':'');
+  logEl.insertBefore(line, logEl.firstChild);
+}
+
+/* ---------------- listening: pitch, tuning grid, held / trajectory ---------------- */
+var ac = null, analyser = null, micStream = null, micSrc = null, buf = null;
+var live = { on: false, midi: null, rms: 0 };
+var startT = null;
+var opts = { heldMs: 240, gate: 0.012 };
+function ensureAudio(){
+  if (ac) return ac;
+  ac = new (window.AudioContext||window.webkitAudioContext)();
+  analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+  buf = new Float32Array(analyser.fftSize);
+  return ac;
+}
+/* YIN fundamental estimate */
+function yin(x, sr){
+  var N = x.length, Wn = N>>1, tmax = Math.min(Wn-1, Math.floor(sr/50)), tmin = Math.floor(sr/1600);
+  var d = new Float32Array(tmax+1), cm = new Float32Array(tmax+1);
+  for (var tau=1; tau<=tmax; tau++){ var s=0; for (var j=0;j<Wn;j++){ var df = x[j]-x[j+tau]; s += df*df; } d[tau]=s; }
+  var run = 0; cm[0]=1;
+  for (var t=1;t<=tmax;t++){ run += d[t]; cm[t] = run>0 ? d[t]*t/run : 1; }
+  var th = 0.15, best = -1;
+  for (var u=tmin; u<=tmax; u++){ if (cm[u] < th){ while (u+1<=tmax && cm[u+1]<cm[u]) u++; best = u; break; } }
+  if (best < 0) return null;
+  var b0 = best>1?cm[best-1]:cm[best], b2 = best<tmax?cm[best+1]:cm[best];
+  var den = (b0 + b2 - 2*cm[best]), shift = den ? (b0-b2)/(2*den) : 0;
+  return { f: sr/(best+shift), clarity: 1-cm[best] };
+}
+/* tuning grid: read from the playing itself (circular mean of held tones' fractional pitch) */
+var tune = { sx: 0, sy: 0, n: 0 };
+function tuneOffset(){ if (!tune.n) return 0; var a = Math.atan2(tune.sy, tune.sx); return a/TP; }
+function addTune(m){ var fr = m - Math.round(m), a = fr*TP; tune.sx += Math.cos(a); tune.sy += Math.sin(a); tune.n++; }
+
+var cur = null;   /* the tone being heard: {t0, pitches[], held, ev, seg} */
+var cand = null;  /* a possible new tone: {m, n} */
+var lastVoiced = 0;
+function median(a){ var b = a.slice().sort(function(x,y){return x-y;}); return b[b.length>>1]; }
+function startTone(m, t){
+  cur = { t0: t, pitches: [m], held: false, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
+  segs.push(cur.seg); if (segs.length > 400) segs.shift();
+  if (startT === null) startT = t;
+}
+function endTone(t){
+  if (!cur) return;
+  cur.seg.t1 = t;
+  var dur = (t - cur.t0)*1000;
+  if (!cur.held && dur >= 45){
+    var m = median(cur.pitches);
+    cur.ev = parser.tone(Math.round(m - tuneOffset()), t, false);
+    cur.seg.ev = cur.ev; cur.seg.midi = m;
+    afterParse();
+  } else if (!cur.held) { segs.splice(segs.indexOf(cur.seg),1); }
+  cur = null;
+}
+function frame(m, t){
+  if (m === null){
+    if (cur && t - lastVoiced > 0.09) endTone(lastVoiced);
+    cand = null; return;
+  }
+  lastVoiced = t;
+  if (!cur){ startTone(m, t); return; }
+  var med = median(cur.pitches.slice(-12));
+  /* re-articulation: the level dips and comes back on the same pitch */
+  cur.peak = Math.max(cur.peak||0, live.rms);
+  if (live.rms < cur.peak*0.6) cur.dip = true;
+  else if (cur.dip && live.rms > cur.peak*0.8 && Math.abs(m - med) < 0.5){ endTone(t); startTone(m, t); return; }
+  if (Math.abs(m - med) < 0.5){
+    cur.pitches.push(m); cand = null;
+    cur.seg.midi = median(cur.pitches.slice(-24));
+    if (!cur.held && (t - cur.t0)*1000 >= opts.heldMs){
+      cur.held = true;
+      var mm = median(cur.pitches);
+      addTune(mm);
+      cur.ev = parser.tone(Math.round(mm - tuneOffset()), t, true);
+      cur.seg.ev = cur.ev; cur.seg.held = true;
+      afterParse();
+    }
+  } else {
+    if (cand && Math.abs(m - cand.m) < 0.5){ cand.n++; cand.m = (cand.m*(cand.n-1)+m)/cand.n; }
+    else cand = { m: m, n: 1, t: t };
+    if (cand.n >= 2){ endTone(cand.t); startTone(cand.m, cand.t); cand = null; }
+  }
+}
+function afterParse(){ updateLevel(); refreshReadouts(); view.dirty = true; }
+
+function listenFrame(){
+  if (!analyser) return;
+  analyser.getFloatTimeDomainData(buf);
+  var s = 0; for (var i=0;i<buf.length;i++) s += buf[i]*buf[i];
+  var rms = Math.sqrt(s/buf.length); live.rms = rms;
+  var t = ac.currentTime, m = null;
+  if (rms > opts.gate){
+    var r = yin(buf, ac.sampleRate);
+    if (r && r.clarity > 0.8 && r.f > 50 && r.f < 1600) m = 69 + 12*Math.log2(r.f/440);
+  }
+  live.midi = m;
+  frame(m, t);
+}
+
+/* ---------------- main loop ---------------- */
+function tick(now){
+  listenFrame();
+  view.level += (view.levelTarget - view.level)*0.08;
+  var animating = (view.morph && now - view.morph.t0 < view.morph.dur) || (view.rot && now - view.rot.t0 < view.rot.dur) || Math.abs(view.levelTarget - view.level) > 0.002;
+  if (view.morph && now - view.morph.t0 >= view.morph.dur){ view.morph = null; view.dirty = true; }
+  if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
+  if (view.dirty || animating){ drawField(now); view.dirty = false; }
+  drawTop(); drawStrip(now);
+  document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
+  var to = tuneOffset(); document.getElementById('mTune').textContent = tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—';
+  document.getElementById('mLevel').textContent = live.rms.toFixed(3);
+  requestAnimationFrame(tick);
+}
+
+/* ---------------- controls ---------------- */
+var micBtn = document.getElementById('micBtn');
+micBtn.addEventListener('click', function(){
+  ensureAudio(); ac.resume();
+  if (live.on){
+    if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); });
+    if (micSrc) micSrc.disconnect();
+    micStream = null; micSrc = null; live.on = false; micBtn.classList.remove('on'); micBtn.textContent = 'listen'; refreshReadouts(); return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } }).then(function(st){
+    micStream = st; micSrc = ac.createMediaStreamSource(st); micSrc.connect(analyser);
+    live.on = true; micBtn.classList.add('on'); micBtn.textContent = 'listening'; refreshReadouts();
+  }).catch(function(err){ subEl.textContent = 'The microphone could not be opened: '+err.message; });
+});
+document.getElementById('resetBtn').addEventListener('click', function(){
+  parser.reset(); segs = []; cur = null; cand = null; startT = null; tune = { sx:0, sy:0, n:0 };
+  view.topPc = null; view.frozen = false; view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
+  logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
+});
+document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
+function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
+  function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
+bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
+bindRange('winS','winV', function(v){return v+' s';}, function(v){ parser.windowSec = v; });
+bindRange('xch','xchV', function(v){return String(v);}, function(v){ parser.exchange = v; });
+bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; });
+bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
+
+/* ---------------- degenerate test input: a tempered phrase through the same listening path ---------------- */
+var PRESETS = [
+  ['Mary (Mi Re Do)', 'E4 D C D E E E/2'],
+  ['C D E F, stopped at the top', 'C4 D E F/3'],
+  ['C D E F F F', 'C4 D E F F F/2'],
+  ['E D C B, B held', 'E4 D C B3/3'],
+  ['E D C B C', 'E4 D C B3/2 C4/2'],
+  ['Shave and a haircut', 'C4 G3/0.5 G/0.5 A G - B C/2'],
+  ['four triads (arpeggiated), then C D E F', 'C4/0.75 E/0.75 G/0.75 D/0.75 F/0.75 A/0.75 E/0.75 G/0.75 B/0.75 F/0.75 A/0.75 C5/0.75 C4 D E F/2 E D C/2'],
+  ['a field, then a held F♯ (turns)', 'C4 D E F G A B C5 D/2 F#4/2 G/2'],
+  ['a field, F♯ as trajectory (colour)', 'C4 D E F G A B C5 G4/2 F#~ G/2'],
+  ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
+  ['the same five, crossed downward', 'A3 C4 D F E/3']
+];
+var presetEl = document.getElementById('preset'), phraseEl = document.getElementById('phrase');
+PRESETS.forEach(function(p,i){ var o = document.createElement('option'); o.value = i; o.textContent = p[0]; presetEl.appendChild(o); });
+presetEl.addEventListener('change', function(){ if (this.value !== '') phraseEl.value = PRESETS[+this.value][1]; });
+var NAMEPC = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+function parsePhrase(txt){
+  var out = [], oct = 4;
+  txt.trim().split(/\s+/).forEach(function(tok){
+    if (!tok) return;
+    var beats = 1, traj = false;
+    var sl = tok.indexOf('/'); if (sl >= 0){ beats = parseFloat(tok.substr(sl+1)) || 1; tok = tok.substr(0, sl); }
+    if (tok.charAt(tok.length-1) === '~'){ traj = true; tok = tok.slice(0,-1); }
+    if (tok === '-'){ out.push({ rest: true, beats: beats }); return; }
+    var mt = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(tok); if (!mt) return;
+    var pc = NAMEPC[mt[1].toUpperCase()] + (mt[2]==='#'||mt[2]==='♯' ? 1 : (mt[2]==='b'||mt[2]==='♭' ? -1 : 0));
+    if (mt[3] !== undefined) oct = +mt[3];
+    out.push({ midi: 12*(oct+1)+pc, beats: traj ? Math.min(beats, 0.35) : beats, traj: traj });
+  });
+  return out;
+}
+document.getElementById('playBtn').addEventListener('click', function(){
+  ensureAudio(); ac.resume();
+  var notes = parsePhrase(phraseEl.value); if (!notes.length) return;
+  var beat = 60/(+document.getElementById('bpm').value), t = ac.currentTime + 0.12;
+  var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(analyser);
+  notes.forEach(function(n){
+    var d = n.beats*beat;
+    if (!n.rest){
+      var o = ac.createOscillator(), o2 = ac.createOscillator(), gn = ac.createGain(), g2 = ac.createGain();
+      var f = 440*Math.pow(2,(n.midi-69)/12);
+      o.type = 'triangle'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = 2*f; g2.gain.value = 0.25;
+      gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(1, t+0.012);
+      gn.gain.setValueAtTime(1, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
+      o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out);
+      o.start(t); o2.start(t); o.stop(t+d); o2.stop(t+d);
+    }
+    t += d;
+  });
+});
+
+size(); refreshReadouts(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
