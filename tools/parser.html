@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v3 -->
+<!-- Tonal Field — Parser — v4 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -78,7 +78,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v3</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v4</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -130,10 +130,9 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       <b>How it reads.</b> Every tone counts, however short, and nothing decays or resets on its own. The field forms as the
       max-min reading of what has been heard and only sharpens as tones accumulate. When two mirror hearings tie, the ring shows
       the provisional one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and
-      relabels what came before — a resolution, not a modulation. A tone the field cannot place turns it only if some
-      orientation accounts for everything heard since the last turn — each tone placed, or replaced one semitone over in the
-      direction of the turn — and the next tone confirms it. Otherwise the tone is colour and the field holds. It
-      <b>rotates</b> for a one-semitone shift and <b>morphs</b> for anything larger. Tuning is read from the playing itself.
+      relabels what came before — a resolution, not a modulation. A tone the field cannot place turns it, as little as it must:
+      to the nearest orientation that holds it with what came just before. It <b>rotates</b> for a one-semitone shift and
+      <b>morphs</b> for anything larger. Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
     </div>
   </div>
 </main>
@@ -580,13 +579,17 @@ var PRESETS = [
   ['E D C B C', 'E4 D C B3/2 C4/2'],
   ['Shave and a haircut', 'C4 G3/0.5 G/0.5 A G - B C/2'],
   ['four triads (arpeggiated), then C D E F', 'C4/0.75 E/0.75 G/0.75 D/0.75 F/0.75 A/0.75 E/0.75 G/0.75 B/0.75 F/0.75 A/0.75 C5/0.75 C4 D E F/2 E D C/2'],
-  ['a field, then a held F♯ (turns)', 'C4 D E F G A B C5 D/2 F#4/2 G/2'],
-  ['a field, F♯ a fraction of a beat (turns)', 'C4 D E F G A B C5 A4/2 F#~ G/2'],
-  ['harmonic minor (holds: colour)', 'A3 B C4 D E F G#~ A/2'],
-  ['melodic minor in a La field (holds)', 'A3 C4 E A G F E D C B3 A/2 B C4 D E F#~ G#~ A/2'],
-  ['chromatic approach (holds)', 'C4 D E G A C5 D D#~ E/2'],
   ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
-  ['the same five, crossed downward', 'A3 C4 D F E/3']
+  ['the same five, crossed downward', 'A3 C4 D F E/3'],
+  ['a field, then F♯ held (one step sharp)', 'C4 D E F G A B C5 D/2 F#4/2 G/2'],
+  ['a field, F♯ a fraction of a beat', 'C4 D E F G A B C5 A4/2 F#~ G/2'],
+  ['one step flat (B♭)', 'C4 D E F G A B C5 B♭4 A G F/2'],
+  ['two steps sharp (the D field)', 'C4 D E F G A B C5 D4 E F# G A B C#5 D/2'],
+  ['two steps flat (the B♭ field)', 'C4 D E F G A B C5 B♭3 C4 D E♭ F G A B♭/2'],
+  ['up a semitone (the D♭ field)', 'C4 D E F G A B C5 D♭4 E♭ F G♭ A♭ B♭ C5 D♭/2'],
+  ['down a semitone (the B field)', 'C4 D E F G A B C5 B3 C#4 D# E F# G# A# B/2'],
+  ['a tritone away (the G♭ field)', 'C4 D E F G A B C5 G♭4 A♭ B♭ C♭5 D♭ E♭ F G♭/2'],
+  ['to the G field and home', 'C4 D E F G A B C5 G4 A B C5 D E F#5 G/2 C4 D E F G A B C5/2']
 ];
 var presetEl = document.getElementById('preset'), phraseEl = document.getElementById('phrase');
 PRESETS.forEach(function(p,i){ var o = document.createElement('option'); o.value = i; o.textContent = p[0]; presetEl.appendChild(o); });

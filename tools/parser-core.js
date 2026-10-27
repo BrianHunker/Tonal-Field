@@ -1,4 +1,4 @@
-/* Tonal Field — Parser core (decoder) · v3
+/* Tonal Field — Parser core (decoder) · v4
    © Brian Hunker 2026 · GablesGuitar.com/tonal-field
 
    Every tone counts, however short. Memory does not decay and nothing resets on its own.
@@ -10,13 +10,10 @@
       through a half-step axis, bound by a mirror pair one semitone apart. A crossing of that pair
       arriving on a held tone settles the side — the one on which the crossing moves out of the hinge
       into valence. Held-ness is used here and only here.
-   3. TURNING: a tone the current field cannot place turns the field only if some orientation can
-      account for every tone heard since the last turn — each one either placed in its positive half,
-      or superseded: replaced by a later tone one semitone away that the new orientation does place.
-      If no orientation can, the tone is colour: heard, labeled, remembered, and the field holds.
-      (A diatonic orientation holds exactly two half-steps, both touching a hinge; harmonic and
-      melodic minor, phrygian and lydian dominant leave a tone no single orientation explains.)
-      When it turns, it turns as little as it must: nearest along the dominant chain.
+   3. TURNING: a tone the field cannot place turns it, as little as it must — the nearest orientation
+      along the dominant chain that holds the newest tones (and every older tone it still can). It
+      rotates for a one-semitone shift and morphs for anything larger. Non-diatonic colour (tones that
+      should not turn the field) is deliberately not handled yet: diatonic rotation and morph first.
 
    Orientation is written as `re`: the pitch class that is Re (0 = the tuning grid's C). */
 (function (root) {
@@ -66,7 +63,6 @@
       collection: [],                     /* pitch classes placed by the field since it last turned */
       mem: {},                            /* pc -> index of its latest event since the field last turned */
       since: 0,                           /* event index where the current memory began */
-      pending: null,                      /* a turn asked for, decided by the next tone */
       listeners: []
     };
 
@@ -135,62 +131,29 @@
       relabelFrom(P.since);
     }
 
-    /* signed steps along the dominant chain from orientation a to b (b = a + 7k): + sharpward, − flatward */
-    function chainSteps(a, b) { for (var k = 0; k < 12; k++) if (mod12(a + 7 * k) === b) return k > 6 ? k - 12 : k; return 0; }
-
-    /* TURNING. The new orientation must account for every tone in memory: placed in its positive half,
-       or superseded — moved one semitone in the direction the field turns (sharpward +1, flatward −1)
-       by a later tone it does place. That is the field changing as little as it must: each chain step
-       alters exactly one tone by one semitone. Returns the orientations that can. */
-    function accountFor(q) {
-      var pcs = Object.keys(P.mem).map(Number);
-      var out = [];
-      for (var r = 0; r < 12; r++) {
-        if (r === P.re || gv(q, r) < -EPS) continue;
-        var k = chainSteps(P.re, r), dirs = k === 6 ? [1, -1] : [k > 0 ? 1 : -1];
-        var live = [], ok = true;
-        for (var i = 0; i < pcs.length && ok; i++) {
-          var x = pcs[i];
-          if (gv(x, r) >= -EPS) { live.push(x); continue; }
-          var sup = dirs.some(function (d) { var y = mod12(x + d); return P.mem[y] !== undefined && P.mem[y] > P.mem[x] && gv(y, r) >= -EPS; });
-          if (!sup) ok = false;
-        }
-        if (ok) out.push({ re: r, live: live, m: minG(live, r) });
-      }
-      return out;
-    }
-    function choose(opts) {
-      var best = Math.max.apply(null, opts.map(function (o) { return o.m; }));
-      opts = opts.filter(function (o) { return o.m >= best - EPS; });
-      var dmin = Math.min.apply(null, opts.map(function (o) { return chainDist(P.re, o.re); }));
-      return { best: best, opts: opts.filter(function (o) { return chainDist(P.re, o.re) === dmin; }) };   /* as little as it must */
-    }
-    function applyTurn(idx, now, ch) {
-      var from = P.re, opts = ch.opts, live = opts[0].live;
-      var mem = {}; live.forEach(function (x) { mem[x] = P.mem[x]; });
-      P.mem = mem; P.collection = live.slice(); P.since = idx;
-      if (opts.length === 1) { P.re = opts[0].re; P.basis = 'unique'; P.tie = null; }
+    /* TURNING: a tone the field cannot place turns it, as little as it must. The new collection is
+       rebuilt from what was heard, newest first, keeping each tone while some orientation still holds
+       them all in the positive half; the nearest such orientation along the dominant chain is taken. */
+    function turn(idx, now) {
+      var order = Object.keys(P.mem).map(Number).sort(function (a, b) { return P.mem[b] - P.mem[a]; });
+      var set = [];
+      order.forEach(function (x) { var trial = set.concat([x]); if (maximin(trial).best >= -EPS) set = trial; });
+      var mm = maximin(set), from = P.re;
+      var cands = mm.cands.slice();
+      var dmin = Math.min.apply(null, cands.map(function (c) { return chainDist(from, c); }));
+      cands = cands.filter(function (c) { return chainDist(from, c) === dmin; });
+      var mem = {}; set.forEach(function (x) { mem[x] = P.mem[x]; });
+      P.mem = mem; P.collection = set; P.since = idx;
+      if (cands.length === 1) { P.re = cands[0]; P.basis = 'unique'; P.tie = null; }
       else {
-        var tie = { cands: [opts[0].re, opts[1].re], bind: bindingPair(live, opts[0].re, opts[1].re, ch.best), since: idx };
+        var tie = { cands: cands.slice(0, 2), bind: bindingPair(set, cands[0], cands[1], mm.best), since: idx };
         P.tie = tie; P.re = provisional(idx, tie); P.basis = 'tie-open';
       }
       var shift = Math.min(mod12(P.re - from), mod12(from - P.re));   /* semitones the field moved */
       emit(shift <= 1 ? 'rotate' : 'morph', { t: now, from: from, to: P.re, note: shift + ' st' });
       relabelFrom(idx);
     }
-    /* A turn is decided by the tone after the one that asked for it: the new orientation must place it.
-       If that tone goes straight back to what the turn would have replaced, or is itself outside the new
-       orientation, the asking tone was an approach, not an arrival — it is colour and the field holds.
-       Silence (flush) commits it. */
-    function settlePending(nextPc) {
-      var pd = P.pending; if (!pd) return;
-      P.pending = null;
-      var opts = accountFor(pd.q);
-      if (nextPc !== undefined) opts = opts.filter(function (o) { return gv(nextPc, o.re) >= -EPS; });
-      if (!opts.length) { P.events[pd.idx].colour = true; return; }
-      applyTurn(pd.idx, pd.t, choose(opts));
-    }
-    P.flush = function () { settlePending(); };
+    P.flush = function () {};
 
     /* a tone has been heard (held: whether it has sounded long enough to count as an arrival) */
     P.tone = function (pc, t, held) {
@@ -198,7 +161,6 @@
       var ev = { pc: pc, t: t, held: !!held, re: P.re, fn: P.re === null ? null : fnName(pc, P.re) };
       P.events.push(ev);
       var idx = P.events.length - 1;
-      if (P.pending && pc !== P.events[P.pending.idx].pc) settlePending(pc);
       P.mem[pc] = idx;
 
       if (P.collection.indexOf(pc) >= 0) {        /* nothing new in space: only time can speak */
@@ -207,11 +169,7 @@
       }
       var trial = P.collection.concat([pc]);
       if (maximin(trial).best >= -EPS) { P.collection = trial; form(idx, t); return P.events[idx]; }
-      /* the field as it stands cannot place this tone: can any orientation account for what was heard? */
-      if (P.pending && P.events[P.pending.idx].pc === pc) return P.events[idx];
-      var opts = accountFor(pc);
-      if (!opts.length) { ev.colour = true; return P.events[idx]; }   /* colour: heard, remembered; the field holds */
-      P.pending = { idx: idx, t: t, q: pc };
+      turn(idx, t);                               /* the field as it stands cannot place this tone */
       return P.events[idx];
     };
     /* a held arrival on a tone already counted: lets a tie be settled by a crossing that lands late */
@@ -221,7 +179,7 @@
       if (P.tie && P.collection.indexOf(e.pc) >= 0) form(idx, e.t);
     };
     P.reset = function () {
-      P.re = null; P.basis = 'none'; P.tie = null; P.events = []; P.log = []; P.collection = []; P.mem = {}; P.since = 0; P.pending = null;
+      P.re = null; P.basis = 'none'; P.tie = null; P.events = []; P.log = []; P.collection = []; P.mem = {}; P.since = 0;
     };
     P.on = function (f) { P.listeners.push(f); };
     return P;
