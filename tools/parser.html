@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v1 -->
+<!-- Tonal Field — Parser — v2 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -59,10 +59,14 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 .card h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-bottom: 8px; }
 #state { font-family: var(--font-serif); font-size: 19px; color: #ece8dc; line-height: 1.35; }
 #stateSub { color: var(--dim); margin-top: 4px; font-size: 12px; }
-#hearing { font-family: var(--font-mono); font-size: 18px; font-weight: 600; line-height: 1.7; word-spacing: 0.25em; min-height: 1.7em; overflow-wrap: anywhere; }
-#hearing .p { font-weight: 400; opacity: 0.72; font-size: 15px; }
+#hearing { font-family: var(--font-mono); display: flex; flex-wrap: wrap; gap: 6px 14px; min-height: 3.4em; }
+#hearing .e { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; }
+#hearing .f { font-size: 18px; font-weight: 600; }
+#hearing .l { font-size: 14px; font-weight: 500; opacity: 0.85; }
+#hearing .p .f { font-weight: 400; opacity: 0.72; font-size: 15px; }
+#hearing .p .l { opacity: 0.6; }
 #hearing .u { color: #6d6d69; }
-.strip { position: relative; width: 100%; height: 190px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
+.strip { position: relative; width: 100%; height: 570px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
 #log .k { color: var(--gold); }
@@ -75,7 +79,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v1</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v2</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -96,7 +100,8 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
   <label title="irreducible 1 — the window: how far back held tones are drawn on when the field has to turn">window <input type="range" id="winS" min="2" max="20" step="1" value="6"><output id="winV">6 s</output></label>
   <label title="irreducible 2 — the exchange rate: how many held tones the current field cannot place before it turns">exchange <input type="range" id="xch" min="1" max="4" step="1" value="1"><output id="xchV">1</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
-  <button id="lettersBtn" title="show the tuning grid's letter names around the ring">letters</button>
+  <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
+  <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial">12 o'clock <select id="dialSel"></select></label>
 </div>
 
 <main>
@@ -154,14 +159,14 @@ function mod(n,m){ return ((n%m)+m)%m; }
 /* the continuous field: g(x) = (7/12)cos5x + (5/12)cos7x, x in radians from Re */
 function g(x){ return (7/12)*Math.cos(5*x) + (5/12)*Math.cos(7*x); }
 /* colour at a continuous position s semitones above Re: blend of the two neighbouring functions */
+function lighten(c,t){ return mix(c,[255,255,255],t); }
 function fnColorAt(s){ s = mod(s,12); var i = Math.floor(s), f = s-i; return mix(FNRGB[i], FNRGB[(i+1)%12], f); }
 
 /* ---------------- parser ---------------- */
 var parser = TF.createParser({ windowSec: 6, exchange: 1 });
 window.tfParser = parser;   /* for inspection from the console */
 var view = {
-  topPc: null,          /* pitch class drawn at the top: Re, until the field first turns; then fixed until reset */
-  frozen: false,        /* after the first turn the pitch frame holds, so every later change is seen */
+  dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
   reNow: null,          /* current displayed orientation (may be fractional while rotating) */
   morph: null,          /* {a, b, t0, dur} crossfade between two orientations */
   rot: null,            /* {a, b, t0, dur} turn of a fractional re */
@@ -171,14 +176,8 @@ var view = {
 };
 parser.on(function(e){
   if (e.to === null || e.to === undefined) { view.dirty = true; return; }
-  var turning0 = (e.kind === 'rotate' || e.kind === 'morph');
-  if (!view.frozen && !turning0){          /* until the field first turns, Re stays at the top */
-    view.topPc = e.to; view.reNow = e.to; view.morph = null; view.rot = null;
-    addLog(e); view.dirty = true; return;
-  }
-  view.frozen = true;                      /* from the first turn on, the pitch frame holds so turns are seen */
   var from = view.reNow;
-  if (from === null) { view.reNow = e.to; view.dirty = true; return; }
+  if (from === null) { view.reNow = e.to; addLog(e); view.dirty = true; return; }
   var target = e.to;
   var shift = Math.min(mod(target-Math.round(from),12), mod(Math.round(from)-target,12));
   var turning = (e.kind === 'rotate' || e.kind === 'morph');
@@ -216,11 +215,13 @@ function size(){
   view.dirty = true;
 }
 window.addEventListener('resize', size);
-var showLetters = false;
+var showLetters = true;
 
-/* screen angle of a pitch position (semitones, continuous): clockwise, topPc at the top */
-function ang(s){ return -Math.PI/2 + (s - (view.topPc===null?0:view.topPc))*ST; }
-function geom(){ var C = W/2; return { C: C, R0: W*0.30, A: W*0.13 }; }
+/* screen angle of a position s on the tuning grid (semitones, continuous): clockwise, the dial's letter at
+   12 o'clock. The grid sits tuneOffset() semitones from the tempered letters, so letters stay put. */
+function ang(s){ return -Math.PI/2 + (s + tuneOffset() - view.dialTop)*ST; }
+function geom(){ var C = W/2; return { C: C, R0: W*0.255, A: W*0.115 }; }
+var R_LET = 0.474;   /* letters ring, as a fraction of the canvas width: clear of the solfège labels */
 function PX(a,r,C){ return C + r*Math.cos(a); }
 function PY(a,r,C){ return C + r*Math.sin(a); }
 
@@ -295,16 +296,21 @@ function drawField(now){
     for (var p=0;p<12;p++){
       var off = mod(p - view.reNow, 12), name = FN[off], anti = name.charAt(0) === '~';
       var v0 = g(off*ST)*view.level, a0 = ang(p);
-      var rr = anti ? R0 - A*0.55 - W*0.03 : R0 + A*Math.max(v0,0) + W*0.05;
+      var rr = anti ? R0 - A*0.55 - W*0.03 : R0 + A*Math.max(v0,0) + W*0.04;
       fctx.font = (anti?'600 ':'700 ') + Math.round(W*(anti?0.031:0.037)) + 'px "IBM Plex Mono", monospace';
       fctx.fillStyle = rgba(mix(GRAY, FNRGB[off], view.level), (anti?0.75:1)*Math.min(1,view.level*1.4));
       fctx.fillText(name, PX(a0,rr,C), PY(a0,rr,C));
     }
   }
-  if (showLetters && view.topPc !== null){
+  /* the letters: fixed in place, each taking the colour of its function in the field as it stands */
+  if (showLetters){
     fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
-    fctx.font = Math.round(W*0.03) + 'px "IBM Plex Mono", monospace'; fctx.fillStyle = 'rgba(170,170,165,0.55)';
-    for (var q=0;q<12;q++){ var aq = ang(q - tuneOffset()); fctx.fillText(LET[q], PX(aq,W*0.475,C), PY(aq,W*0.475,C)); }
+    fctx.font = '600 ' + Math.round(W*0.032) + 'px "IBM Plex Mono", monospace';
+    for (var q=0;q<12;q++){
+      var sq = q - tuneOffset(), aq = ang(sq), cq = sample(sq, now), lum = 0.3*cq.col[0]+0.59*cq.col[1]+0.11*cq.col[2], lift = lighten(cq.col, Math.min(0.5, 0.15 + Math.max(0, 110-lum)/300));
+      fctx.fillStyle = rgba(view.reNow === null ? [150,150,146] : lift, view.reNow === null ? 0.6 : 0.55 + 0.45*view.level);
+      fctx.fillText(LET[q], PX(aq,W*R_LET,C), PY(aq,W*R_LET,C));
+    }
   }
 }
 
@@ -348,16 +354,16 @@ function drawStrip(now){
     var x1 = X(s.t0), x2 = X(s.t1===null?tNow:s.t1), y = Y(s.midi);
     var ev = s.ev, col = (ev && ev.fn) ? FNRGB[FN.indexOf(ev.fn)] : [120,120,116];
     sctx.strokeStyle = rgba(col, ev ? (ev.held ? 1 : 0.65) : 0.5);
-    sctx.lineWidth = ev && ev.held ? 6 : 3;
+    sctx.lineWidth = ev && ev.held ? 12 : 6;
     sctx.lineCap = 'round';
     sctx.beginPath(); sctx.moveTo(x1,y); sctx.lineTo(Math.max(x1+1,x2),y); sctx.stroke();
     if (ev && ev.fn && ev.held){
-      sctx.font = '600 11px "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col,1);
-      sctx.fillText(ev.fn, x1, y-6);
+      sctx.font = '600 22px "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(ev.fn.charAt(0)==='~' ? lighten(col,0.42) : col, 1);
+      sctx.fillText(ev.fn, x1, y-12);
     }
   });
   if (live.midi !== null){
-    sctx.fillStyle = 'rgba(235,235,230,0.9)'; sctx.beginPath(); sctx.arc(SW-3, Y(live.midi), 3, 0, TP); sctx.fill();
+    sctx.fillStyle = 'rgba(235,235,230,0.9)'; sctx.beginPath(); sctx.arc(SW-7, Y(live.midi), 6, 0, TP); sctx.fill();
   }
 }
 
@@ -376,10 +382,13 @@ function refreshReadouts(){
   stateEl.textContent = s; subEl.textContent = sub;
   var evs = parser.events.slice(-16);
   hearEl.innerHTML = evs.map(function(e){
-    if (!e.fn) return '<span class="u">·</span>';
-    var c = FNCOL[FN.indexOf(e.fn)]; if (e.fn.charAt(0)==='~') c = '#a8a8a2';
-    return '<span class="'+(e.held?'':'p')+'" style="color:'+c+'">'+e.fn+'</span>';
-  }).join(' ');
+    var letter = LET[mod(e.pc,12)];
+    if (!e.fn) return '<span class="e u"><span class="f">·</span><span class="l">'+letter+'</span></span>';
+    var c = FNRGB[FN.indexOf(e.fn)];
+    c = lighten(c, e.fn.charAt(0)==='~' ? 0.42 : 0.08);          /* the dark anti colours, lifted to read on the panel */
+    var css = 'rgb('+c.map(Math.round).join(',')+')';
+    return '<span class="e'+(e.held?'':' p')+'" style="color:'+css+'"><span class="f">'+e.fn+'</span><span class="l">'+letter+'</span></span>';
+  }).join('');
 }
 var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
 var lastLogRe = null;
@@ -527,9 +536,32 @@ micBtn.addEventListener('click', function(){
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
   parser.reset(); segs = []; cur = null; cand = null; startT = null; tune = { sx:0, sy:0, n:0 };
-  view.topPc = null; view.frozen = false; view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
+  view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
 });
+var dialSel = document.getElementById('dialSel');
+LET.forEach(function(l,i){ var o = document.createElement('option'); o.value = i; o.textContent = l; dialSel.appendChild(o); });
+try { var sv = localStorage.getItem('tfParserDial'); if (sv !== null && !isNaN(+sv)) view.dialTop = mod(+sv,12); } catch(e){}
+dialSel.value = String(view.dialTop);
+function setDial(v, snap){
+  view.dialTop = snap ? mod(Math.round(v),12) : v; view.dirty = true;
+  if (snap){ dialSel.value = String(view.dialTop); try { localStorage.setItem('tfParserDial', String(view.dialTop)); } catch(e){} }
+}
+dialSel.addEventListener('change', function(){ setDial(+this.value, true); });
+/* drag the ring to turn the dial; it settles on the nearest letter */
+(function(){
+  var drag = null;
+  function angAt(ev){ var r = topCv.getBoundingClientRect(); return Math.atan2(ev.clientY - (r.top + r.height/2), ev.clientX - (r.left + r.width/2)); }
+  topCv.style.cursor = 'grab'; topCv.style.touchAction = 'none';
+  topCv.addEventListener('pointerdown', function(ev){ drag = { a0: angAt(ev), d0: view.dialTop }; topCv.setPointerCapture(ev.pointerId); topCv.style.cursor = 'grabbing'; });
+  topCv.addEventListener('pointermove', function(ev){
+    if (!drag) return;
+    var da = angAt(ev) - drag.a0; da = Math.atan2(Math.sin(da), Math.cos(da));
+    setDial(drag.d0 - da/ST, false);
+  });
+  function end(){ if (!drag) return; drag = null; topCv.style.cursor = 'grab'; setDial(view.dialTop, true); }
+  topCv.addEventListener('pointerup', end); topCv.addEventListener('pointercancel', end);
+})();
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
