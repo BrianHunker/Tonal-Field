@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v5 -->
+<!-- Tonal Field — Parser — v6 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -78,7 +78,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v5</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v6</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -95,6 +95,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
+  <label title="a silence at least this long ends a phrase — long enough to let staccato through. The orientation a phrase leaves is what the next phrase arrives in">phrase gap <input type="range" id="gapMs" min="150" max="1500" step="10" value="400"><output id="gapV">400 ms</output></label>
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
@@ -127,13 +128,14 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       <div id="log"></div>
     </div>
     <div class="card note">
-      <b>How it reads.</b> Every tone counts, however short, and nothing decays or resets on its own. The field forms as the
-      max-min reading of what has been heard and only sharpens as tones accumulate. When two mirror hearings tie, the ring shows
+      <b>How it reads.</b> Every tone counts, however short. In the first phrase the field forms as the max-min reading
+      of its tones and sharpens as they arrive. When two mirror hearings tie, the ring shows
       the provisional one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and
-      relabels what came before — a resolution, not a modulation. All of that is provisional: the moment both tones of a
-      tritone have sounded, the field is <b>settled</b>, and it stays settled — no cadence, crossing or passing tone can turn
-      it. Only a different tritone does: it <b>rotates</b> for a one-semitone shift and <b>morphs</b> for anything larger.
-      Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
+      relabels the phrase — a resolution, not a modulation. After that the field holds nothing but its orientation, set by the
+      last phrase (a phrase ends at a pause). Each new phrase is heard in that orientation; if it places every tone, nothing
+      changes, however it cadences. If it holds a tone that orientation cannot place, the phrase itself decides a new one —
+      as little change as it must — and the field <b>rotates</b> for a one-semitone shift or <b>morphs</b> for anything
+      larger. Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
     </div>
   </div>
 </main>
@@ -192,11 +194,11 @@ parser.on(function(e){
   view.dirty = true;
 });
 function updateLevel(){
-  var n = parser.collection.length, b = parser.basis;
-  var L = n===0 ? 0 : n===1 ? 0.32 : n===2 ? 0.6 : n===3 ? 0.84 : 1;
+  var b = parser.basis, seen = {}, n = 0;
+  for (var i = parser.phraseStart; i < parser.events.length; i++){ if (!seen[parser.events[i].pc]){ seen[parser.events[i].pc] = 1; n++; } }
+  var L = parser.re === null ? 0 : (parser.phrases > 0 ? 1 : (n<=1 ? 0.32 : n===2 ? 0.6 : n===3 ? 0.84 : 1));
   if (b === 'tie-open') L = Math.min(L, 0.62);
   if (b === 'open') L = 0.18;
-  if (b === 'settled') L = 1;
   view.levelTarget = L;
   view.ghost = (b === 'tie-open' && parser.tie) ? (parser.tie.cands[0] === parser.re ? parser.tie.cands[1] : parser.tie.cands[0]) : null;
 }
@@ -348,6 +350,9 @@ function drawStrip(now){
   function X(t){ return (t - t0)/STRIP_SEC*SW; }
   sctx.strokeStyle = 'rgba(255,255,255,0.05)'; sctx.lineWidth = 1;
   for (var m = Math.floor(mid-span/2); m <= mid+span/2; m++){ sctx.beginPath(); sctx.moveTo(0,Y(m)); sctx.lineTo(SW,Y(m)); sctx.stroke(); }
+  sctx.strokeStyle = 'rgba(216,200,120,0.35)'; sctx.setLineDash([3,5]);
+  phraseEnds.forEach(function(te){ var xe = X(te + 0.05); if (xe < 0 || xe > SW) return; sctx.beginPath(); sctx.moveTo(xe,0); sctx.lineTo(xe,SH); sctx.stroke(); });
+  sctx.setLineDash([]);
   sctx.textBaseline = 'bottom';
   vis.forEach(function(s){
     var x1 = X(s.t0), x2 = X(s.t1===null?tNow:s.t1), y = Y(s.midi);
@@ -376,9 +381,10 @@ function refreshReadouts(){
   if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
   else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
   else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
-  else if (b === 'settled'){ s = 'Settled — the hinges have been heard.'; sub = 'Heard this way until a different tritone is heard. Nothing else turns it.'; }
+  else if (b === 'heard'){ s = 'Heard in the orientation it arrived in.'; sub = 'This phrase places every tone in the field the last phrase left.'; }
+  else if (b === 'changed'){ s = 'This phrase turned the field.'; sub = 'It held a tone the orientation it arrived in could not place.'; }
   else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a tone it cannot place turns it.'; }
-  else { s = parser.collection.length >= 3 ? 'Settled.' : 'Forming.'; sub = parser.collection.length >= 3 ? 'Holding until a tone it cannot place turns it.' : 'The field sharpens as tones accumulate.'; }
+  else { s = 'Forming.'; sub = 'The first phrase: the field comes into focus as its tones arrive.'; }
   stateEl.textContent = s; subEl.textContent = sub;
   var evs = parser.events.slice(-16);
   hearEl.innerHTML = evs.map(function(e){
@@ -390,9 +396,10 @@ function refreshReadouts(){
     return '<span class="e'+(e.held?'':' p')+'" style="color:'+css+'"><span class="f">'+e.fn+'</span><span class="l">'+letter+'</span></span>';
   }).join('');
 }
-var KIND = { hinged:'settles on a tritone', settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
+var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
 var lastLogRe = null;
 function addLog(e){
+  if (e.kind === 'phrase') return;
   var line = document.createElement('div');
   var t = (e.t - (startT===null?e.t:startT)).toFixed(1);
   var what = '';
@@ -412,7 +419,7 @@ function addLog(e){
 var ac = null, analyser = null, micStream = null, micSrc = null, buf = null;
 var live = { on: false, midi: null, rms: 0 };
 var startT = null;
-var opts = { heldMs: 240, gate: 0.012 };
+var opts = { heldMs: 240, gate: 0.012, gapMs: 400 };
 function ensureAudio(){
   if (ac) return ac;
   ac = new (window.AudioContext||window.webkitAudioContext)();
@@ -441,7 +448,7 @@ function addTune(m){ var fr = m - Math.round(m), a = fr*TP; tune.sx += Math.cos(
 
 var cur = null;   /* the tone being heard: {t0, pitches[], held, ev, seg} */
 var cand = null;  /* a possible new tone: {m, n} */
-var lastVoiced = 0, flushed = true;
+var lastVoiced = 0, phraseOpen = false, phraseEnds = [];
 function median(a){ var b = a.slice().sort(function(x,y){return x-y;}); return b[b.length>>1]; }
 function startTone(m, t){
   cur = { t0: t, pitches: [m], held: false, reported: false, idx: null, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
@@ -457,10 +464,10 @@ function endTone(t){
 function frame(m, t){
   if (m === null){
     if (cur && t - lastVoiced > 0.09) endTone(lastVoiced);
-    if (!flushed && t - lastVoiced > 0.45){ flushed = true; parser.flush(); afterParse(); }   /* silence decides a pending turn */
+    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }   /* a pause ends the phrase */
     cand = null; return;
   }
-  lastVoiced = t; flushed = false;
+  lastVoiced = t;
   if (!cur){ startTone(m, t); return; }
   var med = median(cur.pitches.slice(-12));
   /* re-articulation: the level dips and comes back on the same pitch */
@@ -475,7 +482,7 @@ function frame(m, t){
       var m0 = median(cur.pitches);
       if (!tune.n) addTune(m0);
       cur.reported = true;
-      cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false);
+      cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false); phraseOpen = true;
       cur.idx = parser.events.length - 1;
       cur.seg.ev = cur.ev;
       afterParse();
@@ -539,7 +546,7 @@ micBtn.addEventListener('click', function(){
   }).catch(function(err){ subEl.textContent = 'The microphone could not be opened: '+err.message; });
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
-  parser.reset(); segs = []; cur = null; cand = null; startT = null; tune = { sx:0, sy:0, n:0 };
+  parser.reset(); segs = []; cur = null; cand = null; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
 });
@@ -569,6 +576,7 @@ dialSel.addEventListener('change', function(){ setDial(+this.value, true); });
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
+bindRange('gapMs','gapV', function(v){return v+' ms';}, function(v){ opts.gapMs = v; });
 bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
 bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; });
 bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
@@ -580,19 +588,20 @@ var PRESETS = [
   ['C D E F F F', 'C4 D E F F F/2'],
   ['E D C B, B held', 'E4 D C B3/3'],
   ['E D C B C', 'E4 D C B3/2 C4/2'],
-  ['Shave and a haircut', 'C4 G3/0.5 G/0.5 A G - B C/2'],
-  ['four triads (arpeggiated), then C D E F', 'C4/0.75 E/0.75 G/0.75 D/0.75 F/0.75 A/0.75 E/0.75 G/0.75 B/0.75 F/0.75 A/0.75 C5/0.75 C4 D E F/2 E D C/2'],
+  ['Shave and a haircut | two bits', 'C4 G3/0.5 G/0.5 A G | B C4/2'],
+  ['four triads | then C D E F', 'C4/0.75 E/0.75 G/0.75 D/0.75 F/0.75 A/0.75 E/0.75 G/0.75 B/0.75 F/0.75 A/0.75 C5/0.75 | C4 D E F/2 E D C/2'],
+  ['a field | G A B G (heard in it)', 'C4 D E F G A B C5/2 | G4 A B G/2'],
+  ['a field | a phrase where G is Do', 'C4 D E F G A B C5/2 | G4 A B C5 D E F#~ G/2'],
+  ['a field | a phrase where F is Do', 'C4 D E F G A B C5/2 | F4 G A B♭ C5 D E F/2'],
+  ['a field | F G A F♯ G (K545 shape)', 'C4 D E F G A B C5/2 | C4 D E F G A F#~ G/2'],
+  ['a field | the D field', 'C4 D E F G A B C5/2 | D4 E F# G A B C#5 D/2'],
+  ['a field | up a semitone (D♭)', 'C4 D E F G A B C5/2 | D♭4 E♭ F G♭ A♭ B♭ C5 D♭/2'],
+  ['a field | down a semitone (B)', 'C4 D E F G A B C5/2 | B3 C#4 D# E F# G# A# B/2'],
+  ['a field | a tritone away (G♭)', 'C4 D E F G A B C5/2 | G♭4 A♭ B♭ C♭5 D♭ E♭ F G♭/2'],
+  ['a field | where C♯ is Do', 'C4 D E F G A B C5/2 | C#4 D# E# F# G# A# B#4 C#5/2'],
+  ['to the G field | and home', 'C4 D E F G A B C5/2 | G4 A B C5 D E F#5 G/2 | F5 E D C/2'],
   ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
-  ['the same five, crossed downward', 'A3 C4 D F E/3'],
-  ['a field, then F♯ held (one step sharp)', 'C4 D E F G A B C5 D/2 F#4/2 G/2'],
-  ['a field, F♯ a fraction of a beat', 'C4 D E F G A B C5 A4/2 F#~ G/2'],
-  ['one step flat (B♭)', 'C4 D E F G A B C5 B♭4 A G F/2'],
-  ['two steps sharp (the D field)', 'C4 D E F G A B C5 D4 E F# G A B C#5 D/2'],
-  ['two steps flat (the B♭ field)', 'C4 D E F G A B C5 B♭3 C4 D E♭ F G A B♭/2'],
-  ['up a semitone (the D♭ field)', 'C4 D E F G A B C5 D♭4 E♭ F G♭ A♭ B♭ C5 D♭/2'],
-  ['down a semitone (the B field)', 'C4 D E F G A B C5 B3 C#4 D# E F# G# A# B/2'],
-  ['a tritone away (the G♭ field)', 'C4 D E F G A B C5 G♭4 A♭ B♭ C♭5 D♭ E♭ F G♭/2'],
-  ['to the G field and home', 'C4 D E F G A B C5 G4 A B C5 D E F#5 G/2 C4 D E F G A B C5/2']
+  ['the same five, crossed downward', 'A3 C4 D F E/3']
 ];
 var presetEl = document.getElementById('preset'), phraseEl = document.getElementById('phrase');
 PRESETS.forEach(function(p,i){ var o = document.createElement('option'); o.value = i; o.textContent = p[0]; presetEl.appendChild(o); });
@@ -606,6 +615,7 @@ function parsePhrase(txt){
     var sl = tok.indexOf('/'); if (sl >= 0){ beats = parseFloat(tok.substr(sl+1)) || 1; tok = tok.substr(0, sl); }
     if (tok.charAt(tok.length-1) === '~'){ traj = true; tok = tok.slice(0,-1); }
     if (tok === '-'){ out.push({ rest: true, beats: beats }); return; }
+    if (tok === '|'){ out.push({ rest: true, sec: Math.max(0.9, opts.gapMs/1000 + 0.4) }); return; }   /* a pause: the phrase ends */
     var mt = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(tok); if (!mt) return;
     var pc = NAMEPC[mt[1].toUpperCase()] + (mt[2]==='#'||mt[2]==='♯' ? 1 : (mt[2]==='b'||mt[2]==='♭' ? -1 : 0));
     if (mt[3] !== undefined) oct = +mt[3];
@@ -619,7 +629,7 @@ document.getElementById('playBtn').addEventListener('click', function(){
   var beat = 60/(+document.getElementById('bpm').value), t = ac.currentTime + 0.12;
   var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(analyser);
   notes.forEach(function(n){
-    var d = n.beats*beat;
+    var d = n.sec !== undefined ? n.sec : n.beats*beat;
     if (!n.rest){
       var o = ac.createOscillator(), o2 = ac.createOscillator(), gn = ac.createGain(), g2 = ac.createGain();
       var f = 440*Math.pow(2,(n.midi-69)/12);

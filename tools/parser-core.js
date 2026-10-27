@@ -1,17 +1,23 @@
-/* Tonal Field — Parser core (decoder) · v5
+/* Tonal Field — Parser core (decoder) · v6
    © Brian Hunker 2026 · GablesGuitar.com/tonal-field
 
-   Every tone counts, however short. Memory never decays and nothing resets on its own.
+   The field accumulates nothing. It holds no memory beyond its current orientation, and that
+   orientation was set by nothing more than the last phrase. It applies only to how the next phrase
+   is first received.
 
-   SETTLED: once a tritone has been heard — both tones of a hinge pair Fa·Ti sounded, at any distance in
-   time — the field is settled, and it is heard that way until a DIFFERENT tritone is heard. Nothing
-   else turns it: no cadence, no crossing, no tone outside the field. A new tritone turns it: rotating
-   for a one-semitone shift, morphing for anything larger. Which tone of a tritone is Fa is read from
-   the tones heard (max-min), nearest along the dominant chain when they do not say.
-
-   BEFORE SETTLING (the degenerate stage): the tones heard so far are read by max-min. When two mirror
-   hearings tie, a crossing of the two tones binding the tie, arriving on a held tone, decides the side,
-   and what came before is relabeled. These readings are provisional; the first tritone settles them.
+   A PHRASE is the run of tones between pauses (what counts as a pause is the caller's one rule).
+   Each phrase is heard against the orientation it arrives in:
+   - if that orientation places every tone of the phrase in its positive half, the phrase is heard
+     in it and nothing changes — no cadence, no crossing, nothing short of a tone it cannot place;
+   - otherwise the phrase is definitive about a new orientation, read from its own tones, newest first
+     (a tone the later tones contradict is dropped): the field changes as little as it must — of the
+     orientations that place those tones, the nearest to the incoming one along the dominant chain,
+     max-min among equals. The change happens at the first tone the incoming orientation could not place.
+   When the phrase arrives with no orientation at all (the first phrase — the degenerate edge), it is
+   read by max-min alone, and when two mirror readings tie, a crossing of the two tones binding the
+   tie, arriving on a held tone, decides the side. If a phrase ends with the tie still open, the next
+   phrase may settle it: placed by the other reading, it resolves the tie and relabels that phrase.
+   At the pause, whatever orientation the phrase left is what the next phrase arrives in.
 
    Orientation is written as `re`: the pitch class that is Re (0 = the tuning grid's C). */
 (function (root) {
@@ -26,12 +32,7 @@
   function fnName(pc, re) { return FN[mod12(pc - re)]; }
   /* distance between two orientations along the dominant chain (0..6 steps) */
   function chainDist(a, b) { var d = mod12(5 * mod12(b - a)); return Math.min(d, 12 - d); }
-
-  function minG(pcs, re) {
-    var m = Infinity;
-    for (var i = 0; i < pcs.length; i++) m = Math.min(m, gv(pcs[i], re));
-    return m;
-  }
+  function minG(pcs, re) { var m = Infinity; for (var i = 0; i < pcs.length; i++) m = Math.min(m, gv(pcs[i], re)); return m; }
   /* every orientation that maximizes the least-supported tone's g */
   function maximin(pcs) {
     var best = -Infinity, out = [];
@@ -44,162 +45,143 @@
   }
   /* the tones sitting at the minimum under either of two tied orientations */
   function bindingPair(pcs, a, b, best) {
-    return pcs.filter(function (p) {
-      return Math.abs(gv(p, a) - best) <= EPS || Math.abs(gv(p, b) - best) <= EPS;
-    });
+    return pcs.filter(function (p) { return Math.abs(gv(p, a) - best) <= EPS || Math.abs(gv(p, b) - best) <= EPS; });
   }
-  function uniq(arr) { var s = {}, o = []; arr.forEach(function (x) { if (!s[x]) { s[x] = 1; o.push(x); } }); return o; }
 
-  function createParser(opts) {
-    opts = opts || {};
+  function createParser() {
     var P = {
-      re: null,                           /* current orientation (pitch class of Re) */
-      basis: 'none',                      /* none | unique | tie-open | tie-heard | open | settled */
-      hinges: null,                       /* the tritone [a, a+6] the settled field turns on */
-      tie: null,                          /* {cands:[a,b], bind:[p,q], since:index} */
-      events: [],                         /* every tone heard, in order: {pc, t, held, re, fn} */
-      log: [],                            /* what happened: settle / resolve / reheard / rotate / morph */
-      collection: [],                     /* pitch classes heard before the field settled */
-      mem: {},                            /* pc -> index of its latest event; memory never decays */
-      since: 0,                           /* event index where the current memory began */
+      re: null,            /* the orientation now (pitch class of Re) */
+      incoming: null,      /* the orientation the current phrase arrived in */
+      basis: 'none',       /* none | heard | changed | unique | tie-open | tie-heard | open */
+      tie: null,           /* {cands:[a,b], bind:[p,q]} while two mirror readings tie */
+      phraseStart: 0,      /* index of the current phrase's first tone */
+      phrases: 0,          /* how many phrases have ended */
+      events: [],          /* every tone heard, in order: {pc, t, held, re, fn, phrase} */
+      log: [],
       listeners: []
     };
+    function emit(kind, t, from, to, note) {
+      var e = { kind: kind, t: t, from: from, to: to, note: note || '' };
+      P.log.push(e); P.listeners.forEach(function (f) { f(e, P); });
+    }
+    function label(i, re) { var e = P.events[i]; e.re = re; e.fn = re === null ? null : fnName(e.pc, re); }
 
-    function emit(kind, data) {
-      var e = { kind: kind, t: data.t, from: data.from, to: data.to, note: data.note || '' };
-      P.log.push(e);
-      P.listeners.forEach(function (f) { f(e, P); });
-    }
-    function relabelFrom(idx) {
-      for (var i = idx; i < P.events.length; i++) {
-        P.events[i].re = P.re; P.events[i].fn = P.re === null ? null : fnName(P.events[i].pc, P.re);
-      }
-    }
-    function prevTone(idx) {
-      for (var i = idx - 1; i >= 0; i--) if (P.events[i].pc !== P.events[idx].pc) return P.events[i];
-      return null;
-    }
-    /* a held arrival crossing the binding pair picks the side it resolves on */
-    function crossingPick(idx, tie) {
-      var q = P.events[idx], p = prevTone(idx);
-      if (!p || !q.held) return null;
-      var b = tie.bind;
-      if (b.length !== 2 || b.indexOf(p.pc) < 0 || b.indexOf(q.pc) < 0) return null;
-      var a = tie.cands[0], c = tie.cands[1];
-      if (gv(q.pc, a) > gv(p.pc, a) + EPS) return a;
-      if (gv(q.pc, c) > gv(p.pc, c) + EPS) return c;
-      return null;
-    }
-    /* with no crossing yet: the provisional side is the one on which the latest tone sits higher */
-    function provisional(idx, tie) {
-      var q = P.events[idx];
-      var a = tie.cands[0], c = tie.cands[1];
-      return gv(q.pc, c) > gv(q.pc, a) + EPS ? c : a;
-    }
-    function sameTie(t1, cands) {
-      return t1 && cands.length === 2 &&
-        ((t1.cands[0] === cands[0] && t1.cands[1] === cands[1]) || (t1.cands[0] === cands[1] && t1.cands[1] === cands[0]));
-    }
-
-    /* FORMING: max-min over the collection; earlier tones are relabeled as the reading sharpens */
-    function form(idx, now, quiet) {
-      var mm = maximin(P.collection), from = P.re;
-      if (mm.cands.length === 1) {
-        P.re = mm.cands[0]; P.basis = 'unique'; P.tie = null;
-        if (!quiet && from !== P.re) emit('settle', { t: now, from: from, to: P.re });
-      } else if (mm.cands.length === 2) {
-        var tie = { cands: mm.cands, bind: bindingPair(P.collection, mm.cands[0], mm.cands[1], mm.best), since: P.since };
-        var keep = sameTie(P.tie, mm.cands) && P.basis === 'tie-heard';
-        var pick = crossingPick(idx, tie);
-        P.tie = tie;
-        if (pick !== null) {
-          var wasHeard = P.basis === 'tie-heard';
-          P.re = pick; P.basis = 'tie-heard';
-          if (!quiet && (from !== P.re || !wasHeard)) emit(wasHeard ? 'reheard' : 'resolve', { t: now, from: from, to: P.re, note: 'crossing' });
-        } else if (keep || (from !== null && mm.cands.indexOf(from) >= 0 && P.basis !== 'tie-open')) {
-          P.basis = P.basis === 'unique' ? 'tie-heard' : P.basis;   /* already heard one way: it holds */
-        } else {
-          var wasOpen = P.basis === 'tie-open';
-          P.re = provisional(idx, tie); P.basis = 'tie-open';
-          if (!quiet && (!wasOpen || from !== P.re)) emit('tie', { t: now, from: from, to: P.re });
-        }
-      } else {
-        P.basis = 'open'; P.tie = null;   /* a symmetric collection: no reading is favored */
-        if (!quiet) emit('open', { t: now, from: from, to: from });
-      }
-      relabelFrom(P.since);
-    }
-
-    /* SETTLING and TURNING happen only on a tritone: a tone whose partner (six semitones away) has also
-       been heard. Memory never decays, so the partner may have sounded at any time. The tritone is the
-       hinge pair Fa·Ti; it fixes the field up to which of its two tones is Fa, and the tones heard
-       settle that. Once settled, the field is heard that way until a different tritone is heard. */
-    function hingeOrientations(x) { return [mod12(x - 3), mod12(x + 3)]; }   /* x as Fa, x as Ti */
-    function recentSet() {                       /* newest first, every tone that still fits with the rest */
-      var order = Object.keys(P.mem).map(Number).sort(function (a, b) { return P.mem[b] - P.mem[a]; });
+    /* the phrase's own reading: newest first, keeping each tone the later ones do not contradict */
+    function phraseSet(idxs) {
       var set = [];
-      order.forEach(function (x) { var trial = set.concat([x]); if (maximin(trial).best >= -EPS) set = trial; });
+      for (var k = idxs.length - 1; k >= 0; k--) {
+        var x = P.events[idxs[k]].pc;
+        if (set.indexOf(x) >= 0) continue;
+        var trial = set.concat([x]);
+        if (maximin(trial).best >= -EPS) set = trial;
+      }
       return set;
     }
-    function pickHinge(cands, set) {
-      var m0 = minG(set, cands[0]), m1 = minG(set, cands[1]);
-      if (m0 > m1 + EPS) return cands[0];
-      if (m1 > m0 + EPS) return cands[1];
-      if (P.re !== null) return chainDist(P.re, cands[0]) <= chainDist(P.re, cands[1]) ? cands[0] : cands[1];
-      return cands[0];
+    /* the latest crossing of the binding pair inside the phrase that arrives on a held tone */
+    function crossing(idxs, tie) {
+      for (var k = idxs.length - 1; k > 0; k--) {
+        var q = P.events[idxs[k]]; if (!q.held) continue;
+        var j = k - 1; while (j >= 0 && P.events[idxs[j]].pc === q.pc) j--;
+        if (j < 0) continue;
+        var p = P.events[idxs[j]];
+        if (tie.bind.indexOf(p.pc) < 0 || tie.bind.indexOf(q.pc) < 0) continue;
+        var a = tie.cands[0], c = tie.cands[1];
+        if (gv(q.pc, a) > gv(p.pc, a) + EPS) return a;
+        if (gv(q.pc, c) > gv(p.pc, c) + EPS) return c;
+      }
+      return null;
     }
-    function settleOn(idx, now, x) {
-      var from = P.re, wasSettled = P.basis === 'settled';
-      var set = wasSettled ? recentSet() : Object.keys(P.mem).map(Number);
-      P.re = pickHinge(hingeOrientations(x), set);
-      P.hinges = [Math.min(x, mod12(x + 6)), Math.max(x, mod12(x + 6))];
-      P.basis = 'settled'; P.tie = null;
-      P.settledAt = wasSettled ? idx : 0;        /* the first settling owns everything heard so far */
-      if (wasSettled) {
-        var shift = Math.min(mod12(P.re - from), mod12(from - P.re));   /* semitones the field moved */
-        emit(shift <= 1 ? 'rotate' : 'morph', { t: now, from: from, to: P.re, note: shift + ' st' });
-        relabelFrom(idx);                         /* a turn happens here; what came before was heard as it was */
-      } else {
-        emit('hinged', { t: now, from: from, to: P.re, note: 'hinges ' + P.hinges.join('·') });
-        relabelFrom(0);                           /* the first settling is how everything so far is heard */
+
+    /* read the phrase so far against the orientation it arrived in */
+    function read() {
+      var idxs = []; for (var i = P.phraseStart; i < P.events.length; i++) idxs.push(i);
+      if (!idxs.length) return;
+      var inc = P.incoming, from = P.re, t = P.events[idxs[idxs.length - 1]].t;
+
+      /* the degenerate edge, once more: if the last phrase ended on an open tie and this phrase is placed
+         by the other reading, the tie is resolved — the last phrase is relabeled, nothing modulated */
+      var it = P.incomingTie;
+      if (it) {
+        var pcsNow = idxs.map(function (i) { return P.events[i].pc; });
+        var other = it.cands[0] === inc ? it.cands[1] : it.cands[0];
+        if (minG(pcsNow, inc) < -EPS && minG(pcsNow, other) >= -EPS) {
+          P.re = other; P.incoming = other; P.basis = 'tie-heard'; P.tie = null; P.incomingTie = null;
+          for (var j = it.start; j < P.events.length; j++) label(j, other);
+          emit('resolve', t, from, other, 'next phrase');
+          return;
+        }
+      }
+
+      var force = -1;                                /* the first tone the incoming orientation cannot place */
+      if (inc !== null) for (var k = 0; k < idxs.length; k++) if (gv(P.events[idxs[k]].pc, inc) < -EPS) { force = k; break; }
+      if (inc !== null && force < 0) {               /* heard in the orientation it arrived in */
+        P.re = inc; P.basis = 'heard'; P.tie = null;
+        idxs.forEach(function (i) { label(i, inc); });
+        return;
+      }
+
+      var set = phraseSet(idxs), mm = maximin(set), cands = mm.cands.slice();
+      if (inc !== null) {
+        /* the field changes as little as it must: of the orientations that place the phrase,
+           the nearest to the incoming one along the dominant chain, then the max-min among those */
+        var ok = []; for (var r = 0; r < 12; r++) if (minG(set, r) >= -EPS) ok.push(r);
+        var dmin = Math.min.apply(null, ok.map(function (c) { return chainDist(inc, c); }));
+        ok = ok.filter(function (c) { return chainDist(inc, c) === dmin; });
+        var bm = Math.max.apply(null, ok.map(function (c) { return minG(set, c); }));
+        cands = ok.filter(function (c) { return minG(set, c) >= bm - EPS; });
+        mm = { cands: cands, best: bm };
+      }
+      var re, basis;
+      if (cands.length === 1) { re = cands[0]; basis = inc === null ? 'unique' : 'changed'; P.tie = null; }
+      else if (cands.length === 2) {
+        var tie = { cands: cands, bind: bindingPair(set, cands[0], cands[1], mm.best) };
+        var pick = crossing(idxs, tie);
+        P.tie = tie;
+        if (pick !== null) { re = pick; basis = 'tie-heard'; }
+        else {                                       /* provisional: the side on which the latest tone sits higher */
+          var q = P.events[idxs[idxs.length - 1]].pc;
+          re = gv(q, cands[1]) > gv(q, cands[0]) + EPS ? cands[1] : cands[0];
+          basis = 'tie-open';
+        }
+      } else { re = from !== null ? from : inc; basis = 'open'; P.tie = null; }
+
+      P.re = re; P.basis = basis;
+      var startK = inc === null ? 0 : force;
+      for (var m = 0; m < idxs.length; m++) label(idxs[m], m < startK ? inc : re);
+      if (re !== from && re !== null) {
+        if (inc === null || from === null) emit(basis === 'tie-heard' ? 'resolve' : basis === 'tie-open' ? 'tie' : 'settle', t, from, re);
+        else {
+          var shift = Math.min(mod12(re - from), mod12(from - re));
+          emit(shift <= 1 ? 'rotate' : 'morph', t, from, re, shift + ' st');
+        }
       }
     }
-    P.flush = function () {};
 
     /* a tone has been heard (held: whether it has sounded long enough to count as an arrival) */
     P.tone = function (pc, t, held) {
       pc = mod12(Math.round(pc));
-      var ev = { pc: pc, t: t, held: !!held, re: P.re, fn: P.re === null ? null : fnName(pc, P.re) };
+      var ev = { pc: pc, t: t, held: !!held, re: P.re, fn: P.re === null ? null : fnName(pc, P.re), phrase: P.phrases };
       P.events.push(ev);
-      var idx = P.events.length - 1;
-      /* a tritone is heard when this tone's partner has sounded and still belongs to the field as it
-         stands — placed by it, or sounded since it last turned. A partner left behind in an earlier
-         field is not re-heard. */
-      var partner = mod12(pc + 6), pIdx = P.mem[partner];
-      var partnerHeard = pIdx !== undefined &&
-        (P.basis !== 'settled' || pIdx >= P.settledAt || gv(partner, P.re) >= -EPS);
-      P.mem[pc] = idx;
-
-      if (P.basis === 'settled') {
-        var pair = [Math.min(pc, mod12(pc + 6)), Math.max(pc, mod12(pc + 6))];
-        if (partnerHeard && (pair[0] !== P.hinges[0] || pair[1] !== P.hinges[1])) settleOn(idx, t, pc);
-        return P.events[idx];                     /* anything else, cadences included, cannot turn it */
-      }
-      if (partnerHeard) { settleOn(idx, t, pc); return P.events[idx]; }
-
-      /* not yet settled: the degenerate stage, read by max-min and, for ties, by crossings */
-      if (P.collection.indexOf(pc) < 0) P.collection = P.collection.concat([pc]);
-      form(idx, t);
-      return P.events[idx];
+      read();
+      return ev;
     };
-    /* a held arrival: lets a tie (before any tritone) be settled by a crossing that lands late */
+    /* the tone at idx has sounded long enough to be an arrival (matters only for a tie) */
     P.arrive = function (idx) {
       var e = P.events[idx]; if (!e || e.held) return;
       e.held = true;
-      if (P.basis !== 'settled' && P.tie && P.collection.indexOf(e.pc) >= 0) form(idx, e.t);
+      if (P.tie && idx >= P.phraseStart) read();
     };
+    /* a pause: the phrase is over; the orientation it left is what the next phrase arrives in */
+    P.endPhrase = function (t) {
+      if (P.phraseStart >= P.events.length) return;
+      P.incomingTie = (P.basis === 'tie-open' && P.tie) ? { cands: P.tie.cands.slice(), start: P.phraseStart } : null;
+      P.incoming = P.re; P.phraseStart = P.events.length; P.phrases++;
+      emit('phrase', t, P.re, P.re);
+    };
+    P.flush = function () {};
     P.reset = function () {
-      P.re = null; P.basis = 'none'; P.tie = null; P.events = []; P.log = []; P.collection = []; P.mem = {}; P.since = 0; P.hinges = null; P.settledAt = 0;
+      P.re = null; P.incoming = null; P.incomingTie = null; P.basis = 'none'; P.tie = null; P.phraseStart = 0; P.phrases = 0;
+      P.events = []; P.log = [];
     };
     P.on = function (f) { P.listeners.push(f); };
     return P;
