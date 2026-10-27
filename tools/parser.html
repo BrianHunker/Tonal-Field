@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v4 -->
+<!-- Tonal Field — Parser — v5 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -78,7 +78,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v4</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v5</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -130,9 +130,10 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       <b>How it reads.</b> Every tone counts, however short, and nothing decays or resets on its own. The field forms as the
       max-min reading of what has been heard and only sharpens as tones accumulate. When two mirror hearings tie, the ring shows
       the provisional one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and
-      relabels what came before — a resolution, not a modulation. A tone the field cannot place turns it, as little as it must:
-      to the nearest orientation that holds it with what came just before. It <b>rotates</b> for a one-semitone shift and
-      <b>morphs</b> for anything larger. Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
+      relabels what came before — a resolution, not a modulation. All of that is provisional: the moment both tones of a
+      tritone have sounded, the field is <b>settled</b>, and it stays settled — no cadence, crossing or passing tone can turn
+      it. Only a different tritone does: it <b>rotates</b> for a one-semitone shift and <b>morphs</b> for anything larger.
+      Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
     </div>
   </div>
 </main>
@@ -195,6 +196,7 @@ function updateLevel(){
   var L = n===0 ? 0 : n===1 ? 0.32 : n===2 ? 0.6 : n===3 ? 0.84 : 1;
   if (b === 'tie-open') L = Math.min(L, 0.62);
   if (b === 'open') L = 0.18;
+  if (b === 'settled') L = 1;
   view.levelTarget = L;
   view.ghost = (b === 'tie-open' && parser.tie) ? (parser.tie.cands[0] === parser.re ? parser.tie.cands[1] : parser.tie.cands[0]) : null;
 }
@@ -374,6 +376,7 @@ function refreshReadouts(){
   if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
   else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
   else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
+  else if (b === 'settled'){ s = 'Settled — the hinges have been heard.'; sub = 'Heard this way until a different tritone is heard. Nothing else turns it.'; }
   else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a tone it cannot place turns it.'; }
   else { s = parser.collection.length >= 3 ? 'Settled.' : 'Forming.'; sub = parser.collection.length >= 3 ? 'Holding until a tone it cannot place turns it.' : 'The field sharpens as tones accumulate.'; }
   stateEl.textContent = s; subEl.textContent = sub;
@@ -387,7 +390,7 @@ function refreshReadouts(){
     return '<span class="e'+(e.held?'':' p')+'" style="color:'+css+'"><span class="f">'+e.fn+'</span><span class="l">'+letter+'</span></span>';
   }).join('');
 }
-var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
+var KIND = { hinged:'settles on a tritone', settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
 var lastLogRe = null;
 function addLog(e){
   var line = document.createElement('div');

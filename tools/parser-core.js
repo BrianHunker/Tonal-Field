@@ -1,19 +1,17 @@
-/* Tonal Field — Parser core (decoder) · v4
+/* Tonal Field — Parser core (decoder) · v5
    © Brian Hunker 2026 · GablesGuitar.com/tonal-field
 
-   Every tone counts, however short. Memory does not decay and nothing resets on its own.
+   Every tone counts, however short. Memory never decays and nothing resets on its own.
 
-   1. FORMING (space): the tones heard since the field last turned are read by max-min — the
-      orientation that maximizes the least-supported tone's g. A growing collection can only narrow
-      the reading, so this is the field coming into focus, not a modulation.
-   2. TIES (time, the degenerate edge): when max-min leaves two orientations they are mirror images
-      through a half-step axis, bound by a mirror pair one semitone apart. A crossing of that pair
-      arriving on a held tone settles the side — the one on which the crossing moves out of the hinge
-      into valence. Held-ness is used here and only here.
-   3. TURNING: a tone the field cannot place turns it, as little as it must — the nearest orientation
-      along the dominant chain that holds the newest tones (and every older tone it still can). It
-      rotates for a one-semitone shift and morphs for anything larger. Non-diatonic colour (tones that
-      should not turn the field) is deliberately not handled yet: diatonic rotation and morph first.
+   SETTLED: once a tritone has been heard — both tones of a hinge pair Fa·Ti sounded, at any distance in
+   time — the field is settled, and it is heard that way until a DIFFERENT tritone is heard. Nothing
+   else turns it: no cadence, no crossing, no tone outside the field. A new tritone turns it: rotating
+   for a one-semitone shift, morphing for anything larger. Which tone of a tritone is Fa is read from
+   the tones heard (max-min), nearest along the dominant chain when they do not say.
+
+   BEFORE SETTLING (the degenerate stage): the tones heard so far are read by max-min. When two mirror
+   hearings tie, a crossing of the two tones binding the tie, arriving on a held tone, decides the side,
+   and what came before is relabeled. These readings are provisional; the first tritone settles them.
 
    Orientation is written as `re`: the pitch class that is Re (0 = the tuning grid's C). */
 (function (root) {
@@ -56,12 +54,13 @@
     opts = opts || {};
     var P = {
       re: null,                           /* current orientation (pitch class of Re) */
-      basis: 'none',                      /* none | unique | tie-open | tie-heard | open */
+      basis: 'none',                      /* none | unique | tie-open | tie-heard | open | settled */
+      hinges: null,                       /* the tritone [a, a+6] the settled field turns on */
       tie: null,                          /* {cands:[a,b], bind:[p,q], since:index} */
       events: [],                         /* every tone heard, in order: {pc, t, held, re, fn} */
       log: [],                            /* what happened: settle / resolve / reheard / rotate / morph */
-      collection: [],                     /* pitch classes placed by the field since it last turned */
-      mem: {},                            /* pc -> index of its latest event since the field last turned */
+      collection: [],                     /* pitch classes heard before the field settled */
+      mem: {},                            /* pc -> index of its latest event; memory never decays */
       since: 0,                           /* event index where the current memory began */
       listeners: []
     };
@@ -131,27 +130,39 @@
       relabelFrom(P.since);
     }
 
-    /* TURNING: a tone the field cannot place turns it, as little as it must. The new collection is
-       rebuilt from what was heard, newest first, keeping each tone while some orientation still holds
-       them all in the positive half; the nearest such orientation along the dominant chain is taken. */
-    function turn(idx, now) {
+    /* SETTLING and TURNING happen only on a tritone: a tone whose partner (six semitones away) has also
+       been heard. Memory never decays, so the partner may have sounded at any time. The tritone is the
+       hinge pair Fa·Ti; it fixes the field up to which of its two tones is Fa, and the tones heard
+       settle that. Once settled, the field is heard that way until a different tritone is heard. */
+    function hingeOrientations(x) { return [mod12(x - 3), mod12(x + 3)]; }   /* x as Fa, x as Ti */
+    function recentSet() {                       /* newest first, every tone that still fits with the rest */
       var order = Object.keys(P.mem).map(Number).sort(function (a, b) { return P.mem[b] - P.mem[a]; });
       var set = [];
       order.forEach(function (x) { var trial = set.concat([x]); if (maximin(trial).best >= -EPS) set = trial; });
-      var mm = maximin(set), from = P.re;
-      var cands = mm.cands.slice();
-      var dmin = Math.min.apply(null, cands.map(function (c) { return chainDist(from, c); }));
-      cands = cands.filter(function (c) { return chainDist(from, c) === dmin; });
-      var mem = {}; set.forEach(function (x) { mem[x] = P.mem[x]; });
-      P.mem = mem; P.collection = set; P.since = idx;
-      if (cands.length === 1) { P.re = cands[0]; P.basis = 'unique'; P.tie = null; }
-      else {
-        var tie = { cands: cands.slice(0, 2), bind: bindingPair(set, cands[0], cands[1], mm.best), since: idx };
-        P.tie = tie; P.re = provisional(idx, tie); P.basis = 'tie-open';
+      return set;
+    }
+    function pickHinge(cands, set) {
+      var m0 = minG(set, cands[0]), m1 = minG(set, cands[1]);
+      if (m0 > m1 + EPS) return cands[0];
+      if (m1 > m0 + EPS) return cands[1];
+      if (P.re !== null) return chainDist(P.re, cands[0]) <= chainDist(P.re, cands[1]) ? cands[0] : cands[1];
+      return cands[0];
+    }
+    function settleOn(idx, now, x) {
+      var from = P.re, wasSettled = P.basis === 'settled';
+      var set = wasSettled ? recentSet() : Object.keys(P.mem).map(Number);
+      P.re = pickHinge(hingeOrientations(x), set);
+      P.hinges = [Math.min(x, mod12(x + 6)), Math.max(x, mod12(x + 6))];
+      P.basis = 'settled'; P.tie = null;
+      P.settledAt = wasSettled ? idx : 0;        /* the first settling owns everything heard so far */
+      if (wasSettled) {
+        var shift = Math.min(mod12(P.re - from), mod12(from - P.re));   /* semitones the field moved */
+        emit(shift <= 1 ? 'rotate' : 'morph', { t: now, from: from, to: P.re, note: shift + ' st' });
+        relabelFrom(idx);                         /* a turn happens here; what came before was heard as it was */
+      } else {
+        emit('hinged', { t: now, from: from, to: P.re, note: 'hinges ' + P.hinges.join('·') });
+        relabelFrom(0);                           /* the first settling is how everything so far is heard */
       }
-      var shift = Math.min(mod12(P.re - from), mod12(from - P.re));   /* semitones the field moved */
-      emit(shift <= 1 ? 'rotate' : 'morph', { t: now, from: from, to: P.re, note: shift + ' st' });
-      relabelFrom(idx);
     }
     P.flush = function () {};
 
@@ -161,25 +172,34 @@
       var ev = { pc: pc, t: t, held: !!held, re: P.re, fn: P.re === null ? null : fnName(pc, P.re) };
       P.events.push(ev);
       var idx = P.events.length - 1;
+      /* a tritone is heard when this tone's partner has sounded and still belongs to the field as it
+         stands — placed by it, or sounded since it last turned. A partner left behind in an earlier
+         field is not re-heard. */
+      var partner = mod12(pc + 6), pIdx = P.mem[partner];
+      var partnerHeard = pIdx !== undefined &&
+        (P.basis !== 'settled' || pIdx >= P.settledAt || gv(partner, P.re) >= -EPS);
       P.mem[pc] = idx;
 
-      if (P.collection.indexOf(pc) >= 0) {        /* nothing new in space: only time can speak */
-        if (P.tie) form(idx, t);
-        return P.events[idx];
+      if (P.basis === 'settled') {
+        var pair = [Math.min(pc, mod12(pc + 6)), Math.max(pc, mod12(pc + 6))];
+        if (partnerHeard && (pair[0] !== P.hinges[0] || pair[1] !== P.hinges[1])) settleOn(idx, t, pc);
+        return P.events[idx];                     /* anything else, cadences included, cannot turn it */
       }
-      var trial = P.collection.concat([pc]);
-      if (maximin(trial).best >= -EPS) { P.collection = trial; form(idx, t); return P.events[idx]; }
-      turn(idx, t);                               /* the field as it stands cannot place this tone */
+      if (partnerHeard) { settleOn(idx, t, pc); return P.events[idx]; }
+
+      /* not yet settled: the degenerate stage, read by max-min and, for ties, by crossings */
+      if (P.collection.indexOf(pc) < 0) P.collection = P.collection.concat([pc]);
+      form(idx, t);
       return P.events[idx];
     };
-    /* a held arrival on a tone already counted: lets a tie be settled by a crossing that lands late */
+    /* a held arrival: lets a tie (before any tritone) be settled by a crossing that lands late */
     P.arrive = function (idx) {
       var e = P.events[idx]; if (!e || e.held) return;
       e.held = true;
-      if (P.tie && P.collection.indexOf(e.pc) >= 0) form(idx, e.t);
+      if (P.basis !== 'settled' && P.tie && P.collection.indexOf(e.pc) >= 0) form(idx, e.t);
     };
     P.reset = function () {
-      P.re = null; P.basis = 'none'; P.tie = null; P.events = []; P.log = []; P.collection = []; P.mem = {}; P.since = 0;
+      P.re = null; P.basis = 'none'; P.tie = null; P.events = []; P.log = []; P.collection = []; P.mem = {}; P.since = 0; P.hinges = null; P.settledAt = 0;
     };
     P.on = function (f) { P.listeners.push(f); };
     return P;
