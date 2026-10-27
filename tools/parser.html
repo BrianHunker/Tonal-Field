@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v2 -->
+<!-- Tonal Field — Parser — v3 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -63,8 +63,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 #hearing .e { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; }
 #hearing .f { font-size: 18px; font-weight: 600; }
 #hearing .l { font-size: 14px; font-weight: 500; opacity: 0.85; }
-#hearing .p .f { font-weight: 400; opacity: 0.72; font-size: 15px; }
-#hearing .p .l { opacity: 0.6; }
+#hearing .p .f { font-weight: 500; font-size: 15px; }
 #hearing .u { color: #6d6d69; }
 .strip { position: relative; width: 100%; height: 570px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -79,7 +78,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v2</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v3</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -96,9 +95,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
-  <label title="a tone counts as HELD (a target, weighed by the field) once it has sounded this long; shorter tones are trajectory — labeled, not weighed">held <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
-  <label title="irreducible 1 — the window: how far back held tones are drawn on when the field has to turn">window <input type="range" id="winS" min="2" max="20" step="1" value="6"><output id="winV">6 s</output></label>
-  <label title="irreducible 2 — the exchange rate: how many held tones the current field cannot place before it turns">exchange <input type="range" id="xch" min="1" max="4" step="1" value="1"><output id="xchV">1</output></label>
+  <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial">12 o'clock <select id="dialSel"></select></label>
@@ -130,12 +127,13 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       <div id="log"></div>
     </div>
     <div class="card note">
-      <b>How it reads.</b> Held tones are weighed; trajectory tones are labeled but not weighed. The field forms as the
-      max-min reading of the held tones and only sharpens as they accumulate. When two hearings tie, the ring shows the
-      provisional one and draws the other as a dashed ghost; a held arrival that crosses the two tones binding the tie
-      settles it, and the earlier tones are relabeled — a resolution, not a modulation. The field holds through silence and
-      turns only when a held tone cannot be placed in its positive half: it <b>rotates</b> for a one-semitone shift and
-      <b>morphs</b> for anything larger. Tuning is read from the playing itself, so any instrument in tune with itself works.
+      <b>How it reads.</b> Every tone counts, however short, and nothing decays or resets on its own. The field forms as the
+      max-min reading of what has been heard and only sharpens as tones accumulate. When two mirror hearings tie, the ring shows
+      the provisional one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and
+      relabels what came before — a resolution, not a modulation. A tone the field cannot place turns it only if some
+      orientation accounts for everything heard since the last turn — each tone placed, or replaced one semitone over in the
+      direction of the turn — and the next tone confirms it. Otherwise the tone is colour and the field holds. It
+      <b>rotates</b> for a one-semitone shift and <b>morphs</b> for anything larger. Tuning is read from the playing itself.
     </div>
   </div>
 </main>
@@ -163,7 +161,7 @@ function lighten(c,t){ return mix(c,[255,255,255],t); }
 function fnColorAt(s){ s = mod(s,12); var i = Math.floor(s), f = s-i; return mix(FNRGB[i], FNRGB[(i+1)%12], f); }
 
 /* ---------------- parser ---------------- */
-var parser = TF.createParser({ windowSec: 6, exchange: 1 });
+var parser = TF.createParser();
 window.tfParser = parser;   /* for inspection from the console */
 var view = {
   dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
@@ -353,12 +351,12 @@ function drawStrip(now){
   vis.forEach(function(s){
     var x1 = X(s.t0), x2 = X(s.t1===null?tNow:s.t1), y = Y(s.midi);
     var ev = s.ev, col = (ev && ev.fn) ? FNRGB[FN.indexOf(ev.fn)] : [120,120,116];
-    sctx.strokeStyle = rgba(col, ev ? (ev.held ? 1 : 0.65) : 0.5);
+    sctx.strokeStyle = rgba(col, ev ? 1 : 0.5);
     sctx.lineWidth = ev && ev.held ? 12 : 6;
     sctx.lineCap = 'round';
     sctx.beginPath(); sctx.moveTo(x1,y); sctx.lineTo(Math.max(x1+1,x2),y); sctx.stroke();
-    if (ev && ev.fn && ev.held){
-      sctx.font = '600 22px "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(ev.fn.charAt(0)==='~' ? lighten(col,0.42) : col, 1);
+    if (ev && ev.fn){
+      sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(ev.fn.charAt(0)==='~' ? lighten(col,0.42) : col, 1);
       sctx.fillText(ev.fn, x1, y-12);
     }
   });
@@ -377,8 +375,8 @@ function refreshReadouts(){
   if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
   else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
   else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
-  else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a held tone cannot be placed.'; }
-  else { s = parser.collection.length >= 3 ? 'Settled.' : 'Forming.'; sub = parser.collection.length >= 3 ? 'Holding until a held tone cannot be placed.' : 'The field sharpens as held tones accumulate.'; }
+  else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a tone it cannot place turns it.'; }
+  else { s = parser.collection.length >= 3 ? 'Settled.' : 'Forming.'; sub = parser.collection.length >= 3 ? 'Holding until a tone it cannot place turns it.' : 'The field sharpens as tones accumulate.'; }
   stateEl.textContent = s; subEl.textContent = sub;
   var evs = parser.events.slice(-16);
   hearEl.innerHTML = evs.map(function(e){
@@ -441,31 +439,26 @@ function addTune(m){ var fr = m - Math.round(m), a = fr*TP; tune.sx += Math.cos(
 
 var cur = null;   /* the tone being heard: {t0, pitches[], held, ev, seg} */
 var cand = null;  /* a possible new tone: {m, n} */
-var lastVoiced = 0;
+var lastVoiced = 0, flushed = true;
 function median(a){ var b = a.slice().sort(function(x,y){return x-y;}); return b[b.length>>1]; }
 function startTone(m, t){
-  cur = { t0: t, pitches: [m], held: false, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
+  cur = { t0: t, pitches: [m], held: false, reported: false, idx: null, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
   segs.push(cur.seg); if (segs.length > 400) segs.shift();
   if (startT === null) startT = t;
 }
 function endTone(t){
   if (!cur) return;
   cur.seg.t1 = t;
-  var dur = (t - cur.t0)*1000;
-  if (!cur.held && dur >= 45){
-    var m = median(cur.pitches);
-    cur.ev = parser.tone(Math.round(m - tuneOffset()), t, false);
-    cur.seg.ev = cur.ev; cur.seg.midi = m;
-    afterParse();
-  } else if (!cur.held) { segs.splice(segs.indexOf(cur.seg),1); }
+  if (!cur.reported) segs.splice(segs.indexOf(cur.seg),1);   /* too brief to be a tone: a slide's path */
   cur = null;
 }
 function frame(m, t){
   if (m === null){
     if (cur && t - lastVoiced > 0.09) endTone(lastVoiced);
+    if (!flushed && t - lastVoiced > 0.45){ flushed = true; parser.flush(); afterParse(); }   /* silence decides a pending turn */
     cand = null; return;
   }
-  lastVoiced = t;
+  lastVoiced = t; flushed = false;
   if (!cur){ startTone(m, t); return; }
   var med = median(cur.pitches.slice(-12));
   /* re-articulation: the level dips and comes back on the same pitch */
@@ -475,12 +468,21 @@ function frame(m, t){
   if (Math.abs(m - med) < 0.5){
     cur.pitches.push(m); cand = null;
     cur.seg.midi = median(cur.pitches.slice(-24));
-    if (!cur.held && (t - cur.t0)*1000 >= opts.heldMs){
-      cur.held = true;
-      var mm = median(cur.pitches);
-      addTune(mm);
-      cur.ev = parser.tone(Math.round(mm - tuneOffset()), t, true);
-      cur.seg.ev = cur.ev; cur.seg.held = true;
+    /* every tone counts from the moment it is a tone — a fraction of a beat is enough */
+    if (!cur.reported && cur.pitches.length >= 3){
+      var m0 = median(cur.pitches);
+      if (!tune.n) addTune(m0);
+      cur.reported = true;
+      cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false);
+      cur.idx = parser.events.length - 1;
+      cur.seg.ev = cur.ev;
+      afterParse();
+    }
+    /* sounding on past the arrival threshold: an arrival (matters only for settling a tie) */
+    if (cur.reported && !cur.held && (t - cur.t0)*1000 >= opts.heldMs){
+      cur.held = true; cur.seg.held = true;
+      addTune(median(cur.pitches));
+      parser.arrive(cur.idx);
       afterParse();
     }
   } else {
@@ -566,8 +568,6 @@ document.getElementById('lettersBtn').addEventListener('click', function(){ show
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
 bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
-bindRange('winS','winV', function(v){return v+' s';}, function(v){ parser.windowSec = v; });
-bindRange('xch','xchV', function(v){return String(v);}, function(v){ parser.exchange = v; });
 bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; });
 bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
 
@@ -581,7 +581,10 @@ var PRESETS = [
   ['Shave and a haircut', 'C4 G3/0.5 G/0.5 A G - B C/2'],
   ['four triads (arpeggiated), then C D E F', 'C4/0.75 E/0.75 G/0.75 D/0.75 F/0.75 A/0.75 E/0.75 G/0.75 B/0.75 F/0.75 A/0.75 C5/0.75 C4 D E F/2 E D C/2'],
   ['a field, then a held F♯ (turns)', 'C4 D E F G A B C5 D/2 F#4/2 G/2'],
-  ['a field, F♯ as trajectory (colour)', 'C4 D E F G A B C5 G4/2 F#~ G/2'],
+  ['a field, F♯ a fraction of a beat (turns)', 'C4 D E F G A B C5 A4/2 F#~ G/2'],
+  ['harmonic minor (holds: colour)', 'A3 B C4 D E F G#~ A/2'],
+  ['melodic minor in a La field (holds)', 'A3 C4 E A G F E D C B3 A/2 B C4 D E F#~ G#~ A/2'],
+  ['chromatic approach (holds)', 'C4 D E G A C5 D D#~ E/2'],
   ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
   ['the same five, crossed downward', 'A3 C4 D F E/3']
 ];
