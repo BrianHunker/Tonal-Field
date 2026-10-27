@@ -171,13 +171,6 @@
       e.held = true;
       if (P.tie && idx >= P.phraseStart) read();
     };
-    /* a closer listen corrects a tone's pitch class: within the current phrase the phrase is read again */
-    P.retune = function (idx, pc) {
-      var e = P.events[idx]; if (!e) return;
-      pc = mod12(Math.round(pc)); if (e.pc === pc) return;
-      e.pc = pc;
-      if (idx >= P.phraseStart) read(); else e.fn = e.re === null ? null : fnName(pc, e.re);
-    };
     /* a pause: the phrase is over; the orientation it left is what the next phrase arrives in */
     P.endPhrase = function (t) {
       if (P.phraseStart >= P.events.length) return;
