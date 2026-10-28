@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v6 -->
+<!-- Tonal Field — Parser — v8 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -65,6 +65,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 #hearing .l { font-size: 14px; font-weight: 500; opacity: 0.85; }
 #hearing .p .f { font-weight: 500; font-size: 15px; }
 #hearing .u { color: #6d6d69; }
+.tracewrap { padding: 0 22px 22px; }
+@media (max-width: 900px){ .tracewrap { padding: 0 16px 16px; } }
+.trace { display: flex; flex-direction: column; gap: 6px; }
+.tracebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tracebar h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-right: 4px; }
 .strip { position: relative; width: 100%; height: 570px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
@@ -78,20 +83,22 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v6</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v8</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
 </div>
 
 <div class="toolbar">
-  <button id="micBtn" title="listen to the microphone or any audio input">listen</button>
+  <button id="micBtn" title="listen to the chosen input">listen</button>
+  <label title="the audio input to listen to — the built-in microphone, or an interface such as the Apollo (names appear once listening has been allowed)">input <select id="inSel"><option value="">default input</option></select></label>
+  <label title="which of the input's channels to hear: both mixed, or one alone (an interface's first two inputs are channels 1 and 2)">channels <select id="chSel"><option value="mix">1+2</option><option value="0">1</option><option value="1">2</option></select></label>
   <button id="resetBtn" title="clear the field back to a plain gray ring">reset</button>
   <span class="sep"></span>
   <select id="preset" title="degenerate test input: a tempered phrase played through the same listening path as the microphone">
     <option value="">test phrase…</option>
   </select>
-  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (~ = trajectory, /n = beats)" aria-label="test phrase">
+  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (/n beats · ~ short · A>B glide · | pause)" aria-label="test phrase">
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
@@ -115,7 +122,6 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       <h2>Hearing</h2>
       <div id="hearing"></div>
     </div>
-    <div class="strip"><canvas id="stripCv"></canvas></div>
     <div class="card">
       <div class="meter">
         <span>pitch <b id="mPitch">—</b></span>
@@ -135,12 +141,31 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       last phrase (a phrase ends at a pause). Each new phrase is heard in that orientation; if it places every tone, nothing
       changes, however it cadences. If it holds a tone that orientation cannot place, the phrase itself decides a new one —
       as little change as it must — and the field <b>rotates</b> for a one-semitone shift or <b>morphs</b> for anything
-      larger. Non-diatonic colour is not handled yet.       Tuning is read from the playing itself.
+      larger. Non-diatonic colour is not handled yet. Tuning is read from the playing itself.
+      <br><br><b>The trace</b> is the input itself, before any decision: the fundamental contour, tracked continuously every
+      5 ms and never rounded to a grid, coloured by g(x), as thick as the tracker is confident. Faint dots are the pitches it
+      considered and did not take; the faint spectrum underneath is the sound itself. Thin bars mark the tones handed to the
+      decoder — that step (what counts as a tone, a glide, a phrase) is provisional. A piano with the pedal down is several
+      voices at once, and a single contour cannot follow it reliably.
     </div>
   </div>
 </main>
+<section class="tracewrap">
+  <div class="trace">
+      <div class="tracebar">
+        <h2>Trace</h2>
+        <label title="the pitch range shown">range <select id="trRange"><option value="guitar">guitar E2–E6</option><option value="voice">voice A2–C6</option><option value="piano">piano C2–C7</option><option value="bass">bass E1–G4</option></select></label>
+        <label title="how many seconds the trace shows">span <select id="trSpan"><option value="4">4 s</option><option value="8" selected>8 s</option><option value="16">16 s</option></select></label>
+        <label title="which lines of the grid are drawn, in the orientation as it stands">grid <select id="trGrid"><option value="all">all</option><option value="diatonic">diatonic</option><option value="pentatonic">pentatonic</option></select></label>
+        <button id="trSpecBtn" class="on" title="the input's own spectrum, faint, under the contour">spectrum</button>
+        <button id="trHoldBtn" title="freeze the trace to read what just went by; listening carries on">hold</button>
+      </div>
+      <div class="strip"><canvas id="specCv"></canvas><canvas id="stripCv"></canvas></div>
+    </div>
+</section>
 
 <script src="parser-core.js"></script>
+<script src="parser-pitch.js"></script>
 <script>
 (function(){
 'use strict';
@@ -165,7 +190,8 @@ function fnColorAt(s){ s = mod(s,12); var i = Math.floor(s), f = s-i; return mix
 /* ---------------- parser ---------------- */
 var parser = TF.createParser();
 window.tfParser = parser;   /* for inspection from the console */
-window.tfAudio = function(){ ensureAudio(); return { ac: ac, analyser: analyser }; };
+window.tfAudio = function(){ ensureAudio(); return { ac: ac, input: inputBus, ready: audioReady }; };
+window.tfTrace = function(){ return trace; };
 var view = {
   dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
   reNow: null,          /* current displayed orientation (may be fractional while rotating) */
@@ -214,6 +240,7 @@ function size(){
   [fieldCv, topCv].forEach(function(c){ c.width = Math.round(W*dpr); c.height = Math.round(W*dpr); });
   SW = stripCv.clientWidth; SH = stripCv.clientHeight;
   stripCv.width = Math.round(SW*dpr); stripCv.height = Math.round(SH*dpr);
+  specCv.width = Math.round(SW*dpr); specCv.height = Math.round(SH*dpr); TR.specT = null;
   view.dirty = true;
 }
 window.addEventListener('resize', size);
@@ -334,41 +361,125 @@ function drawTop(){
   tctx.lineWidth = 1.4; tctx.strokeStyle = 'rgba(235,235,230,0.6)'; tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.stroke();
 }
 
-/* ---------------- the strip: what was heard, metered by time ---------------- */
-var segs = [];          /* {t0, t1, midi, ev (parser event, relabeled in place), held} */
-var STRIP_SEC = 12;
+/* ---------------- the trace: the fundamental contour as it is heard ----------------
+   Underneath, the input's own spectrum, faint, coloured through the field. On top, the tracked
+   fundamental as a ribbon: coloured by g(x) in the orientation in force when it sounded, as thick
+   as the tracker is confident, broken where nothing is voiced. Candidates the tracker did not take
+   are faint dots, so a jump can be told apart: the tracker's or the decoder's. Thin bars behind the
+   ribbon are the tones the segmentation handed to the decoder, labelled with the function heard. */
+var segs = [];          /* tones handed to the decoder: {t0, t1, midi, ev (relabeled in place), held} */
+var trace = [];         /* contour frames: {t, m, conf, bridged, col, c:[m,p,…]} */
+var TR = { lo: 40, hi: 88, span: 8, grid: 'all', spec: true, hold: false, holdT: 0, specX: 0, specT: null };
+var RANGES = { guitar: [40, 88], voice: [45, 84], piano: [36, 96], bass: [28, 67] };
+var specCv = document.getElementById('specCv'), spx = specCv.getContext('2d');
+var specBuf = document.createElement('canvas'), sbx = specBuf.getContext('2d');   /* scrolling goes through a second buffer */
+function trNow(){ return TR.hold ? TR.holdT : (ac ? ac.currentTime : performance.now()/1000); }
+function trY(m){ return SH * (1 - (m - TR.lo) / (TR.hi - TR.lo)); }
+function trX(t, now){ return SW - (now - t) / TR.span * SW; }
+function liftCol(c){ var lum = 0.3*c[0]+0.59*c[1]+0.11*c[2]; return lighten(c, Math.min(0.5, 0.1 + Math.max(0, 110-lum)/300)); }
+function colAtPitch(m){                       /* the field's colour at a continuous pitch, as things stand */
+  if (view.reNow === null) return [205,205,200];
+  return liftCol(fnColorAt(m - tuneOffset() - view.reNow));
+}
+function gridShows(k){
+  if (TR.grid === 'all' || view.reNow === null) return true;
+  var f = FN[mod(k - view.reNow, 12)];
+  if (f.charAt(0) === '~') return false;
+  if (TR.grid === 'pentatonic' && (f === 'Fa' || f === 'Ti')) return false;
+  return true;
+}
+/* the faint spectrum underneath: one new column per frame, scrolled with time */
+var specBytes = null;
+function drawSpecColumn(now){
+  if (!specAn || TR.hold) return;
+  var w = specCv.width, h = specCv.height;
+  if (TR.specT === null){ TR.specT = now; return; }
+  var px = (now - TR.specT) / TR.span * w; if (px < 1) return;
+  px = Math.floor(px); TR.specT += px / w * TR.span;
+  if (specBuf.width !== w || specBuf.height !== h){ specBuf.width = w; specBuf.height = h; }
+  sbx.clearRect(0, 0, w, h); sbx.drawImage(specCv, 0, 0);
+  spx.clearRect(0, 0, w, h); spx.drawImage(specBuf, -px, 0);
+  if (!TR.spec) return;
+  if (!specBytes || specBytes.length !== specAn.frequencyBinCount) specBytes = new Uint8Array(specAn.frequencyBinCount);
+  specAn.getByteFrequencyData(specBytes);
+  var binHz = ac.sampleRate / specAn.fftSize, rows = new Float32Array(h);
+  for (var y = 0; y < h; y++){
+    var m = TR.lo + (TR.hi - TR.lo) * (1 - y / h), f = 440 * Math.pow(2, (m - 69) / 12), bf = f / binHz, b0 = Math.floor(bf), fr = bf - b0;
+    rows[y] = b0 + 1 < specBytes.length ? (specBytes[b0] * (1 - fr) + specBytes[b0 + 1] * fr) / 255 : 0;
+  }
+  var lag = Math.round(0.09 / TR.span * w);    /* the long window reports ~90 ms late: draw it where it belongs */
+  for (var y2 = 0; y2 < h; y2++){
+    var v = rows[y2]; if (v < 0.2) continue;
+    var lm = 0; for (var k = Math.max(0, y2 - 4); k <= Math.min(h - 1, y2 + 4); k++) if (rows[k] > lm) lm = rows[k];
+    var a = Math.pow(v / lm, 8) * Math.min(1, (v - 0.2) / 0.5) * 0.8; if (a < 0.02) continue;
+    var m2 = TR.lo + (TR.hi - TR.lo) * (1 - y2 / h);
+    spx.fillStyle = rgba(colAtPitch(m2), a); spx.fillRect(w - px - lag, y2, px, 1);
+  }
+}
 function drawStrip(now){
+  now = trNow();
   sctx.setTransform(dpr,0,0,dpr,0,0);
   sctx.clearRect(0,0,SW,SH);
-  var tNow = ac ? ac.currentTime : now/1000, t0 = tNow - STRIP_SEC;
-  var vis = segs.filter(function(s){ return (s.t1===null?tNow:s.t1) >= t0; });
-  var lo = Infinity, hi = -Infinity;
-  vis.forEach(function(s){ lo = Math.min(lo, s.midi); hi = Math.max(hi, s.midi); });
-  if (live.midi !== null){ lo = Math.min(lo, live.midi); hi = Math.max(hi, live.midi); }
-  if (!isFinite(lo)) { lo = 55; hi = 72; }
-  var mid = (lo+hi)/2, span = Math.max(14, hi-lo+5);
-  function Y(m){ return SH*0.5 - (m-mid)/span*SH; }
-  function X(t){ return (t - t0)/STRIP_SEC*SW; }
-  sctx.strokeStyle = 'rgba(255,255,255,0.05)'; sctx.lineWidth = 1;
-  for (var m = Math.floor(mid-span/2); m <= mid+span/2; m++){ sctx.beginPath(); sctx.moveTo(0,Y(m)); sctx.lineTo(SW,Y(m)); sctx.stroke(); }
+  /* the grid: every tone of the tuning grid, named and coloured by the field as it stands */
+  sctx.font = '500 11px "IBM Plex Mono", monospace'; sctx.textBaseline = 'middle';
+  for (var k = Math.ceil(TR.lo - 1); k <= TR.hi + 1; k++){
+    var y = trY(k + tuneOffset()); if (y < -6 || y > SH + 6) continue;
+    if (!gridShows(k)) continue;
+    var off = view.reNow === null ? null : mod(k - view.reNow, 12), col = off === null ? [120,120,116] : liftCol(FNRGB[off]);
+    sctx.strokeStyle = rgba(col, off === null ? 0.12 : 0.2); sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.moveTo(34, y); sctx.lineTo(SW - 30, y); sctx.stroke();
+    sctx.fillStyle = rgba(col, off !== null && FN[off].charAt(0) === '~' ? 0.45 : 0.85); sctx.textAlign = 'left';
+    if (off !== null) sctx.fillText(FN[off], 2, y);
+    sctx.textAlign = 'right'; sctx.fillStyle = 'rgba(160,160,155,0.6)'; sctx.fillText(LET[mod(k,12)], SW - 2, y);
+  }
+  sctx.textAlign = 'left';
+  /* phrase ends */
   sctx.strokeStyle = 'rgba(216,200,120,0.35)'; sctx.setLineDash([3,5]);
-  phraseEnds.forEach(function(te){ var xe = X(te + 0.05); if (xe < 0 || xe > SW) return; sctx.beginPath(); sctx.moveTo(xe,0); sctx.lineTo(xe,SH); sctx.stroke(); });
+  phraseEnds.forEach(function(te){ var xe = trX(te + 0.05, now); if (xe < 0 || xe > SW) return; sctx.beginPath(); sctx.moveTo(xe,0); sctx.lineTo(xe,SH); sctx.stroke(); });
   sctx.setLineDash([]);
-  sctx.textBaseline = 'bottom';
-  vis.forEach(function(s){
-    var x1 = X(s.t0), x2 = X(s.t1===null?tNow:s.t1), y = Y(s.midi);
-    var ev = s.ev, col = (ev && ev.fn) ? FNRGB[FN.indexOf(ev.fn)] : [120,120,116];
-    sctx.strokeStyle = rgba(col, ev ? 1 : 0.5);
-    sctx.lineWidth = ev && ev.held ? 12 : 6;
-    sctx.lineCap = 'round';
-    sctx.beginPath(); sctx.moveTo(x1,y); sctx.lineTo(Math.max(x1+1,x2),y); sctx.stroke();
-    if (ev && ev.fn){
-      sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(ev.fn.charAt(0)==='~' ? lighten(col,0.42) : col, 1);
-      sctx.fillText(ev.fn, x1, y-12);
-    }
+  var t0 = now - TR.span;
+  /* the tones handed to the decoder: thin bars behind the ribbon */
+  sctx.lineCap = 'round';
+  segs.forEach(function(s){
+    var te = s.t1 === null ? now : s.t1; if (te < t0) return;
+    var ev = s.ev, col = (ev && ev.fn) ? liftCol(FNRGB[FN.indexOf(ev.fn)]) : [120,120,116];
+    var y = trY(s.midi), x1 = trX(s.t0, now), x2 = trX(te, now);
+    sctx.strokeStyle = rgba(col, 0.28); sctx.lineWidth = 14;
+    sctx.beginPath(); sctx.moveTo(x1, y); sctx.lineTo(Math.max(x1 + 1, x2), y); sctx.stroke();
   });
-  if (live.midi !== null){
-    sctx.fillStyle = 'rgba(235,235,230,0.9)'; sctx.beginPath(); sctx.arc(SW-7, Y(live.midi), 6, 0, TP); sctx.fill();
+  /* candidates the tracker did not take */
+  var i0 = 0; while (i0 < trace.length && trace[i0].t < t0) i0++;
+  for (var i = i0; i < trace.length; i++){
+    var fr = trace[i], x = trX(fr.t, now), c = fr.c;
+    for (var j = 0; j < c.length; j += 2){
+      if (fr.m !== null && Math.abs(c[j] - fr.m) < 0.5) continue;
+      if (c[j] < TR.lo || c[j] > TR.hi) continue;
+      sctx.fillStyle = 'rgba(200,200,195,' + Math.min(0.55, 0.12 + c[j+1]).toFixed(3) + ')';
+      sctx.fillRect(x - 1, trY(c[j]) - 1, 2, 2);
+    }
+  }
+  /* the ribbon */
+  for (var i2 = Math.max(1, i0); i2 < trace.length; i2++){
+    var a = trace[i2-1], b = trace[i2];
+    if (a.m === null || b.m === null || b.t - a.t > 0.03) continue;
+    var bc = (b.seg && b.seg.ev && b.seg.ev.re !== null && b.seg.ev.re !== undefined) ? liftCol(fnColorAt(b.m - tuneOffset() - b.seg.ev.re)) : b.col;
+    sctx.strokeStyle = rgba(bc, b.bridged ? 0.45 : 0.6 + 0.4*Math.min(1, b.conf*1.5));
+    sctx.lineWidth = b.bridged ? 2 : 2.5 + 6*Math.min(1, b.conf);
+    sctx.beginPath(); sctx.moveTo(trX(a.t, now), trY(a.m)); sctx.lineTo(trX(b.t, now), trY(b.m)); sctx.stroke();
+  }
+  /* labels: the function the decoder heard, at each tone's start */
+  sctx.textBaseline = 'bottom';
+  segs.forEach(function(s){
+    var ev = s.ev; if (!ev || !ev.fn) return;
+    var x1 = trX(s.t0, now); if (x1 < -40 || x1 > SW) return;
+    var col = liftCol(FNRGB[FN.indexOf(ev.fn)]);
+    sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col, 1);
+    sctx.fillText(ev.fn, x1, trY(s.midi) - 12);
+  });
+  /* the present */
+  var last = trace.length ? trace[trace.length-1] : null;
+  if (last && last.m !== null && now - last.t < 0.15){
+    sctx.fillStyle = rgba((last.seg && last.seg.ev && last.seg.ev.re !== null) ? liftCol(fnColorAt(last.m - tuneOffset() - last.seg.ev.re)) : last.col, 1); sctx.beginPath(); sctx.arc(trX(last.t, now), trY(last.m), 6, 0, TP); sctx.fill();
   }
 }
 
@@ -416,116 +527,149 @@ function addLog(e){
   logEl.insertBefore(line, logEl.firstChild);
 }
 
-/* ---------------- listening: pitch, tuning grid, held / trajectory ---------------- */
-var ac = null, analyser = null, micStream = null, micSrc = null, buf = null;
-var live = { on: false, midi: null, rms: 0 };
+/* ---------------- listening: input, contour, provisional segmentation ----------------
+   Every source (microphone, interface channels, the test phrases) goes into one input bus. The bus
+   feeds the contour tracker, which runs in the audio thread (tools/parser-pitch.js), and the faint
+   spectrum under the trace. The tracker's contour is continuous; it is never rounded.
+   SEGMENTATION IS PROVISIONAL (it is the next thing to discuss): a tone is a stretch where the contour
+   holds within ±0.4 semitone for 30 ms; a glide that never holds makes no tone; a re-struck tone at the
+   same pitch (the level dips and rises) is a new tone; a silence ends a tone, a longer one a phrase. */
+var ac = null, inputBus = null, specAn = null, pitchNode = null, tracker = null, audioReady = null;
+var micStream = null, micSrc = null, micSplit = null;
+var live = { on: false, midi: null, rms: 0, lastT: -1 };
 var startT = null;
 var opts = { heldMs: 240, gate: 0.012, gapMs: 400 };
 function ensureAudio(){
-  if (ac) return ac;
+  if (audioReady) return audioReady;
   ac = new (window.AudioContext||window.webkitAudioContext)();
-  analyser = ac.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
-  buf = new Float32Array(analyser.fftSize);
-  return ac;
+  inputBus = ac.createGain();
+  specAn = ac.createAnalyser(); specAn.fftSize = 8192; specAn.smoothingTimeConstant = 0; specAn.minDecibels = -95; specAn.maxDecibels = -20;
+  inputBus.connect(specAn);
+  tracker = TFPitch.makeTracker({ gate: opts.gate });
+  var url = URL.createObjectURL(new Blob([TFPitch.WORKLET_SRC], { type: 'application/javascript' }));
+  audioReady = ac.audioWorklet.addModule(url).then(function(){
+    pitchNode = new AudioWorkletNode(ac, 'tf-pitch', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+    inputBus.connect(pitchNode);
+    var sink = ac.createGain(); sink.gain.value = 0; pitchNode.connect(sink); sink.connect(ac.destination);
+    pitchNode.port.onmessage = function(e){
+      var fr = e.data.frames; if (!fr) return;
+      for (var i = 0; i < fr.length; i++){ var o = tracker.push(fr[i]); if (o) onContour(o); }
+    };
+  }).catch(function(err){ subEl.textContent = 'This browser cannot run the pitch tracker: ' + err.message; });
+  return audioReady;
 }
-/* YIN fundamental estimate */
-function yin(x, sr){
-  var N = x.length, Wn = N>>1, tmax = Math.min(Wn-1, Math.floor(sr/50)), tmin = Math.floor(sr/1600);
-  var d = new Float32Array(tmax+1), cm = new Float32Array(tmax+1);
-  for (var tau=1; tau<=tmax; tau++){ var s=0; for (var j=0;j<Wn;j++){ var df = x[j]-x[j+tau]; s += df*df; } d[tau]=s; }
-  var run = 0; cm[0]=1;
-  for (var t=1;t<=tmax;t++){ run += d[t]; cm[t] = run>0 ? d[t]*t/run : 1; }
-  var th = 0.15, best = -1;
-  for (var u=tmin; u<=tmax; u++){ if (cm[u] < th){ while (u+1<=tmax && cm[u+1]<cm[u]) u++; best = u; break; } }
-  if (best < 0) return null;
-  var b0 = best>1?cm[best-1]:cm[best], b2 = best<tmax?cm[best+1]:cm[best];
-  var den = (b0 + b2 - 2*cm[best]), shift = den ? (b0-b2)/(2*den) : 0;
-  return { f: sr/(best+shift), clarity: 1-cm[best] };
-}
-/* tuning grid: read from the playing itself (circular mean of held tones' fractional pitch) */
+/* tuning grid: read from the playing itself (circular mean of tones' fractional pitch) */
 var tune = { sx: 0, sy: 0, n: 0 };
 function tuneOffset(){ if (!tune.n) return 0; var a = Math.atan2(tune.sy, tune.sx); return a/TP; }
 function addTune(m){ var fr = m - Math.round(m), a = fr*TP; tune.sx += Math.cos(a); tune.sy += Math.sin(a); tune.n++; }
 
-var cur = null;   /* the tone being heard: {t0, pitches[], held, ev, seg} */
-var cand = null;  /* a possible new tone: {m, n} */
+var cur = null;                     /* the tone being heard */
+var hold6 = [];                     /* the last few voiced contour frames */
 var lastVoiced = 0, phraseOpen = false, phraseEnds = [];
 function median(a){ var b = a.slice().sort(function(x,y){return x-y;}); return b[b.length>>1]; }
 function startTone(m, t){
-  cur = { t0: t, pitches: [m], held: false, reported: false, idx: null, ev: null, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
+  cur = { t0: t, med: m, pitches: [], held: false, idx: null, ev: null, peak: 0, dip: false, seg: { t0: t, t1: null, midi: m, ev: null, held: false } };
   segs.push(cur.seg); if (segs.length > 400) segs.shift();
   if (startT === null) startT = t;
+  if (!tune.n) addTune(m);
+  cur.ev = parser.tone(Math.round(m - tuneOffset()), t, false); phraseOpen = true;
+  cur.idx = parser.events.length - 1;
+  cur.seg.ev = cur.ev;
+  for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 1e-6; k--) if (trace[k].m !== null) trace[k].seg = cur.seg;
+  afterParse();
 }
-function endTone(t){
-  if (!cur) return;
-  cur.seg.t1 = t;
-  if (!cur.reported) segs.splice(segs.indexOf(cur.seg),1);   /* too brief to be a tone: a slide's path */
-  cur = null;
-}
-function frame(m, t){
+function endTone(t){ if (!cur) return; cur.seg.t1 = t; cur = null; }
+function onContour(o){
+  var m = o.f ? 69 + 12*Math.log2(o.f/440) : null, t = o.t;
+  var cs = []; for (var j = 0; j < o.c.length; j += 2) cs.push(69 + 12*Math.log2(o.c[j]/440), o.c[j+1]);
+  trace.push({ t: t, m: m, conf: o.conf, bridged: !!o.bridged, col: m === null ? null : colAtPitch(m), c: cs });
+  while (trace.length && trace[0].t < t - 40) trace.shift();
+  live.midi = m; live.rms = o.rms; live.lastT = t;
   if (m === null){
-    if (cur && t - lastVoiced > 0.09) endTone(lastVoiced);
-    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }   /* a pause ends the phrase */
-    cand = null; return;
+    hold6 = [];
+    if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
+    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
+    return;
   }
   lastVoiced = t;
-  if (!cur){ startTone(m, t); return; }
-  var med = median(cur.pitches.slice(-12));
-  /* re-articulation: the level dips and comes back on the same pitch */
-  cur.peak = Math.max(cur.peak||0, live.rms);
-  if (live.rms < cur.peak*0.6) cur.dip = true;
-  else if (cur.dip && live.rms > cur.peak*0.8 && Math.abs(m - med) < 0.5){ endTone(t); startTone(m, t); return; }
-  if (Math.abs(m - med) < 0.5){
-    cur.pitches.push(m); cand = null;
-    cur.seg.midi = median(cur.pitches.slice(-24));
-    /* every tone counts from the moment it is a tone — a fraction of a beat is enough */
-    if (!cur.reported && cur.pitches.length >= 3){
-      var m0 = median(cur.pitches);
-      if (!tune.n) addTune(m0);
-      cur.reported = true;
-      cur.ev = parser.tone(Math.round(m0 - tuneOffset()), cur.t0, false); phraseOpen = true;
-      cur.idx = parser.events.length - 1;
-      cur.seg.ev = cur.ev;
-      afterParse();
-    }
-    /* sounding on past the arrival threshold: an arrival (matters only for settling a tie) */
-    if (cur.reported && !cur.held && (t - cur.t0)*1000 >= opts.heldMs){
-      cur.held = true; cur.seg.held = true;
-      addTune(median(cur.pitches));
-      parser.arrive(cur.idx);
-      afterParse();
-    }
-  } else {
-    if (cand && Math.abs(m - cand.m) < 0.5){ cand.n++; cand.m = (cand.m*(cand.n-1)+m)/cand.n; }
-    else cand = { m: m, n: 1, t: t };
-    if (cand.n >= 2){ endTone(cand.t); startTone(cand.m, cand.t); cand = null; }
+  hold6.push({ t: t, m: m }); if (hold6.length > 6) hold6.shift();
+  if (cur){
+    /* re-struck at the same pitch: the level dips and comes back */
+    cur.peak = Math.max(cur.peak, o.rms);
+    if (o.rms < cur.peak*0.6) cur.dip = true;
+    else if (cur.dip && o.rms > cur.peak*0.8 && Math.abs(m - cur.med) < 0.5){ var rm = cur.med; endTone(t); startTone(rm, t); return; }
   }
+  if (hold6.length < 6) return;
+  var lo = Infinity, hi = -Infinity, ms = [];
+  hold6.forEach(function(h){ lo = Math.min(lo, h.m); hi = Math.max(hi, h.m); ms.push(h.m); });
+  if (cur && Math.abs(m - cur.med) < 0.5) trace[trace.length-1].seg = cur.seg;
+  if (hi - lo > 0.8) return;                                   /* moving: a glide makes no tone */
+  var med = median(ms);
+  if (cur && Math.abs(med - cur.med) < 0.5){
+    cur.pitches.push(m); if (cur.pitches.length > 60) cur.pitches.shift();
+    cur.med = median(cur.pitches); cur.seg.midi = cur.med;
+    if (!cur.held && (t - cur.t0)*1000 >= opts.heldMs){
+      cur.held = true; cur.seg.held = true; addTune(cur.med);
+      parser.arrive(cur.idx); afterParse();
+    }
+    return;
+  }
+  endTone(hold6[0].t);
+  startTone(med, hold6[0].t);
+  cur.pitches = ms.slice();
 }
 function afterParse(){ updateLevel(); refreshReadouts(); view.dirty = true; }
 
-function listenFrame(){
-  if (!analyser) return;
-  analyser.getFloatTimeDomainData(buf);
-  var s = 0; for (var i=0;i<buf.length;i++) s += buf[i]*buf[i];
-  var rms = Math.sqrt(s/buf.length); live.rms = rms;
-  var t = ac.currentTime, m = null;
-  if (rms > opts.gate){
-    var r = yin(buf, ac.sampleRate);
-    if (r && r.clarity > 0.8 && r.f > 50 && r.f < 1600) m = 69 + 12*Math.log2(r.f/440);
-  }
-  live.midi = m;
-  frame(m, t);
+/* ---------------- inputs ---------------- */
+var inSel = document.getElementById('inSel'), chSel = document.getElementById('chSel');
+try { var _in = localStorage.getItem('tfParserIn'), _ch = localStorage.getItem('tfParserCh'); if (_ch) chSel.value = _ch; inSel.dataset.want = _in || ''; } catch(e){}
+function listDevices(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  navigator.mediaDevices.enumerateDevices().then(function(ds){
+    var want = inSel.value || inSel.dataset.want || '';
+    inSel.innerHTML = '<option value="">default input</option>';
+    ds.filter(function(d){ return d.kind === 'audioinput' && d.deviceId !== 'default'; }).forEach(function(d, i){
+      var o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || ('input ' + (i+1)); inSel.appendChild(o);
+    });
+    if (want && [].some.call(inSel.options, function(op){ return op.value === want; })) inSel.value = want;
+  });
 }
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', listDevices);
+listDevices();
+function stopInput(){
+  if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); });
+  if (micSrc) try { micSrc.disconnect(); } catch(e){}
+  if (micSplit) try { micSplit.disconnect(); } catch(e){}
+  micStream = null; micSrc = null; micSplit = null;
+}
+function startInput(){
+  var c = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 } };
+  if (inSel.value) c.deviceId = { exact: inSel.value };
+  return navigator.mediaDevices.getUserMedia({ audio: c }).then(function(st){
+    micStream = st; micSrc = ac.createMediaStreamSource(st);
+    var n = (st.getAudioTracks()[0].getSettings() || {}).channelCount || 1;
+    if (chSel.value === 'mix' || n < 2){ micSrc.connect(inputBus); }
+    else { micSplit = ac.createChannelSplitter(Math.max(2, n)); micSrc.connect(micSplit); micSplit.connect(inputBus, Math.min(+chSel.value, n-1)); }
+    live.on = true; micBtn.classList.add('on'); micBtn.textContent = 'listening'; refreshReadouts();
+    listDevices();
+  }).catch(function(err){ subEl.textContent = 'The input could not be opened: ' + err.message; });
+}
+function restartInput(){
+  try { localStorage.setItem('tfParserIn', inSel.value); localStorage.setItem('tfParserCh', chSel.value); } catch(e){}
+  if (live.on){ stopInput(); startInput(); }
+}
+inSel.addEventListener('change', restartInput);
+chSel.addEventListener('change', restartInput);
 
 /* ---------------- main loop ---------------- */
 function tick(now){
-  listenFrame();
+  if (ac && live.lastT >= 0 && ac.currentTime - live.lastT > 0.15) live.midi = null;
   view.level += (view.levelTarget - view.level)*0.08;
   var animating = (view.morph && now - view.morph.t0 < view.morph.dur) || (view.rot && now - view.rot.t0 < view.rot.dur) || Math.abs(view.levelTarget - view.level) > 0.002;
   if (view.morph && now - view.morph.t0 >= view.morph.dur){ view.morph = null; view.dirty = true; }
   if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
   if (view.dirty || animating){ drawField(now); view.dirty = false; }
-  drawTop(); drawStrip(now);
+  drawTop(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
   document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
   var to = tuneOffset(); document.getElementById('mTune').textContent = tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—';
   document.getElementById('mLevel').textContent = live.rms.toFixed(3);
@@ -536,18 +680,12 @@ function tick(now){
 var micBtn = document.getElementById('micBtn');
 micBtn.addEventListener('click', function(){
   ensureAudio(); ac.resume();
-  if (live.on){
-    if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); });
-    if (micSrc) micSrc.disconnect();
-    micStream = null; micSrc = null; live.on = false; micBtn.classList.remove('on'); micBtn.textContent = 'listen'; refreshReadouts(); return;
-  }
-  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } }).then(function(st){
-    micStream = st; micSrc = ac.createMediaStreamSource(st); micSrc.connect(analyser);
-    live.on = true; micBtn.classList.add('on'); micBtn.textContent = 'listening'; refreshReadouts();
-  }).catch(function(err){ subEl.textContent = 'The microphone could not be opened: '+err.message; });
+  if (live.on){ stopInput(); live.on = false; micBtn.classList.remove('on'); micBtn.textContent = 'listen'; refreshReadouts(); return; }
+  audioReady.then(startInput);
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
-  parser.reset(); segs = []; cur = null; cand = null; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  parser.reset(); segs = []; trace = []; hold6 = []; cur = null; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  spx.clearRect(0, 0, specCv.width, specCv.height);
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
 });
@@ -579,7 +717,15 @@ function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
 bindRange('gapMs','gapV', function(v){return v+' ms';}, function(v){ opts.gapMs = v; });
 bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
-bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; });
+bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; if (tracker) tracker.setGate(v); });
+function trRange(){ var r = RANGES[document.getElementById('trRange').value]; TR.lo = r[0]; TR.hi = r[1]; spx.clearRect(0,0,specCv.width,specCv.height); }
+document.getElementById('trRange').addEventListener('change', function(){ trRange(); try { localStorage.setItem('tfParserRange', this.value); } catch(e){} });
+try { var _rg = localStorage.getItem('tfParserRange'); if (_rg && RANGES[_rg]) document.getElementById('trRange').value = _rg; } catch(e){}
+trRange();
+document.getElementById('trSpan').addEventListener('change', function(){ TR.span = +this.value; spx.clearRect(0,0,specCv.width,specCv.height); TR.specT = null; });
+document.getElementById('trGrid').addEventListener('change', function(){ TR.grid = this.value; });
+document.getElementById('trSpecBtn').addEventListener('click', function(){ TR.spec = !TR.spec; this.classList.toggle('on', TR.spec); });
+document.getElementById('trHoldBtn').addEventListener('click', function(){ TR.hold = !TR.hold; this.classList.toggle('on', TR.hold); if (TR.hold) TR.holdT = ac ? ac.currentTime : 0; else TR.specT = null; });
 bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
 
 /* ---------------- degenerate test input: a tempered phrase through the same listening path ---------------- */
@@ -601,6 +747,8 @@ var PRESETS = [
   ['a field | a tritone away (G♭)', 'C4 D E F G A B C5/2 | G♭4 A♭ B♭ C♭5 D♭ E♭ F G♭/2'],
   ['a field | where C♯ is Do', 'C4 D E F G A B C5/2 | C#4 D# E# F# G# A# B#4 C#5/2'],
   ['to the G field | and home', 'C4 D E F G A B C5/2 | G4 A B C5 D E F#5 G/2 | F5 E D C/2'],
+  ['glides: slide up to Sol and back (sung / slid)', 'C4 D E E>G/2 G>E/2 D C/2'],
+  ['a bend: Ti up to Do and held', 'C4 D E F G A B4>C5/3'],
   ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
   ['the same five, crossed downward', 'A3 C4 D F E/3']
 ];
@@ -617,24 +765,38 @@ function parsePhrase(txt){
     if (tok.charAt(tok.length-1) === '~'){ traj = true; tok = tok.slice(0,-1); }
     if (tok === '-'){ out.push({ rest: true, beats: beats }); return; }
     if (tok === '|'){ out.push({ rest: true, sec: Math.max(0.9, opts.gapMs/1000 + 0.4) }); return; }   /* a pause: the phrase ends */
-    var mt = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(tok); if (!mt) return;
-    var pc = NAMEPC[mt[1].toUpperCase()] + (mt[2]==='#'||mt[2]==='♯' ? 1 : (mt[2]==='b'||mt[2]==='♭' ? -1 : 0));
-    if (mt[3] !== undefined) oct = +mt[3];
-    out.push({ midi: 12*(oct+1)+pc, beats: traj ? Math.min(beats, 0.35) : beats, traj: traj });
+    var parts = tok.split('>'), ms = [];
+    for (var pi = 0; pi < parts.length; pi++){
+      var mt = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(parts[pi]); if (!mt) return;
+      var pc = NAMEPC[mt[1].toUpperCase()] + (mt[2]==='#'||mt[2]==='♯' ? 1 : (mt[2]==='b'||mt[2]==='♭' ? -1 : 0));
+      if (mt[3] !== undefined) oct = +mt[3];
+      ms.push(12*(oct+1)+pc);
+    }
+    out.push({ midi: ms[0], glide: ms.slice(1), beats: traj ? Math.min(beats, 0.35) : beats, traj: traj });
   });
   return out;
 }
 document.getElementById('playBtn').addEventListener('click', function(){
-  ensureAudio(); ac.resume();
+  ensureAudio(); ac.resume(); audioReady.then(playPhrase);
+});
+function playPhrase(){
   var notes = parsePhrase(phraseEl.value); if (!notes.length) return;
   var beat = 60/(+document.getElementById('bpm').value), t = ac.currentTime + 0.12;
-  var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(analyser);
+  var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(inputBus);
   notes.forEach(function(n){
     var d = n.sec !== undefined ? n.sec : n.beats*beat;
     if (!n.rest){
       var o = ac.createOscillator(), o2 = ac.createOscillator(), gn = ac.createGain(), g2 = ac.createGain();
       var f = 440*Math.pow(2,(n.midi-69)/12);
-      o.type = 'triangle'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = 2*f; g2.gain.value = 0.25;
+      o.type = 'triangle'; o.frequency.setValueAtTime(f, t); o2.type = 'sine'; o2.frequency.setValueAtTime(2*f, t); g2.gain.value = 0.25;
+      /* a glide (A>B): hold, slide across the middle third, land and hold */
+      var fNow = f;
+      (n.glide || []).forEach(function(gm, gi, arr){
+        var seg = d / arr.length, a0 = t + gi*seg + seg*0.33, a1 = t + gi*seg + seg*0.66, fg = 440*Math.pow(2,(gm-69)/12);
+        o.frequency.setValueAtTime(fNow, a0); o2.frequency.setValueAtTime(2*fNow, a0);
+        o.frequency.exponentialRampToValueAtTime(fg, a1); o2.frequency.exponentialRampToValueAtTime(2*fg, a1);
+        fNow = fg;
+      });
       gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(1, t+0.012);
       gn.gain.setValueAtTime(1, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
       o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out);
@@ -642,7 +804,7 @@ document.getElementById('playBtn').addEventListener('click', function(){
     }
     t += d;
   });
-});
+}
 
 size(); refreshReadouts(); requestAnimationFrame(tick);
 })();
