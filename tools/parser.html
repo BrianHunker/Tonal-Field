@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v9 -->
+<!-- Tonal Field — Parser — v10 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -84,7 +84,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v9</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -163,7 +163,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       decoder — that step (what counts as a tone, a glide, a phrase) is provisional. A piano with the pedal down is several
       voices at once, and a single contour cannot follow it reliably. <b>Focus</b> clears upper partials from the faint
       spectrum — a peak with a strong enough peak at a half, a third … an eighth of its frequency is taken for an overtone — so
-      what remains is the fundamentals, all of them: several tones at once show as several lines. <b>Channels</b> lists every
+      what remains is the fundamentals, all of them: several tones at once show as several lines. <b>Bends and slides</b> turn the field: a voice
+      that moves continuously is heard as the field tone it left, displaced, and the field turns under it up to a semitone (π/6)
+      and back as it is released; a voice that carries on to the next field tone arrives there as if it had stepped; a voice
+      that starts on an anti and glides onto a field tone is that tone, approached. Nothing a bend passes through reaches the
+      decoder as a tone. <b>Channels</b> lists every
       channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
     </div>
 </section>
@@ -196,6 +200,7 @@ var parser = TF.createParser();
 window.tfParser = parser;   /* for inspection from the console */
 window.tfAudio = function(){ ensureAudio(); return { ac: ac, input: inputBus, ready: audioReady }; };
 window.tfTrace = function(){ return trace; };
+window.tfBendLog = [];
 var view = {
   dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
   reNow: null,          /* current displayed orientation (may be fractional while rotating) */
@@ -203,6 +208,7 @@ var view = {
   rot: null,            /* {a, b, t0, dur} turn of a fractional re */
   level: 0, levelTarget: 0,
   ghost: null,          /* the other reading of an open tie */
+  bend: 0,              /* the field turned under a bending or sliding voice, in semitones (|bend| ≤ 1) */
   dirty: true
 };
 parser.on(function(e){
@@ -265,12 +271,14 @@ function sample(s, now){
   if (view.reNow === null) return { v: 0, col: GRAY };
   if (view.morph) {
     var m = Math.min(1,(now-view.morph.t0)/view.morph.dur); m = m*m*(3-2*m);
-    var va = g((s-view.morph.a)*ST), vb = g((s-view.morph.b)*ST);
+    var ma = view.morph.a + view.bend, mb = view.morph.b + view.bend;
+    var va = g((s-ma)*ST), vb = g((s-mb)*ST);
     v = va*(1-m)+vb*m;
-    col = mix(fnColorAt(s-view.morph.a), fnColorAt(s-view.morph.b), m);
+    col = mix(fnColorAt(s-ma), fnColorAt(s-mb), m);
   } else {
     var re = view.reNow;
     if (view.rot) { var r = Math.min(1,(now-view.rot.t0)/view.rot.dur); r = r*r*(3-2*r); re = view.rot.a + (view.rot.b-view.rot.a)*r; }
+    re += view.bend;
     v = g((s-re)*ST); col = fnColorAt(s-re);
   }
   return { v: v*L, col: mix(GRAY, col, L) };
@@ -329,7 +337,7 @@ function drawField(now){
     fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
     for (var p=0;p<12;p++){
       var off = mod(p - view.reNow, 12), name = FN[off], anti = name.charAt(0) === '~';
-      var v0 = g(off*ST)*view.level, a0 = ang(p);
+      var v0 = g(off*ST)*view.level, a0 = ang(p + view.bend);
       var rr = anti ? R0 - A*0.55 - W*0.03 : R0 + A*Math.max(v0,0) + W*0.04;
       fctx.font = (anti?'600 ':'700 ') + Math.round(W*(anti?0.031:0.037)) + 'px "IBM Plex Mono", monospace';
       fctx.fillStyle = rgba(mix(GRAY, FNRGB[off], view.level), (anti?0.75:1)*Math.min(1,view.level*1.4));
@@ -476,7 +484,7 @@ function drawStrip(now){
   for (var i2 = Math.max(1, i0); i2 < trace.length; i2++){
     var a = trace[i2-1], b = trace[i2];
     if (a.m === null || b.m === null || b.t - a.t > 0.03) continue;
-    var bc = (b.seg && b.seg.ev && b.seg.ev.re !== null && b.seg.ev.re !== undefined) ? liftCol(fnColorAt(b.m - tuneOffset() - b.seg.ev.re)) : b.col;
+    var bc = (b.seg && b.seg.ev && b.seg.ev.re !== null && b.seg.ev.re !== undefined) ? liftCol(fnColorAt(b.m - (b.bend||0) - tuneOffset() - b.seg.ev.re)) : b.col;
     sctx.strokeStyle = rgba(bc, b.bridged ? 0.45 : 0.6 + 0.4*Math.min(1, b.conf*1.5));
     sctx.lineWidth = b.bridged ? 2 : 2.5 + 6*Math.min(1, b.conf);
     sctx.beginPath(); sctx.moveTo(trX(a.t, now), trY(a.m)); sctx.lineTo(trX(b.t, now), trY(b.m)); sctx.stroke();
@@ -493,7 +501,7 @@ function drawStrip(now){
   /* the present */
   var last = trace.length ? trace[trace.length-1] : null;
   if (last && last.m !== null && now - last.t < 0.15){
-    sctx.fillStyle = rgba((last.seg && last.seg.ev && last.seg.ev.re !== null) ? liftCol(fnColorAt(last.m - tuneOffset() - last.seg.ev.re)) : last.col, 1); sctx.beginPath(); sctx.arc(trX(last.t, now), trY(last.m), 6, 0, TP); sctx.fill();
+    sctx.fillStyle = rgba((last.seg && last.seg.ev && last.seg.ev.re !== null) ? liftCol(fnColorAt(last.m - (last.bend||0) - tuneOffset() - last.seg.ev.re)) : last.col, 1); sctx.beginPath(); sctx.arc(trX(last.t, now), trY(last.m), 6, 0, TP); sctx.fill();
   }
 }
 
@@ -593,30 +601,56 @@ function startTone(m, t){
   afterParse();
 }
 function endTone(t){ if (!cur) return; cur.seg.t1 = t; cur = null; }
+/* BENDS AND SLIDES. A voice that moves continuously is heard as a field tone displaced, and the field turns
+   under it, so the tone keeps its valence: up to a semitone (π/6) away from the field tone it left, the
+   field turns with it; let go, and it turns back. A voice that keeps going until it reaches the next field
+   tone has arrived there, as if it had stepped, and the field is back where it was. A voice that starts on
+   an anti and glides onto a field tone is heard as that tone, approached — the field turned under the
+   approach and unwinding as it lands. Nothing a bend passes through is handed to the decoder as a tone. */
+var bend = { anchor: null, target: 0, pend: null, xs: [], stepped: false };
+function fieldAt(x, tol){ var k = Math.round(x); return (Math.abs(x - k) <= tol && TF.gv(k, 0) >= -1e-9) ? k : null; }
+function xOf(m){ return m - tuneOffset() - parser.re; }
+function nextField(x, dir){ var k = dir > 0 ? Math.ceil(x + 0.01) : Math.floor(x - 0.01); for (var n = 0; n < 4; n++, k += dir) if (TF.gv(k, 0) >= -1e-9) return k; return Math.round(x); }
+function bendTrack(m, t){
+  if (parser.re === null){ bend.target = 0; return; }
+  var x = xOf(m), fk = fieldAt(x, 0.15);
+  bend.xs.push({ t: t, x: x }); while (bend.xs.length && bend.xs[0].t < t - 0.03) bend.xs.shift();
+  /* a step, not a glide: the voice covered more than half a semitone in 15 ms */
+  var x15 = null; for (var i = bend.xs.length - 1; i >= 0; i--) if (t - bend.xs[i].t >= 0.015){ x15 = bend.xs[i].x; break; }
+  if (x15 !== null && Math.abs(x - x15) > 0.5){ bend.anchor = null; bend.target = 0; bend.stepped = true; return; }
+  if (fk !== null){ bend.anchor = fk; bend.target = 0; return; }              /* placed: on a field tone */
+  if (bend.anchor !== null){ var d = x - bend.anchor; bend.target = Math.max(-1, Math.min(1, d)); return; }   /* bent away */
+  var v = bend.xs.length > 1 ? x - bend.xs[0].x : 0;                         /* an approach: heading for a field tone */
+  bend.target = Math.abs(v) > 0.06 ? Math.max(-1, Math.min(1, x - nextField(x, v > 0 ? 1 : -1))) : 0;
+}
 function onContour(o){
   var m = o.f ? 69 + 12*Math.log2(o.f/440) : null, t = o.t;
   var cs = []; for (var j = 0; j < o.c.length; j += 2) cs.push(69 + 12*Math.log2(o.c[j]/440), o.c[j+1]);
-  trace.push({ t: t, m: m, conf: o.conf, bridged: !!o.bridged, col: m === null ? null : colAtPitch(m), c: cs });
+  if (m !== null) bendTrack(m, t);
+  var fr = { t: t, m: m, conf: o.conf, bridged: !!o.bridged, bend: m === null ? 0 : bend.target, col: m === null ? null : colAtPitch(m - bend.target), c: cs };
+  trace.push(fr);
   while (trace.length && trace[0].t < t - 40) trace.shift();
   live.midi = m; live.rms = o.rms; live.lastT = t;
   if (m === null){
-    hold6 = [];
+    hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = [];
+    if (bend.pend && t - lastVoiced > 0.04){ var pd0 = bend.pend; bend.pend = null; startTone(pd0.med, pd0.t0); cur.pitches = [pd0.med]; }   /* an anti that never slid: a tone after all */
     if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
     if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
     return;
   }
   lastVoiced = t;
-  hold6.push({ t: t, m: m }); if (hold6.length > 6) hold6.shift();
+  hold6.push({ t: t, m: m }); if (hold6.length > 10) hold6.shift();
   if (cur){
     /* re-struck at the same pitch: the level dips and comes back */
     cur.peak = Math.max(cur.peak, o.rms);
     if (o.rms < cur.peak*0.6) cur.dip = true;
-    else if (cur.dip && o.rms > cur.peak*0.8 && Math.abs(m - cur.med) < 0.5){ var rm = cur.med; endTone(t); startTone(rm, t); return; }
+    else if (cur.dip && o.rms > cur.peak*0.8 && Math.abs(m - cur.med) < 0.5){ var rm = cur.med; endTone(t); startTone(rm, t); bend.anchor = null; return; }
   }
   if (hold6.length < 6) return;
+  /* staying on a tone: the last 30 ms within 0.8 semitone (vibrato is the same tone) */
   var lo = Infinity, hi = -Infinity, ms = [];
-  hold6.forEach(function(h){ lo = Math.min(lo, h.m); hi = Math.max(hi, h.m); ms.push(h.m); });
-  if (cur && Math.abs(m - cur.med) < 0.5) trace[trace.length-1].seg = cur.seg;
+  hold6.slice(-6).forEach(function(h){ lo = Math.min(lo, h.m); hi = Math.max(hi, h.m); ms.push(h.m); });
+  if (cur && (Math.abs(m - cur.med) < 0.5 || bend.anchor !== null)) fr.seg = cur.seg;
   if (hi - lo > 0.8) return;                                   /* moving: a glide makes no tone */
   var med = median(ms);
   if (cur && Math.abs(med - cur.med) < 0.5){
@@ -628,6 +662,24 @@ function onContour(o){
     }
     return;
   }
+  /* a new tone needs a steadier hold: 50 ms within 0.3 semitone, so a slide does not leave tones behind it */
+  if (hold6.length < 10) return;
+  var lo2 = Infinity, hi2 = -Infinity, ms2 = [];
+  hold6.forEach(function(h){ lo2 = Math.min(lo2, h.m); hi2 = Math.max(hi2, h.m); ms2.push(h.m); });
+  if (hi2 - lo2 > 0.3) return;
+  med = median(ms2); ms = ms2;
+  var off = parser.re !== null && fieldAt(xOf(med), 0.35) === null;
+  /* held off the field after bending there: still the tone that was bent, displaced */
+  if (cur && off && bend.anchor !== null) return;
+  /* a fresh tone that starts off the field waits a moment: if it glides onto a field tone it was an approach */
+  if (!cur && off){
+    if (bend.pend && Math.abs(med - bend.pend.med) >= 0.5 && bend.stepped){ var pq = bend.pend; startTone(pq.med, pq.t0); endTone(hold6[0].t); }   /* stepped away from an anti: it was a tone */
+    if (!bend.pend || Math.abs(med - bend.pend.med) >= 0.5){ bend.pend = { t0: hold6[0].t, med: med }; bend.stepped = false; }
+    return;
+  }
+  /* landing on a field tone: from a pending anti by a glide, it was an approach; by a step, it was a tone */
+  if (bend.pend){ var pr = bend.pend; bend.pend = null; if (bend.stepped && !cur){ startTone(pr.med, pr.t0); } }
+  bend.stepped = false;
   endTone(hold6[0].t);
   startTone(med, hold6[0].t);
   cur.pitches = ms.slice();
@@ -696,6 +748,8 @@ chSel.addEventListener('change', restartInput);
 function tick(now){
   if (ac && live.lastT >= 0 && ac.currentTime - live.lastT > 0.15) live.midi = null;
   view.level += (view.levelTarget - view.level)*0.08;
+  if (bend.target !== 0 || view.bend !== 0) window.tfBendLog.push([ac ? +ac.currentTime.toFixed(3) : 0, +view.bend.toFixed(3)]); if (window.tfBendLog.length > 4000) window.tfBendLog.shift();
+  var bt = bend.target, bd = bt - view.bend; if (Math.abs(bd) > 0.002){ view.bend += bd*0.35; view.dirty = true; } else if (view.bend !== bt){ view.bend = bt; view.dirty = true; }
   var animating = (view.morph && now - view.morph.t0 < view.morph.dur) || (view.rot && now - view.rot.t0 < view.rot.dur) || Math.abs(view.levelTarget - view.level) > 0.002;
   if (view.morph && now - view.morph.t0 >= view.morph.dur){ view.morph = null; view.dirty = true; }
   if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
@@ -715,7 +769,7 @@ micBtn.addEventListener('click', function(){
   audioReady.then(startInput);
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
-  parser.reset(); segs = []; trace = []; hold6 = []; cur = null; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
   spx.clearRect(0, 0, specCv.width, specCv.height);
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
@@ -779,6 +833,9 @@ var PRESETS = [
   ['a field | a tritone away (G♭)', 'C4 D E F G A B C5/2 | G♭4 A♭ B♭ C♭5 D♭ E♭ F G♭/2'],
   ['a field | where C♯ is Do', 'C4 D E F G A B C5/2 | C#4 D# E# F# G# A# B#4 C#5/2'],
   ['to the G field | and home', 'C4 D E F G A B C5/2 | G4 A B C5 D E F#5 G/2 | F5 E D C/2'],
+  ['a field | bend Sol up a semitone and back', 'C4 D E F G A B C5/2 | G4/0.5 G4>A♭4>G4/3 E4/2'],
+  ['a field | bend Sol up a whole tone (arrives at La)', 'C4 D E F G A B C5/2 | G4/0.5 G4>A4/2 G4/2'],
+  ['a field | slide into Ti from below (approach)', 'C4 D E F G A B C5/2 | B♭4>B4/2 C5/2'],
   ['glides: slide up to Sol and back (sung / slid)', 'C4 D E E>G/2 G>E/2 D C/2'],
   ['a bend: Ti up to Do and held', 'C4 D E F G A B4>C5/3'],
   ['five tones, the pair crossed upward', 'A3 C4 D E F/3'],
