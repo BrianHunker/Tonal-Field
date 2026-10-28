@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v8 -->
+<!-- Tonal Field — Parser — v9 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -50,7 +50,7 @@ input[type=text], select { font: inherit; font-family: var(--font-mono); font-si
 #phrase { width: 300px; }
 .sep { width: 1px; height: 22px; background: #3a3a3a; }
 
-main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 1fr); gap: 18px; padding: 18px 22px; align-items: start; }
+main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 1fr); gap: 18px; padding: 18px 22px; align-items: stretch; }
 @media (max-width: 900px){ main { grid-template-columns: 1fr; padding: 12px 16px; } #phrase { width: 100%; } }
 .ringbox { position: relative; width: 100%; aspect-ratio: 1; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .ringbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -65,12 +65,13 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 #hearing .l { font-size: 14px; font-weight: 500; opacity: 0.85; }
 #hearing .p .f { font-weight: 500; font-size: 15px; }
 #hearing .u { color: #6d6d69; }
-.tracewrap { padding: 0 22px 22px; }
-@media (max-width: 900px){ .tracewrap { padding: 0 16px 16px; } }
-.trace { display: flex; flex-direction: column; gap: 6px; }
+.below .note { grid-column: 1 / -1; }
+.below { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; padding: 0 22px 22px; align-items: start; }
+@media (max-width: 900px){ .below { padding: 0 16px 16px; } }
+.trace { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
 .tracebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .tracebar h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-right: 4px; }
-.strip { position: relative; width: 100%; height: 570px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
+.strip { position: relative; width: 100%; flex: 1 1 auto; min-height: 360px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
 #log .k { color: var(--gold); }
@@ -83,7 +84,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v8</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v9</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -92,7 +93,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
 <div class="toolbar">
   <button id="micBtn" title="listen to the chosen input">listen</button>
   <label title="the audio input to listen to — the built-in microphone, or an interface such as the Apollo (names appear once listening has been allowed)">input <select id="inSel"><option value="">default input</option></select></label>
-  <label title="which of the input's channels to hear: both mixed, or one alone (an interface's first two inputs are channels 1 and 2)">channels <select id="chSel"><option value="mix">1+2</option><option value="0">1</option><option value="1">2</option></select></label>
+  <label title="which of the input's channels to hear, as a pair or alone. The list shows every channel the browser actually delivers — Chrome delivers only an interface's first two">channels <select id="chSel"><option value="p0">1+2</option><option value="s0">1</option><option value="s1">2</option></select></label>
   <button id="resetBtn" title="clear the field back to a plain gray ring">reset</button>
   <span class="sep"></span>
   <select id="preset" title="degenerate test input: a tempered phrase played through the same listening path as the microphone">
@@ -113,7 +114,20 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
   <div>
     <div class="ringbox"><canvas id="fieldCv"></canvas><canvas id="topCv"></canvas></div>
   </div>
-  <div class="side">
+  <div class="trace">
+      <div class="tracebar">
+        <h2>Trace</h2>
+        <label title="the pitch range shown">range <select id="trRange"><option value="guitar">guitar E2–E6</option><option value="voice">voice A2–C6</option><option value="piano">piano C2–C7</option><option value="bass">bass E1–G4</option></select></label>
+        <label title="how many seconds the trace shows">span <select id="trSpan"><option value="4">4 s</option><option value="8" selected>8 s</option><option value="16">16 s</option></select></label>
+        <label title="which lines of the grid are drawn, in the orientation as it stands">grid <select id="trGrid"><option value="all">all</option><option value="diatonic">diatonic</option><option value="pentatonic">pentatonic</option></select></label>
+        <button id="trSpecBtn" class="on" title="the input's own spectrum, faint, under the contour">spectrum</button>
+        <label title="focus clears the upper partials from the spectrum: a peak is taken for an overtone when the spectrum also has a peak at a half, a third … an eighth of its frequency, within a level the slider sets. Fundamentals stay — every one of them, so several tones at once show as several lines">focus <input type="range" id="trFocus" min="0" max="1" step="0.01" value="0.8"><output id="trFocusV">0.80</output></label>
+        <button id="trHoldBtn" title="freeze the trace to read what just went by; listening carries on">hold</button>
+      </div>
+      <div class="strip"><canvas id="specCv"></canvas><canvas id="stripCv"></canvas></div>
+    </div>
+</main>
+<section class="below">
     <div class="card">
       <div id="state">Plain ring — nothing heard yet.</div>
       <div id="stateSub">Press listen, then play or sing a short phrase.</div>
@@ -127,6 +141,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
         <span>pitch <b id="mPitch">—</b></span>
         <span>tuning grid <b id="mTune">—</b></span>
         <span>level <b id="mLevel">—</b></span>
+        <span>input channels delivered <b id="mChans">—</b></span>
       </div>
     </div>
     <div class="card">
@@ -146,21 +161,10 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(280px, 
       5 ms and never rounded to a grid, coloured by g(x), as thick as the tracker is confident. Faint dots are the pitches it
       considered and did not take; the faint spectrum underneath is the sound itself. Thin bars mark the tones handed to the
       decoder — that step (what counts as a tone, a glide, a phrase) is provisional. A piano with the pedal down is several
-      voices at once, and a single contour cannot follow it reliably.
-    </div>
-  </div>
-</main>
-<section class="tracewrap">
-  <div class="trace">
-      <div class="tracebar">
-        <h2>Trace</h2>
-        <label title="the pitch range shown">range <select id="trRange"><option value="guitar">guitar E2–E6</option><option value="voice">voice A2–C6</option><option value="piano">piano C2–C7</option><option value="bass">bass E1–G4</option></select></label>
-        <label title="how many seconds the trace shows">span <select id="trSpan"><option value="4">4 s</option><option value="8" selected>8 s</option><option value="16">16 s</option></select></label>
-        <label title="which lines of the grid are drawn, in the orientation as it stands">grid <select id="trGrid"><option value="all">all</option><option value="diatonic">diatonic</option><option value="pentatonic">pentatonic</option></select></label>
-        <button id="trSpecBtn" class="on" title="the input's own spectrum, faint, under the contour">spectrum</button>
-        <button id="trHoldBtn" title="freeze the trace to read what just went by; listening carries on">hold</button>
-      </div>
-      <div class="strip"><canvas id="specCv"></canvas><canvas id="stripCv"></canvas></div>
+      voices at once, and a single contour cannot follow it reliably. <b>Focus</b> clears upper partials from the faint
+      spectrum — a peak with a strong enough peak at a half, a third … an eighth of its frequency is taken for an overtone — so
+      what remains is the fundamentals, all of them: several tones at once show as several lines. <b>Channels</b> lists every
+      channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
     </div>
 </section>
 
@@ -244,6 +248,7 @@ function size(){
   view.dirty = true;
 }
 window.addEventListener('resize', size);
+if (window.ResizeObserver) new ResizeObserver(function(){ size(); }).observe(document.querySelector('.strip'));
 var showLetters = true;
 
 /* screen angle of a position s on the tuning grid (semitones, continuous): clockwise, the dial's letter at
@@ -369,7 +374,7 @@ function drawTop(){
    ribbon are the tones the segmentation handed to the decoder, labelled with the function heard. */
 var segs = [];          /* tones handed to the decoder: {t0, t1, midi, ev (relabeled in place), held} */
 var trace = [];         /* contour frames: {t, m, conf, bridged, col, c:[m,p,…]} */
-var TR = { lo: 40, hi: 88, span: 8, grid: 'all', spec: true, hold: false, holdT: 0, specX: 0, specT: null };
+var TR = { lo: 40, hi: 88, span: 8, grid: 'all', spec: true, hold: false, holdT: 0, specX: 0, specT: null, focus: 0.8 };
 var RANGES = { guitar: [40, 88], voice: [45, 84], piano: [36, 96], bass: [28, 67] };
 var specCv = document.getElementById('specCv'), spx = specCv.getContext('2d');
 var specBuf = document.createElement('canvas'), sbx = specBuf.getContext('2d');   /* scrolling goes through a second buffer */
@@ -408,10 +413,19 @@ function drawSpecColumn(now){
     rows[y] = b0 + 1 < specBytes.length ? (specBytes[b0] * (1 - fr) + specBytes[b0 + 1] * fr) / 255 : 0;
   }
   var lag = Math.round(0.09 / TR.span * w);    /* the long window reports ~90 ms late: draw it where it belongs */
+  var rps = h / (TR.hi - TR.lo), F = TR.focus, tol = 0.08 + 0.22*F, win = Math.max(2, Math.round(0.3*rps));
+  var exS = 4 + 10*F;                          /* crest sharpening steepens with focus */
+  function peakNear(yc){ var mx = 0; for (var q = Math.max(0, yc - win); q <= Math.min(h - 1, yc + win); q++) if (rows[q] > mx) mx = rows[q]; return mx; }
   for (var y2 = 0; y2 < h; y2++){
     var v = rows[y2]; if (v < 0.2) continue;
     var lm = 0; for (var k = Math.max(0, y2 - 4); k <= Math.min(h - 1, y2 + 4); k++) if (rows[k] > lm) lm = rows[k];
-    var a = Math.pow(v / lm, 8) * Math.min(1, (v - 0.2) / 0.5) * 0.8; if (a < 0.02) continue;
+    var a = Math.pow(v / lm, exS) * Math.min(1, (v - 0.2) / 0.5) * 0.8; if (a < 0.02) continue;
+    /* the overtone sieve: a peak with a strong enough peak at f/2 … f/8 below it is an upper partial */
+    if (F > 0) for (var hk = 2; hk <= 8; hk++){
+      var yk = Math.round(y2 + 12*Math.log2(hk)*rps); if (yk >= h) break;
+      if (peakNear(yk) >= v - tol){ a *= (1 - F); break; }
+    }
+    if (a < 0.02) continue;
     var m2 = TR.lo + (TR.hi - TR.lo) * (1 - y2 / h);
     spx.fillStyle = rgba(colAtPitch(m2), a); spx.fillRect(w - px - lag, y2, px, 1);
   }
@@ -622,7 +636,17 @@ function afterParse(){ updateLevel(); refreshReadouts(); view.dirty = true; }
 
 /* ---------------- inputs ---------------- */
 var inSel = document.getElementById('inSel'), chSel = document.getElementById('chSel');
-try { var _in = localStorage.getItem('tfParserIn'), _ch = localStorage.getItem('tfParserCh'); if (_ch) chSel.value = _ch; inSel.dataset.want = _in || ''; } catch(e){}
+var chWant = 'p0';
+try { var _in = localStorage.getItem('tfParserIn'), _ch = localStorage.getItem('tfParserCh'); if (_ch) chWant = ({ mix:'p0', '0':'s0', '1':'s1' })[_ch] || _ch; inSel.dataset.want = _in || ''; } catch(e){}
+chSel.value = chWant;
+function chOptions(n){                 /* every channel the browser delivers: in pairs, then singly */
+  var want = chSel.value || chWant; chSel.innerHTML = '';
+  for (var a = 0; a + 1 < n; a += 2){ var o = document.createElement('option'); o.value = 'p' + a; o.textContent = (a+1) + '+' + (a+2); chSel.appendChild(o); }
+  for (var b = 0; b < n; b++){ var o2 = document.createElement('option'); o2.value = 's' + b; o2.textContent = String(b+1); chSel.appendChild(o2); }
+  if ([].some.call(chSel.options, function(op){ return op.value === want; })) chSel.value = want; else chSel.value = chSel.options[0].value;
+  document.getElementById('mChans').textContent = String(n) + (n <= 2 && want && +want.slice(1) >= 2 ? ' (asked for ' + chLabel(want) + ')' : '');
+}
+function chLabel(v){ var k = +v.slice(1); return v.charAt(0) === 'p' ? (k+1) + '+' + (k+2) : String(k+1); }
 function listDevices(){
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
   navigator.mediaDevices.enumerateDevices().then(function(ds){
@@ -639,22 +663,29 @@ listDevices();
 function stopInput(){
   if (micStream) micStream.getTracks().forEach(function(t){ t.stop(); });
   if (micSrc) try { micSrc.disconnect(); } catch(e){}
-  if (micSplit) try { micSplit.disconnect(); } catch(e){}
+  if (micSplit) try { if (micSplit._mg) micSplit._mg.disconnect(); micSplit.disconnect(); } catch(e){}
   micStream = null; micSrc = null; micSplit = null;
 }
 function startInput(){
-  var c = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 } };
+  var c = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 32 } };
   if (inSel.value) c.deviceId = { exact: inSel.value };
   return navigator.mediaDevices.getUserMedia({ audio: c }).then(function(st){
     micStream = st; micSrc = ac.createMediaStreamSource(st);
-    var n = (st.getAudioTracks()[0].getSettings() || {}).channelCount || 1;
-    if (chSel.value === 'mix' || n < 2){ micSrc.connect(inputBus); }
-    else { micSplit = ac.createChannelSplitter(Math.max(2, n)); micSrc.connect(micSplit); micSplit.connect(inputBus, Math.min(+chSel.value, n-1)); }
+    var n = (st.getAudioTracks()[0].getSettings() || {}).channelCount || micSrc.channelCount || 1;
+    chOptions(n);
+    var v = chSel.value, k = Math.min(+v.slice(1), n - 1);
+    if (n < 2){ micSrc.connect(inputBus); }
+    else {
+      micSplit = ac.createChannelSplitter(n); micSrc.connect(micSplit);
+      if (v.charAt(0) === 'p' && k + 1 < n){ var mg = ac.createChannelMerger(2); micSplit.connect(mg, k, 0); micSplit.connect(mg, k + 1, 1); mg.connect(inputBus); micSplit._mg = mg; }
+      else micSplit.connect(inputBus, k);
+    }
     live.on = true; micBtn.classList.add('on'); micBtn.textContent = 'listening'; refreshReadouts();
     listDevices();
   }).catch(function(err){ subEl.textContent = 'The input could not be opened: ' + err.message; });
 }
 function restartInput(){
+  chWant = chSel.value;
   try { localStorage.setItem('tfParserIn', inSel.value); localStorage.setItem('tfParserCh', chSel.value); } catch(e){}
   if (live.on){ stopInput(); startInput(); }
 }
@@ -724,6 +755,7 @@ try { var _rg = localStorage.getItem('tfParserRange'); if (_rg && RANGES[_rg]) d
 trRange();
 document.getElementById('trSpan').addEventListener('change', function(){ TR.span = +this.value; spx.clearRect(0,0,specCv.width,specCv.height); TR.specT = null; });
 document.getElementById('trGrid').addEventListener('change', function(){ TR.grid = this.value; });
+bindRange('trFocus','trFocusV', function(v){ return v.toFixed(2); }, function(v){ TR.focus = v; });
 document.getElementById('trSpecBtn').addEventListener('click', function(){ TR.spec = !TR.spec; this.classList.toggle('on', TR.spec); });
 document.getElementById('trHoldBtn').addEventListener('click', function(){ TR.hold = !TR.hold; this.classList.toggle('on', TR.hold); if (TR.hold) TR.holdT = ac ? ac.currentTime : 0; else TR.specT = null; });
 bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
