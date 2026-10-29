@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v11 -->
+<!-- Tonal Field — Parser — v12 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -89,7 +89,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v11</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -111,6 +111,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <label title="a silence at least this long ends a phrase — long enough to let staccato through. The orientation a phrase leaves is what the next phrase arrives in">phrase gap <input type="range" id="gapMs" min="150" max="1500" step="10" value="400"><output id="gapV">400 ms</output></label>
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
   <button id="beatsBtn" class="on" title="beat by beat: the beat is read from the playing (how the onsets are spaced, which are accented), and the field is assessed once per beat — a subdivision is heard together with the beat it leads into, not tone by tone">beats</button>
+  <label title="with beats on: how many beats the field listens through before it assesses — everything heard in those beats is read together, at the beat that closes them">assess every <input type="range" id="everyN" min="1" max="8" step="1" value="2"><output id="everyV">2 beats</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial">12 o'clock <select id="dialSel"></select></label>
@@ -176,11 +177,12 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       that starts on an anti and glides onto a field tone is that tone, approached. Nothing a bend passes through reaches the
       decoder as a tone. <b>Channels</b> lists every
       channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
-      <br><br><b>Beats.</b> The beat is read from the playing: the tempo from how the onsets are spaced, the beats from
-      which onsets are accented. With <b>beats</b> on, the field is assessed once per beat instead of at every tone — a
-      subdivision is heard together with the beat it leads into. Subdivision labels on the trace are smaller; faint
-      vertical lines mark the beats the field was read at. With every onset equally loud, the beat cannot be told from
-      the off-beat. <b>Double-click</b> the ring or the trace for full screen.
+      <br><br><b>Beats.</b> The beat is read from the playing in two steps: the pulse from how the onsets are spaced,
+      then the beat from loudness alone — the longest grouping of pulses whose beats are all struck harder than everything
+      between them. With <b>beats</b> on, the field listens through <b>assess every</b> N beats (default 2) and then
+      reads everything heard in them together. On the trace every beat is a line; the brighter lines with a marker are
+      where the field was assessed; subdivision labels are smaller. With every onset equally loud there is no accent to
+      read, and every pulse counts as a beat. <b>Double-click</b> the ring or the trace for full screen.
     </div>
 </section>
 
@@ -263,7 +265,7 @@ function size(){
   [fieldCv, topCv].forEach(function(c){ c.width = Math.round(W*dpr); c.height = Math.round(W*dpr); });
   SW = stripCv.clientWidth; SH = stripCv.clientHeight;
   stripCv.width = Math.round(SW*dpr); stripCv.height = Math.round(SH*dpr);
-  specCv.width = Math.round(SW*dpr); specCv.height = Math.round(SH*dpr); TR.specT = null;
+  specCv.width = Math.round(SW*dpr); specCv.height = Math.round(SH*dpr);
   view.dirty = true;
 }
 window.addEventListener('resize', size);
@@ -408,7 +410,7 @@ var trace = [];         /* contour frames: {t, m, conf, bridged, col, c:[m,p,…
 var TR = { lo: 40, hi: 88, span: 8, grid: 'all', spec: true, hold: false, holdT: 0, specX: 0, specT: null, focus: 0.8 };
 var RANGES = { guitar: [40, 88], voice: [45, 84], piano: [36, 96], bass: [28, 67] };
 var specCv = document.getElementById('specCv'), spx = specCv.getContext('2d');
-var specBuf = document.createElement('canvas'), sbx = specBuf.getContext('2d');   /* scrolling goes through a second buffer */
+function trNow0(){ return ac ? ac.currentTime : performance.now()/1000; }
 function trNow(){ return TR.hold ? TR.holdT : (ac ? ac.currentTime : performance.now()/1000); }
 function trY(m){ return SH * (1 - (m - TR.lo) / (TR.hi - TR.lo)); }
 function trX(t, now){ return SW - (now - t) / TR.span * SW; }
@@ -426,15 +428,34 @@ function gridShows(k){
 }
 /* the faint spectrum underneath: one new column per frame, scrolled with time */
 var specBytes = null;
+/* The spectrum is written into a ring buffer at a capped resolution, one column per step, and shown by drawing
+   the buffer onto the screen at the exact (sub-pixel) scroll position: smooth at any size, one copy per frame. */
+var specRing = { cv: document.createElement('canvas'), w: 0, h: 0, t: null };
+specRing.cx = specRing.cv.getContext('2d');
+function specClear(){ specRing.t = null; specRing.col = null; specRing.A = null; specRing.cx.clearRect(0, 0, specRing.w, specRing.h); }
+function ringX(t){ var x = (t / TR.span * specRing.w) % specRing.w; return x < 0 ? x + specRing.w : x; }
 function drawSpecColumn(now){
-  if (!specAn || TR.hold) return;
-  var w = specCv.width, h = specCv.height;
-  if (TR.specT === null){ TR.specT = now; return; }
-  var px = (now - TR.specT) / TR.span * w; if (px < 1) return;
-  px = Math.floor(px); TR.specT += px / w * TR.span;
-  if (specBuf.width !== w || specBuf.height !== h){ specBuf.width = w; specBuf.height = h; }
-  sbx.clearRect(0, 0, w, h); sbx.drawImage(specCv, 0, 0);
-  spx.clearRect(0, 0, w, h); spx.drawImage(specBuf, -px, 0);
+  var w = Math.max(1, Math.min(Math.round(SW * Math.min(dpr, 1.5)), 2400)), h = Math.max(1, Math.min(Math.round(SH * Math.min(dpr, 1.5)), 1200));
+  if (specRing.w !== w || specRing.h !== h){ specRing.cv.width = specRing.w = w; specRing.cv.height = specRing.h = h; specRing.t = null; }
+  if (specAn && !TR.hold) specWrite(now);
+  /* show: the window [now − span, now] of the ring, with a fractional offset */
+  var tn = TR.hold ? TR.holdT : now, o = ringX(tn), W2 = specCv.width, H2 = specCv.height, k = W2 / w;
+  spx.setTransform(1, 0, 0, 1, 0, 0); spx.clearRect(0, 0, W2, H2);
+  if (!TR.spec) return;
+  spx.imageSmoothingEnabled = true;
+  if (w - o > 0.01) spx.drawImage(specRing.cv, o, 0, w - o, h, 0, 0, (w - o) * k, H2);
+  if (o > 0.01) spx.drawImage(specRing.cv, 0, 0, o, h, (w - o) * k, 0, o * k, H2);
+}
+function specWrite(now){
+  var w = specRing.w, h = specRing.h, cx = specRing.cx;
+  if (specRing.t === null || now - specRing.t > TR.span){ cx.clearRect(0, 0, w, h); specRing.t = now; return; }
+  var x0 = Math.floor(ringX(specRing.t)), x1 = Math.floor(ringX(now));
+  var n = x1 - x0; if (n < 0) n += w; if (n < 1) return;
+  var gap = now - specRing.t > 0.1;                 /* after a hold: blank the gap, draw only the present */
+  specRing.t = now;
+  var lagT = 0.09, lag = Math.max(1, Math.round(lagT / TR.span * w));   /* the long window reports ~90 ms late: draw it where it belongs */
+  function clearCols(xa, cnt){ for (var q = 0; q < cnt; q++) cx.clearRect((xa + q) % w, 0, 1, h); }
+  clearCols(x0, n);                                 /* the newest stretch: nothing drawn there yet */
   if (!TR.spec) return;
   if (!specBytes || specBytes.length !== specAn.frequencyBinCount) specBytes = new Uint8Array(specAn.frequencyBinCount);
   specAn.getByteFrequencyData(specBytes);
@@ -443,23 +464,38 @@ function drawSpecColumn(now){
     var m = TR.lo + (TR.hi - TR.lo) * (1 - y / h), f = 440 * Math.pow(2, (m - 69) / 12), bf = f / binHz, b0 = Math.floor(bf), fr = bf - b0;
     rows[y] = b0 + 1 < specBytes.length ? (specBytes[b0] * (1 - fr) + specBytes[b0 + 1] * fr) / 255 : 0;
   }
-  var lag = Math.round(0.09 / TR.span * w);    /* the long window reports ~90 ms late: draw it where it belongs */
-  var rps = h / (TR.hi - TR.lo), F = TR.focus, tol = 0.08 + 0.22*F, win = Math.max(2, Math.round(0.3*rps));
+  var dn = gap ? Math.min(n, Math.max(1, Math.round(0.02 / TR.span * w))) : n;
+  var xs = ((x0 + n - dn - lag) % w + w) % w; n = dn;
+  var rps = h / (TR.hi - TR.lo), F = TR.focus, tol = 0.08 + 0.22*F, win = Math.max(2, Math.round(0.3*rps)), nb = Math.max(2, Math.round(0.35*rps));
   var exS = 4 + 10*F;                          /* crest sharpening steepens with focus */
   function peakNear(yc){ var mx = 0; for (var q = Math.max(0, yc - win); q <= Math.min(h - 1, yc + win); q++) if (rows[q] > mx) mx = rows[q]; return mx; }
+  var A = new Float32Array(h);
   for (var y2 = 0; y2 < h; y2++){
     var v = rows[y2]; if (v < 0.2) continue;
-    var lm = 0; for (var k = Math.max(0, y2 - 4); k <= Math.min(h - 1, y2 + 4); k++) if (rows[k] > lm) lm = rows[k];
+    var lm = 0; for (var k = Math.max(0, y2 - nb); k <= Math.min(h - 1, y2 + nb); k++) if (rows[k] > lm) lm = rows[k];
     var a = Math.pow(v / lm, exS) * Math.min(1, (v - 0.2) / 0.5) * 0.8; if (a < 0.02) continue;
     /* the overtone sieve: a peak with a strong enough peak at f/2 … f/8 below it is an upper partial */
     if (F > 0) for (var hk = 2; hk <= 8; hk++){
       var yk = Math.round(y2 + 12*Math.log2(hk)*rps); if (yk >= h) break;
       if (peakNear(yk) >= v - tol){ a *= (1 - F); break; }
     }
-    if (a < 0.02) continue;
-    var m2 = TR.lo + (TR.hi - TR.lo) * (1 - y2 / h);
-    spx.fillStyle = rgba(colAtPitch(m2), a); spx.fillRect(w - px - lag, y2, px, 1);
+    if (a >= 0.02) A[y2] = a;
   }
+  /* the columns since the last snapshot fade from it to this one, so the spectrum has no steps in time */
+  var P = (specRing.A && specRing.A.length === h && !gap) ? specRing.A : A; specRing.A = A;
+  var ck = view.reNow + '|' + tuneOffset().toFixed(3) + '|' + h + '|' + TR.lo + '|' + TR.hi;
+  if (specRing.ck !== ck){ specRing.ck = ck; specRing.col = []; for (var yc = 0; yc < h; yc++) specRing.col.push(colAtPitch(TR.lo + (TR.hi - TR.lo) * (1 - yc / h))); }
+  var img = cx.createImageData(n, h), d = img.data;
+  for (var y3 = 0; y3 < h; y3++){
+    var a0 = P[y3], a1 = A[y3]; if (a0 === 0 && a1 === 0) continue;
+    var c = specRing.col[y3];
+    for (var q = 0; q < n; q++){
+      var al = a0 + (a1 - a0) * (q + 1) / n, o = (y3 * n + q) * 4;
+      d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; d[o+3] = Math.round(al * 255);
+    }
+  }
+  if (xs + n <= w) cx.putImageData(img, xs, 0);
+  else { cx.putImageData(img, xs, 0, 0, 0, w - xs, h); cx.putImageData(img, xs - w, 0, w - xs, 0, n - (w - xs), h); }
 }
 function drawStrip(now){
   now = trNow();
@@ -483,10 +519,13 @@ function drawStrip(now){
   phraseEnds.forEach(function(te){ var xe = trX(te + 0.05, now); if (xe < 0 || xe > SW) return; sctx.beginPath(); sctx.moveTo(xe,0); sctx.lineTo(xe,SH); sctx.stroke(); });
   sctx.setLineDash([]);
   var t0 = now - TR.span;
-  /* the beats the field was read at */
-  sctx.strokeStyle = 'rgba(200,200,195,0.16)'; sctx.lineWidth = 1;
-  for (var bi = beatTimes.length - 1; bi >= 0 && beatTimes[bi] >= t0; bi--){ var xb = trX(beatTimes[bi], now); sctx.beginPath(); sctx.moveTo(xb, 0); sctx.lineTo(xb, SH); sctx.stroke(); }
-  while (beatTimes.length > 400) beatTimes.shift();
+  /* the beats: every beat a line; where the field was assessed, a bright line with a marker at the top */
+  for (var bi = beatTimes.length - 1; bi >= 0 && beatTimes[bi][0] >= t0 - 0.2; bi--){
+    var xb = trX(beatTimes[bi][0], now), rdb = beatTimes[bi][1];
+    sctx.strokeStyle = rdb ? 'rgba(240,232,200,0.62)' : 'rgba(240,232,200,0.3)'; sctx.lineWidth = rdb ? 2.5 : 1.5;
+    sctx.beginPath(); sctx.moveTo(xb, 0); sctx.lineTo(xb, SH); sctx.stroke();
+    if (rdb){ sctx.fillStyle = 'rgba(240,232,200,0.9)'; sctx.beginPath(); sctx.moveTo(xb - 7, 0); sctx.lineTo(xb + 7, 0); sctx.lineTo(xb, 10); sctx.closePath(); sctx.fill(); }
+  }
   /* the tones handed to the decoder: thin bars behind the ribbon */
   sctx.lineCap = 'round';
   segs.forEach(function(s){
@@ -588,13 +627,34 @@ var ac = null, inputBus = null, specAn = null, pitchNode = null, tracker = null,
 var micStream = null, micSrc = null, micSplit = null;
 var live = { on: false, midi: null, rms: 0, lastT: -1 };
 var startT = null;
-var opts = { heldMs: 240, gate: 0.012, gapMs: 400, beats: true };
-/* ARTICULATION. The beat is read from the playing: the onsets' spacing gives the tempo, their accents (the level
-   each tone strikes with) give which onsets are beats. With beats on and a beat found, the field is assessed once
-   per beat: tones are handed to the decoder as they come, but it reads them at the next beat — a beat tone, or the
-   moment a beat passes with only held tones or subdivisions since. So the tones of one beat are heard together. */
-var beat = TFBeat.makeBeat({ window: 6 }), beatClock = null, beatTimes = [];
-function accentAt(t){ var a = 0; for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 0.012; k--) if (trace[k].t <= t + 0.06) a = Math.max(a, trace[k].rms || 0); return a; }
+var opts = { heldMs: 240, gate: 0.012, gapMs: 400, beats: true, every: 2 };
+/* ARTICULATION. The beat is read from the playing: the onsets' spacing gives the pulse, their accents (the level
+   each tone strikes with) give how the pulse groups into beats. With beats on and a beat found, the field is
+   assessed every N beats (the "assess every" setting): tones are handed to the decoder as they come, and it reads
+   everything since the last assessment together, just after the beat that closes the group. */
+var beat = TFBeat.makeBeat({ window: 6 }), beatClock = null, beatTimes = [], beatCount = 0, BEAT_LAG = 0.1;
+window.tfBeat = beat; window.tfOnsets = [];
+function accentAt(t){ var a = 0; for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 0.03; k--) if (trace[k].t <= t + 0.06) a = Math.max(a, trace[k].rms || 0); return a; }
+/* onsets for the beat come from two places, merged: every tone the segmentation starts, and every sharp rise in
+   level (a re-struck note at the same pitch is still an onset). Each carries its level at the attack. */
+var onQ = [], amp = { hist: [], cand: null, last: -1 };
+function queueOnset(t, s, seg){ onQ.push({ t: t, s: s, seg: seg }); }
+function flushOnsets(now){
+  onQ.sort(function(a, b){ return a.t - b.t; });
+  while (onQ.length && onQ[0].t < now - 0.1){
+    var a = onQ.shift();
+    while (onQ.length && onQ[0].t - a.t < 0.05){ var b = onQ.shift(); a.s = Math.max(a.s, b.s); a.seg = a.seg || b.seg; }
+    var isB = beat.onset(a.t, a.s); if (a.seg) a.seg.beat = isB;
+    window.tfOnsets.push([+a.t.toFixed(3), +a.s.toFixed(4), isB, !!a.seg]); if (window.tfOnsets.length > 2000) window.tfOnsets.shift();
+  }
+}
+function ampOnset(t, rms){
+  var db = 20*Math.log10(rms + 1e-5);
+  amp.hist.push({ t: t, db: db }); while (amp.hist.length && amp.hist[0].t < t - 0.02) amp.hist.shift();   /* an attack: a fast rise (1.5 dB within 20 ms); a swell or beating is far slower */
+  if (amp.cand){ amp.cand.s = Math.max(amp.cand.s, rms); if (t - amp.cand.t >= 0.045){ queueOnset(amp.cand.t, amp.cand.s, null); amp.last = amp.cand.t; amp.cand = null; } return; }
+  var mn = Infinity; amp.hist.forEach(function(h){ mn = Math.min(mn, h.db); });
+  if (rms > opts.gate && db - mn >= 1.5 && t - amp.last > 0.06) amp.cand = { t: t - 0.005, s: rms };
+}
 function beatwiseNow(){ return opts.beats && beat.ready; }
 function readBeat(){ if (parser.unread){ parser.beat(); afterParse(); } }
 function ensureAudio(){
@@ -630,14 +690,13 @@ function startTone(m, t){
   segs.push(cur.seg); if (segs.length > 400) segs.shift();
   if (startT === null) startT = t;
   if (!tune.n) addTune(m);
-  var onBeat = beat.onset(t, accentAt(t)); cur.seg.beat = onBeat;
+  queueOnset(t, accentAt(t), cur.seg);
   var bw = beatwiseNow(); if (!bw && parser.beatwise) readBeat();
   parser.beatwise = bw;
   cur.ev = parser.tone(Math.round(m - tuneOffset()), t, false); phraseOpen = true;
   cur.idx = parser.events.length - 1;
   cur.seg.ev = cur.ev;
-  if (bw && onBeat) parser.beat();                /* a beat: it and the subdivisions leading into it are read together */
-  if (bw){ beatClock = beat.next(t + 0.02); if (onBeat) beatTimes.push(t); }
+  if (bw && beatClock === null) beatClock = beat.next(t - 0.06);   /* the beat clock starts with the phrase */
   for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 1e-6; k--) if (trace[k].m !== null) trace[k].seg = cur.seg;
   afterParse();
 }
@@ -668,7 +727,17 @@ function onContour(o){
   var m = o.f ? 69 + 12*Math.log2(o.f/440) : null, t = o.t;
   var cs = []; for (var j = 0; j < o.c.length; j += 2) cs.push(69 + 12*Math.log2(o.c[j]/440), o.c[j+1]);
   if (m !== null) bendTrack(m, t);
-  if (parser.unread && beatClock !== null && t >= beatClock + 0.12){ beatTimes.push(beatClock); beatClock = beat.next(t - 0.1); readBeat(); }   /* a beat passed with no new beat tone */
+  if (o.rms !== undefined) ampOnset(t, o.rms); flushOnsets(t);
+  /* the beat clock: just after each beat (time for a tone on it to be heard), count it; every N beats, assess */
+  if (beatClock !== null){
+    if (!beatwiseNow()) beatClock = null;
+    else if (t >= beatClock + BEAT_LAG){
+      var bt0 = beatClock, rd = ++beatCount >= opts.every;
+      beatTimes.push([bt0, rd]); if (beatTimes.length > 400) beatTimes.shift();
+      if (rd){ beatCount = 0; readBeat(); }
+      beatClock = beat.next(bt0 + 0.25*beat.period);
+    }
+  }
   var fr = { t: t, rms: o.rms, m: m, conf: o.conf, bridged: !!o.bridged, bend: m === null ? 0 : bend.target, col: m === null ? null : colAtPitch(m - bend.target), c: cs };
   trace.push(fr);
   while (trace.length && trace[0].t < t - 40) trace.shift();
@@ -677,7 +746,7 @@ function onContour(o){
     hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = [];
     if (bend.pend && t - lastVoiced > 0.04){ var pd0 = bend.pend; bend.pend = null; startTone(pd0.med, pd0.t0); cur.pitches = [pd0.med]; }   /* an anti that never slid: a tone after all */
     if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
-    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
+    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; beatClock = null; beatCount = 0; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
     return;
   }
   lastVoiced = t;
@@ -796,11 +865,11 @@ function tick(now){
   if (view.morph && now - view.morph.t0 >= view.morph.dur){ view.morph = null; view.dirty = true; }
   if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
   if (view.dirty || animating){ drawField(now); view.dirty = false; }
-  drawTop(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
+  drawTop(); drawSpecColumn(trNow0()); drawStrip(now);
   document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
   var to = tuneOffset(); document.getElementById('mTune').textContent = tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—';
   document.getElementById('mLevel').textContent = live.rms.toFixed(3);
-  document.getElementById('mBeat').textContent = beat.ready ? Math.round(60/beat.period) + ' bpm' + (opts.beats ? '' : ' (off)') : '—';
+  document.getElementById('mBeat').textContent = beat.ready ? Math.round(60/beat.period) + ' bpm' + (beat.accented ? ' · ' + beat.group + ' to the beat' : ' · no accents heard') + (opts.beats ? '' : ' (off)') : '—';
   requestAnimationFrame(tick);
 }
 
@@ -813,8 +882,8 @@ micBtn.addEventListener('click', function(){
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
   parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
-  beat.reset(); beatClock = null; beatTimes = [];
-  spx.clearRect(0, 0, specCv.width, specCv.height);
+  beat.reset(); beatClock = null; beatTimes = []; beatCount = 0; onQ = []; amp = { hist: [], cand: null, last: -1 };
+  specClear();
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
 });
@@ -845,18 +914,19 @@ document.getElementById('beatsBtn').addEventListener('click', function(){ opts.b
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
+bindRange('everyN','everyV', function(v){ return v + (v === 1 ? ' beat' : ' beats'); }, function(v){ opts.every = v; });
 bindRange('gapMs','gapV', function(v){return v+' ms';}, function(v){ opts.gapMs = v; });
 bindRange('heldMs','heldV', function(v){return v+' ms';}, function(v){ opts.heldMs = v; });
 bindRange('gate','gateV', function(v){return v.toFixed(3);}, function(v){ opts.gate = v; if (tracker) tracker.setGate(v); });
-function trRange(){ var r = RANGES[document.getElementById('trRange').value]; TR.lo = r[0]; TR.hi = r[1]; spx.clearRect(0,0,specCv.width,specCv.height); }
+function trRange(){ var r = RANGES[document.getElementById('trRange').value]; TR.lo = r[0]; TR.hi = r[1]; specClear(); }
 document.getElementById('trRange').addEventListener('change', function(){ trRange(); try { localStorage.setItem('tfParserRange', this.value); } catch(e){} });
 try { var _rg = localStorage.getItem('tfParserRange'); if (_rg && RANGES[_rg]) document.getElementById('trRange').value = _rg; } catch(e){}
 trRange();
-document.getElementById('trSpan').addEventListener('change', function(){ TR.span = +this.value; spx.clearRect(0,0,specCv.width,specCv.height); TR.specT = null; });
+document.getElementById('trSpan').addEventListener('change', function(){ TR.span = +this.value; specClear(); });
 document.getElementById('trGrid').addEventListener('change', function(){ TR.grid = this.value; });
 bindRange('trFocus','trFocusV', function(v){ return v.toFixed(2); }, function(v){ TR.focus = v; });
 document.getElementById('trSpecBtn').addEventListener('click', function(){ TR.spec = !TR.spec; this.classList.toggle('on', TR.spec); });
-document.getElementById('trHoldBtn').addEventListener('click', function(){ TR.hold = !TR.hold; this.classList.toggle('on', TR.hold); if (TR.hold) TR.holdT = ac ? ac.currentTime : 0; else TR.specT = null; });
+document.getElementById('trHoldBtn').addEventListener('click', function(){ TR.hold = !TR.hold; this.classList.toggle('on', TR.hold); if (TR.hold) TR.holdT = ac ? ac.currentTime : 0; });
 bindRange('bpm','bpmV', function(v){return String(v);}, function(){});
 
 /* ---------------- degenerate test input: a tempered phrase through the same listening path ---------------- */
