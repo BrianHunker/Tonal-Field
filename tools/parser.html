@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v10.1 -->
+<!-- Tonal Field — Parser — v10.2 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -84,7 +84,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10.1</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10.2</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -107,7 +107,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
-  <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial">12 o'clock <select id="dialSel"></select></label>
+  <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial (it slides and locks on the nearest letter). Option-drag detunes the letters themselves; otherwise they never leave proper alignment">12 o'clock <select id="dialSel"></select></label>
 </div>
 
 <main>
@@ -203,6 +203,8 @@ window.tfTrace = function(){ return trace; };
 window.tfBendLog = [];
 var view = {
   dialTop: 2,           /* the letter at 12 o'clock (D by default); the user can turn the dial */
+  dialTarget: null,     /* where a released dial is sliding to (the nearest π/6) */
+  detune: 0,            /* the letters' own offset (semitones), set only by option-drag; 0 = proper alignment */
   reNow: null,          /* current displayed orientation (may be fractional while rotating) */
   morph: null,          /* {a, b, t0, dur} crossfade between two orientations */
   rot: null,            /* {a, b, t0, dur} turn of a fractional re */
@@ -328,7 +330,7 @@ function drawField(now){
   fctx.strokeStyle = 'rgba(200,200,195,0.32)'; fctx.lineWidth = 1;
   fctx.beginPath(); fctx.arc(C,C,R0,0,TP); fctx.stroke();
   for (var t=0;t<12;t++){
-    var at = ang(t - tuneOffset());                 /* fixed to the letters: nothing in the input moves them */
+    var at = ang(t - tuneOffset() + view.detune);   /* fixed to the letters: nothing in the input moves them */
     fctx.strokeStyle = 'rgba(200,200,195,0.40)';
     fctx.beginPath(); fctx.moveTo(PX(at,R0-W*0.012,C),PY(at,R0-W*0.012,C)); fctx.lineTo(PX(at,R0+W*0.012,C),PY(at,R0+W*0.012,C)); fctx.stroke();
   }
@@ -349,7 +351,7 @@ function drawField(now){
     fctx.textAlign = 'center'; fctx.textBaseline = 'middle';
     fctx.font = '600 ' + Math.round(W*0.032) + 'px "IBM Plex Mono", monospace';
     for (var q=0;q<12;q++){
-      var sq = q - tuneOffset(), aq = ang(sq), cq = sample(sq, now), lum = 0.3*cq.col[0]+0.59*cq.col[1]+0.11*cq.col[2], lift = lighten(cq.col, Math.min(0.5, 0.15 + Math.max(0, 110-lum)/300));
+      var sq = q - tuneOffset() + view.detune, aq = ang(sq), cq = sample(sq, now), lum = 0.3*cq.col[0]+0.59*cq.col[1]+0.11*cq.col[2], lift = lighten(cq.col, Math.min(0.5, 0.15 + Math.max(0, 110-lum)/300));
       fctx.fillStyle = rgba(view.reNow === null ? [150,150,146] : lift, view.reNow === null ? 0.6 : 0.55 + 0.45*view.level);
       fctx.fillText(LET[q], PX(aq,W*R_LET,C), PY(aq,W*R_LET,C));
     }
@@ -748,6 +750,7 @@ chSel.addEventListener('change', restartInput);
 function tick(now){
   if (ac && live.lastT >= 0 && ac.currentTime - live.lastT > 0.15) live.midi = null;
   view.level += (view.levelTarget - view.level)*0.08;
+  dialSlide();
   if (bend.target !== 0 || view.bend !== 0) window.tfBendLog.push([ac ? +ac.currentTime.toFixed(3) : 0, +view.bend.toFixed(3)]); if (window.tfBendLog.length > 4000) window.tfBendLog.shift();
   var bt = bend.target, bd = bt - view.bend; if (Math.abs(bd) > 0.002){ view.bend += bd*0.35; view.dirty = true; } else if (view.bend !== bt){ view.bend = bt; view.dirty = true; }
   var animating = (view.morph && now - view.morph.t0 < view.morph.dur) || (view.rot && now - view.rot.t0 < view.rot.dur) || Math.abs(view.levelTarget - view.level) > 0.002;
@@ -756,7 +759,7 @@ function tick(now){
   if (view.dirty || animating){ drawField(now); view.dirty = false; }
   drawTop(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
   document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
-  var to = tuneOffset(); document.getElementById('mTune').textContent = tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—';
+  var to = tuneOffset(); document.getElementById('mTune').textContent = (tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—') + (view.detune ? ' · letters ' + (view.detune>0?'+':'') + Math.round(view.detune*100) + '¢' : '');
   document.getElementById('mLevel').textContent = live.rms.toFixed(3);
   requestAnimationFrame(tick);
 }
@@ -778,23 +781,51 @@ var dialSel = document.getElementById('dialSel');
 LET.forEach(function(l,i){ var o = document.createElement('option'); o.value = i; o.textContent = l; dialSel.appendChild(o); });
 try { var sv = localStorage.getItem('tfParserDial'); if (sv !== null && !isNaN(+sv)) view.dialTop = mod(+sv,12); } catch(e){}
 dialSel.value = String(view.dialTop);
+try { var sd = localStorage.getItem('tfParserDetune'); if (sd !== null && !isNaN(+sd)) view.detune = +sd; } catch(e){}
+/* the dial turns the whole wheel; released, it slides and locks on the nearest π/6 */
 function setDial(v, snap){
-  view.dialTop = snap ? mod(Math.round(v),12) : v; view.dirty = true;
-  if (snap){ dialSel.value = String(view.dialTop); try { localStorage.setItem('tfParserDial', String(view.dialTop)); } catch(e){} }
+  if (snap){ view.dialTarget = Math.round(v); }
+  else { view.dialTarget = null; view.dialTop = v; }
+  view.dirty = true;
 }
-dialSel.addEventListener('change', function(){ setDial(+this.value, true); });
-/* drag the ring to turn the dial; it settles on the nearest letter */
+function dialSlide(){
+  if (view.dialTarget === null) return;
+  var dd = view.dialTarget - view.dialTop;
+  if (Math.abs(dd) < 0.003){
+    view.dialTop = mod(view.dialTarget, 12); view.dialTarget = null;
+    dialSel.value = String(view.dialTop); try { localStorage.setItem('tfParserDial', String(view.dialTop)); } catch(e){}
+  } else view.dialTop += dd*0.22;
+  view.dirty = true;
+}
+dialSel.addEventListener('change', function(){
+  var v = +this.value, d = v - view.dialTop; d -= 12*Math.round(d/12);   /* the short way round */
+  setDial(view.dialTop + d, true);
+});
+/* drag the ring to turn the dial; option-drag detunes the letters (they snap back into alignment near 0) */
 (function(){
   var drag = null;
   function angAt(ev){ var r = topCv.getBoundingClientRect(); return Math.atan2(ev.clientY - (r.top + r.height/2), ev.clientX - (r.left + r.width/2)); }
   topCv.style.cursor = 'grab'; topCv.style.touchAction = 'none';
-  topCv.addEventListener('pointerdown', function(ev){ drag = { a0: angAt(ev), d0: view.dialTop }; topCv.setPointerCapture(ev.pointerId); topCv.style.cursor = 'grabbing'; });
+  topCv.addEventListener('pointerdown', function(ev){
+    view.dialTarget = null;
+    drag = { a0: angAt(ev), d0: view.dialTop, t0: view.detune, alt: ev.altKey };
+    topCv.setPointerCapture(ev.pointerId); topCv.style.cursor = 'grabbing';
+  });
   topCv.addEventListener('pointermove', function(ev){
     if (!drag) return;
     var da = angAt(ev) - drag.a0; da = Math.atan2(Math.sin(da), Math.cos(da));
-    setDial(drag.d0 - da/ST, false);
+    if (drag.alt){
+      var dt = drag.t0 + da/ST; dt -= 12*Math.round(dt/12);
+      if (Math.abs(dt) < 0.04) dt = 0;                  /* magnetic at proper alignment */
+      view.detune = dt; view.dirty = true;
+    } else setDial(drag.d0 - da/ST, false);
   });
-  function end(){ if (!drag) return; drag = null; topCv.style.cursor = 'grab'; setDial(view.dialTop, true); }
+  function end(){
+    if (!drag) return;
+    var wasAlt = drag.alt; drag = null; topCv.style.cursor = 'grab';
+    if (wasAlt){ try { localStorage.setItem('tfParserDetune', String(view.detune)); } catch(e){} }
+    else setDial(view.dialTop, true);
+  }
   topCv.addEventListener('pointerup', end); topCv.addEventListener('pointercancel', end);
 })();
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
