@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v10.2 -->
+<!-- Tonal Field — Parser — v11 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -54,6 +54,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 @media (max-width: 900px){ main { grid-template-columns: 1fr; padding: 12px 16px; } #phrase { width: 100%; } }
 .ringbox { position: relative; width: 100%; aspect-ratio: 1; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .ringbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* double-click: full screen. The ring stays square, centred; the trace fills the screen with its bar */
+.ringbox:fullscreen { border: 0; border-radius: 0; background: #000; }
+.ringbox:fullscreen canvas { inset: auto; left: 50%; top: 50%; width: min(100vw, 100vh); height: min(100vw, 100vh); transform: translate(-50%, -50%); }
+.trace:fullscreen { background: var(--bg); padding: 10px 14px; }
+.trace:fullscreen .strip { border-radius: 0; }
 .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
 .card h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-bottom: 8px; }
@@ -73,6 +78,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 .tracebar h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-right: 4px; }
 .strip { position: relative; width: 100%; flex: 1 1 auto; min-height: 360px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* the modal haze: a wide radial diffusion from the top centre of the trace, under the spectrum and the ribbon;
+   two layers so one mode can fade into the next */
+.strip .haze { position: absolute; inset: 0; border-radius: 6px; opacity: 0; transition: opacity 700ms ease; pointer-events: none; }
+#modeFix { display: none; gap: 6px; } #modeFix.on { display: inline-flex; }
+#modeFix select { padding: 4px 6px; }
 #log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
 #log .k { color: var(--gold); }
 .meter { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); }
@@ -84,7 +94,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10.2</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v11</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -99,7 +109,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <select id="preset" title="degenerate test input: a tempered phrase played through the same listening path as the microphone">
     <option value="">test phrase…</option>
   </select>
-  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (/n beats · ~ short · A>B glide · | pause)" aria-label="test phrase">
+  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (/n beats · ~ short · ^ vibrato · A>B glide · | pause)" aria-label="test phrase">
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
@@ -108,6 +118,9 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial (it slides and locks on the nearest letter). Option-drag detunes the letters themselves; otherwise they never leave proper alignment">12 o'clock <select id="dialSel"></select></label>
+  <span class="sep"></span>
+  <label title="the mode light. auto: the seat is read from the playing — an arrival whose tonic/dominant partner (the tone 5 semitones either side) has sounded in this phrase or the last. fixed: you choose the seat; the ring locks to it and the trace paints in it. off: no light">mode <select id="modeSel"><option value="auto">auto</option><option value="fixed">fixed</option><option value="off">off</option></select></label>
+  <span id="modeFix"><select id="modeLetter" title="the seat's letter"></select><select id="modeFn" title="the seat's function — together with the letter this fixes the orientation"></select></span>
 </div>
 
 <main>
@@ -124,7 +137,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
         <label title="focus clears the upper partials from the spectrum: a peak is taken for an overtone when the spectrum also has a peak at a half, a third … an eighth of its frequency, within a level the slider sets. Fundamentals stay — every one of them, so several tones at once show as several lines">focus <input type="range" id="trFocus" min="0" max="1" step="0.01" value="0.8"><output id="trFocusV">0.80</output></label>
         <button id="trHoldBtn" title="freeze the trace to read what just went by; listening carries on">hold</button>
       </div>
-      <div class="strip"><canvas id="specCv"></canvas><canvas id="stripCv"></canvas></div>
+      <div class="strip"><div class="haze" id="hazeA"></div><div class="haze" id="hazeB"></div><canvas id="specCv"></canvas><canvas id="stripCv"></canvas></div>
     </div>
 </main>
 <section class="below">
@@ -138,6 +151,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
     </div>
     <div class="card">
       <div class="meter">
+        <span>mode <b id="mMode">—</b></span>
         <span>pitch <b id="mPitch">—</b></span>
         <span>tuning grid <b id="mTune">—</b></span>
         <span>level <b id="mLevel">—</b></span>
@@ -156,7 +170,15 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       last phrase (a phrase ends at a pause). Each new phrase is heard in that orientation; if it places every tone, nothing
       changes, however it cadences. If it holds a tone that orientation cannot place, the phrase itself decides a new one —
       as little change as it must — and the field <b>rotates</b> for a one-semitone shift or <b>morphs</b> for anything
-      larger. Non-diatonic colour is not handled yet. Tuning is read from the playing itself.
+      larger. Non-diatonic colour is not handled yet. Tuning is read from the playing itself. The ring sits at waterline
+      ρ&nbsp;=&nbsp;1: the base circle equals the field's reach, so the deepest anti just touches the pole and every tone is admitted.
+      <br><br><b>The mode light</b> is the seat the music stands on, read from one relation: a tone <b>arrives</b> (sounds long enough to be
+      an arrival) and its tonic/dominant partner — the tone five semitones either side of it, one step of the dominant chain — has sounded
+      in this phrase or the last. Then the seat is that tone, in whatever function the orientation gives it; it stays put through passing
+      tones, through tones with no partner, and across a pause, until another arrival with a partner moves it or the field turns and
+      re-reads it. Nothing else is counted: no weighting, no rest, no chord. The letter is backlit on the ring and the trace is hazed in
+      the seat's colour. Set the light to <b>fixed</b> to choose the seat yourself; that locks the ring to the orientation the seat implies
+      and the trace paints in it. <b>Off</b> is off.
       <br><br><b>The trace</b> is the input itself, before any decision: the fundamental contour, tracked continuously every
       5 ms and never rounded to a grid, coloured by g(x), as thick as the tracker is confident. Faint dots are the pitches it
       considered and did not take; the faint spectrum underneath is the sound itself. Thin bars mark the tones handed to the
@@ -167,8 +189,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       that moves continuously is heard as the field tone it left, displaced, and the field turns under it up to a semitone (π/6)
       and back as it is released; a voice that carries on to the next field tone arrives there as if it had stepped; a voice
       that starts on an anti and glides onto a field tone is that tone, approached. Nothing a bend passes through reaches the
-      decoder as a tone. <b>Channels</b> lists every
-      channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
+      decoder as a tone. The field turns under the voice's <b>centre</b> — its mean position over the last quarter second — not its
+      instant: a bend moves the centre and the field follows; a vibrato leaves the centre where it is, so the field holds and the
+      voice rides the curve, the probe and the ribbon changing colour with it. <b>Channels</b> lists every
+      channel the browser delivers from the chosen input; Chrome delivers only an interface's first two. <b>Double-click</b> the ring or
+      the trace for full screen; double-click or Escape to come back.
     </div>
 </section>
 
@@ -211,9 +236,37 @@ var view = {
   level: 0, levelTarget: 0,
   ghost: null,          /* the other reading of an open tie */
   bend: 0,              /* the field turned under a bending or sliding voice, in semitones (|bend| ≤ 1) */
+  modeCol: null,        /* the mode light's colour as drawn (eased toward the seat's colour) */
+  modeLum: 0,           /* the mode light's level as drawn (eased: 0 dark … 1 lit) */
   dirty: true
 };
+/* THE MODE LIGHT — the seat the music stands on.
+   One relation: a tone ARRIVES (sounds long enough to be an arrival) and its tonic/dominant partner — the tone five semitones
+   either side, one step of the dominant chain — has sounded in this phrase or the last. Then the seat is that tone, in whatever
+   function the orientation in force gives it. Otherwise the seat holds: through passing tones, through tones with no partner,
+   across a pause. The field turning re-reads the seat's function; it does not move the seat. That is all it counts.
+   mode.sel: 'auto' reads the seat from the playing; 'fixed' takes the seat from the user and locks the orientation to it;
+   'off' lights nothing. */
+var mode = { sel: 'auto', pc: null, partner: null, fixPc: 7, fixFn: 5, log: [] };   /* fixed default: G as Sol */
+function fixedRe(){ return mod(mode.fixPc - mode.fixFn, 12); }
+function reNow(){ return mode.sel === 'fixed' ? fixedRe() : parser.re; }             /* the orientation in force for labels */
+function seatPc(){ return mode.sel === 'off' ? null : mode.sel === 'fixed' ? mode.fixPc : mode.pc; }
+function seatFn(){ var p = seatPc(), re = reNow(); return (p === null || re === null) ? null : mod(p - re, 12); }
+function modeArrive(idx){                   /* an arrival: does its partner stand in the window (this phrase or the last)? */
+  if (mode.sel !== 'auto') return;
+  var e = parser.events[idx], lo = Math.max(0, e.phrase - 1);
+  for (var i = idx - 1; i >= 0; i--){
+    var q = parser.events[i]; if (q.phrase < lo) break;
+    var d = mod(q.pc - e.pc, 12);
+    if (d === 5 || d === 7){
+      var was = mode.pc; mode.pc = e.pc; mode.partner = q.pc;
+      if (was !== e.pc){ var fn = seatFn(); addLog({ kind: 'mode', t: e.t, to: null, note: (fn === null ? '' : FN[fn] + ' ') + LET[e.pc] + ' · partner ' + LET[q.pc] }); }
+      view.dirty = true; return;
+    }
+  }
+}
 parser.on(function(e){
+  if (mode.sel === 'fixed'){ if (e.kind !== 'phrase') addLog(e); view.dirty = true; return; }   /* the ring is locked: the decoder's reading is logged, not shown */
   if (e.to === null || e.to === undefined) { view.dirty = true; return; }
   var from = view.reNow;
   if (from === null) { view.reNow = e.to; addLog(e); view.dirty = true; return; }
@@ -233,6 +286,7 @@ parser.on(function(e){
   view.dirty = true;
 });
 function updateLevel(){
+  if (mode.sel === 'fixed'){ view.levelTarget = 1; view.ghost = null; view.reNow = fixedRe(); view.morph = null; view.rot = null; return; }
   var b = parser.basis, seen = {}, n = 0;
   for (var i = parser.phraseStart; i < parser.events.length; i++){ if (!seen[parser.events[i].pc]){ seen[parser.events[i].pc] = 1; n++; } }
   var L = parser.re === null ? 0 : (parser.phrases > 0 ? 1 : (n<=1 ? 0.32 : n===2 ? 0.6 : n===3 ? 0.84 : 1));
@@ -262,7 +316,11 @@ var showLetters = true;
 /* screen angle of a position s on the tuning grid (semitones, continuous): clockwise, the dial's letter at
    12 o'clock. The grid sits tuneOffset() semitones from the tempered letters, so letters stay put. */
 function ang(s){ return -Math.PI/2 + (s + tuneOffset() - view.dialTop)*ST; }
-function geom(){ var C = W/2; return { C: C, R0: W*0.255, A: W*0.115 }; }
+/* the waterline ρ = R0/A (the Ring's own reading): a tone of valence g sits at radius A·(ρ + g), so it reaches the pole at
+   g = −ρ. ρ = 1 is the cardioid station — the deepest anti, ~Re, just touches the pole and every tone is admitted. The reach
+   R0 + A is held at the size the ring had, so the letters and names keep their places. */
+var RHO = 1.0, REACH = 0.37;
+function geom(){ var C = W/2, A = W*REACH/(1 + RHO); return { C: C, R0: A*RHO, A: A }; }
 var R_LET = 0.474;   /* letters ring, as a fraction of the canvas width: clear of the solfège labels */
 function PX(a,r,C){ return C + r*Math.cos(a); }
 function PY(a,r,C){ return C + r*Math.sin(a); }
@@ -293,8 +351,18 @@ function drawField(now){
   fctx.lineCap = 'round';
   /* faint guides at the field's reach */
   fctx.strokeStyle = 'rgba(200,200,195,0.10)'; fctx.lineWidth = 1; fctx.setLineDash([2,5]);
-  [R0+A, R0-A].forEach(function(r){ fctx.beginPath(); fctx.arc(C,C,r,0,TP); fctx.stroke(); });
+  [R0+A, R0-A].forEach(function(r){ if (r < 1) return; fctx.beginPath(); fctx.arc(C,C,r,0,TP); fctx.stroke(); });
   fctx.setLineDash([]);
+  /* the mode light behind the seat's letter: a backlight in the seat's colour, eased in and out */
+  if (view.modeLum > 0.01 && view.modeCol){
+    var ps = seatPc() !== null ? seatPc() : view.modeLastPc;
+    if (ps !== null && ps !== undefined){
+      var am = ang(ps - tuneOffset() + view.detune), xm = PX(am,W*R_LET,C), ym = PY(am,W*R_LET,C), rm = W*0.075;
+      var gm = fctx.createRadialGradient(xm,ym,0,xm,ym,rm);
+      gm.addColorStop(0, rgba(view.modeCol, 0.85*view.modeLum)); gm.addColorStop(0.45, rgba(view.modeCol, 0.38*view.modeLum)); gm.addColorStop(1, rgba(view.modeCol, 0));
+      fctx.fillStyle = gm; fctx.beginPath(); fctx.arc(xm,ym,rm,0,TP); fctx.fill();
+    }
+  }
   /* the field: radial strokes from the base circle out to g, each fading in from the base */
   var N = 480;
   for (var i=0;i<N;i++){
@@ -340,7 +408,7 @@ function drawField(now){
     for (var p=0;p<12;p++){
       var off = mod(p - view.reNow, 12), name = FN[off], anti = name.charAt(0) === '~';
       var v0 = g(off*ST)*view.level, a0 = ang(p + view.bend);
-      var rr = anti ? R0 - A*0.55 - W*0.03 : R0 + A*Math.max(v0,0) + W*0.04;
+      var rr = anti ? R0 + A*v0*0.42 : R0 + A*Math.max(v0,0) + W*0.04;   /* an anti's name sits inside its own lobe, so the names never pile up at the pole */
       fctx.font = (anti?'600 ':'700 ') + Math.round(W*(anti?0.031:0.037)) + 'px "IBM Plex Mono", monospace';
       fctx.fillStyle = rgba(mix(GRAY, FNRGB[off], view.level), (anti?0.75:1)*Math.min(1,view.level*1.4));
       fctx.fillText(name, PX(a0,rr,C), PY(a0,rr,C));
@@ -369,7 +437,8 @@ function drawTop(){
   var sp = sample(s, performance.now()), a = ang(s), r = R0 + A*sp.v;
   var col = view.reNow === null ? [220,220,215] : sp.col;
   tctx.strokeStyle = rgba(col, 0.85); tctx.lineWidth = 2; tctx.setLineDash([5,4]);
-  tctx.beginPath(); tctx.moveTo(PX(a,R0-A-W*0.02,C),PY(a,R0-A-W*0.02,C)); tctx.lineTo(PX(a,R0+A+W*0.02,C),PY(a,R0+A+W*0.02,C)); tctx.stroke();
+  var rIn = Math.max(0, R0-A-W*0.02);
+  tctx.beginPath(); tctx.moveTo(PX(a,rIn,C),PY(a,rIn,C)); tctx.lineTo(PX(a,R0+A+W*0.02,C),PY(a,R0+A+W*0.02,C)); tctx.stroke();
   tctx.setLineDash([]);
   tctx.save(); tctx.shadowColor = rgba(col,0.95); tctx.shadowBlur = W*0.03;
   tctx.fillStyle = rgba(col,1); tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.fill(); tctx.restore();
@@ -396,6 +465,9 @@ function colAtPitch(m){                       /* the field's colour at a continu
   if (view.reNow === null) return [205,205,200];
   return liftCol(fnColorAt(m - tuneOffset() - view.reNow));
 }
+/* a tone's orientation and function as painted: the decoder's, or the fixed seat's when the ring is locked */
+function evRe(ev){ return mode.sel === 'fixed' ? fixedRe() : (ev && ev.re !== null && ev.re !== undefined ? ev.re : null); }
+function evFn(ev){ if (!ev) return null; var re = evRe(ev); return re === null ? null : FN[mod(ev.pc - re, 12)]; }
 function gridShows(k){
   if (TR.grid === 'all' || view.reNow === null) return true;
   var f = FN[mod(k - view.reNow, 12)];
@@ -466,7 +538,7 @@ function drawStrip(now){
   sctx.lineCap = 'round';
   segs.forEach(function(s){
     var te = s.t1 === null ? now : s.t1; if (te < t0) return;
-    var ev = s.ev, col = (ev && ev.fn) ? liftCol(FNRGB[FN.indexOf(ev.fn)]) : [120,120,116];
+    var ev = s.ev, fnS = evFn(ev), col = fnS ? liftCol(FNRGB[FN.indexOf(fnS)]) : [120,120,116];
     var y = trY(s.midi), x1 = trX(s.t0, now), x2 = trX(te, now);
     sctx.strokeStyle = rgba(col, 0.28); sctx.lineWidth = 14;
     sctx.beginPath(); sctx.moveTo(x1, y); sctx.lineTo(Math.max(x1 + 1, x2), y); sctx.stroke();
@@ -486,7 +558,8 @@ function drawStrip(now){
   for (var i2 = Math.max(1, i0); i2 < trace.length; i2++){
     var a = trace[i2-1], b = trace[i2];
     if (a.m === null || b.m === null || b.t - a.t > 0.03) continue;
-    var bc = (b.seg && b.seg.ev && b.seg.ev.re !== null && b.seg.ev.re !== undefined) ? liftCol(fnColorAt(b.m - (b.bend||0) - tuneOffset() - b.seg.ev.re)) : b.col;
+    var bre = b.seg ? evRe(b.seg.ev) : (mode.sel === 'fixed' ? fixedRe() : null);
+    var bc = bre !== null ? liftCol(fnColorAt(b.m - (b.bend||0) - tuneOffset() - bre)) : b.col;
     sctx.strokeStyle = rgba(bc, b.bridged ? 0.45 : 0.6 + 0.4*Math.min(1, b.conf*1.5));
     sctx.lineWidth = b.bridged ? 2 : 2.5 + 6*Math.min(1, b.conf);
     sctx.beginPath(); sctx.moveTo(trX(a.t, now), trY(a.m)); sctx.lineTo(trX(b.t, now), trY(b.m)); sctx.stroke();
@@ -494,17 +567,41 @@ function drawStrip(now){
   /* labels: the function the decoder heard, at each tone's start */
   sctx.textBaseline = 'bottom';
   segs.forEach(function(s){
-    var ev = s.ev; if (!ev || !ev.fn) return;
+    var ev = s.ev, fnL = evFn(ev); if (!fnL) return;
     var x1 = trX(s.t0, now); if (x1 < -40 || x1 > SW) return;
-    var col = liftCol(FNRGB[FN.indexOf(ev.fn)]);
+    var col = liftCol(FNRGB[FN.indexOf(fnL)]);
     sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col, 1);
-    sctx.fillText(ev.fn, x1, trY(s.midi) - 12);
+    sctx.fillText(fnL, x1, trY(s.midi) - 12);
   });
   /* the present */
   var last = trace.length ? trace[trace.length-1] : null;
   if (last && last.m !== null && now - last.t < 0.15){
-    sctx.fillStyle = rgba((last.seg && last.seg.ev && last.seg.ev.re !== null) ? liftCol(fnColorAt(last.m - (last.bend||0) - tuneOffset() - last.seg.ev.re)) : last.col, 1); sctx.beginPath(); sctx.arc(trX(last.t, now), trY(last.m), 6, 0, TP); sctx.fill();
+    var lre = last.seg ? evRe(last.seg.ev) : (mode.sel === 'fixed' ? fixedRe() : null);
+    sctx.fillStyle = rgba(lre !== null ? liftCol(fnColorAt(last.m - (last.bend||0) - tuneOffset() - lre)) : last.col, 1); sctx.beginPath(); sctx.arc(trX(last.t, now), trY(last.m), 6, 0, TP); sctx.fill();
   }
+}
+/* the modal haze under the trace: a wide radial diffusion from the top centre, in the seat's colour; two layers crossfade */
+var hazeEls = [document.getElementById('hazeA'), document.getElementById('hazeB')], hazeOn = 0, hazeKey = '';
+function hazeCol(c){ var l = liftCol(c); return Math.round(l[0]) + ',' + Math.round(l[1]) + ',' + Math.round(l[2]); }
+function updateHaze(){
+  var fn = seatFn(), key = fn === null ? '' : String(fn);
+  if (key === hazeKey) return; hazeKey = key;
+  if (key === ''){ hazeEls[0].style.opacity = 0; hazeEls[1].style.opacity = 0; return; }
+  var nx = 1 - hazeOn, c = hazeCol(FNRGB[fn]);
+  hazeEls[nx].style.background = 'radial-gradient(ellipse 130% 95% at 50% 0%, rgba(' + c + ',0.46) 0%, rgba(' + c + ',0.22) 32%, rgba(' + c + ',0.06) 60%, rgba(' + c + ',0) 82%)';
+  hazeEls[nx].style.opacity = 1; hazeEls[hazeOn].style.opacity = 0; hazeOn = nx;
+}
+/* the mode light's drawn colour and level ease toward the seat's; the letter it lights is remembered while it fades */
+function easeMode(){
+  var fn = seatFn(), target = fn === null ? 0 : 1, col = fn === null ? view.modeCol : liftCol(FNRGB[fn]);
+  if (seatPc() !== null) view.modeLastPc = seatPc();
+  var changed = false;
+  if (col){ if (!view.modeCol){ view.modeCol = col.slice(); changed = true; } else { var nc = mix(view.modeCol, col, 0.12); if (Math.abs(nc[0]-view.modeCol[0])+Math.abs(nc[1]-view.modeCol[1])+Math.abs(nc[2]-view.modeCol[2]) > 0.5){ view.modeCol = nc; changed = true; } } }
+  var dl = target - view.modeLum; if (Math.abs(dl) > 0.004){ view.modeLum += dl*0.08; changed = true; } else if (view.modeLum !== target){ view.modeLum = target; changed = true; }
+  if (changed) view.dirty = true;
+  updateHaze();
+  var mm = document.getElementById('mMode');
+  mm.textContent = fn === null ? (mode.sel === 'off' ? 'off' : '—') : FN[fn] + ' (' + LET[seatPc()] + ')' + (mode.sel === 'fixed' ? ' · fixed' : mode.partner !== null ? ' · partner ' + LET[mode.partner] : '');
 }
 
 /* ---------------- readouts ---------------- */
@@ -514,7 +611,8 @@ function axisName(re){ return LETTER(re+3)+'·'+LETTER(re+9); }
 function refreshReadouts(){
   var b = parser.basis, re = parser.re;
   var s, sub;
-  if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
+  if (mode.sel === 'fixed'){ s = 'Fixed — ' + FN[mode.fixFn] + ' at ' + LET[mode.fixPc] + ', axis ' + axisName(fixedRe()) + '.'; sub = 'The ring is locked to the seat you chose; the trace paints in it. The decoder still listens — its reading goes to the log.'; }
+  else if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
   else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
   else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
   else if (b === 'heard'){ s = 'Heard in the orientation it arrived in.'; sub = 'This phrase places every tone in the field the last phrase left.'; }
@@ -524,15 +622,15 @@ function refreshReadouts(){
   stateEl.textContent = s; subEl.textContent = sub;
   var evs = parser.events.slice(-16);
   hearEl.innerHTML = evs.map(function(e){
-    var letter = LET[mod(e.pc,12)];
-    if (!e.fn) return '<span class="e u"><span class="f">·</span><span class="l">'+letter+'</span></span>';
-    var c = FNRGB[FN.indexOf(e.fn)];
-    c = lighten(c, e.fn.charAt(0)==='~' ? 0.42 : 0.08);          /* the dark anti colours, lifted to read on the panel */
+    var letter = LET[mod(e.pc,12)], fnH = evFn(e);
+    if (!fnH) return '<span class="e u"><span class="f">·</span><span class="l">'+letter+'</span></span>';
+    var c = FNRGB[FN.indexOf(fnH)];
+    c = lighten(c, fnH.charAt(0)==='~' ? 0.42 : 0.08);          /* the dark anti colours, lifted to read on the panel */
     var css = 'rgb('+c.map(Math.round).join(',')+')';
-    return '<span class="e'+(e.held?'':' p')+'" style="color:'+css+'"><span class="f">'+e.fn+'</span><span class="l">'+letter+'</span></span>';
+    return '<span class="e'+(e.held?'':' p')+'" style="color:'+css+'"><span class="f">'+fnH+'</span><span class="l">'+letter+'</span></span>';
   }).join('');
 }
-var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs' };
+var KIND = { settle:'forms', resolve:'tie settled', reheard:'re-heard', tie:'two hearings', open:'symmetric', rotate:'rotates', morph:'morphs', mode:'seat' };
 var lastLogRe = null;
 function addLog(e){
   if (e.kind === 'phrase') return;
@@ -547,6 +645,7 @@ function addLog(e){
     if (showLetters) what += ' · axis '+axisName(e.to);
     lastLogRe = e.to;
   }
+  if (e.kind === 'mode'){ line.innerHTML = '<span class="k">'+t+'s seat</span> '+e.note; logEl.insertBefore(line, logEl.firstChild); return; }
   line.innerHTML = '<span class="k">'+t+'s '+(KIND[e.kind]||e.kind)+'</span>'+what+(e.note && e.kind!=='rotate' && e.kind!=='morph' ?' ('+e.note+')':'');
   logEl.insertBefore(line, logEl.firstChild);
 }
@@ -608,22 +707,35 @@ function endTone(t){ if (!cur) return; cur.seg.t1 = t; cur = null; }
    field turns with it; let go, and it turns back. A voice that keeps going until it reaches the next field
    tone has arrived there, as if it had stepped, and the field is back where it was. A voice that starts on
    an anti and glides onto a field tone is heard as that tone, approached — the field turned under the
-   approach and unwinding as it lands. Nothing a bend passes through is handed to the decoder as a tone. */
-var bend = { anchor: null, target: 0, pend: null, xs: [], stepped: false };
+   approach and unwinding as it lands. Nothing a bend passes through is handed to the decoder as a tone.
+   THE FIELD TURNS UNDER THE VOICE'S CENTRE, not its instant: the centre is the voice's mean position over the last
+   CENTRE_S seconds (longer than one vibrato cycle). A bend moves the centre and the field follows it; a vibrato
+   leaves the centre where it is, so the field holds and the voice rides the curve. The one irreducible here is the
+   window: what counts as the centre. */
+var CENTRE_S = 0.25;
+var bend = { anchor: null, target: 0, pend: null, xs: [], cx: [], stepped: false, re: null, fresh: true, onT: 0 };
 function fieldAt(x, tol){ var k = Math.round(x); return (Math.abs(x - k) <= tol && TF.gv(k, 0) >= -1e-9) ? k : null; }
-function xOf(m){ return m - tuneOffset() - parser.re; }
+function xOf(m){ return m - tuneOffset() - reNow(); }
 function nextField(x, dir){ var k = dir > 0 ? Math.ceil(x + 0.01) : Math.floor(x - 0.01); for (var n = 0; n < 4; n++, k += dir) if (TF.gv(k, 0) >= -1e-9) return k; return Math.round(x); }
+function centre(){ var s = 0; for (var i = 0; i < bend.cx.length; i++) s += bend.cx[i].x; return bend.cx.length ? s / bend.cx.length : 0; }
+function clamp1(d){ if (Math.abs(d) < 0.05) return 0; return Math.max(-1, Math.min(1, d)); }
 function bendTrack(m, t){
-  if (parser.re === null){ bend.target = 0; return; }
+  var re = reNow();
+  if (re === null){ bend.target = 0; return; }
+  if (re !== bend.re){ bend.re = re; bend.anchor = null; bend.cx = []; bend.target = 0; }   /* the field turned: positions are measured afresh */
   var x = xOf(m), fk = fieldAt(x, 0.15);
   bend.xs.push({ t: t, x: x }); while (bend.xs.length && bend.xs[0].t < t - 0.03) bend.xs.shift();
   /* a step, not a glide: the voice covered more than half a semitone in 15 ms */
   var x15 = null; for (var i = bend.xs.length - 1; i >= 0; i--) if (t - bend.xs[i].t >= 0.015){ x15 = bend.xs[i].x; break; }
-  if (x15 !== null && Math.abs(x - x15) > 0.5){ bend.anchor = null; bend.target = 0; bend.stepped = true; return; }
-  if (fk !== null){ bend.anchor = fk; bend.target = 0; return; }              /* placed: on a field tone */
-  if (bend.anchor !== null){ var d = x - bend.anchor; bend.target = Math.max(-1, Math.min(1, d)); return; }   /* bent away */
-  var v = bend.xs.length > 1 ? x - bend.xs[0].x : 0;                         /* an approach: heading for a field tone */
-  bend.target = Math.abs(v) > 0.06 ? Math.max(-1, Math.min(1, x - nextField(x, v > 0 ? 1 : -1))) : 0;
+  if (x15 !== null && Math.abs(x - x15) > 0.5){ bend.anchor = null; bend.target = 0; bend.stepped = true; bend.cx = []; bend.fresh = true; bend.onT = t; return; }
+  if (bend.fresh){ bend.fresh = false; return; }                                  /* the first frame after a step or an onset carries the attack, not a position */
+  bend.cx.push({ t: t, x: x }); while (bend.cx.length && bend.cx[0].t < t - CENTRE_S) bend.cx.shift();
+  if (fk !== null && fk !== bend.anchor){ bend.anchor = fk; bend.cx = [{ t: t, x: x }]; bend.target = 0; return; }   /* arrived on a field tone: the field is back where it was */
+  var c = centre();
+  if (bend.anchor !== null){ bend.target = clamp1(c - bend.anchor); return; }   /* bent away (or shaking): the field follows the centre */
+  /* an approach: a voice off the field and MOVING — more than 0.06 st over the last 30 ms, once the attack has passed */
+  var v = (bend.xs.length > 1 && bend.xs[0].t <= t - 0.025 && t - bend.onT >= 0.04) ? x - bend.xs[0].x : 0;
+  bend.target = Math.abs(v) > 0.06 ? clamp1(c - nextField(x, v > 0 ? 1 : -1)) : 0;
 }
 function onContour(o){
   var m = o.f ? 69 + 12*Math.log2(o.f/440) : null, t = o.t;
@@ -634,7 +746,7 @@ function onContour(o){
   while (trace.length && trace[0].t < t - 40) trace.shift();
   live.midi = m; live.rms = o.rms; live.lastT = t;
   if (m === null){
-    hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = [];
+    hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = []; bend.cx = []; bend.fresh = true; bend.onT = t;
     if (bend.pend && t - lastVoiced > 0.04){ var pd0 = bend.pend; bend.pend = null; startTone(pd0.med, pd0.t0); cur.pitches = [pd0.med]; }   /* an anti that never slid: a tone after all */
     if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
     if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
@@ -660,7 +772,7 @@ function onContour(o){
     cur.med = median(cur.pitches); cur.seg.midi = cur.med;
     if (!cur.held && (t - cur.t0)*1000 >= opts.heldMs){
       cur.held = true; cur.seg.held = true; addTune(cur.med);
-      parser.arrive(cur.idx); afterParse();
+      parser.arrive(cur.idx); modeArrive(cur.idx); afterParse();
     }
     return;
   }
@@ -670,7 +782,7 @@ function onContour(o){
   hold6.forEach(function(h){ lo2 = Math.min(lo2, h.m); hi2 = Math.max(hi2, h.m); ms2.push(h.m); });
   if (hi2 - lo2 > 0.3) return;
   med = median(ms2); ms = ms2;
-  var off = parser.re !== null && fieldAt(xOf(med), 0.35) === null;
+  var off = reNow() !== null && fieldAt(xOf(med), 0.35) === null;
   /* held off the field after bending there: still the tone that was bent, displaced */
   if (cur && off && bend.anchor !== null) return;
   /* a fresh tone that starts off the field waits a moment: if it glides onto a field tone it was an approach */
@@ -750,7 +862,7 @@ chSel.addEventListener('change', restartInput);
 function tick(now){
   if (ac && live.lastT >= 0 && ac.currentTime - live.lastT > 0.15) live.midi = null;
   view.level += (view.levelTarget - view.level)*0.08;
-  dialSlide();
+  dialSlide(); easeMode();
   if (bend.target !== 0 || view.bend !== 0) window.tfBendLog.push([ac ? +ac.currentTime.toFixed(3) : 0, +view.bend.toFixed(3)]); if (window.tfBendLog.length > 4000) window.tfBendLog.shift();
   var bt = bend.target, bd = bt - view.bend; if (Math.abs(bd) > 0.002){ view.bend += bd*0.35; view.dirty = true; } else if (view.bend !== bt){ view.bend = bt; view.dirty = true; }
   var animating = (view.morph && now - view.morph.t0 < view.morph.dur) || (view.rot && now - view.rot.t0 < view.rot.dur) || Math.abs(view.levelTarget - view.level) > 0.002;
@@ -772,11 +884,39 @@ micBtn.addEventListener('click', function(){
   audioReady.then(startInput);
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
-  parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; bend.cx = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
   spx.clearRect(0, 0, specCv.width, specCv.height);
+  mode.pc = null; mode.partner = null;
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
-  logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
+  logEl.innerHTML = ''; lastLogRe = null; updateLevel(); refreshReadouts();
 });
+/* the mode light: auto · fixed · off. Fixed takes a letter and a function; together they fix the orientation (Re = letter − function) */
+var modeSel = document.getElementById('modeSel'), modeFix = document.getElementById('modeFix'), modeLetter = document.getElementById('modeLetter'), modeFnSel = document.getElementById('modeFn');
+LET.forEach(function(l,i){ var o = document.createElement('option'); o.value = i; o.textContent = l; modeLetter.appendChild(o); });
+FN.forEach(function(f,i){ var o = document.createElement('option'); o.value = i; o.textContent = f; modeFnSel.appendChild(o); });
+try { var _ms = JSON.parse(localStorage.getItem('tfParserMode') || 'null'); if (_ms){ if (['auto','fixed','off'].indexOf(_ms.sel) >= 0) mode.sel = _ms.sel; if (_ms.pc >= 0 && _ms.pc < 12) mode.fixPc = +_ms.pc; if (_ms.fn >= 0 && _ms.fn < 12) mode.fixFn = +_ms.fn; } } catch(e){}
+modeSel.value = mode.sel; modeLetter.value = String(mode.fixPc); modeFnSel.value = String(mode.fixFn);
+function applyMode(){
+  modeFix.classList.toggle('on', mode.sel === 'fixed');
+  try { localStorage.setItem('tfParserMode', JSON.stringify({ sel: mode.sel, pc: mode.fixPc, fn: mode.fixFn })); } catch(e){}
+  if (mode.sel === 'fixed'){ view.ghost = null; view.morph = null; view.rot = null; view.reNow = fixedRe(); view.levelTarget = 1; }
+  else { view.reNow = parser.re; view.morph = null; view.rot = null; updateLevel(); }
+  bend.anchor = null; bend.target = 0; bend.cx = [];
+  refreshReadouts(); view.dirty = true;
+}
+modeSel.addEventListener('change', function(){ mode.sel = this.value; applyMode(); });
+modeLetter.addEventListener('change', function(){ mode.fixPc = +this.value; applyMode(); });
+modeFnSel.addEventListener('change', function(){ mode.fixFn = +this.value; applyMode(); });
+applyMode();
+/* double-click the ring or the trace: full screen; again (or Escape) to come back */
+function fullToggle(el){
+  var fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  var req = el.requestFullscreen || el.webkitRequestFullscreen; if (req) req.call(el);
+}
+topCv.addEventListener('dblclick', function(){ fullToggle(document.querySelector('.ringbox')); });
+stripCv.addEventListener('dblclick', function(){ fullToggle(document.querySelector('.trace')); });
+['fullscreenchange','webkitfullscreenchange'].forEach(function(evn){ document.addEventListener(evn, function(){ setTimeout(size, 50); setTimeout(size, 300); }); });
 var dialSel = document.getElementById('dialSel');
 LET.forEach(function(l,i){ var o = document.createElement('option'); o.value = i; o.textContent = l; dialSel.appendChild(o); });
 try { var sv = localStorage.getItem('tfParserDial'); if (sv !== null && !isNaN(+sv)) view.dialTop = mod(+sv,12); } catch(e){}
@@ -865,6 +1005,7 @@ var PRESETS = [
   ['a field | where C♯ is Do', 'C4 D E F G A B C5/2 | C#4 D# E# F# G# A# B#4 C#5/2'],
   ['to the G field | and home', 'C4 D E F G A B C5/2 | G4 A B C5 D E F#5 G/2 | F5 E D C/2'],
   ['a field | bend Sol up a semitone and back', 'C4 D E F G A B C5/2 | G4/0.5 G4>A♭4>G4/3 E4/2'],
+  ['a field | Sol with vibrato (rides the curve)', 'C4 D E F G A B C5/2 | G4^/3 E4^/2'],
   ['a field | bend Sol up a whole tone (arrives at La)', 'C4 D E F G A B C5/2 | G4/0.5 G4>A4/2 G4/2'],
   ['a field | slide into Ti from below (approach)', 'C4 D E F G A B C5/2 | B♭4>B4/2 C5/2'],
   ['glides: slide up to Sol and back (sung / slid)', 'C4 D E E>G/2 G>E/2 D C/2'],
@@ -883,6 +1024,7 @@ function parsePhrase(txt){
     var beats = 1, traj = false;
     var sl = tok.indexOf('/'); if (sl >= 0){ beats = parseFloat(tok.substr(sl+1)) || 1; tok = tok.substr(0, sl); }
     if (tok.charAt(tok.length-1) === '~'){ traj = true; tok = tok.slice(0,-1); }
+    var vib = false; if (tok.charAt(tok.length-1) === '^'){ vib = true; tok = tok.slice(0,-1); }   /* ^ vibrato: ±35 cents at 5.5 Hz */
     if (tok === '-'){ out.push({ rest: true, beats: beats }); return; }
     if (tok === '|'){ out.push({ rest: true, sec: Math.max(0.9, opts.gapMs/1000 + 0.4) }); return; }   /* a pause: the phrase ends */
     var parts = tok.split('>'), ms = [];
@@ -892,7 +1034,7 @@ function parsePhrase(txt){
       if (mt[3] !== undefined) oct = +mt[3];
       ms.push(12*(oct+1)+pc);
     }
-    out.push({ midi: ms[0], glide: ms.slice(1), beats: traj ? Math.min(beats, 0.35) : beats, traj: traj });
+    out.push({ midi: ms[0], glide: ms.slice(1), beats: traj ? Math.min(beats, 0.35) : beats, traj: traj, vib: vib });
   });
   return out;
 }
@@ -917,6 +1059,11 @@ function playPhrase(){
         o.frequency.exponentialRampToValueAtTime(fg, a1); o2.frequency.exponentialRampToValueAtTime(2*fg, a1);
         fNow = fg;
       });
+      if (n.vib){                                   /* vibrato: a slow sine on the detune, ±35 cents at 5.5 Hz, fading in over the first fifth of the tone */
+        var lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 5.5;
+        lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(35, t + d*0.2);
+        lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune); lfo.start(t); lfo.stop(t+d);
+      }
       gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(1, t+0.012);
       gn.gain.setValueAtTime(1, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
       o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out);
