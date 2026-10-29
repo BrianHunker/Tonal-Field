@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v10 -->
+<!-- Tonal Field — Parser — v11 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -73,6 +73,11 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 .tracebar h2 { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 15px; color: #e8e6dc; margin-right: 4px; }
 .strip { position: relative; width: 100%; flex: 1 1 auto; min-height: 360px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; }
 .strip canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* double-click the ring or the trace: full screen (double-click again or Esc to leave) */
+.ringbox:fullscreen { border: 0; border-radius: 0; }
+.ringbox:fullscreen canvas { width: min(100vw, 100vh); height: min(100vw, 100vh); inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.trace:fullscreen { background: #000; padding: 12px 16px; box-sizing: border-box; }
+.trace:fullscreen .strip { border: 0; }
 #log { font-family: var(--font-mono); font-size: 11.5px; color: #b9b7ad; max-height: 170px; overflow-y: auto; line-height: 1.6; }
 #log .k { color: var(--gold); }
 .meter { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); }
@@ -84,7 +89,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v11</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -105,6 +110,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <span class="sep"></span>
   <label title="a silence at least this long ends a phrase — long enough to let staccato through. The orientation a phrase leaves is what the next phrase arrives in">phrase gap <input type="range" id="gapMs" min="150" max="1500" step="10" value="400"><output id="gapV">400 ms</output></label>
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
+  <button id="beatsBtn" class="on" title="beat by beat: the beat is read from the playing (how the onsets are spaced, which are accented), and the field is assessed once per beat — a subdivision is heard together with the beat it leads into, not tone by tone">beats</button>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial">12 o'clock <select id="dialSel"></select></label>
@@ -141,6 +147,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
         <span>pitch <b id="mPitch">—</b></span>
         <span>tuning grid <b id="mTune">—</b></span>
         <span>level <b id="mLevel">—</b></span>
+        <span>beat <b id="mBeat">—</b></span>
         <span>input channels delivered <b id="mChans">—</b></span>
       </div>
     </div>
@@ -169,10 +176,16 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       that starts on an anti and glides onto a field tone is that tone, approached. Nothing a bend passes through reaches the
       decoder as a tone. <b>Channels</b> lists every
       channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
+      <br><br><b>Beats.</b> The beat is read from the playing: the tempo from how the onsets are spaced, the beats from
+      which onsets are accented. With <b>beats</b> on, the field is assessed once per beat instead of at every tone — a
+      subdivision is heard together with the beat it leads into. Subdivision labels on the trace are smaller; faint
+      vertical lines mark the beats the field was read at. With every onset equally loud, the beat cannot be told from
+      the off-beat. <b>Double-click</b> the ring or the trace for full screen.
     </div>
 </section>
 
 <script src="parser-core.js"></script>
+<script src="parser-beat.js"></script>
 <script src="parser-pitch.js"></script>
 <script>
 (function(){
@@ -254,6 +267,16 @@ function size(){
   view.dirty = true;
 }
 window.addEventListener('resize', size);
+/* double-click the ring or the trace for full screen */
+function fsEl(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function toggleFull(el){
+  if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  var rq = el.requestFullscreen || el.webkitRequestFullscreen; if (rq) rq.call(el);
+}
+document.querySelector('.ringbox').addEventListener('dblclick', function(){ toggleFull(this); });
+document.querySelector('.strip').addEventListener('dblclick', function(){ toggleFull(document.querySelector('.trace')); });
+document.addEventListener('fullscreenchange', function(){ setTimeout(size, 50); });
+document.addEventListener('webkitfullscreenchange', function(){ setTimeout(size, 50); });
 if (window.ResizeObserver) new ResizeObserver(function(){ size(); }).observe(document.querySelector('.strip'));
 var showLetters = true;
 
@@ -460,6 +483,10 @@ function drawStrip(now){
   phraseEnds.forEach(function(te){ var xe = trX(te + 0.05, now); if (xe < 0 || xe > SW) return; sctx.beginPath(); sctx.moveTo(xe,0); sctx.lineTo(xe,SH); sctx.stroke(); });
   sctx.setLineDash([]);
   var t0 = now - TR.span;
+  /* the beats the field was read at */
+  sctx.strokeStyle = 'rgba(200,200,195,0.16)'; sctx.lineWidth = 1;
+  for (var bi = beatTimes.length - 1; bi >= 0 && beatTimes[bi] >= t0; bi--){ var xb = trX(beatTimes[bi], now); sctx.beginPath(); sctx.moveTo(xb, 0); sctx.lineTo(xb, SH); sctx.stroke(); }
+  while (beatTimes.length > 400) beatTimes.shift();
   /* the tones handed to the decoder: thin bars behind the ribbon */
   sctx.lineCap = 'round';
   segs.forEach(function(s){
@@ -495,7 +522,8 @@ function drawStrip(now){
     var ev = s.ev; if (!ev || !ev.fn) return;
     var x1 = trX(s.t0, now); if (x1 < -40 || x1 > SW) return;
     var col = liftCol(FNRGB[FN.indexOf(ev.fn)]);
-    sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col, 1);
+    var sub = s.beat === false;               /* a subdivision: smaller, lighter */
+    sctx.font = (sub ? '500 13px' : ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col, sub ? 0.7 : 1);
     sctx.fillText(ev.fn, x1, trY(s.midi) - 12);
   });
   /* the present */
@@ -560,7 +588,15 @@ var ac = null, inputBus = null, specAn = null, pitchNode = null, tracker = null,
 var micStream = null, micSrc = null, micSplit = null;
 var live = { on: false, midi: null, rms: 0, lastT: -1 };
 var startT = null;
-var opts = { heldMs: 240, gate: 0.012, gapMs: 400 };
+var opts = { heldMs: 240, gate: 0.012, gapMs: 400, beats: true };
+/* ARTICULATION. The beat is read from the playing: the onsets' spacing gives the tempo, their accents (the level
+   each tone strikes with) give which onsets are beats. With beats on and a beat found, the field is assessed once
+   per beat: tones are handed to the decoder as they come, but it reads them at the next beat — a beat tone, or the
+   moment a beat passes with only held tones or subdivisions since. So the tones of one beat are heard together. */
+var beat = TFBeat.makeBeat({ window: 6 }), beatClock = null, beatTimes = [];
+function accentAt(t){ var a = 0; for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 0.012; k--) if (trace[k].t <= t + 0.06) a = Math.max(a, trace[k].rms || 0); return a; }
+function beatwiseNow(){ return opts.beats && beat.ready; }
+function readBeat(){ if (parser.unread){ parser.beat(); afterParse(); } }
 function ensureAudio(){
   if (audioReady) return audioReady;
   ac = new (window.AudioContext||window.webkitAudioContext)();
@@ -594,9 +630,14 @@ function startTone(m, t){
   segs.push(cur.seg); if (segs.length > 400) segs.shift();
   if (startT === null) startT = t;
   if (!tune.n) addTune(m);
+  var onBeat = beat.onset(t, accentAt(t)); cur.seg.beat = onBeat;
+  var bw = beatwiseNow(); if (!bw && parser.beatwise) readBeat();
+  parser.beatwise = bw;
   cur.ev = parser.tone(Math.round(m - tuneOffset()), t, false); phraseOpen = true;
   cur.idx = parser.events.length - 1;
   cur.seg.ev = cur.ev;
+  if (bw && onBeat) parser.beat();                /* a beat: it and the subdivisions leading into it are read together */
+  if (bw){ beatClock = beat.next(t + 0.02); if (onBeat) beatTimes.push(t); }
   for (var k = trace.length - 1; k >= 0 && trace[k].t >= t - 1e-6; k--) if (trace[k].m !== null) trace[k].seg = cur.seg;
   afterParse();
 }
@@ -627,7 +668,8 @@ function onContour(o){
   var m = o.f ? 69 + 12*Math.log2(o.f/440) : null, t = o.t;
   var cs = []; for (var j = 0; j < o.c.length; j += 2) cs.push(69 + 12*Math.log2(o.c[j]/440), o.c[j+1]);
   if (m !== null) bendTrack(m, t);
-  var fr = { t: t, m: m, conf: o.conf, bridged: !!o.bridged, bend: m === null ? 0 : bend.target, col: m === null ? null : colAtPitch(m - bend.target), c: cs };
+  if (parser.unread && beatClock !== null && t >= beatClock + 0.12){ beatTimes.push(beatClock); beatClock = beat.next(t - 0.1); readBeat(); }   /* a beat passed with no new beat tone */
+  var fr = { t: t, rms: o.rms, m: m, conf: o.conf, bridged: !!o.bridged, bend: m === null ? 0 : bend.target, col: m === null ? null : colAtPitch(m - bend.target), c: cs };
   trace.push(fr);
   while (trace.length && trace[0].t < t - 40) trace.shift();
   live.midi = m; live.rms = o.rms; live.lastT = t;
@@ -758,6 +800,7 @@ function tick(now){
   document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
   var to = tuneOffset(); document.getElementById('mTune').textContent = tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—';
   document.getElementById('mLevel').textContent = live.rms.toFixed(3);
+  document.getElementById('mBeat').textContent = beat.ready ? Math.round(60/beat.period) + ' bpm' + (opts.beats ? '' : ' (off)') : '—';
   requestAnimationFrame(tick);
 }
 
@@ -770,6 +813,7 @@ micBtn.addEventListener('click', function(){
 });
 document.getElementById('resetBtn').addEventListener('click', function(){
   parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
+  beat.reset(); beatClock = null; beatTimes = [];
   spx.clearRect(0, 0, specCv.width, specCv.height);
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; refreshReadouts();
@@ -797,6 +841,7 @@ dialSel.addEventListener('change', function(){ setDial(+this.value, true); });
   function end(){ if (!drag) return; drag = null; topCv.style.cursor = 'grab'; setDial(view.dialTop, true); }
   topCv.addEventListener('pointerup', end); topCv.addEventListener('pointercancel', end);
 })();
+document.getElementById('beatsBtn').addEventListener('click', function(){ opts.beats = !opts.beats; this.classList.toggle('on', opts.beats); if (!opts.beats){ readBeat(); parser.beatwise = false; } });
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
@@ -870,10 +915,13 @@ document.getElementById('playBtn').addEventListener('click', function(){
 });
 function playPhrase(){
   var notes = parsePhrase(phraseEl.value); if (!notes.length) return;
-  var beat = 60/(+document.getElementById('bpm').value), t = ac.currentTime + 0.12;
+  var bt = 60/(+document.getElementById('bpm').value), t = ac.currentTime + 0.12;
   var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(inputBus);
+  var pos = 0;                                    /* position in beats: tones on the beat are struck harder */
   notes.forEach(function(n){
-    var d = n.sec !== undefined ? n.sec : n.beats*beat;
+    var d = n.sec !== undefined ? n.sec : n.beats*bt;
+    var acc = Math.abs(pos - Math.round(pos)) < 0.02 ? 1 : 0.6;
+    if (n.sec !== undefined) pos = 0; else pos += n.beats;
     if (!n.rest){
       var o = ac.createOscillator(), o2 = ac.createOscillator(), gn = ac.createGain(), g2 = ac.createGain();
       var f = 440*Math.pow(2,(n.midi-69)/12);
@@ -886,8 +934,8 @@ function playPhrase(){
         o.frequency.exponentialRampToValueAtTime(fg, a1); o2.frequency.exponentialRampToValueAtTime(2*fg, a1);
         fNow = fg;
       });
-      gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(1, t+0.012);
-      gn.gain.setValueAtTime(1, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
+      gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(acc, t+0.012);
+      gn.gain.setValueAtTime(acc, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
       o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out);
       o.start(t); o2.start(t); o.stop(t+d); o2.stop(t+d);
     }

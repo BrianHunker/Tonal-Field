@@ -1,4 +1,4 @@
-/* Tonal Field — Parser core (decoder) · v6
+/* Tonal Field — Parser core (decoder) · v6.1
    © Brian Hunker 2026 · GablesGuitar.com/tonal-field
 
    The field accumulates nothing. It holds no memory beyond its current orientation, and that
@@ -18,6 +18,8 @@
    tie, arriving on a held tone, decides the side. If a phrase ends with the tie still open, the next
    phrase may settle it: placed by the other reading, it resolves the tie and relabels that phrase.
    At the pause, whatever orientation the phrase left is what the next phrase arrives in.
+   BEAT BY BEAT (optional): with beatwise set, tones are held and the field is read at each beat (P.beat),
+   so the tones of a beat — a subdivision and the beat it leads into — are heard together.
 
    Orientation is written as `re`: the pitch class that is Re (0 = the tuning grid's C). */
 (function (root) {
@@ -57,6 +59,8 @@
       phraseStart: 0,      /* index of the current phrase's first tone */
       phrases: 0,          /* how many phrases have ended */
       events: [],          /* every tone heard, in order: {pc, t, held, re, fn, phrase} */
+      beatwise: false,     /* when true, the field is read at beats (P.beat), not at every tone */
+      unread: false,       /* tones heard since the last reading */
       log: [],
       listeners: []
     };
@@ -162,17 +166,20 @@
       pc = mod12(Math.round(pc));
       var ev = { pc: pc, t: t, held: !!held, re: P.re, fn: P.re === null ? null : fnName(pc, P.re), phrase: P.phrases };
       P.events.push(ev);
-      read();
+      if (P.beatwise) P.unread = true; else read();   /* beat by beat: held until the next beat */
       return ev;
     };
+    /* a beat: everything heard since the last one is read together */
+    P.beat = function () { if (P.unread){ P.unread = false; read(); } };
     /* the tone at idx has sounded long enough to be an arrival (matters only for a tie) */
     P.arrive = function (idx) {
       var e = P.events[idx]; if (!e || e.held) return;
       e.held = true;
-      if (P.tie && idx >= P.phraseStart) read();
+      if (P.tie && idx >= P.phraseStart && !P.unread) read();
     };
     /* a pause: the phrase is over; the orientation it left is what the next phrase arrives in */
     P.endPhrase = function (t) {
+      P.beat();                                      /* a phrase ends on what it has said */
       if (P.phraseStart >= P.events.length) return;
       P.incomingTie = (P.basis === 'tie-open' && P.tie) ? { cands: P.tie.cands.slice(), start: P.phraseStart } : null;
       P.incoming = P.re; P.phraseStart = P.events.length; P.phrases++;
@@ -180,7 +187,7 @@
     };
     P.flush = function () {};
     P.reset = function () {
-      P.re = null; P.incoming = null; P.incomingTie = null; P.basis = 'none'; P.tie = null; P.phraseStart = 0; P.phrases = 0;
+      P.re = null; P.incoming = null; P.incomingTie = null; P.unread = false; P.basis = 'none'; P.tie = null; P.phraseStart = 0; P.phrases = 0;
       P.events = []; P.log = [];
     };
     P.on = function (f) { P.listeners.push(f); };
