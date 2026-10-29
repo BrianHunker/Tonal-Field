@@ -119,7 +119,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial (it slides and locks on the nearest letter). Option-drag detunes the letters themselves; otherwise they never leave proper alignment">12 o'clock <select id="dialSel"></select></label>
   <span class="sep"></span>
-  <label title="the mode light. auto: the seat is read from the playing — the last two diatonic tones in succession that lie 5 semitones apart are a tonic/dominant pair, and the seat is the pair's tonic, the one the other resolves to (the lower g'''). fixed: you choose the seat; the ring locks to it, the trace paints in it, and the field never turns — bends ride the curve. off: no light">mode <select id="modeSel"><option value="auto">auto</option><option value="fixed">fixed</option><option value="off">off</option></select></label>
+  <label title="the mode light. auto: the seat is read from the playing by the force g''' — each diatonic tone is paired with its tonic/dominant partner (5 semitones either side) if one has sounded in the phrase, else with the tone before it; the lower g''' of a T/D pair is the seat, and in succession a falling g''' moves the seat, a rising one is a call and the seat holds. fixed: you choose the seat; the ring locks to it, the trace paints in it, and the field never turns — bends ride the curve. off: no light">mode <select id="modeSel"><option value="auto">auto</option><option value="fixed">fixed</option><option value="off">off</option></select></label>
   <span id="modeFix"><select id="modeLetter" title="the seat's letter"></select><select id="modeFn" title="the seat's function — together with the letter this fixes the orientation"></select></span>
 </div>
 
@@ -172,15 +172,18 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       as little change as it must — and the field <b>rotates</b> for a one-semitone shift or <b>morphs</b> for anything
       larger. Non-diatonic colour is not handled yet. Tuning is read from the playing itself. The ring sits at waterline
       ρ&nbsp;=&nbsp;1: the base circle equals the field's reach, so the deepest anti just touches the pole and every tone is admitted.
-      <br><br><b>The mode light</b> is the seat the music stands on, read from the tonic/dominant pair: the last two diatonic tones
-      in succession — diatonic in the orientation in force; anything outside it is passed over — that lie five semitones apart, one step
-      of the dominant chain. The tonic of the pair is the member the other resolves to, which the force picks out: on the lattice
-      g‴ runs Ti +70, Mi +60.6, La +35, Re 0, Sol −35, Do −60.6, Fa −70, so the tonic is the member with the lower g‴ — always the
-      one five semitones above the other — whichever of the two sounded first (Do then Sol is still Do: a call). The seat is that
-      tonic in whatever function the orientation gives it, re-read on every tone and every turn of the field; with no such pair in
-      this phrase or the last it holds where it was. The letter is backlit on the ring and the trace is hazed in the seat's colour.
-      Set the light to <b>fixed</b> to choose the seat yourself; that locks the ring to the orientation the seat implies and the trace
-      paints in it. <b>Off</b> is off.
+      <br><br><b>The mode light</b> is the seat the music stands on, read by the force. On the lattice g‴ runs down the dominant
+      chain — Ti +70, Mi +60.6, La +35, Re 0, Sol −35, Do −60.6, Fa −70 — and between two diatonic tones the lower g‴ is the one the
+      other resolves to. Each diatonic tone of the phrase (diatonic in the orientation in force; anything outside it is passed over) is
+      read against one partner: its tonic/dominant partner, five semitones either side, if one has sounded anywhere in the phrase, else
+      the diatonic tone that preceded it. A tonic/dominant pair is a semi-mode whichever way round it sounds, and its lower-g‴ member is
+      the seat (Do then Sol is still Do — a call; this picks out the root of every diatonic triad, since each holds exactly one such
+      pair). A succession pair is read by direction: g‴ falling is a resolution and the seat moves to the tone arrived at — Ti→Do,
+      Mi→Fa, Re→Do all seat where they land; g‴ rising is a call and the seat holds. The seat is re-read on every tone and on every turn
+      of the field; the first tone of a phrase pairs with nothing, and across the pause the seat holds. The letter is backlit on the
+      ring and the trace is hazed in the seat's colour. Set the light to <b>fixed</b> to choose the seat yourself; that locks the ring
+      to the orientation the seat implies, the trace paints in it, and the field never turns — bends and slides ride the curve like
+      everything else. <b>Off</b> is off.
       <br><br><b>The trace</b> is the input itself, before any decision: the fundamental contour, tracked continuously every
       5 ms and never rounded to a grid, coloured by g(x), as thick as the tracker is confident. Faint dots are the pitches it
       considered and did not take; the faint spectrum underneath is the sound itself. Thin bars mark the tones handed to the
@@ -242,39 +245,48 @@ var view = {
   modeLum: 0,           /* the mode light's level as drawn (eased: 0 dark … 1 lit) */
   dirty: true
 };
-/* THE MODE LIGHT — the seat the music stands on, read from the tonic/dominant pair.
-   The pair: the last two diatonic tones in succession (diatonic in the orientation in force; tones outside it are passed
-   over) that lie five semitones apart — one step of the dominant chain. The tonic of the pair is the member the other
-   resolves to, which is the chain-forward one — on the lattice g''' runs Ti +70 · Mi +60.6 · La +35 · Re 0 · Sol −35 ·
-   Do −60.6 · Fa −70 (exact: g''' = −70·sin(5kπ/6)), so the tonic is the member with the LOWER g''' (the higher −g'''/70
-   of the paper's jet), and that is always the one five semitones above the other. The seat is that tonic, in whatever
-   function the orientation gives it. It is re-read on every tone and on every turn of the field; with no such pair in this
-   phrase or the last it holds where it was. mode.sel: 'auto' reads the seat from the playing; 'fixed' takes the seat
-   from the user and locks the orientation to it; 'off' lights nothing. */
-var mode = { sel: 'auto', pc: null, partner: null, fixPc: 7, fixFn: 5, log: [] };   /* fixed default: G as Sol */
+/* THE MODE LIGHT — the seat the music stands on, read by the force.
+   On the lattice g''' runs down the dominant chain: Ti +70 · Mi +60.6 · La +35 · Re 0 · Sol −35 · Do −60.6 · Fa −70
+   (exact: g''' = −70·sin(5kπ/6)). Between two diatonic tones the lower g''' is the one the other resolves to.
+   Each diatonic tone X of the phrase (diatonic in the orientation in force; the rest are passed over) is read against
+   one partner: its tonic/dominant partner — a tone five semitones either side of it — if one has sounded anywhere in the
+   phrase, else the diatonic tone that preceded it. A T/D pair is a semi-mode whichever way round it sounds: the seat is
+   its lower-g''' member (Do then Sol is still Do — a call). A succession pair is read by direction: g''' falling is a
+   resolution and the seat moves to X; g''' rising is a call and the seat holds. The seat is re-read on every tone and on
+   every turn of the field; the first tone of a phrase pairs with nothing, and across the pause the seat holds.
+   mode.sel: 'auto' reads the seat from the playing; 'fixed' takes the seat from the user and locks the orientation to it;
+   'off' lights nothing. */
+var mode = { sel: 'auto', pc: null, partner: null, how: '', startPc: null, startPartner: null, startHow: '', fixPc: 7, fixFn: 5 };   /* fixed default: G as Sol */
 function fixedRe(){ return mod(mode.fixPc - mode.fixFn, 12); }
 function reNow(){ return mode.sel === 'fixed' ? fixedRe() : parser.re; }             /* the orientation in force for labels */
 function seatPc(){ return mode.sel === 'off' ? null : mode.sel === 'fixed' ? mode.fixPc : mode.pc; }
 function seatFn(){ var p = seatPc(), re = reNow(); return (p === null || re === null) ? null : mod(p - re, 12); }
 function g3(k){ return -70*Math.sin(5*k*Math.PI/6); }                                /* g''' on the lattice, k semitones above Re */
-function modeRead(){                        /* the last two diatonic tones in succession a chain step apart: the seat is the forward one */
+function modeRead(){
   if (mode.sel !== 'auto') return;
   var re = parser.re; if (re === null) return;
-  var ev = parser.events, lo = Math.max(0, parser.phrases - 1), later = null;
-  for (var i = ev.length - 1; i >= 0; i--){
-    var q = ev[i]; if (q.phrase < lo) break;
-    if (TF.gv(q.pc, re) < -1e-9) continue;                                         /* not in the field as it stands: passed over */
-    if (later !== null && later.pc !== q.pc){
-      var d = mod(later.pc - q.pc, 12);
-      if (d === 5 || d === 7){
-        var a = q, b = later, tonic = g3(mod(b.pc - re, 12)) < g3(mod(a.pc - re, 12)) ? b : a, dom = tonic === b ? a : b;
-        var was = mode.pc; mode.pc = tonic.pc; mode.partner = dom.pc;
-        if (was !== tonic.pc){ var fn = seatFn(); addLog({ kind: 'mode', t: later.t, to: null, note: (fn === null ? '' : FN[fn] + ' ') + LET[tonic.pc] + ' · from ' + LET[dom.pc] + (tonic === a ? ' (call)' : '') }); }
-        view.dirty = true; return;
+  var seat = mode.startPc, partner = mode.startPartner, how = mode.startHow, dia = [], ev = parser.events, at = null;
+  for (var i = parser.phraseStart; i < ev.length; i++){
+    var X = ev[i]; if (TF.gv(X.pc, re) < -1e-9) continue;                           /* not in the field as it stands: passed over */
+    if (dia.length){
+      var P = null, td = false;
+      for (var j = dia.length - 1; j >= 0; j--){ var d = mod(dia[j].pc - X.pc, 12); if (d === 5 || d === 7){ P = dia[j]; td = true; break; } }
+      if (!P) P = dia[dia.length - 1];
+      if (P.pc !== X.pc){
+        var gx = g3(mod(X.pc - re, 12)), gp = g3(mod(P.pc - re, 12)), was = seat;
+        if (td){ seat = gx < gp ? X.pc : P.pc; partner = seat === X.pc ? P.pc : X.pc; how = seat === X.pc ? 'dominant' : 'call'; }
+        else if (gx < gp){ seat = X.pc; partner = P.pc; how = 'resolved'; }
+        if (seat !== was) at = X.t;
       }
     }
-    later = q;
+    dia.push(X);
   }
+  if (seat !== mode.pc){
+    mode.pc = seat; mode.partner = partner; mode.how = how;
+    var fn = seatFn();
+    if (seat !== null) addLog({ kind: 'mode', t: at !== null ? at : ev[ev.length - 1].t, to: null, note: (fn === null ? '' : FN[fn] + ' ') + LET[seat] + (partner !== null ? ' · ' + (how === 'call' ? 'called by ' : how === 'dominant' ? 'from its dominant ' : 'resolved from ') + LET[partner] : '') });
+    view.dirty = true;
+  } else { mode.partner = partner; mode.how = how; }
 }
 parser.on(function(e){
   if (mode.sel === 'fixed'){ if (e.kind !== 'phrase') addLog(e); view.dirty = true; return; }   /* the ring is locked: the decoder's reading is logged, not shown */
@@ -614,7 +626,7 @@ function easeMode(){
   if (changed) view.dirty = true;
   updateHaze();
   var mm = document.getElementById('mMode');
-  mm.textContent = fn === null ? (mode.sel === 'off' ? 'off' : '—') : FN[fn] + ' (' + LET[seatPc()] + ')' + (mode.sel === 'fixed' ? ' · fixed' : mode.partner !== null ? ' · dominant ' + LET[mode.partner] : '');
+  mm.textContent = fn === null ? (mode.sel === 'off' ? 'off' : '—') : FN[fn] + ' (' + LET[seatPc()] + ')' + (mode.sel === 'fixed' ? ' · fixed' : mode.partner !== null ? (mode.how === 'call' ? ' · called by ' : mode.how === 'dominant' ? ' · dominant ' : ' · from ') + LET[mode.partner] : '');
 }
 
 /* ---------------- readouts ---------------- */
@@ -763,7 +775,7 @@ function onContour(o){
     hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = []; bend.cx = []; bend.fresh = true; bend.onT = t;
     if (bend.pend && t - lastVoiced > 0.04){ var pd0 = bend.pend; bend.pend = null; startTone(pd0.med, pd0.t0); cur.pitches = [pd0.med]; }   /* an anti that never slid: a tone after all */
     if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
-    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
+    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; mode.startPc = mode.pc; mode.startPartner = mode.partner; mode.startHow = mode.how; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
     return;
   }
   lastVoiced = t;
@@ -900,7 +912,7 @@ micBtn.addEventListener('click', function(){
 document.getElementById('resetBtn').addEventListener('click', function(){
   parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; bend.cx = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
   spx.clearRect(0, 0, specCv.width, specCv.height);
-  mode.pc = null; mode.partner = null;
+  mode.pc = null; mode.partner = null; mode.how = ''; mode.startPc = null; mode.startPartner = null; mode.startHow = '';
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; updateLevel(); refreshReadouts();
 });
