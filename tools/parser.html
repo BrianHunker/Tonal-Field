@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v10 -->
+<!-- Tonal Field — Parser — v10.1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -84,7 +84,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v10.1</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -328,7 +328,7 @@ function drawField(now){
   fctx.strokeStyle = 'rgba(200,200,195,0.32)'; fctx.lineWidth = 1;
   fctx.beginPath(); fctx.arc(C,C,R0,0,TP); fctx.stroke();
   for (var t=0;t<12;t++){
-    var at = ang(t);
+    var at = ang(t - tuneOffset());                 /* fixed to the letters: nothing in the input moves them */
     fctx.strokeStyle = 'rgba(200,200,195,0.40)';
     fctx.beginPath(); fctx.moveTo(PX(at,R0-W*0.012,C),PY(at,R0-W*0.012,C)); fctx.lineTo(PX(at,R0+W*0.012,C),PY(at,R0+W*0.012,C)); fctx.stroke();
   }
