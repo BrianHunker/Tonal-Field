@@ -270,8 +270,8 @@ function reNow(){ return mode.sel === 'fixed' ? fixedRe() : parser.re; }        
 function seatPc(){ return mode.sel === 'off' ? null : mode.sel === 'fixed' ? mode.fixPc : mode.pc; }
 function seatFn(){ var p = seatPc(), re = reNow(); return (p === null || re === null) ? null : mod(p - re, 12); }
 function g3(k){ return -70*Math.sin(5*k*Math.PI/6); }                                /* g''' on the lattice, k semitones above Re */
-function tick(k){ var t = mod(5*k, 12); return t > 6 ? t - 12 : t; }                 /* a lattice tone's step along the chain from Re, −3 (Ti) … +3 (Fa) */
-function chainOff(root, tone, re){ return mod(tick(mod(root - re, 12)) - tick(mod(tone - re, 12)), 7); }   /* offset up the chain from the root, 0..6 */
+function chainStep(k){ var t = mod(5*k, 12); return t > 6 ? t - 12 : t; }                 /* a lattice tone's step along the chain from Re, −3 (Ti) … +3 (Fa) */
+function chainOff(root, tone, re){ return mod(chainStep(mod(root - re, 12)) - chainStep(mod(tone - re, 12)), 7); }   /* offset up the chain from the root, 0..6 */
 function modeRead(){
   if (mode.sel === 'off') return;
   var fixed = mode.sel === 'fixed', re = reNow(); if (re === null) return;
