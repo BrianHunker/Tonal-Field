@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v11.3 -->
+<!-- Tonal Field — Parser — v12 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -94,7 +94,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v11.3</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -109,12 +109,15 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <select id="preset" title="degenerate test input: a tempered phrase played through the same listening path as the microphone">
     <option value="">test phrase…</option>
   </select>
-  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (/n beats · ~ short · ^ vibrato · A>B glide · | pause)" aria-label="test phrase">
+  <input type="text" id="phrase" spellcheck="false" placeholder="E4 D C B3/2 C4/2   (/n beats · ~ short · ^ vibrato · A>B glide · C+E+G chord · | pause)" aria-label="test phrase">
   <button id="playBtn" title="play the test phrase into the parser (and the speakers)">play</button>
   <label>bpm <input type="range" id="bpm" min="50" max="200" value="104"><output id="bpmV">104</output></label>
   <span class="sep"></span>
   <label title="a silence at least this long ends a phrase — long enough to let staccato through. The orientation a phrase leaves is what the next phrase arrives in">phrase gap <input type="range" id="gapMs" min="150" max="1500" step="10" value="400"><output id="gapV">400 ms</output></label>
   <label title="every tone counts for the field however short; this sets only when a tone counts as an ARRIVAL, which matters for one degenerate case — settling a tie between two mirror hearings">arrival <input type="range" id="heldMs" min="80" max="700" step="10" value="240"><output id="heldV">240 ms</output></label>
+  <button id="polyBtn" title="polyphonic listening: several tones at once from one signal (a guitar's output, a microphone), measured by the Basic Pitch model. Each tone becomes its own ribbon on the trace and its own tone for the decoder. Off: the single-voice contour tracker">poly</button>
+  <label id="polyLookL" title="polyphonic look-behind: how many ~11.6 ms frames behind the leading edge of the model's window a tone is read. Fewer: sooner, less sure. More: later, steadier">look <input type="range" id="polyLook" min="0" max="12" step="1" value="3"><output id="polyLookV">3</output></label>
+  <span class="sep"></span>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial (it slides and locks on the nearest letter). Option-drag detunes the letters themselves; otherwise they never leave proper alignment">12 o'clock <select id="dialSel"></select></label>
@@ -153,6 +156,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       <div class="meter">
         <span>mode <b id="mMode">—</b></span>
         <span>pitch <b id="mPitch">—</b></span>
+        <span>poly <b id="mPoly">off</b></span>
         <span>tuning grid <b id="mTune">—</b></span>
         <span>level <b id="mLevel">—</b></span>
         <span>input channels delivered <b id="mChans">—</b></span>
@@ -199,13 +203,23 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       decoder as a tone. The field turns under the voice's <b>centre</b> — its mean position over the last quarter second — not its
       instant: a bend moves the centre and the field follows; a vibrato leaves the centre where it is, so the field holds and the
       voice rides the curve, the probe and the ribbon changing colour with it. <b>Channels</b> lists every
-      channel the browser delivers from the chosen input; Chrome delivers only an interface's first two. <b>Double-click</b> the ring or
+      channel the browser delivers from the chosen input; Chrome delivers only an interface's first two.
+      <br><br><b>Poly</b> listens for several tones at once in one signal — the guitar's output, a microphone — using the Basic Pitch
+      model (Spotify, Apache-2.0), which measures which frequencies are sounding and decides nothing about what they mean. Each tone
+      becomes its own ribbon on the trace, its own probe on the ring, and its own tone for the decoder; tones that start together are
+      not a succession. The model needs a two-second window, so it is run again and again on the newest two seconds; <b>look</b> sets
+      how many ~11.6&nbsp;ms frames behind the window's leading edge a tone is read (fewer: sooner and less sure). The meter shows how
+      far behind the present the reading runs and how long one pass of the model takes on this machine. The model runs on the graphics
+      card; it gives the page back half as long as each pass took, so a slow machine lags rather than freezes. In poly the field does
+      not bend: every tone rides the curve. <b>Double-click</b> the ring or
       the trace for full screen; double-click or Escape to come back.
     </div>
 </section>
 
 <script src="parser-core.js"></script>
 <script src="parser-pitch.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js" defer></script>
+<script src="parser-poly.js"></script>
 <script>
 (function(){
 'use strict';
@@ -263,6 +277,7 @@ var view = {
    With no seat, nothing resolves: a bare line is contextualized by accompaniment the parser does not hear.
    mode.sel: 'auto' reads the seat from the playing; 'fixed' takes it from the user and locks the orientation to it;
    'off' lights nothing. */
+var TOGETHER = 0.05;   /* tones starting within 50 ms of each other sound together (a strum, a chord): not a succession. The one width polyphony needs */
 var RANK = [0,1,4,5,2,3,6], DEG = ['root','5th','9th','13th','3rd','7th','11th'];   /* by chain offset up from the root */
 var mode = { sel: 'auto', pc: null, partner: null, how: '', res: null, startPc: null, startPartner: null, startHow: '', fixPc: 7, fixFn: 5 };   /* fixed default: G as Sol */
 function fixedRe(){ return mod(mode.fixPc - mode.fixFn, 12); }
@@ -288,7 +303,7 @@ function modeRead(){
       }
       var Q = dia[dia.length - 1];                                                 /* the succession, read against the seat */
       res = null;
-      if (seat !== null && TF.gv(seat, re) >= -1e-9 && Q.pc !== X.pc){              /* the hierarchy hangs from a diatonic seat only */
+      if (seat !== null && TF.gv(seat, re) >= -1e-9 && Q.pc !== X.pc && X.t - Q.t > TOGETHER){   /* the hierarchy hangs from a diatonic seat only; tones that start together are not a succession */
         var rq = RANK[chainOff(seat, Q.pc, re)], rx = RANK[chainOff(seat, X.pc, re)];
         res = { from: Q.pc, to: X.pc, up: rx < rq, deg: DEG[chainOff(seat, X.pc, re)], t: X.t };
       }
@@ -475,8 +490,12 @@ function drawTop(){
   tctx.setTransform(dpr,0,0,dpr,0,0);
   tctx.clearRect(0,0,W,W);
   tctx.fillStyle = 'rgba(200,200,195,0.35)'; tctx.beginPath(); tctx.arc(C,C,W*0.004,0,TP); tctx.fill();
-  if (live.midi === null) return;
-  var s = live.midi - tuneOffset();                   /* position on the tuning grid, continuous */
+  var ms = poly.on ? poly.tr.active().map(function(n){ return n.m; }) : (live.midi === null ? [] : [live.midi]);
+  ms.forEach(function(m){ probe(m, G); });
+}
+function probe(m, G){
+  var C = G.C, R0 = G.R0, A = G.A;
+  var s = m - tuneOffset();                           /* position on the tuning grid, continuous */
   var sp = sample(s, performance.now()), a = ang(s), r = R0 + A*sp.v;
   var col = view.reNow === null ? [220,220,215] : sp.col;
   tctx.strokeStyle = rgba(col, 0.85); tctx.lineWidth = 2; tctx.setLineDash([5,4]);
@@ -616,6 +635,17 @@ function drawStrip(now){
     sctx.font = (ev.held ? '600 22px' : '500 17px') + ' "IBM Plex Mono", monospace'; sctx.fillStyle = rgba(col, 1);
     sctx.fillText(fnL, x1, trY(s.midi) - 12);
   });
+  /* polyphonic tones: one ribbon each, coloured by g(x) in the orientation in force when it sounded */
+  if (poly.on || poly.notes.length) poly.notes.forEach(function(n){
+    if (n.t1 !== null && n.t1 < t0) return;
+    var re = evRe(n.seg.ev), p = n.pts;
+    for (var k = 1; k < p.length; k++){
+      var a2 = p[k-1], b2 = p[k]; if (b2[0] < t0) continue;
+      var c2 = re !== null ? liftCol(fnColorAt(b2[1] - tuneOffset() - re)) : [205,205,200];
+      sctx.strokeStyle = rgba(c2, 0.6 + 0.4*Math.min(1, b2[2])); sctx.lineWidth = 2.5 + 6*Math.min(1, b2[2]);
+      sctx.beginPath(); sctx.moveTo(trX(a2[0], now), trY(a2[1])); sctx.lineTo(trX(b2[0], now), trY(b2[1])); sctx.stroke();
+    }
+  });
   /* the present */
   var last = trace.length ? trace[trace.length-1] : null;
   if (last && last.m !== null && now - last.t < 0.15){
@@ -719,6 +749,7 @@ function ensureAudio(){
     var sink = ac.createGain(); sink.gain.value = 0; pitchNode.connect(sink); sink.connect(ac.destination);
     pitchNode.port.onmessage = function(e){
       var fr = e.data.frames; if (!fr) return;
+      if (poly.on) return;                                                   /* polyphonic listening has the floor */
       for (var i = 0; i < fr.length; i++){ var o = tracker.push(fr[i]); if (o) onContour(o); }
     };
   }).catch(function(err){ subEl.textContent = 'This browser cannot run the pitch tracker: ' + err.message; });
@@ -793,7 +824,7 @@ function onContour(o){
     hold6 = []; bend.anchor = null; bend.target = 0; bend.xs = []; bend.cx = []; bend.fresh = true; bend.onT = t;
     if (bend.pend && t - lastVoiced > 0.04){ var pd0 = bend.pend; bend.pend = null; startTone(pd0.med, pd0.t0); cur.pitches = [pd0.med]; }   /* an anti that never slid: a tone after all */
     if (cur && t - lastVoiced > 0.04) endTone(lastVoiced);
-    if (phraseOpen && t - lastVoiced > opts.gapMs/1000){ phraseOpen = false; mode.startPc = mode.pc; mode.startPartner = mode.partner; mode.startHow = mode.how; parser.endPhrase(lastVoiced); phraseEnds.push(lastVoiced); afterParse(); }
+    if (phraseOpen && t - lastVoiced > opts.gapMs/1000) endPhraseAt(lastVoiced);
     return;
   }
   lastVoiced = t;
@@ -843,6 +874,50 @@ function onContour(o){
   cur.pitches = ms.slice();
 }
 function afterParse(){ modeRead(); updateLevel(); refreshReadouts(); view.dirty = true; }
+function endPhraseAt(t){ phraseOpen = false; mode.startPc = mode.pc; mode.startPartner = mode.partner; mode.startHow = mode.how; parser.endPhrase(t); phraseEnds.push(t); afterParse(); }
+
+/* ---------------- polyphonic listening (tools/parser-poly.js) ----------------
+   Each tone the model hears is handed to the decoder the moment it starts, in order of pitch when several start
+   together; it becomes an arrival after the arrival time, like a single-voice tone. A phrase ends when nothing has
+   sounded for the phrase gap. The field does not bend under polyphonic tones: every tone rides the curve. */
+var poly = { on: false, state: '', eng: null, tr: TFPoly.makeTracker(), notes: [], byId: {} };
+function polyEvent(kind, n, t){
+  var pn = poly.byId[n.id];
+  if (kind === 'on'){
+    if (startT === null) startT = t;
+    if (!tune.n) addTune(n.m);
+    var seg = { t0: t, t1: null, midi: n.m, ev: null, held: false };
+    seg.ev = parser.tone(Math.round(n.m - tuneOffset()), t, false); phraseOpen = true;
+    segs.push(seg); if (segs.length > 400) segs.shift();
+    pn = poly.byId[n.id] = { idx: parser.events.length - 1, seg: seg, t0: t, t1: null, pts: [[t, n.m, n.amp]], held: false };
+    poly.notes.push(pn); while (poly.notes.length && poly.notes[0].t1 !== null && poly.notes[0].t1 < t - 40) poly.notes.shift();
+    afterParse();
+  } else if (!pn) return;
+  else if (kind === 'move'){
+    pn.pts.push([t, n.m, n.amp]);
+    if (!pn.held && (t - pn.t0)*1000 >= opts.heldMs){ pn.held = true; pn.seg.held = true; addTune(n.m); parser.arrive(pn.idx); afterParse(); }
+  } else if (kind === 'off'){ pn.t1 = t; pn.seg.t1 = t; delete poly.byId[n.id]; }
+}
+function polyFrame(F){
+  poly.tr.frame(F, polyEvent);
+  if (poly.tr.active().length) lastVoiced = F.t;
+  else if (phraseOpen && F.t - lastVoiced > opts.gapMs/1000) endPhraseAt(lastVoiced);
+}
+window.tfPoly = function(){ return { poly: poly, frame: polyFrame }; };   /* for inspection from the console */
+var polyBtn = document.getElementById('polyBtn');
+polyBtn.addEventListener('click', function(){
+  ensureAudio(); ac.resume();
+  if (poly.on){ poly.eng.stop(); poly.on = false; poly.tr.clear(polyEvent, ac.currentTime); polyBtn.classList.remove('on'); return; }
+  poly.state = 'loading the model…';
+  audioReady.then(function(){
+    if (!poly.eng) poly.eng = TFPoly.create({ ac: ac, input: inputBus, modelUrl: 'basic-pitch/model.json', look: +document.getElementById('polyLook').value, onFrame: polyFrame });
+    return poly.eng.ready;
+  }).then(function(){
+    cur = null; hold6 = [];                          /* the single-voice tone in hand is set down */
+    poly.eng.start(); poly.on = true; poly.state = ''; polyBtn.classList.add('on');
+  }).catch(function(err){ poly.state = 'could not start: ' + err.message; subEl.textContent = 'Polyphonic listening could not start: ' + err.message; });
+});
+bindRange('polyLook', 'polyLookV', function(v){ return v + ' · ' + Math.round(v*11.6) + ' ms'; }, function(v){ if (poly.eng) poly.eng.look = v; });
 
 /* ---------------- inputs ---------------- */
 var inSel = document.getElementById('inSel'), chSel = document.getElementById('chSel');
@@ -914,7 +989,8 @@ function tick(now){
   if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
   if (view.dirty || animating){ drawField(now); view.dirty = false; }
   drawTop(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
-  document.getElementById('mPitch').textContent = live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
+  document.getElementById('mPoly').textContent = !poly.on ? (poly.state || 'off') : (poly.tr.active().length + ' sounding · ' + Math.round(poly.eng.latency*1000) + ' ms behind · pass ' + Math.round(poly.eng.lastMs) + ' ms · ' + poly.eng.backend() + (poly.eng.lastMs > 250 ? ' · this machine is too slow for live polyphony' : ''));
+  document.getElementById('mPitch').textContent = poly.on ? poly.tr.active().map(function(n){ return LET[mod(Math.round(n.m),12)]; }).join(' ') || '—' : live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
   var to = tuneOffset(); document.getElementById('mTune').textContent = (tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—') + (view.detune ? ' · letters ' + (view.detune>0?'+':'') + Math.round(view.detune*100) + '¢' : '');
   document.getElementById('mLevel').textContent = live.rms.toFixed(3);
   requestAnimationFrame(tick);
@@ -930,6 +1006,7 @@ micBtn.addEventListener('click', function(){
 document.getElementById('resetBtn').addEventListener('click', function(){
   parser.reset(); segs = []; trace = []; hold6 = []; cur = null; bend.anchor = null; bend.target = 0; bend.pend = null; bend.xs = []; bend.cx = []; view.bend = 0; startT = null; phraseOpen = false; phraseEnds = []; tune = { sx:0, sy:0, n:0 };
   spx.clearRect(0, 0, specCv.width, specCv.height);
+  poly.tr.clear(); poly.notes = []; poly.byId = {};
   mode.pc = null; mode.partner = null; mode.how = ''; mode.res = null; mode.resKey = null; mode.startPc = null; mode.startPartner = null; mode.startHow = '';
   view.reNow = null; view.morph = null; view.rot = null; view.level = 0; view.levelTarget = 0; view.ghost = null; view.dirty = true;
   logEl.innerHTML = ''; lastLogRe = null; updateLevel(); refreshReadouts();
@@ -1071,6 +1148,14 @@ function parsePhrase(txt){
     var vib = false; if (tok.charAt(tok.length-1) === '^'){ vib = true; tok = tok.slice(0,-1); }   /* ^ vibrato: ±35 cents at 5.5 Hz */
     if (tok === '-'){ out.push({ rest: true, beats: beats }); return; }
     if (tok === '|'){ out.push({ rest: true, sec: Math.max(0.9, opts.gapMs/1000 + 0.4) }); return; }   /* a pause: the phrase ends */
+    if (tok.indexOf('+') > 0){                     /* a chord: C4+E4+G4 */
+      var ch = [];
+      tok.split('+').forEach(function(pt){ var mt0 = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(pt); if (!mt0) return;
+        if (mt0[3] !== undefined) oct = +mt0[3];
+        ch.push(12*(oct+1) + NAMEPC[mt0[1].toUpperCase()] + (mt0[2]==='#'||mt0[2]==='♯' ? 1 : (mt0[2]==='b'||mt0[2]==='♭' ? -1 : 0))); });
+      if (ch.length) out.push({ midi: ch[0], chord: ch.slice(1), glide: [], beats: beats, vib: vib });
+      return;
+    }
     var parts = tok.split('>'), ms = [];
     for (var pi = 0; pi < parts.length; pi++){
       var mt = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(parts[pi]); if (!mt) return;
@@ -1091,9 +1176,9 @@ function playPhrase(){
   var out = ac.createGain(); out.gain.value = 0.22; out.connect(ac.destination); out.connect(inputBus);
   notes.forEach(function(n){
     var d = n.sec !== undefined ? n.sec : n.beats*beat;
-    if (!n.rest){
+    if (!n.rest) [n.midi].concat(n.chord || []).forEach(function(vm, vi){
       var o = ac.createOscillator(), o2 = ac.createOscillator(), gn = ac.createGain(), g2 = ac.createGain();
-      var f = 440*Math.pow(2,(n.midi-69)/12);
+      var f = 440*Math.pow(2,(vm-69)/12);
       o.type = 'triangle'; o.frequency.setValueAtTime(f, t); o2.type = 'sine'; o2.frequency.setValueAtTime(2*f, t); g2.gain.value = 0.25;
       /* a glide (A>B): hold, slide across the middle third, land and hold */
       var fNow = f;
@@ -1112,7 +1197,7 @@ function playPhrase(){
       gn.gain.setValueAtTime(1, t+Math.max(0.03,d-0.09)); gn.gain.linearRampToValueAtTime(0, t+Math.max(0.04,d-0.05));
       o.connect(gn); o2.connect(g2); g2.connect(gn); gn.connect(out);
       o.start(t); o2.start(t); o.stop(t+d); o2.stop(t+d);
-    }
+    });
     t += d;
   });
 }
