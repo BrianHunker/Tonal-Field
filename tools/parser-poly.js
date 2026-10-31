@@ -114,8 +114,10 @@
   /* ---------- the tracker: frames to tones ---------- */
   function makeTracker(o) {
     o = o || {};
-    var T = { onTh: 0.5, frTh: 0.3, runTh: 0.35, runN: 3, minGap: 0.08 };
+    var T = { onTh: 0.5, frTh: 0.3, runTh: 0.35, runN: 3, minGap: 0.08, rise: 0.12 };
     var act = new Array(KEYS), prevOn = new Float32Array(KEYS), run = new Int16Array(KEYS), nid = 0;
+    var hist = new Float32Array(KEYS * 4), hpos = 0;          /* each key's activation over the last four frames */
+    function recentLow(k) { var m = Infinity; for (var i = 0; i < 4; i++) m = Math.min(m, hist[k * 4 + i]); return m; }
     /* continuous pitch near key k, from the contour. The model's contour peaks one bin (a third of a semitone) above the
        tone it hears, the same at every pitch measured (+0.32 … +0.34 semitone, C3 to F4), so the bin is read one lower. */
     function pitchOf(k, ct, a) {
@@ -144,13 +146,17 @@
               cb('on', n, ts);
             }
           } else {
-            if (onsetPeak && prevOn[k] < T.onTh && t - n.t0 > T.minGap) {   /* struck again */
+            /* struck again: an onset AND the tone's own activation rising above its recent low — a pick adds energy;
+               the ripple of a driven, sustained tone fires the onset signal without raising the activation */
+            if (onsetPeak && prevOn[k] < T.onTh && t - n.t0 > T.minGap && a - recentLow(k) >= T.rise) {
               cb('off', n, t); n = act[k] = { id: ++nid, key: k, t0: t, m: pitchOf(k, ct, a), amp: a, low: 0 }; cb('on', n, t);
             } else if (a < T.frTh) { if (++n.low >= 2) { cb('off', n, t); act[k] = null; } }
             else { n.low = 0; n.m = pitchOf(k, ct, a); n.amp = a; cb('move', n, t); }
           }
           prevOn[k] = s;
         }
+        for (var k2 = 0; k2 < KEYS; k2++) hist[k2 * 4 + hpos] = fr[k2];
+        hpos = (hpos + 1) % 4;
       },
       clear: function (cb, t) { for (var k = 0; k < KEYS; k++) if (act[k]) { if (cb) cb('off', act[k], t); act[k] = null; } }
     };

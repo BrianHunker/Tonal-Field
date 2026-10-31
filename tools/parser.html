@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v12 -->
+<!-- Tonal Field — Parser — v12.1 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -58,6 +58,18 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 .ringbox:fullscreen { border: 0; border-radius: 0; background: #000; }
 .ringbox:fullscreen canvas { inset: auto; left: 50%; top: 50%; width: min(100vw, 100vh); height: min(100vw, 100vh); transform: translate(-50%, -50%); }
 .trace:fullscreen { background: var(--bg); padding: 10px 14px; }
+/* the clock: under the ring; in full screen, beside it */
+.ringcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.clockbox { display: flex; align-items: center; gap: 14px; background: #000; border: 1px solid #2e2e2e; border-radius: 6px; padding: 8px 12px; }
+.clockbox canvas { width: 210px; height: 210px; flex: 0 0 auto; }
+.clockbox.off { display: none; }
+.clocknote { color: var(--dim); font-size: 11.5px; line-height: 1.5; }
+.clocknote b { color: var(--ink); font-weight: 500; }
+@media (max-width: 520px){ .clockbox { flex-direction: column; } }
+.ringcol:fullscreen { background: #000; flex-direction: row; align-items: center; justify-content: center; gap: 2vmin; padding: 0; }
+.ringcol:fullscreen .ringbox { width: min(100vh, 72vw); height: min(100vh, 72vw); aspect-ratio: auto; border: 0; border-radius: 0; flex: 0 0 auto; }
+.ringcol:fullscreen .clockbox { flex-direction: column; border: 0; background: transparent; width: min(26vw, 40vh); }
+.ringcol:fullscreen .clockbox canvas { width: min(24vw, 38vh); height: min(24vw, 38vh); }
 .trace:fullscreen .strip { border-radius: 0; }
 .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
@@ -94,7 +106,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12.1</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -119,6 +131,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
   <label id="polyLookL" title="polyphonic look-behind: how many ~11.6 ms frames behind the leading edge of the model's window a tone is read. Fewer: sooner, less sure. More: later, steadier">look <input type="range" id="polyLook" min="0" max="12" step="1" value="3"><output id="polyLookV">3</output></label>
   <span class="sep"></span>
   <label title="input level below which nothing is heard">gate <input type="range" id="gate" min="0.002" max="0.08" step="0.001" value="0.012"><output id="gateV">0.012</output></label>
+  <button id="clockBtn" class="on" title="the dominant-chain clock: every tone at (g, −g‴/70) — valence across, force up. On the twelve tones this is exactly a circle, one tick per 5-semitone step in chain order (Ti Mi La Re Sol Do Fa down the right half, the antis on the left). Sounding tones light their ticks and fade; the live pitch rides the clock continuously (a semitone is five ticks); two sounding tones on neighbouring ticks are joined; the seat is ringed">clock</button>
   <button id="lettersBtn" class="on" title="the letter names around the ring, each in the colour of its function">letters</button>
   <label title="which letter sits at 12 o'clock — or drag the ring to turn the dial (it slides and locks on the nearest letter). Option-drag detunes the letters themselves; otherwise they never leave proper alignment">12 o'clock <select id="dialSel"></select></label>
   <span class="sep"></span>
@@ -127,8 +140,13 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 </div>
 
 <main>
-  <div>
+  <div class="ringcol">
     <div class="ringbox"><canvas id="fieldCv"></canvas><canvas id="topCv"></canvas></div>
+    <div class="clockbox" id="clockBox"><canvas id="clockCv"></canvas>
+      <div class="clocknote"><b>The clock.</b> Every tone at (g, −g‴/70): valence across, force up. On the twelve tones this is
+      exactly a circle — the chain Ti Mi La Re Sol Do Fa down the right half, one tick per 5-semitone step, the antis on the left.
+      Sounding tones light their ticks and fade; the live pitch rides the circle (a semitone is five ticks); neighbouring lit ticks
+      are joined; the seat is ringed.</div></div>
   </div>
   <div class="trace">
       <div class="tracebar">
@@ -363,10 +381,12 @@ function size(){
   SW = stripCv.clientWidth; SH = stripCv.clientHeight;
   stripCv.width = Math.round(SW*dpr); stripCv.height = Math.round(SH*dpr);
   specCv.width = Math.round(SW*dpr); specCv.height = Math.round(SH*dpr); TR.specT = null;
+  CW = clockCv.clientWidth; clockCv.width = Math.round(CW*dpr); clockCv.height = Math.round(CW*dpr);
   view.dirty = true;
 }
 window.addEventListener('resize', size);
 if (window.ResizeObserver) new ResizeObserver(function(){ size(); }).observe(document.querySelector('.strip'));
+if (window.ResizeObserver) new ResizeObserver(function(){ size(); }).observe(document.getElementById('clockCv'));
 var showLetters = true;
 
 /* screen angle of a position s on the tuning grid (semitones, continuous): clockwise, the dial's letter at
@@ -506,6 +526,75 @@ function probe(m, G){
   tctx.fillStyle = rgba(col,1); tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.fill(); tctx.restore();
   tctx.lineWidth = 1.4; tctx.strokeStyle = 'rgba(235,235,230,0.6)'; tctx.beginPath(); tctx.arc(PX(a,r,C),PY(a,r,C),W*0.016,0,TP); tctx.stroke();
 }
+
+/* ---------------- the clock: the jet (g, −g'''/70) ----------------
+   Every tone k semitones above Re sits at angle θ = 5kπ/6 on the unit circle: x = g = cos θ (valence), y = −g'''/70
+   = sin θ (force), exact on the lattice. That puts the chain Ti Mi La Re Sol Do Fa down the right half, one tick per
+   5-semitone step, and the antis on the left. A tone is drawn at the tick of its function in the orientation as it
+   stands now. The live pitch is drawn at its continuous position on the same winding (θ = 5·(position)·π/6), so a
+   semitone moves it five ticks. Nothing here decides anything: it shows where the sounding tones stand. */
+var clockCv = document.getElementById('clockCv'), cctx = clockCv.getContext('2d'), CW = 0, clockClear = true;
+var CLOCK_FADE = 2.0;   /* seconds a tone stays visible after it stops */
+function drawClock(){
+  if (!showClock){ if (!clockClear){ cctx.setTransform(1,0,0,1,0,0); cctx.clearRect(0,0,clockCv.width,clockCv.height); clockClear = true; } return; }
+  clockClear = false;
+  var c = cctx, S = CW, C = S/2, R = S*0.33, re = reNow(), now = trNow();
+  c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,S,S);
+  function P(th, r){ return [C + r*Math.cos(th), C - r*Math.sin(th)]; }                 /* y up = force up */
+  function thOf(k){ return 5*k*ST; }
+  /* axes and circle */
+  c.strokeStyle = 'rgba(200,200,195,0.18)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(C - R*1.18, C); c.lineTo(C + R*1.18, C); c.stroke();
+  c.setLineDash([2,3]); c.beginPath(); c.moveTo(C, C - R*1.18); c.lineTo(C, C + R*1.18); c.stroke(); c.setLineDash([]);
+  c.strokeStyle = 'rgba(200,200,195,0.35)'; c.beginPath(); c.arc(C, C, R, 0, TP); c.stroke();
+  /* the seat's tick, ringed */
+  var sf = seatFn();
+  if (sf !== null && view.modeCol){ var ps = P(thOf(sf), R); c.strokeStyle = rgba(view.modeCol, 0.9*Math.max(0.3, view.modeLum)); c.lineWidth = S*0.016; c.beginPath(); c.arc(ps[0], ps[1], S*0.062, 0, TP); c.stroke(); }
+  /* which ticks are sounding now, and which sounded lately (fading) */
+  var lit = new Float32Array(12), live = [];
+  if (re !== null){
+    segs.forEach(function(sg){
+      if (!sg.ev) return; var te = sg.t1 === null ? now : sg.t1, age = now - te; if (age > CLOCK_FADE) return;
+      var k = mod(sg.ev.pc - re, 12), a = sg.t1 === null ? 1 : 0.85*(1 - age/CLOCK_FADE);
+      if (a > lit[k]) lit[k] = a;
+    });
+    if (poly.on) poly.tr.active().forEach(function(n){ live.push(n.m); });
+    else if (liveMidi() !== null) live.push(liveMidi());
+  }
+  /* neighbouring ticks (one 5-semitone step apart) joined while both are visible; the line fades with the fainter */
+  for (var k = 0; k < 12; k++){
+    var k2 = mod(k + 5, 12), aj = Math.min(lit[k], lit[k2]);     /* the next tick round the clock is 5 semitones on */
+    if (aj > 0.02){
+      var a1 = P(thOf(k), R), a2 = P(thOf(k2), R);
+      c.strokeStyle = 'rgba(235,235,230,' + (0.8*aj).toFixed(3) + ')'; c.lineWidth = S*0.012; c.beginPath(); c.moveTo(a1[0], a1[1]); c.lineTo(a2[0], a2[1]); c.stroke();
+    }
+  }
+  /* the twelve ticks */
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (var j = 0; j < 12; j++){
+    var th = thOf(j), p = P(th, R), col = re === null ? [120,120,116] : FNRGB[j], anti = FN[j].charAt(0) === '~', L = lit[j];
+    var base = re === null ? 0.35 : (anti ? 0.35 : 0.55);
+    if (L > 0){ c.save(); c.shadowColor = rgba(liftCol(col), 0.9*L); c.shadowBlur = S*0.07*L; c.fillStyle = rgba(anti ? liftCol(col) : col, 0.35 + 0.65*L); c.beginPath(); c.arc(p[0], p[1], S*(0.034 + 0.018*L), 0, TP); c.fill(); c.restore(); }
+    else { c.fillStyle = rgba(col, base); c.beginPath(); c.arc(p[0], p[1], S*0.026, 0, TP); c.fill(); }
+    if (re !== null){
+      var q = P(th, R*1.3);
+      c.font = (L > 0 ? '700 ' : '600 ') + Math.round(S*0.058) + 'px "IBM Plex Mono", monospace';
+      c.fillStyle = rgba(anti ? liftCol(col) : col, L > 0 ? 1 : 0.55);
+      c.fillText(FN[j], q[0], q[1]);
+    }
+  }
+  /* the live pitch: its continuous position on the winding */
+  live.forEach(function(m){
+    var x = m - tuneOffset() - re - (poly.on ? 0 : view.bend), th = 5*x*ST, p = P(th, R*0.82), col = liftCol(fnColorAt(x));
+    c.save(); c.shadowColor = rgba(col, 1); c.shadowBlur = S*0.05;
+    c.fillStyle = rgba(col, 1); c.beginPath(); c.arc(p[0], p[1], S*0.022, 0, TP); c.fill(); c.restore();
+    c.strokeStyle = 'rgba(235,235,230,0.7)'; c.lineWidth = 1.2; c.beginPath(); c.arc(p[0], p[1], S*0.022, 0, TP); c.stroke();
+  });
+  c.font = '500 ' + Math.round(S*0.044) + 'px "IBM Plex Mono", monospace'; c.fillStyle = 'rgba(160,160,155,0.7)';
+  c.textAlign = 'right'; c.fillText('g →', S*0.98, C + S*0.075);
+  c.textAlign = 'left'; c.fillText('−g‴ ↑', S*0.02, S*0.05);
+}
+function liveMidi(){ return live.midi; }
 
 /* ---------------- the trace: the fundamental contour as it is heard ----------------
    Underneath, the input's own spectrum, faint, coloured through the field. On top, the tracked
@@ -988,7 +1077,7 @@ function tick(now){
   if (view.morph && now - view.morph.t0 >= view.morph.dur){ view.morph = null; view.dirty = true; }
   if (view.rot && now - view.rot.t0 >= view.rot.dur){ view.rot = null; view.dirty = true; }
   if (view.dirty || animating){ drawField(now); view.dirty = false; }
-  drawTop(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
+  drawTop(); drawClock(); if (ac) drawSpecColumn(ac.currentTime); drawStrip(now);
   document.getElementById('mPoly').textContent = !poly.on ? (poly.state || 'off') : (poly.tr.active().length + ' sounding · ' + Math.round(poly.eng.latency*1000) + ' ms behind · pass ' + Math.round(poly.eng.lastMs) + ' ms · ' + poly.eng.backend() + (poly.eng.lastMs > 250 ? ' · this machine is too slow for live polyphony' : ''));
   document.getElementById('mPitch').textContent = poly.on ? poly.tr.active().map(function(n){ return LET[mod(Math.round(n.m),12)]; }).join(' ') || '—' : live.midi===null ? '—' : (Math.round((live.midi - Math.round(live.midi))*100)+'¢ off '+LET[mod(Math.round(live.midi),12)]);
   var to = tuneOffset(); document.getElementById('mTune').textContent = (tune.n ? ((to>=0?'+':'')+Math.round(to*100)+'¢') : '—') + (view.detune ? ' · letters ' + (view.detune>0?'+':'') + Math.round(view.detune*100) + '¢' : '');
@@ -1035,7 +1124,7 @@ function fullToggle(el){
   if (fs){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
   var req = el.requestFullscreen || el.webkitRequestFullscreen; if (req) req.call(el);
 }
-topCv.addEventListener('dblclick', function(){ fullToggle(document.querySelector('.ringbox')); });
+topCv.addEventListener('dblclick', function(){ fullToggle(document.querySelector('.ringcol')); });
 stripCv.addEventListener('dblclick', function(){ fullToggle(document.querySelector('.trace')); });
 ['fullscreenchange','webkitfullscreenchange'].forEach(function(evn){ document.addEventListener(evn, function(){ setTimeout(size, 50); setTimeout(size, 300); }); });
 var dialSel = document.getElementById('dialSel');
@@ -1089,6 +1178,10 @@ dialSel.addEventListener('change', function(){
   }
   topCv.addEventListener('pointerup', end); topCv.addEventListener('pointercancel', end);
 })();
+var showClock = true;
+try { if (localStorage.getItem('tfParserClock') === '0') showClock = false; } catch(e){}
+document.getElementById('clockBtn').classList.toggle('on', showClock); document.getElementById('clockBox').classList.toggle('off', !showClock);
+document.getElementById('clockBtn').addEventListener('click', function(){ showClock = !showClock; this.classList.toggle('on', showClock); document.getElementById('clockBox').classList.toggle('off', !showClock); size(); try { localStorage.setItem('tfParserClock', showClock ? '1' : '0'); } catch(e){} });
 document.getElementById('lettersBtn').addEventListener('click', function(){ showLetters = !showLetters; this.classList.toggle('on', showLetters); view.dirty = true; });
 function bindRange(id, outId, fmt, set){ var el = document.getElementById(id), o = document.getElementById(outId);
   function u(){ var v = +el.value; o.textContent = fmt(v); set(v); } el.addEventListener('input', u); u(); }
