@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v12.1 -->
+<!-- Tonal Field — Parser — v12.2 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -106,7 +106,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12.1</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12.2</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -969,7 +969,7 @@ function endPhraseAt(t){ phraseOpen = false; mode.startPc = mode.pc; mode.startP
    Each tone the model hears is handed to the decoder the moment it starts, in order of pitch when several start
    together; it becomes an arrival after the arrival time, like a single-voice tone. A phrase ends when nothing has
    sounded for the phrase gap. The field does not bend under polyphonic tones: every tone rides the curve. */
-var poly = { on: false, state: '', eng: null, tr: TFPoly.makeTracker(), notes: [], byId: {} };
+var poly = { on: false, state: '', eng: null, tr: TFPoly.makeTracker({ gate: function(){ return opts.gate; } }), notes: [], byId: {} };   /* the same input gate as the single-voice tracker */
 function polyEvent(kind, n, t){
   var pn = poly.byId[n.id];
   if (kind === 'on'){

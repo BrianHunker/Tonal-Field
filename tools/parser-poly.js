@@ -77,7 +77,11 @@
           var t = mapT - (mapS - s) / SR;
           if (t <= emittedT + 1e-6) continue;
           emittedT = t; newest = t;
-          P.onFrame({ t: t, frames: fr.subarray(j * KEYS, (j + 1) * KEYS), onsets: on.subarray(j * KEYS, (j + 1) * KEYS), contour: ct.subarray(j * CB, (j + 1) * CB) });
+          /* the frame's own level, measured on the signal before the model normalizes it: the model scales every window to
+             full range, so silence would come out as tones from the noise floor */
+          var e2 = 0, c0 = Math.max(0, j * HOP - HOP), c1 = Math.min(N, j * HOP + HOP);
+          for (var q = c0; q < c1; q++) e2 += w[q] * w[q];
+          P.onFrame({ t: t, rms: Math.sqrt(e2 / Math.max(1, c1 - c0)), frames: fr.subarray(j * KEYS, (j + 1) * KEYS), onsets: on.subarray(j * KEYS, (j + 1) * KEYS), contour: ct.subarray(j * CB, (j + 1) * CB) });
         }
         if (newest !== null) P.latency = ac.currentTime - newest;
         P.busy = false;
@@ -112,6 +116,7 @@
   }
 
   /* ---------- the tracker: frames to tones ---------- */
+  var ZERO = new Float32Array(KEYS);
   function makeTracker(o) {
     o = o || {};
     var T = { onTh: 0.5, frTh: 0.3, runTh: 0.35, runN: 3, minGap: 0.08, rise: 0.12 };
@@ -133,6 +138,8 @@
       active: function () { var out = []; for (var k = 0; k < KEYS; k++) if (act[k]) out.push(act[k]); return out; },
       frame: function (F, cb) {
         var fr = F.frames, on = F.onsets, ct = F.contour, t = F.t;
+        /* below the input gate the frame is silence: nothing starts, and what was sounding ends */
+        if (F.rms !== undefined && o.gate && F.rms < o.gate()) { fr = ZERO; on = ZERO; }
         for (var k = 0; k < KEYS; k++) {
           var a = fr[k], s = on[k], n = act[k];
           var onsetPeak = s >= T.onTh && s >= prevOn[k];
