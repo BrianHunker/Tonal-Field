@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Tonal Field — Parser — v12.2 -->
+<!-- Tonal Field — Parser — v13 -->
 <!-- © Brian Hunker 2026 · GablesGuitar.com/tonal-field -->
 <html lang="en">
 <head>
@@ -106,7 +106,7 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
 <body>
 
 <div class="header">
-  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v12.2</span></h1>
+  <h1><a href="../index.html">Tonal Field</a> <span>Parser · v13</span></h1>
   <span class="tagline">listening for the field</span>
   <a class="site-link" href="https://gablesguitar.com/tonal-field" target="_blank" rel="noopener">GablesGuitar.com/tonal-field</a>
   <div class="attribution">&copy; Brian Hunker</div>
@@ -185,14 +185,20 @@ main { display: grid; grid-template-columns: minmax(320px, 620px) minmax(320px, 
       <div id="log"></div>
     </div>
     <div class="card note">
-      <b>How it reads.</b> Every tone counts, however short. In the first phrase the field forms as the max-min reading
-      of its tones and sharpens as they arrive. When two mirror hearings tie, the ring shows
-      the provisional one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and
-      relabels the phrase — a resolution, not a modulation. After that the field holds nothing but its orientation, set by the
-      last phrase (a phrase ends at a pause). Each new phrase is heard in that orientation; if it places every tone, nothing
-      changes, however it cadences. If it holds a tone that orientation cannot place, the phrase itself decides a new one —
-      as little change as it must — and the field <b>rotates</b> for a one-semitone shift or <b>morphs</b> for anything
-      larger. Non-diatonic colour is not handled yet. Tuning is read from the playing itself. The ring sits at waterline
+      <b>How it reads.</b> Every tone is heard; not every tone moves the field. In the first phrase the field forms as the
+      max-min reading of its tones and sharpens as they arrive. When two mirror hearings tie, the ring shows the provisional
+      one with the other as a dashed ghost; an arrival that crosses the two tones binding the tie settles it and relabels the
+      phrase — a resolution, not a modulation. After that the field <b>holds or lets go by its own curvature</b>. On the
+      lattice g′ is zero at every tone, so no in-tune tone — an anti included — pushes the field; what a phrase's tones do is
+      set the field's curvature at the orientation it stands in, −35·Σg over the phrase's distinct tones. While Σg ≥ 0 that
+      orientation is a peak and the field holds, however many antis colour the phrase: a ♭5, a harmonic-minor leading tone,
+      chromatic approaches. When Σg &lt; 0 it is no longer a peak and the field lets go, landing where the phrase is most
+      consonant — the phrase's own highest peak (among equals the shortest turn, then the side the net force −Σg‴ points).
+      The phrase is the unit: while it sounds, the field holds and the landing shows as a dashed ghost; at the pause the field
+      turns once — it <b>rotates</b> for a one-semitone shift, <b>morphs</b> for anything larger — and the phrase is heard
+      in the new orientation. A scale and the same scale a semitone up is one rotation. A collection one or two steps along
+      the dominant chain (the G or D collection heard from C) keeps the old field a peak and never releases it: near
+      modulation is not explained by this, and is open. Tuning is read from the playing itself. The ring sits at waterline
       ρ&nbsp;=&nbsp;1: the base circle equals the field's reach, so the deepest anti just touches the pole and every tone is admitted.
       <br><br><b>The mode light</b> is the seat the music stands on, and the hierarchy that hangs from it — one structure. A root
       harmonizes with its up-stream chain neighbour (its 5th) first, then its 3rd, 7th, and on down the diatonic hierarchy: root, 5th,
@@ -367,7 +373,8 @@ function updateLevel(){
   if (b === 'tie-open') L = Math.min(L, 0.62);
   if (b === 'open') L = 0.18;
   view.levelTarget = L;
-  view.ghost = (b === 'tie-open' && parser.tie) ? (parser.tie.cands[0] === parser.re ? parser.tie.cands[1] : parser.tie.cands[0]) : null;
+  view.ghost = (b === 'tie-open' && parser.tie) ? (parser.tie.cands[0] === parser.re ? parser.tie.cands[1] : parser.tie.cands[0])
+    : (b === 'pending' && parser.pending !== null) ? parser.pending : null;   /* where the field will land at the pause */
 }
 
 /* ---------------- canvases ---------------- */
@@ -777,8 +784,9 @@ function refreshReadouts(){
   else if (re === null && b !== 'open'){ s = 'Plain ring — nothing heard yet.'; sub = live.on ? 'Listening.' : 'Press listen, then play or sing a short phrase.'; }
   else if (b === 'open'){ s = 'Symmetric — no reading is favored yet.'; sub = 'The held tones fit several orientations equally.'; }
   else if (b === 'tie-open'){ s = 'Two hearings, both live.'; sub = 'Provisional reading on the ring; the dashed ghost is the other. A held crossing of the binding pair will settle it.'; }
-  else if (b === 'heard'){ s = 'Heard in the orientation it arrived in.'; sub = 'This phrase places every tone in the field the last phrase left.'; }
-  else if (b === 'changed'){ s = 'This phrase turned the field.'; sub = 'It held a tone the orientation it arrived in could not place.'; }
+  else if (b === 'heard'){ s = 'Heard in the orientation it arrived in.'; sub = 'Σg over this phrase is at or above zero: the field it arrived in is still a peak, whatever colours the phrase.'; }
+  else if (b === 'changed'){ s = 'The last phrase turned the field.'; sub = 'Its tones left the orientation it arrived in no longer a peak (Σg < 0); the field landed where the phrase is most consonant.'; }
+  else if (b === 'pending'){ s = 'This phrase is letting the field go.'; sub = 'Σg over its tones is below zero: the field still holds, and turns at the pause to the dashed ghost.'; }
   else if (b === 'tie-heard'){ s = 'Heard — the tie was settled by a crossing.'; sub = 'Holding until a tone it cannot place turns it.'; }
   else { s = 'Forming.'; sub = 'The first phrase: the field comes into focus as its tones arrive.'; }
   stateEl.textContent = s; subEl.textContent = sub;

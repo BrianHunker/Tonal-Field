@@ -118,7 +118,8 @@
     'class TFPitch extends AudioWorkletProcessor {\n' +
     '  constructor() { super(); this.a = makeAnalyzer(sampleRate); this.port.postMessage({ hello: true, hop: this.a.hop, W: this.a.W, sr: sampleRate }); }\n' +
     '  process(inputs) {\n' +
-    '    var ch = inputs[0]; if (!ch || !ch.length) return true;\n' +
+    '    var ch = inputs[0];\n' +
+    '    if (!ch || !ch.length) ch = [this.z || (this.z = new Float32Array(128))];   /* no input connected is silence, not nothing: pauses must still be heard */\n' +
     '    var x = ch[0];\n' +
     '    if (ch.length > 1) { x = new Float32Array(ch[0].length); for (var c = 0; c < ch.length; c++) for (var i = 0; i < x.length; i++) x[i] += ch[c][i] / ch.length; }\n' +
     '    var fr = this.a.push(x, currentTime + x.length / sampleRate);\n' +

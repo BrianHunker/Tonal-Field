@@ -24,7 +24,7 @@
     'class TFTap extends AudioWorkletProcessor {\n' +
     '  constructor(){ super(); this.b = new Float32Array(512); this.n = 0; }\n' +
     '  process(inputs){\n' +
-    '    var ch = inputs[0]; if (!ch || !ch.length) return true;\n' +
+    '    var ch = inputs[0]; if (!ch || !ch.length) ch = [this.z || (this.z = new Float32Array(128))];\n' +
     '    var L = ch[0].length;\n' +
     '    for (var i = 0; i < L; i++){ var v = 0; for (var c = 0; c < ch.length; c++) v += ch[c][i]; this.b[this.n++] = v / ch.length;\n' +
     '      if (this.n === 512){ this.port.postMessage({ x: this.b, t: currentTime + (i + 1) / sampleRate }); this.b = new Float32Array(512); this.n = 0; } }\n' +
